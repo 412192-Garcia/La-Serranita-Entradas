@@ -13,14 +13,12 @@ import java.time.LocalDate;
 import java.util.List;
 
 @Entity
-@Table(name = "compras", indexes = {
-        @Index(name = "idx_dni_comprador", columnList = "dni")
-})
+@Table(name = "compras")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@EqualsAndHashCode(callSuper = true, exclude = {"usuarioValidador", "cupon", "detalles"})
-@ToString(callSuper = true, exclude = {"usuarioValidador", "cupon", "detalles"})
+@EqualsAndHashCode(callSuper = true, exclude = {"usuarioValidador", "cupon", "detalles", "cliente"})
+@ToString(callSuper = true, exclude = {"usuarioValidador", "cupon", "detalles", "cliente"})
 @Builder
 public class Compra extends BaseEntity {
 
@@ -28,17 +26,15 @@ public class Compra extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, length = 15)
-    private String dni;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_cliente")
+    private Cliente cliente;
 
-    @Column(nullable = false)
-    private String nombre;
+    @Column(nullable = true)
+    private String contactEmail;
 
-    @Column
-    private String email;
-
-    @Column
-    private String telefono;
+    @Column(nullable = true)
+    private String contactPhone;
 
     @Column(nullable = false)
     private LocalDate fechaVisita;
@@ -67,4 +63,3 @@ public class Compra extends BaseEntity {
     private List<CompraDetalle> detalles;
 
 }
-

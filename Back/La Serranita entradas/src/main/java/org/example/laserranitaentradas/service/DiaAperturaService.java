@@ -11,4 +11,5 @@ public interface DiaAperturaService {
     Optional<DiaApertura> findByDate(LocalDate fecha);
     DiaApertura setAbiertoByDate(LocalDate fecha, boolean abierto);
     List<DiaApertura> getMonthStatus(Integer year, Integer month);
+    Boolean getAbiertoByDate(LocalDate fecha);
 }

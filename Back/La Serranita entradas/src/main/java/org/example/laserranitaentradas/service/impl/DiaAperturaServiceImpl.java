@@ -54,6 +54,17 @@ public class DiaAperturaServiceImpl implements DiaAperturaService {
     }
 
     @Override
+    public Boolean getAbiertoByDate(LocalDate fecha) {
+        Optional<DiaApertura> opt = diaAperturaRepository.findByFecha(fecha);
+        if (opt.isPresent()) {
+            return opt.get().getAbierto();
+        }
+        else {
+            return false;
+        }
+    }
+
+    @Override
     public DiaApertura setAbiertoByDate(LocalDate fecha, boolean abierto) {
         Optional<DiaApertura> opt = diaAperturaRepository.findByFecha(fecha);
         DiaApertura dia;
