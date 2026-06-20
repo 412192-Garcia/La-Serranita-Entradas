@@ -14,29 +14,27 @@ import java.util.Optional;
 public class AuditConfig {
 
     @Bean
-    public AuditorAware<Long> auditorAware() {
-        return new AuditorAware<Long>() {
+    public AuditorAware<String> auditorAware() {
+        return new AuditorAware<String>() {
             @Override
-            public Optional<Long> getCurrentAuditor() {
+            public Optional<String> getCurrentAuditor() {
                 try {
                     Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
                     if (authentication != null && authentication.isAuthenticated()) {
-                        // TODO: Obtener el ID de usuario del principal autenticado
-                        // Por ahora retorna 1 por defecto (Usuario SISTEMA)
+                        // TODO: Obtener el nombre/ID del usuario autenticado
                         Object principal = authentication.getPrincipal();
                         if (principal instanceof String) {
-                            return Optional.of(1L);
+                            return Optional.of((String) principal);
                         }
                     }
                 } catch (Exception e) {
                     // Si hay error en seguridad, usa usuario por defecto
                 }
 
-                return Optional.of(1L);
+                return Optional.of("SISTEMA");
             }
         };
     }
 
 }
-

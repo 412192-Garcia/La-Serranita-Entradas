@@ -13,7 +13,8 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-            .csrf(csrf -> csrf.ignoringRequestMatchers("/h2-console/**"))
+            // Ignorar CSRF para la consola H2 y para las rutas de la API para permitir llamadas desde Swagger/UI
+            .csrf(csrf -> csrf.ignoringRequestMatchers("/h2-console/**", "/api/**"))
             .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()))
             .authorizeHttpRequests(authz -> authz
                 .requestMatchers("/h2-console/**").permitAll()
