@@ -8,4 +8,3 @@ public class DetalleCompraDTO {
     Integer cantidad;
 }
 
-

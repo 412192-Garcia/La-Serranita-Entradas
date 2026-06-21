@@ -64,6 +64,13 @@
             <version>2.8.16</version>
         </dependency>
 
+        <!-- Mercado Pago Java SDK -->
+        <dependency>
+            <groupId>com.mercadopago</groupId>
+            <artifactId>sdk-java</artifactId>
+            <version>3.1.0</version>
+        </dependency>
+
     </dependencies>
 
     <build>

@@ -78,6 +78,17 @@ public class CompraServiceImpl implements CompraService {
         Cupon cupon = null;
         if (compraRequest.getCuponCodigo() != null) {
             cupon = cuponService.obtenerCuponPorCodigo(compraRequest.getCuponCodigo()).orElse(null);
+            if (cupon != null) {
+                LocalDate hoy = LocalDate.now();
+                if (cupon.getUsosMaximos() != null && cupon.getUsosActuales() >= cupon.getUsosMaximos()) {
+                    throw new IllegalArgumentException("Cupón ha alcanzado su límite de usos: " + compraRequest.getCuponCodigo());
+                }
+                if (!cupon.getActivo() || cupon.getFechaExpiracion().isBefore(hoy)) {
+                    throw new IllegalArgumentException("Cupón no válido o expirado: " + compraRequest.getCuponCodigo());
+                }
+            } else {
+                throw new IllegalArgumentException("Cupón no encontrado para código: " + compraRequest.getCuponCodigo());
+            }
         }
 
         BigDecimal montoTotal = BigDecimal.ZERO;
@@ -120,7 +131,11 @@ public class CompraServiceImpl implements CompraService {
                 descuentoAplicado = montoTotal;
             }
 
-            //TODO REGISTRAR USO DEL CUPON
+             cupon.setUsosActuales(cupon.getUsosActuales() + 1);
+             if (cupon.getUsosMaximos() != null && cupon.getUsosActuales() >= cupon.getUsosMaximos()) {
+                 cupon.setActivo(false);
+             }
+             cuponService.actualizarCupon(cupon);
 
         }
 

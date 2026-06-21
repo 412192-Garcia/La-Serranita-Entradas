@@ -42,11 +42,11 @@ public class Cupon extends BaseEntity {
     private LocalDate fechaExpiracion;
 
     @Column(nullable = false)
-    private Integer usoMaximo;
+    private Integer usosMaximos;
 
     @Column(nullable = false)
     @Builder.Default
-    private Integer usoActual = 0;
+    private Integer usosActuales = 0;
 
     @Column(nullable = false)
     @Builder.Default
