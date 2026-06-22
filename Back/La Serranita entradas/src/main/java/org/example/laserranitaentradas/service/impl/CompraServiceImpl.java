@@ -9,12 +9,15 @@ import org.example.laserranitaentradas.model.entity.Compra;
 import org.example.laserranitaentradas.model.entity.CompraDetalle;
 import org.example.laserranitaentradas.model.entity.Cupon;
 import org.example.laserranitaentradas.model.entity.TipoEntrada;
+import org.example.laserranitaentradas.model.entity.Usuario;
+import org.example.laserranitaentradas.model.entity.EstadoCompra;
 import org.example.laserranitaentradas.repository.CompraRepository;
 import org.example.laserranitaentradas.service.ClienteService;
 import org.example.laserranitaentradas.service.CompraService;
 import org.example.laserranitaentradas.service.CuponService;
 import org.example.laserranitaentradas.service.DiaAperturaService;
 import org.example.laserranitaentradas.service.TipoEntradaService;
+import org.example.laserranitaentradas.service.UsuarioService;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -32,18 +35,20 @@ public class CompraServiceImpl implements CompraService {
     private final CuponService cuponService;
     private final DiaAperturaService diaAperturaService;
     private final ClienteService clienteService;
+    private final UsuarioService usuarioService;
 
-    public CompraServiceImpl(CompraRepository compraRepository, TipoEntradaService tipoEntradaService, CuponService cuponService, DiaAperturaService diaAperturaService, ClienteService clienteService) {
+    public CompraServiceImpl(CompraRepository compraRepository, TipoEntradaService tipoEntradaService, CuponService cuponService, DiaAperturaService diaAperturaService, ClienteService clienteService, UsuarioService usuarioService) {
         this.compraRepository = compraRepository;
         this.tipoEntradaService = tipoEntradaService;
         this.cuponService = cuponService;
         this.diaAperturaService = diaAperturaService;
         this.clienteService = clienteService;
+        this.usuarioService = usuarioService;
     }
 
     @Transactional
     @Override
-    public Compra crearCompra(CompraRequestDTO compraRequest) {
+    public Compra create(CompraRequestDTO compraRequest) {
 
         ClienteDTO clienteDTO = compraRequest.getCliente();
         LocalDate fechaVisita = compraRequest.getFecha();
@@ -77,7 +82,7 @@ public class CompraServiceImpl implements CompraService {
 
         Cupon cupon = null;
         if (compraRequest.getCuponCodigo() != null) {
-            cupon = cuponService.obtenerCuponPorCodigo(compraRequest.getCuponCodigo()).orElse(null);
+            cupon = cuponService.getByCode(compraRequest.getCuponCodigo()).orElse(null);
             if (cupon != null) {
                 LocalDate hoy = LocalDate.now();
                 if (cupon.getUsosMaximos() != null && cupon.getUsosActuales() >= cupon.getUsosMaximos()) {
@@ -135,7 +140,7 @@ public class CompraServiceImpl implements CompraService {
              if (cupon.getUsosMaximos() != null && cupon.getUsosActuales() >= cupon.getUsosMaximos()) {
                  cupon.setActivo(false);
              }
-             cuponService.actualizarCupon(cupon);
+             cuponService.update(cupon);
 
         }
 
@@ -159,23 +164,38 @@ public class CompraServiceImpl implements CompraService {
     }
 
     @Override
-    public Optional<Compra> obtenerCompraPorId(Long id) {
+    public Optional<Compra> findById(Long id) {
         return compraRepository.findById(id);
     }
 
     @Override
-    public Optional<Compra> obtenerCompraPorDniAndFechaVisita(String dni, LocalDate fechaVisita) {
+    public Optional<Compra> findByDniandFecha(String dni, LocalDate fechaVisita) {
         return compraRepository.findByClienteDniAndFechaVisita(dni,fechaVisita);
     }
 
     @Override
-    public List<Compra> obtenerComprasPorDni(String dni) {
+    public List<Compra> getAllByDni(String dni) {
         return compraRepository.findAllByClienteDni(dni);
     }
 
     @Override
-    public List<Compra> obtenerTodasCompras() {
+    public List<Compra> getAll() {
         return compraRepository.findAll();
+    }
+
+    @Transactional
+    @Override
+    public Compra marcarEntradasComoUsadas(Long compraId, Long usuarioValidadorId) {
+
+        Compra compra = compraRepository.findById(compraId).orElseThrow(() -> new IllegalArgumentException("Compra no encontrada para id: " + compraId));
+
+        Usuario usuario = usuarioService.obtenerUsuarioPorId(usuarioValidadorId)
+                .orElseThrow(() -> new IllegalArgumentException("Usuario validador no encontrado para id: " + usuarioValidadorId));
+
+        compra.setEstado(EstadoCompra.USADO);
+        compra.setUsuarioValidador(usuario);
+
+        return compraRepository.save(compra);
     }
 
 }

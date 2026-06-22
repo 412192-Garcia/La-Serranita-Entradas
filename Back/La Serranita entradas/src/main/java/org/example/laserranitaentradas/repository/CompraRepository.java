@@ -13,3 +13,5 @@ public interface CompraRepository extends JpaRepository<Compra, Long> {
     Optional<Compra> findByClienteDniAndFechaVisita(String dni, LocalDate fechaVisita);
     List<Compra> findAllByClienteDni(String dni);
 }
+
+

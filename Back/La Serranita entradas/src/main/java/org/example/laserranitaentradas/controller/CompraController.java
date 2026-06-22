@@ -36,7 +36,7 @@ public class CompraController {
             @ApiResponse(responseCode = "404", description = "Compra no encontrada")
     })
     public ResponseEntity<CompraResponseDTO> obtenerCompraPorId(@PathVariable @Parameter(description = "ID de la compra") Long id) {
-        Optional<Compra> compra = compraService.obtenerCompraPorId(id);
+        Optional<Compra> compra = compraService.findById(id);
         return compra.map(c -> ResponseEntity.ok(entityToDto(c)))
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
@@ -45,7 +45,7 @@ public class CompraController {
     @Operation(summary = "Obtener todas las compras por DNI", description = "Obtiene todas las compras de un cliente por su DNI")
     @ApiResponse(responseCode = "200", description = "Lista de compras obtenida exitosamente")
     public ResponseEntity<List<CompraResponseDTO>> obtenerComprasPorDni(@PathVariable @Parameter(description = "DNI del comprador") String dni) {
-        List<CompraResponseDTO> compras = compraService.obtenerComprasPorDni(dni).stream().map(this::entityToDto).collect(Collectors.toList());
+        List<CompraResponseDTO> compras = compraService.getAllByDni(dni).stream().map(this::entityToDto).collect(Collectors.toList());
         return ResponseEntity.ok(compras);
     }
 
@@ -53,7 +53,7 @@ public class CompraController {
     @Operation(summary = "Obtener todas las compras", description = "Obtiene la lista de todas las compras realizadas")
     @ApiResponse(responseCode = "200", description = "Lista de compras obtenida exitosamente")
     public ResponseEntity<List<CompraResponseDTO>> obtenerTodasCompras() {
-        List<CompraResponseDTO> compras = compraService.obtenerTodasCompras().stream().map(this::entityToDto).collect(Collectors.toList());
+        List<CompraResponseDTO> compras = compraService.getAll().stream().map(this::entityToDto).collect(Collectors.toList());
         return ResponseEntity.ok(compras);
     }
 
@@ -65,10 +65,22 @@ public class CompraController {
     })
     public ResponseEntity<?> crearCompra(@RequestBody @Parameter(description = "Datos de la compra") CompraRequestDTO compraRequest) {
         try {
-            Compra creada = compraService.crearCompra(compraRequest);
+            Compra creada = compraService.create(compraRequest);
             return ResponseEntity.status(HttpStatus.CREATED).body(entityToDto(creada));
         } catch (IllegalArgumentException ex) {
             return ResponseEntity.badRequest().body(ex.getMessage());
+        }
+    }
+
+    @PutMapping("/{id}/validar")
+    @Operation(summary = "Validar/Marcar entradas como usadas", description = "Marca la compra como usada y registra el usuario validador")
+    public ResponseEntity<?> validarCompra(@PathVariable @Parameter(description = "ID de la compra") Long id,
+                                           @RequestBody Long userId) {
+        try {
+            Compra actualizada = compraService.marcarEntradasComoUsadas(id, userId);
+            return ResponseEntity.ok(entityToDto(actualizada));
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ex.getMessage());
         }
     }
 

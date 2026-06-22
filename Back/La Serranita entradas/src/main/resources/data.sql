@@ -42,7 +42,7 @@ VALUES
 -- =============================================================================
 -- 4. CUPONES (Descuentos porcentuales o fijos)
 -- =============================================================================
-INSERT INTO cupones (codigo, porcentaje_descuento, monto_descuento, fecha_expiracion, uso_maximo, uso_actual, activo, fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion)
+INSERT INTO cupones (codigo, porcentaje_descuento, monto_descuento, fecha_expiracion, usos_maximos, usos_actuales, activo, fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion)
 VALUES
     ('RANITA20', 20.00, NULL, '2026-12-31', 200, 3, true, NOW(), NOW(), 'system', 'system'),
     ('BIENVENIDA500', NULL, 500.00, '2026-09-30', 100, 2, true, NOW(), NOW(), 'system', 'system'),

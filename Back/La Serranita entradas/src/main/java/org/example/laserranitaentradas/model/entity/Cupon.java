@@ -20,8 +20,8 @@ import java.util.List;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@EqualsAndHashCode(callSuper = true, exclude = {"compras"})
-@ToString(callSuper = true, exclude = {"compras"})
+@EqualsAndHashCode(callSuper = true, exclude = {"compras", "familiaCupon"})
+@ToString(callSuper = true, exclude = {"compras", "familiaCupon"})
 @Builder
 public class Cupon extends BaseEntity {
 
@@ -53,7 +53,12 @@ public class Cupon extends BaseEntity {
     private Boolean activo = true;
 
     @OneToMany(mappedBy = "cupon", fetch = FetchType.LAZY)
+    @JsonIgnore
     private List<Compra> compras;
 
-}
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "familia_cupon_id")
+    @JsonIgnore
+    private FamiliaCupon familiaCupon;
 
+}
