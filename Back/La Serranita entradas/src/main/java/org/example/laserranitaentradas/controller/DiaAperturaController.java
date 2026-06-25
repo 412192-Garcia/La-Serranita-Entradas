@@ -17,7 +17,6 @@ import java.util.Optional;
 @RestController
 @RequestMapping("/api/dias-apertura")
 @Tag(name = "Días de Apertura", description = "Operaciones para gestionar días de apertura del parque")
-@CrossOrigin(origins = "http://localhost:4200")
 public class DiaAperturaController {
 
     private final DiaAperturaService diaAperturaService;

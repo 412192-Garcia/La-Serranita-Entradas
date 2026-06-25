@@ -1,0 +1,66 @@
+<div class="panel-seleccion">
+
+  @if (cargando) {
+    <div class="spinner-contenedor">
+      <div class="spinner"></div>
+    </div>
+  } @else {
+
+    @if (entradas.length > 0) {
+      <h2 class="titulo-seccion">Entradas:</h2>
+      <div class="entradas-lista">
+        @for (tipo of entradas; track tipo.id) {
+          <div class="fila-item">
+            <div class="info-entrada">
+              <span class="etiqueta">{{ tipo.nombre }}</span>
+              <small class="descripcion-entrada">{{ tipo.descripcion }}</small>
+            </div>
+            <span class="precio">{{ tipo.precio | currency:'ARS':'symbol-narrow':'1.0-0' }} ARS</span>
+            <div class="control-cantidad">
+              <button type="button" class="btn-contador" (click)="cambiarCantidad(tipo.id, -1)">-</button>
+              <span class="cantidad">{{ getCantidad(tipo.id) }}</span>
+              <button type="button" class="btn-contador" (click)="cambiarCantidad(tipo.id, 1)">+</button>
+            </div>
+          </div>
+          <hr class="linea-divisora">
+        }
+      </div>
+    }
+
+    @if (extras.length > 0) {
+      <h2 class="titulo-seccion extras">Extras:</h2>
+      <div class="entradas-lista">
+        @for (tipo of extras; track tipo.id) {
+          <div class="fila-item">
+            <div class="info-entrada">
+              <span class="etiqueta">{{ tipo.nombre }}</span>
+              <small class="descripcion-entrada">{{ tipo.descripcion }}</small>
+            </div>
+            <span class="precio">{{ tipo.precio | currency:'ARS':'symbol-narrow':'1.0-0' }} ARS</span>
+            <div class="control-cantidad">
+              <button type="button" class="btn-contador" (click)="cambiarCantidad(tipo.id, -1)">-</button>
+              <span class="cantidad">{{ getCantidad(tipo.id) }}</span>
+              <button type="button" class="btn-contador" (click)="cambiarCantidad(tipo.id, 1)">+</button>
+            </div>
+          </div>
+          <hr class="linea-divisora">
+        }
+      </div>
+    }
+
+    <div class="footer-resumen">
+      <div class="fila-total">
+        <span class="etiqueta-total">TOTAL:</span>
+        <span class="valor-total">{{ total | currency:'ARS':'symbol-narrow':'1.0-0' }} ARS</span>
+      </div>
+
+      <button
+        type="button"
+        class="btn-siguiente"
+        [disabled]="total === 0"
+        (click)="onSiguiente()">
+        SIGUIENTE
+      </button>
+    </div>
+  }
+</div>

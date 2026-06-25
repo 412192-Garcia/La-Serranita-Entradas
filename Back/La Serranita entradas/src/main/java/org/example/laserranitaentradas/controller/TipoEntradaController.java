@@ -29,6 +29,9 @@ public class TipoEntradaController {
     @Operation(summary = "Crear tipo de entrada", description = "Crea un nuevo tipo de entrada")
     @ApiResponse(responseCode = "201", description = "Tipo de entrada creado exitosamente")
     public ResponseEntity<TipoEntrada> crearTipoEntrada(@RequestBody TipoEntrada tipoEntrada) {
+        if (tipoEntrada.getTipo() == null || (!tipoEntrada.getTipo().equals("entrada") && !tipoEntrada.getTipo().equals("extra"))) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        }
         TipoEntrada nuevoTipoEntrada = tipoEntradaService.create(tipoEntrada);
         return ResponseEntity.status(HttpStatus.CREATED).body(nuevoTipoEntrada);
     }

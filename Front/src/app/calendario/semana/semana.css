@@ -4,10 +4,16 @@
 }
 
 .semana-fila {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 2px;
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  justify-content: space-between;
   align-items: center;
-  justify-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+app-dia {
+  flex: 1;
   width: 100%;
 }

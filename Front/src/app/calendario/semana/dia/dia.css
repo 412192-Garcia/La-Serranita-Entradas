@@ -15,7 +15,7 @@
 }
 .btn-dia, .tarjeta-hoy, .celda-vacia {
   width: 100%;
-  max-width: 54px;
+
   aspect-ratio: 1 / 1;
 }
 

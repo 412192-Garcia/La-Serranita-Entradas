@@ -29,15 +29,17 @@ VALUES
 -- =============================================================================
 -- 3. TIPOS DE ENTRADA
 -- =============================================================================
-INSERT INTO tipos_entrada (nombre, descripcion, precio, activo, fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion)
+INSERT INTO tipos_entrada (nombre, descripcion, precio, activo, tipo, fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion)
 VALUES
-    ('General Adulto', 'Entrada estándar para mayores de 12 años', 1500.00, true, NOW(), NOW(), 'system', 'system'),
-    ('General Menor', 'Entrada reducida para niños de 4 a 12 años', 800.00, true, NOW(), NOW(), 'system', 'system'),
-    ('Jubilados / Pensionados', 'Descuento para la tercera edad presentando acreditación', 1000.00, true, NOW(), NOW(), 'system', 'system'),
-    ('Pase Familiar (4 pers)', 'Combo especial: 2 Adultos + 2 Menores', 4000.00, true, NOW(), NOW(), 'system', 'system'),
-    ('Pase VIP Experiencia', 'Acceso preferencial sin filas + souvenir de La Ranita', 3500.00, true, NOW(), NOW(), 'system', 'system'),
-    ('Promoción Vecinos', 'Tarifa para residentes locales (solo días de semana)', 900.00, true, NOW(), NOW(), 'system', 'system'),
-    ('Pase Nocturno Especial', 'Entrada para eventos especiales de noche (Desactivada)', 2500.00, false, NOW(), NOW(), 'system', 'system');
+    ('General Adulto', 'Entrada estándar para mayores de 12 años', 1500.00, true, 'entrada', NOW(), NOW(), 'system', 'system'),
+    ('General Menor', 'Entrada reducida para niños de 4 a 12 años', 800.00, true, 'entrada', NOW(), NOW(), 'system', 'system'),
+    ('Jubilados / Pensionados', 'Descuento para la tercera edad presentando acreditación', 1000.00, true, 'entrada', NOW(), NOW(), 'system', 'system'),
+    ('Pase Familiar (4 pers)', 'Combo especial: 2 Adultos + 2 Menores', 4000.00, true, 'entrada', NOW(), NOW(), 'system', 'system'),
+    ('Pase VIP Experiencia', 'Acceso preferencial sin filas + souvenir de La Ranita', 3500.00, true, 'entrada', NOW(), NOW(), 'system', 'system'),
+    ('Promoción Vecinos', 'Tarifa para residentes locales (solo días de semana)', 900.00, true, 'entrada', NOW(), NOW(), 'system', 'system'),
+    ('Pase Nocturno Especial', 'Entrada para eventos especiales de noche (Desactivada)', 2500.00, false, 'entrada', NOW(), NOW(), 'system', 'system'),
+    ('Almuerzo Completo', 'Incluye entrada, plato principal y postre', 1200.00, true, 'extra', NOW(), NOW(), 'system', 'system'),
+    ('Estacionamiento', 'Acceso al estacionamiento por un día', 500.00, true, 'extra', NOW(), NOW(), 'system', 'system');
 
 -- =============================================================================
 -- 4. CUPONES (Descuentos porcentuales o fijos)
