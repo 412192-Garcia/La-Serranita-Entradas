@@ -1,0 +1,124 @@
+:host {
+  display: block;
+  width: 100%;
+}
+
+.btn-dia, .cuerpo-hoy, .cabecera-hoy {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+.dia-contenedor {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+}
+.btn-dia, .tarjeta-hoy, .celda-vacia {
+  width: 100%;
+  max-width: 54px;
+  aspect-ratio: 1 / 1;
+}
+
+.btn-dia {
+  border: none;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  font-weight: bold;
+  transition: all 0.2s ease-in-out;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  user-select: none;
+}
+.tarjeta-hoy {
+  position: relative;
+  border: 2px solid #e02424;
+  border-radius: 6px;
+  box-sizing: border-box;
+  background-color: #e5e7eb;
+  overflow: hidden;
+  cursor: default;
+  user-select: none;
+}
+.tarjeta-hoy.hoy-abierto {
+  background-color: #c2e6cf;
+}
+.cabecera-hoy {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  background-color: #e02424;
+  color: #ffffff;
+  font-size: 0.5rem;
+  font-weight: 900;
+  text-align: center;
+  padding: 1px 0;
+  letter-spacing: 0.5px;
+  z-index: 2;
+  line-height: 1;
+}
+.cuerpo-hoy {
+  width: 100%;
+  height: 100%;
+  color: #e02424;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 0.95rem;
+  font-weight: bold;
+}
+
+.dia-abierto {
+  background-color: #009639;
+  color: #ffffff;
+  pointer-events: auto !important;
+}
+.dia-abierto:hover {
+  background-color: #007a2e;
+  transform: scale(1.04);
+}
+.dia-seleccionado {
+  background-color: #004d1f;
+  color: #ffffff;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);
+  pointer-events: auto !important;
+}
+
+.dia-cerrado {
+  background-color: #e0e0e0;
+  color: #757575;
+  cursor: default;
+}
+
+.dia-pasado-abierto {
+  background-color: #c2e6cf;
+  color: #a2bfae;
+  cursor: default;
+}
+.dia-pasado-cerrado {
+  background-color: #f5f5f5;
+  color: #c0c0c0;
+  cursor: default;
+}
+
+
+@media (min-width: 420px) {
+  .btn-dia {
+    border-radius: 8px;
+    font-size: 1.1rem;
+  }
+
+  .tarjeta-hoy {
+    border-radius: 10px;
+  }
+
+  .cabecera-hoy {
+    font-size: 0.65rem;
+    padding: 2px 0;
+  }
+
+  .cuerpo-hoy {
+    font-size: 1.1rem;
+  }
+}

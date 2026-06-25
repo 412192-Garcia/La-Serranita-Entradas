@@ -1,0 +1,13 @@
+:host {
+  display: block;
+  width: 100%;
+}
+
+.semana-fila {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  align-items: center;
+  justify-items: center;
+  width: 100%;
+}

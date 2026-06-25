@@ -80,4 +80,13 @@ public class DiaAperturaServiceImpl implements DiaAperturaService {
         return diaAperturaRepository.save(dia);
     }
 
+    @Override
+    public List<String> getDiasAbiertos(Integer year, Integer month) {
+        List<DiaApertura> dias = getMonthStatus(year, month);
+        return dias.stream()
+                .filter(DiaApertura::getAbierto)
+                .map(dia -> dia.getFecha().toString())
+                .toList();
+    }
+
 }

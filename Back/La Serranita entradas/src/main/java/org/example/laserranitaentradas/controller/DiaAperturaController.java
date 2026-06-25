@@ -2,7 +2,6 @@ package org.example.laserranitaentradas.controller;
 
 import org.example.laserranitaentradas.model.entity.DiaApertura;
 import org.example.laserranitaentradas.service.DiaAperturaService;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import io.swagger.v3.oas.annotations.Operation;
@@ -18,6 +17,7 @@ import java.util.Optional;
 @RestController
 @RequestMapping("/api/dias-apertura")
 @Tag(name = "Días de Apertura", description = "Operaciones para gestionar días de apertura del parque")
+@CrossOrigin(origins = "http://localhost:4200")
 public class DiaAperturaController {
 
     private final DiaAperturaService diaAperturaService;
@@ -68,5 +68,19 @@ public class DiaAperturaController {
         return ResponseEntity.ok(dia);
     }
 
+    @GetMapping("/abiertos")
+    @Operation(summary = "Obtener días abiertos de un mes", description = "Devuelve una lista de fechas abiertas en el formato YYYY-MM-DD para un mes y año específicos.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Lista de días abiertos obtenida exitosamente"),
+            @ApiResponse(responseCode = "400", description = "Parámetros inválidos")
+    })
+    public ResponseEntity<List<String>> obtenerDiasAbiertos(@RequestParam @Parameter(description = "Año en formato YYYY") Integer year,
+                                                            @RequestParam @Parameter(description = "Mes en formato MM") Integer month) {
+        if (year == null || month == null || month < 1 || month > 12) {
+            return ResponseEntity.badRequest().build();
+        }
 
+        List<String> diasAbiertos = diaAperturaService.getDiasAbiertos(year, month);
+        return ResponseEntity.ok(diasAbiertos);
+    }
 }

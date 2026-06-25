@@ -1,0 +1,41 @@
+<div class="calendario-card">
+  <div class="calendario-header">
+    <button type="button" class="btn-nav" (click)="cambiarMes(-1)" [disabled]="esMesMinimo">&#10216;</button>
+    <h2>{{ nombreMes }} {{ anioActual }}</h2>
+    <button type="button" class="btn-nav" (click)="cambiarMes(1)">&#10217;</button>
+  </div>
+
+  <div class="calendario-body">
+    <div class="dias-semana-header">
+      @for (nombreDia of nombreDias; track $index)
+      {
+        <div class="nombre-dia">{{nombreDia}}</div>
+      }
+    </div>
+
+    @if (cargando) {
+      <div class="spinner-contenedor">
+        <div class="spinner"></div>
+      </div>
+    } @else {
+    <div class="semanas-contenedor">
+      @for (semana of semanas; track $index){
+        <app-semana
+        [dias]="semana"
+        (diaSeleccionado)="onDiaSeleccionado($event)">
+        </app-semana>
+      }
+    </div>
+    }
+  </div>
+</div>
+
+@if (fechaSeleccionada)
+{
+  <div class="feedback-reserva">
+    Dia seleccioando: <strong>{{fechaSeleccionada | date:'dd/MM/yyyy'}}</strong>
+  </div>
+}
+
+
+
