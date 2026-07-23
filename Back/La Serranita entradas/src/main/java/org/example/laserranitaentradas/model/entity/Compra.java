@@ -49,7 +49,7 @@ public class Compra extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     @Builder.Default
-    private EstadoCompra estado = EstadoCompra.PENDIENTE;
+    private EstadoCompra estado = EstadoCompra.PENDIENTE_PAGO;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_usuario_validador")
@@ -61,5 +61,9 @@ public class Compra extends BaseEntity {
 
     @OneToMany(mappedBy = "compra", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<CompraDetalle> detalles;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "forma_pago", nullable = false, length = 30)
+    private FormaPago formaPago;
 
 }

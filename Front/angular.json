@@ -55,6 +55,11 @@
         },
         "serve": {
           "builder": "@angular/build:dev-server",
+          "options": {
+            "allowedHosts": [
+              "oven-unpaired-siren.ngrok-free.dev"
+            ]
+          },
           "configurations": {
             "production": {
               "buildTarget": "Front:build:production"

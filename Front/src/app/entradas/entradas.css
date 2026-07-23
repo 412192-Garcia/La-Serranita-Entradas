@@ -2,45 +2,112 @@
   display: flex;
   flex-direction: row;
   justify-content: space-between;
-  align-items: flex-start;
-  gap: 40px;
+  align-items: stretch; /* ⚡ stretch hace que ambas columnas midan lo mismo de alto */
   width: 100%;
+  height: 100%;
   padding: 0;
   box-sizing: border-box;
 }
 
+.columna-izquierda-contenido {
+  flex: 0 0 30%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--color-accent);
+  padding: 28px 30px;
+  gap: 25px; /* Mantiene la separación sana entre el calendario y el cartel */
+  justify-content: flex-start; /* ⚡ Obliga a los elementos a acomodarse uno abajo del otro en orden natural */
+  box-sizing: border-box;
+}
 
 app-calendario {
-  flex: 1 1 40%;
   width: 100%;
-  min-width: 600px;
   display: flex;
   justify-content: center;
   align-items: center;
 }
 
-
-app-seleccion-entradas {
-  flex: 1 1 60%;
+/* =========================================
+   ℹ️ CONTENEDOR DE INFORMACIÓN ÚTIL
+   ========================================= */
+.contenedor-info-util {
   width: 100%;
+  max-width: 440px; /* Sigue exactamente el ancho del calendario */
+  margin: 25px auto 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px; /* Separación interna entre los renglones */
+  padding: 20px; /* Aire interno para que el texto no toque los bordes */
+  box-sizing: border-box;
+  font-family: var(--font-body);
+
+  /* ⚡ CLAVE: Fondo diferenciado sutil pero firme usando un tono naranja quemado */
+  background-color: var(--color-accent-dark);
+  border-radius: var(--radius-lg); /* Esquinas curvas redondeadas en armonía con el diseño */
+  box-shadow: var(--shadow-card);
 }
 
+.item-info {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  width: 100%;
+  background: none !important;
+  border: none !important;
+  padding: 0 !important;
+}
+
+/* Los vectores SVG limpios en blanco puro */
+.icono-svg {
+  width: 18px;
+  height: 18px;
+  color: #ffffff;
+  flex-shrink: 0;
+  margin-top: 2px; /* Centrado óptico perfecto */
+}
+
+.texto-info {
+  font-size: 0.85rem; /* Un toque más compacto para refinar el bloque */
+  color: rgba(255, 255, 255, 0.95); /* Blanco de alta legibilidad */
+  line-height: 1.45;
+  margin: 0;
+  text-align: left;
+}
+
+.texto-info strong {
+  font-weight: 800;
+  color: #ffffff;
+  display: inline;
+  margin-right: 5px;
+}
+
+/* Opcional: Si querés darle un mínimo mimo extra a la prioridad adentro de la caja */
+.item-info.de-prioridad .texto-info strong {
+  color: #ffeaa7; /* Un tono amarillo pastel muy sutil solo al título de advertencia */
+}
+
+
+.panel-derecho {
+  flex: 1 1 70%;
+  width: 100%;
+}
+@media  (max-width: 600px) {
+  .columna-izquierda-contenido{
+    min-width: 100%;
+    padding: 10px 10px
+  }
+}
 
 @media (max-width: 1200px) {
   .modulo-compra-container {
     flex-direction: column;
     align-items: center;
     gap: 30px;
-    padding: 15px;
+    padding: 0px;
   }
 
-  app-calendario {
-    flex: none;
-    width: 100%;
-    justify-content: center;
-  }
-
-  app-seleccion-entradas {
+  .panel-derecho  {
     flex: none;
     width: 100%;
   }

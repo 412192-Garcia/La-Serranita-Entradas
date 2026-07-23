@@ -32,7 +32,7 @@ VALUES
 INSERT INTO tipos_entrada (nombre, descripcion, precio, activo, tipo, fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion)
 VALUES
     ('General Adulto', 'Entrada estándar para mayores de 12 años', 1500.00, true, 'entrada', NOW(), NOW(), 'system', 'system'),
-    ('General Menor', 'Entrada reducida para niños de 4 a 12 años', 800.00, true, 'entrada', NOW(), NOW(), 'system', 'system'),
+    ('General Menor', 'Entrada reducida para niños de 4 a 12 años', 0.00, true, 'entrada', NOW(), NOW(), 'system', 'system'),
     ('Jubilados / Pensionados', 'Descuento para la tercera edad presentando acreditación', 1000.00, true, 'entrada', NOW(), NOW(), 'system', 'system'),
     ('Pase Familiar (4 pers)', 'Combo especial: 2 Adultos + 2 Menores', 4000.00, true, 'entrada', NOW(), NOW(), 'system', 'system'),
     ('Pase VIP Experiencia', 'Acceso preferencial sin filas + souvenir de La Ranita', 3500.00, true, 'entrada', NOW(), NOW(), 'system', 'system'),
@@ -120,48 +120,48 @@ VALUES
 
 -- Compra 1: Carlos Gómez - Estado: USADO (Ya vino al parque el 20/06, validó boletero.turnom, usó RANITA20)
 -- Subtotal original: 2 General Adulto (3000) -> 20% desc = 600. Total = 2400
-INSERT INTO compras (id_cliente, contact_email, contact_phone, fecha_visita, monto_total, descuento_aplicado, estado, id_usuario_validador, id_cupon, fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion)
-VALUES (1, 'carlos@gmail.com', '3515555555', '2026-06-20', 2400.00, 600.00, 'USADO', 3, 1, NOW(), NOW(), 'admin.serrana', 'boletero.turnom');
+INSERT INTO compras (id_cliente, contact_email, contact_phone, fecha_visita, monto_total, descuento_aplicado, estado, id_usuario_validador, id_cupon, forma_pago, fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion)
+VALUES (1, 'carlos@gmail.com', '3515555555', '2026-06-20', 2400.00, 600.00, 'USADO', 3, 1, 'MERCADO_PAGO', NOW(), NOW(), 'admin.serrana', 'boletero.turnom');
 
--- Compra 2: Ana Rodríguez - Estado: PAGADO (Viene mañana 21/06, no usó cupón, pagó online)
+-- Compra 2: Ana Rodríguez - Estado: APROBADO (Viene mañana 21/06, no usó cupón, pagó online)
 -- Subtotal original: 1 Pase Familiar (4000) + 1 Jubilado (1000) = 5000. Total = 5000
-INSERT INTO compras (id_cliente, contact_email, contact_phone, fecha_visita, monto_total, descuento_aplicado, estado, id_usuario_validador, id_cupon, fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion)
-VALUES (2, 'ana.rod@hotmail.com', '1144448888', '2026-06-21', 5000.00, 0.00, 'PAGADO', NULL, NULL, NOW(), NOW(), 'system', 'system');
+INSERT INTO compras (id_cliente, contact_email, contact_phone, fecha_visita, monto_total, descuento_aplicado, estado, id_usuario_validador, id_cupon, forma_pago, fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion)
+VALUES (2, 'ana.rod@hotmail.com', '1144448888', '2026-06-21', 5000.00, 0.00, 'APROBADO', NULL, NULL, 'MERCADO_PAGO', NOW(), NOW(), 'system', 'system');
 
--- Compra 3: Mariana López - Estado: PENDIENTE (Reserva web iniciada para el 24/06, sin pagar)
+-- Compra 3: Mariana López - Estado: PENDIENTE_PAGO (Reserva web iniciada para el 24/06, sin pagar)
 -- Subtotal original: 1 General Adulto (1500). Total = 1500
-INSERT INTO compras (id_cliente, contact_email, contact_phone, fecha_visita, monto_total, descuento_aplicado, estado, id_usuario_validador, id_cupon, fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion)
-VALUES (3, 'mariana.lopez@outlook.com', NULL, '2026-06-24', 1500.00, 0.00, 'PENDIENTE', NULL, NULL, NOW(), NOW(), 'system', 'system');
+INSERT INTO compras (id_cliente, contact_email, contact_phone, fecha_visita, monto_total, descuento_aplicado, estado, id_usuario_validador, id_cupon, forma_pago, fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion)
+VALUES (3, 'mariana.lopez@outlook.com', NULL, '2026-06-24', 1500.00, 0.00, 'PENDIENTE_PAGO', NULL, NULL, 'MERCADO_PAGO', NOW(), NOW(), 'system', 'system');
 
 -- Compra 4: Diego Maradona - Estado: CANCELADO (Canceló la visita del 20/06)
 -- Subtotal original: 2 Pase VIP (7000). Total = 7000
-INSERT INTO compras (id_cliente, contact_email, contact_phone, fecha_visita, monto_total, descuento_aplicado, estado, id_usuario_validador, id_cupon, fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion)
-VALUES (4, 'dieguito@diego.com', '341999999', '2026-06-20', 7000.00, 0.00, 'CANCELADO', NULL, NULL, NOW(), NOW(), 'system', 'admin.central');
+INSERT INTO compras (id_cliente, contact_email, contact_phone, fecha_visita, monto_total, descuento_aplicado, estado, id_usuario_validador, id_cupon, forma_pago, fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion)
+VALUES (4, 'dieguito@diego.com', '341999999', '2026-06-20', 7000.00, 0.00, 'CANCELADO', NULL, NULL, 'MERCADO_PAGO', NOW(), NOW(), 'system', 'admin.central');
 
 -- Compra 5: Florencia Fernández - Estado: USADO (Vino el 20/06 por la tarde, validó boletero.turnot, usó BIENVENIDA500)
 -- Subtotal original: 1 Pase Familiar (4000) -> Fijo desc = 500. Total = 3500
-INSERT INTO compras (id_cliente, contact_email, contact_phone, fecha_visita, monto_total, descuento_aplicado, estado, id_usuario_validador, id_cupon, fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion)
-VALUES (5, 'flor.f@gmail.com', '261456789', '2026-06-20', 3500.00, 500.00, 'USADO', 4, 2, NOW(), NOW(), 'system', 'boletero.turnot');
+INSERT INTO compras (id_cliente, contact_email, contact_phone, fecha_visita, monto_total, descuento_aplicado, estado, id_usuario_validador, id_cupon, forma_pago, fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion)
+VALUES (5, 'flor.f@gmail.com', '261456789', '2026-06-20', 3500.00, 500.00, 'USADO', 4, 2, 'MERCADO_PAGO', NOW(), NOW(), 'system', 'boletero.turnot');
 
--- Compra 6: Javier Milei - Estado: PAGADO (Viene el 22/06, usó SUPERPROMO50)
+-- Compra 6: Javier Milei - Estado: APROBADO (Viene el 22/06, usó SUPERPROMO50)
 -- Subtotal original: 2 Pase VIP (7000) -> 50% desc = 3500. Total = 3500
-INSERT INTO compras (id_cliente, contact_email, contact_phone, fecha_visita, monto_total, descuento_aplicado, estado, id_usuario_validador, id_cupon, fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion)
-VALUES (6, 'jmilei@presidencia.gob.ar', '1111111111', '2026-06-22', 3500.00, 3500.00, 'PAGADO', NULL, 3, NOW(), NOW(), 'system', 'system');
+INSERT INTO compras (id_cliente, contact_email, contact_phone, fecha_visita, monto_total, descuento_aplicado, estado, id_usuario_validador, id_cupon, forma_pago, fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion)
+VALUES (6, 'jmilei@presidencia.gob.ar', '1111111111', '2026-06-22', 3500.00, 3500.00, 'APROBADO', NULL, 3, 'MERCADO_PAGO', NOW(), NOW(), 'system', 'system');
 
--- Compra 7: Sofía Martínez - Estado: PENDIENTE (Para las vacaciones de Julio 09/07, usó BIENVENIDA500)
+-- Compra 7: Sofía Martínez - Estado: PENDIENTE_PAGO (Para las vacaciones de Julio 09/07, usó BIENVENIDA500)
 -- Subtotal original: 2 General Adulto (3000) + 2 General Menor (1600) = 4600 -> Fijo desc = 500. Total = 4100
-INSERT INTO compras (id_cliente, contact_email, contact_phone, fecha_visita, monto_total, descuento_aplicado, estado, id_usuario_validador, id_cupon, fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion)
-VALUES (7, 'sofia.mtz@fox.com', '1154321098', '2026-07-09', 4100.00, 500.00, 'PENDIENTE', NULL, 2, NOW(), NOW(), 'system', 'system');
+INSERT INTO compras (id_cliente, contact_email, contact_phone, fecha_visita, monto_total, descuento_aplicado, estado, id_usuario_validador, id_cupon, forma_pago, fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion)
+VALUES (7, 'sofia.mtz@fox.com', '1154321098', '2026-07-09', 4100.00, 500.00, 'PENDIENTE_PAGO', NULL, 2, 'MERCADO_PAGO', NOW(), NOW(), 'system', 'system');
 
--- Compra 8: Bautista González - Estado: PAGADO (Viene el 21/06, sacó tarifa Vecinos)
+-- Compra 8: Bautista González - Estado: APROBADO (Viene el 21/06, sacó tarifa Vecinos)
 -- Subtotal original: 3 Promoción Vecinos (2700). Total = 2700
-INSERT INTO compras (id_cliente, contact_email, contact_phone, fecha_visita, monto_total, descuento_aplicado, estado, id_usuario_validador, id_cupon, fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion)
-VALUES (8, 'bauti.gonzalez@gmail.com', NULL, '2026-06-21', 2700.00, 0.00, 'PAGADO', NULL, NULL, NOW(), NOW(), 'system', 'system');
+INSERT INTO compras (id_cliente, contact_email, contact_phone, fecha_visita, monto_total, descuento_aplicado, estado, id_usuario_validador, id_cupon, forma_pago, fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion)
+VALUES (8, 'bauti.gonzalez@gmail.com', NULL, '2026-06-21', 2700.00, 0.00, 'APROBADO', NULL, NULL, 'MERCADO_PAGO', NOW(), NOW(), 'system', 'system');
 
 -- Compra 9: Valentina Romero - Estado: USADO (Fue hoy por la mañana 20/06, validada en boletería física, usó RANITA20)
 -- Subtotal original: 1 General Adulto (1500) + 1 General Menor (800) = 2300 -> 20% desc = 460. Total = 1840
-INSERT INTO compras (id_cliente, contact_email, contact_phone, fecha_visita, monto_total, descuento_aplicado, estado, id_usuario_validador, id_cupon, fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion)
-VALUES (9, 'valen_romero@live.com.ar', '3512223334', '2026-06-20', 1840.00, 460.00, 'USADO', 3, 1, NOW(), NOW(), 'boletero.turnom', 'boletero.turnom');
+INSERT INTO compras (id_cliente, contact_email, contact_phone, fecha_visita, monto_total, descuento_aplicado, estado, id_usuario_validador, id_cupon, forma_pago, fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion)
+VALUES (9, 'valen_romero@live.com.ar', '3512223334', '2026-06-20', 1840.00, 460.00, 'USADO', 3, 1, 'MERCADO_PAGO', NOW(), NOW(), 'boletero.turnom', 'boletero.turnom');
 
 
 -- =============================================================================
@@ -209,3 +209,15 @@ INSERT INTO compras_detalle (id_compra, id_tipo_entrada, cantidad, fecha_creacio
 VALUES
     (9, 1, 1, NOW(), NOW(), 'system', 'system'),  -- 1 General Adulto
     (9, 2, 1, NOW(), NOW(), 'system', 'system');  -- 1 General Menor
+
+-- =============================================================================
+-- 8. DESCUENTOS EFECTIVO (Basados en tipo de entrada y cantidad de pases)
+-- =============================================================================
+INSERT INTO descuentos_efectivo (id_tipo_entrada, cantidad_pases, precio_promocional_total) VALUES (1, 3, 95700.00);
+INSERT INTO descuentos_efectivo (id_tipo_entrada, cantidad_pases, precio_promocional_total) VALUES (1, 4, 126900.00);
+INSERT INTO descuentos_efectivo (id_tipo_entrada, cantidad_pases, precio_promocional_total) VALUES (1, 5, 157800.00);
+INSERT INTO descuentos_efectivo (id_tipo_entrada, cantidad_pases, precio_promocional_total) VALUES (1, 6, 188300.00);
+INSERT INTO descuentos_efectivo (id_tipo_entrada, cantidad_pases, precio_promocional_total) VALUES (1, 7, 218500.00);
+INSERT INTO descuentos_efectivo (id_tipo_entrada, cantidad_pases, precio_promocional_total) VALUES (1, 8, 248300.00);
+INSERT INTO descuentos_efectivo (id_tipo_entrada, cantidad_pases, precio_promocional_total) VALUES (1, 9, 277800.00);
+INSERT INTO descuentos_efectivo (id_tipo_entrada, cantidad_pases, precio_promocional_total) VALUES (1, 10, 307000.00);

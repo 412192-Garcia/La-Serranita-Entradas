@@ -10,4 +10,3 @@ import java.util.Optional;
 public interface TipoEntradaRepository extends JpaRepository<TipoEntrada, Long> {
     Optional<TipoEntrada> findByNombre(String nombre);
 }
-

@@ -19,4 +19,3 @@ public interface TipoEntradaService {
     void delete(Long id);
 }
 
-

@@ -1,1 +1,46 @@
-/* You can add global styles to this file, and also import other style files */
+html, body {
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100%;
+  height: 100%;
+}
+
+:root {
+  /* Paleta — verde parque + acento terracota cálido */
+  --color-primary: #009639;
+  --color-primary-dark: #007a2e;
+  --color-primary-light: #e6f5ea;
+
+  --color-accent: #e08e3e;
+  --color-accent-dark: #c17324;
+  --color-accent-light: #fdf1e3;
+
+  --color-danger: #dc2626;
+  --color-danger-dark: #b91c1c;
+  --color-danger-light: #fef2f2;
+
+  --color-text: #111827;
+  --color-text-secondary: #374151;
+  --color-text-muted: #6b7280;
+
+  --color-border: #e5e7eb;
+  --color-bg-soft: #f9fafb;
+  --color-bg-page: #f4f5f7;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+
+  --shadow-card: 0 2px 8px rgba(17, 24, 39, 0.06), 0 1px 2px rgba(17, 24, 39, 0.04);
+  --shadow-card-lg: 0 12px 28px -8px rgba(17, 24, 39, 0.16);
+
+  --font-heading: 'Baloo 2', 'Segoe UI', sans-serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+}
+
+body {
+  background-color: var(--color-bg-page);
+  font-family: var(--font-body);
+  color: var(--color-text);
+  -webkit-font-smoothing: antialiased;
+}
