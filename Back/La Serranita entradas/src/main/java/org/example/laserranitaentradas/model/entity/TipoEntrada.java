@@ -39,5 +39,8 @@ public class TipoEntrada extends BaseEntity {
     @Builder.Default
     private Boolean activo = true;
 
-}
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 50)
+    private Tipo tipo;
 
+}

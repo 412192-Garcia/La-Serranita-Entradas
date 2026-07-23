@@ -1,0 +1,8 @@
+<div class="semana-fila">
+  @for (dia of dias; track $index) {
+    <app-dia
+      [dia]="dia"
+      (diaSeleccionado)="onDiaSeleccionado($event)">
+    </app-dia>
+  }
+</div>

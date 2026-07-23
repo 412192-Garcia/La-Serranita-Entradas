@@ -118,6 +118,7 @@ public class CompraController {
             t.setNombre(d.getTipoEntrada().getNombre());
             t.setDescripcion(d.getTipoEntrada().getDescripcion());
             t.setPrecio(d.getTipoEntrada().getPrecio());
+            t.setTipo(d.getTipoEntrada().getTipo());
             dto.setTipoEntrada(t);
         }
         dto.setCantidad(d.getCantidad());

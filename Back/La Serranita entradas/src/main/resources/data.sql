@@ -29,15 +29,17 @@ VALUES
 -- =============================================================================
 -- 3. TIPOS DE ENTRADA
 -- =============================================================================
-INSERT INTO tipos_entrada (nombre, descripcion, precio, activo, fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion)
+INSERT INTO tipos_entrada (nombre, descripcion, precio, activo, tipo, fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion)
 VALUES
-    ('General Adulto', 'Entrada estándar para mayores de 12 años', 1500.00, true, NOW(), NOW(), 'system', 'system'),
-    ('General Menor', 'Entrada reducida para niños de 4 a 12 años', 800.00, true, NOW(), NOW(), 'system', 'system'),
-    ('Jubilados / Pensionados', 'Descuento para la tercera edad presentando acreditación', 1000.00, true, NOW(), NOW(), 'system', 'system'),
-    ('Pase Familiar (4 pers)', 'Combo especial: 2 Adultos + 2 Menores', 4000.00, true, NOW(), NOW(), 'system', 'system'),
-    ('Pase VIP Experiencia', 'Acceso preferencial sin filas + souvenir de La Ranita', 3500.00, true, NOW(), NOW(), 'system', 'system'),
-    ('Promoción Vecinos', 'Tarifa para residentes locales (solo días de semana)', 900.00, true, NOW(), NOW(), 'system', 'system'),
-    ('Pase Nocturno Especial', 'Entrada para eventos especiales de noche (Desactivada)', 2500.00, false, NOW(), NOW(), 'system', 'system');
+    ('General Adulto', 'Entrada estándar para mayores de 12 años', 1500.00, true, 'entrada', NOW(), NOW(), 'system', 'system'),
+    ('General Menor', 'Entrada reducida para niños de 4 a 12 años', 800.00, true, 'entrada', NOW(), NOW(), 'system', 'system'),
+    ('Jubilados / Pensionados', 'Descuento para la tercera edad presentando acreditación', 1000.00, true, 'entrada', NOW(), NOW(), 'system', 'system'),
+    ('Pase Familiar (4 pers)', 'Combo especial: 2 Adultos + 2 Menores', 4000.00, true, 'entrada', NOW(), NOW(), 'system', 'system'),
+    ('Pase VIP Experiencia', 'Acceso preferencial sin filas + souvenir de La Ranita', 3500.00, true, 'entrada', NOW(), NOW(), 'system', 'system'),
+    ('Promoción Vecinos', 'Tarifa para residentes locales (solo días de semana)', 900.00, true, 'entrada', NOW(), NOW(), 'system', 'system'),
+    ('Pase Nocturno Especial', 'Entrada para eventos especiales de noche (Desactivada)', 2500.00, false, 'entrada', NOW(), NOW(), 'system', 'system'),
+    ('Almuerzo Completo', 'Incluye entrada, plato principal y postre', 1200.00, true, 'extra', NOW(), NOW(), 'system', 'system'),
+    ('Estacionamiento', 'Acceso al estacionamiento por un día', 500.00, true, 'extra', NOW(), NOW(), 'system', 'system');
 
 -- =============================================================================
 -- 4. CUPONES (Descuentos porcentuales o fijos)
@@ -51,7 +53,7 @@ VALUES
     ('CORDOBA2026', NULL, 300.00, '2026-08-31', 500, 0, true, NOW(), NOW(), 'system', 'system');
 
 -- =============================================================================
--- 5. DÍAS DE APERTURA (Calendario Jun/Jul 2026)
+-- 5. DÍAS ABIERTOS
 -- =============================================================================
 INSERT INTO dias_apertura (fecha, abierto, fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion)
 VALUES
@@ -64,8 +66,52 @@ VALUES
     ('2026-06-26', true, NOW(), NOW(), 'system', 'system'),
     ('2026-06-27', true, NOW(), NOW(), 'system', 'system'),
     ('2026-06-28', true, NOW(), NOW(), 'system', 'system'),
+    ('2026-07-04', true, NOW(), NOW(), 'system', 'system'),
+    ('2026-07-05', true, NOW(), NOW(), 'system', 'system'),
     ('2026-07-09', true, NOW(), NOW(), 'system', 'system'), -- Feriado de Julio abierto
-    ('2026-07-10', false, NOW(), NOW(), 'system', 'system'); -- Feriado puente cerrado
+    ('2026-07-10', false, NOW(), NOW(), 'system', 'system'), -- Feriado puente cerrado
+    ('2026-07-11', true, NOW(), NOW(), 'system', 'system'),
+    ('2026-07-12', true, NOW(), NOW(), 'system', 'system'),
+    ('2026-07-18', true, NOW(), NOW(), 'system', 'system'),
+    ('2026-07-19', true, NOW(), NOW(), 'system', 'system'),
+    ('2026-07-25', true, NOW(), NOW(), 'system', 'system'),
+    ('2026-07-26', true, NOW(), NOW(), 'system', 'system'),
+    ('2026-08-01', true, NOW(), NOW(), 'system', 'system'),
+    ('2026-08-02', true, NOW(), NOW(), 'system', 'system'),
+    ('2026-08-08', true, NOW(), NOW(), 'system', 'system'),
+    ('2026-08-09', true, NOW(), NOW(), 'system', 'system'),
+    ('2026-08-15', true, NOW(), NOW(), 'system', 'system'),
+    ('2026-08-16', true, NOW(), NOW(), 'system', 'system'),
+    ('2026-08-22', true, NOW(), NOW(), 'system', 'system'),
+    ('2026-08-23', true, NOW(), NOW(), 'system', 'system'),
+    ('2026-08-29', true, NOW(), NOW(), 'system', 'system'),
+    ('2026-08-30', true, NOW(), NOW(), 'system', 'system'),
+    ('2026-09-05', true, NOW(), NOW(), 'system', 'system'),
+    ('2026-09-06', true, NOW(), NOW(), 'system', 'system'),
+    ('2026-09-12', true, NOW(), NOW(), 'system', 'system'),
+    ('2026-09-13', true, NOW(), NOW(), 'system', 'system'),
+    ('2026-09-19', true, NOW(), NOW(), 'system', 'system'),
+    ('2026-09-20', true, NOW(), NOW(), 'system', 'system'),
+    ('2026-09-26', true, NOW(), NOW(), 'system', 'system'),
+    ('2026-09-27', true, NOW(), NOW(), 'system', 'system'),
+    ('2026-10-03', true, NOW(), NOW(), 'system', 'system'),
+    ('2026-10-04', true, NOW(), NOW(), 'system', 'system'),
+    ('2026-10-10', true, NOW(), NOW(), 'system', 'system'),
+    ('2026-10-11', true, NOW(), NOW(), 'system', 'system'),
+    ('2026-10-17', true, NOW(), NOW(), 'system', 'system'),
+    ('2026-10-18', true, NOW(), NOW(), 'system', 'system'),
+    ('2026-10-24', true, NOW(), NOW(), 'system', 'system'),
+    ('2026-10-25', true, NOW(), NOW(), 'system', 'system'),
+    ('2026-10-31', true, NOW(), NOW(), 'system', 'system'),
+    ('2026-11-01', true, NOW(), NOW(), 'system', 'system'),
+    ('2026-11-07', true, NOW(), NOW(), 'system', 'system'),
+    ('2026-11-08', true, NOW(), NOW(), 'system', 'system'),
+    ('2026-11-14', true, NOW(), NOW(), 'system', 'system'),
+    ('2026-11-15', true, NOW(), NOW(), 'system', 'system'),
+    ('2026-11-21', true, NOW(), NOW(), 'system', 'system'),
+    ('2026-11-22', true, NOW(), NOW(), 'system', 'system'),
+    ('2026-11-28', true, NOW(), NOW(), 'system', 'system'),
+    ('2026-11-29', true, NOW(), NOW(), 'system', 'system');
 
 -- =============================================================================
 -- 6. COMPRAS (Historial variado)
