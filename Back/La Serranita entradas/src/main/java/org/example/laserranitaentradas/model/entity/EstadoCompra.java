@@ -1,10 +1,9 @@
 package org.example.laserranitaentradas.model.entity;
 
 public enum EstadoCompra {
-    PENDIENTE,
+    PENDIENTE_PAGO,
+    RESERVADO_EFECTIVO,
+    APROBADO,
     USADO,
-    CANCELADO,
-    PAGADO
-
+    CANCELADO
 }
-

@@ -4,7 +4,7 @@
 }
 
 .btn-dia, .cuerpo-hoy, .cabecera-hoy {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: var(--font-body);
 }
 
 .dia-contenedor {
@@ -35,7 +35,7 @@
   border: 2px solid #e02424;
   border-radius: 6px;
   box-sizing: border-box;
-  background-color: #e5e7eb;
+  background-color: var(--color-border);
   overflow: hidden;
   cursor: default;
   user-select: none;
@@ -70,12 +70,12 @@
 }
 
 .dia-abierto {
-  background-color: #009639;
+  background-color: var(--color-primary);
   color: #ffffff;
   pointer-events: auto !important;
 }
 .dia-abierto:hover {
-  background-color: #007a2e;
+  background-color: var(--color-primary-dark);
   transform: scale(1.04);
 }
 .dia-seleccionado {

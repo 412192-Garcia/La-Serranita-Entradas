@@ -1,39 +1,77 @@
+/* ==========================================================================
+   1. HOST Y CONTENEDOR PRINCIPAL
+   ========================================================================== */
 :host {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 12px;
-  background-color: #fb8107;
-  min-height: 100vh;
+  width: 100%;
   user-select: none;
 }
 
 .calendario-card {
-  width: 90%;
+  width: 100%;
+  max-width: 600px;
   background-color: #ffffff;
-  border: 4px solid #009639;
-  border-radius: 16px;
+  border-radius: var(--radius-lg);
   overflow: hidden;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  box-shadow: var(--shadow-card-lg);
+  font-family: var(--font-body);
+  margin: 0;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* ==========================================================================
+   2. ANIMACIÓN (ACORDEÓN)
+   ========================================================================== */
+.calendario-wrapper {
+  display: grid;
+  grid-template-rows: 1fr;
+  opacity: 1;
+  transition: grid-template-rows 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease-out;
+}
+
+.calendario-wrapper.colapsado {
+  grid-template-rows: 0fr;
+  opacity: 0;
+  pointer-events: none;
+}
+.calendario-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.feedback-regalo-wrapper {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s ease-in;
+}
+
+.feedback-regalo-wrapper.visible {
+  max-height: 150px;
+  opacity: 1;
+}
+
+/* ==========================================================================
+   3. HEADER Y CUERPO
+   ========================================================================== */
 .calendario-header {
-  background-color: #009639;
+  background-color: var(--color-primary);
   color: #ffffff;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 16px;
+  padding: 14px 18px;
 }
 
 .calendario-header h2 {
   margin: 0;
-  font-size: 1.3rem;
-  font-weight: 800;
-  letter-spacing: 1px;
-  user-select: none;
+  font-family: var(--font-heading);
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
 }
 
 .calendario-body {
@@ -51,9 +89,8 @@
 .nombre-dia {
   font-size: 0.75rem;
   font-weight: 800;
-  color: #111827;
+  color: var(--color-text);
   padding: 4px 0;
-  text-overflow: ellipsis;
 }
 
 .semanas-contenedor {
@@ -62,14 +99,71 @@
   gap: 4px;
 }
 
-.feedback-reserva {
-  margin-top: 15px;
-  background-color: #004d1f;
-  color: white;
-  padding: 10px 20px;
-  border-radius: 8px;
-  font-size: 0.95rem;
+/* ==========================================================================
+   4. FOOTER DE REGALO Y MENSAJES
+   ========================================================================== */
+.footer-regalo {
+  background-color: var(--color-bg-soft);
+  border-top: 1px solid var(--color-border);
+  padding: 15px 20px;
+  width: 100%;
+  box-sizing: border-box;
+  transition: background-color 0.4s ease, padding 0.4s ease;
 }
+
+.footer-regalo.modo-activo {
+  border-top: none;
+  background-color: #ffffff;
+  padding: 25px 20px 10px 20px;
+}
+
+.feedback-regalo-activo {
+  padding: 0 20px 25px 20px;
+  text-align: center;
+  color: var(--color-primary);
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.4;
+  background-color: #ffffff;
+}
+
+.checkbox-regalo-label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  margin: 0;
+}
+
+.checkbox-regalo-input {
+  width: 22px;
+  height: 22px;
+  cursor: pointer;
+  accent-color: var(--color-primary);
+  flex-shrink: 0;
+  margin: 0;
+}
+
+.info-regalo {
+  display: flex;
+  flex-direction: column;
+}
+
+.titulo-regalo {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--color-text);
+}
+
+.desc-regalo {
+  font-size: 0.8rem;
+  color: #666666;
+  margin-top: 2px;
+}
+
+/* ==========================================================================
+   5. BOTONES Y UTILIDADES
+   ========================================================================== */
 .btn-nav {
   background: transparent;
   border: none;
@@ -84,18 +178,7 @@
   justify-content: center;
   align-items: center;
 }
-.btn-nav:hover {
-  background-color: rgba(255, 255, 255, 0.15);
-}
-
-.btn-nav:active {
-  background-color: rgba(255, 255, 255, 0.3);
-}
-.btn-nav:disabled {
-  color: rgba(255, 255, 255, 0.4);
-  background-color: transparent;
-  pointer-events: none;
-}
+.btn-nav:hover { background-color: rgba(255, 255, 255, 0.15); }
 
 .spinner-contenedor {
   display: flex;
@@ -109,13 +192,40 @@
   width: 45px;
   height: 45px;
   border: 5px solid rgba(0, 0, 0, 0.1);
-  border-top-color: #0f9d58;
+  border-top-color: var(--color-primary);
   border-radius: 50%;
   animation: girar 1s linear infinite;
 }
 
-@keyframes girar {
-  to {
-    transform: rotate(360deg);
+@keyframes girar { to { transform: rotate(360deg); } }
+
+.feedback-reserva {
+  width: 100%;
+  max-width: 600px;
+  margin-top: 14px;
+  padding: 10px 16px;
+  box-sizing: border-box;
+  background-color: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-body);
+  font-size: 0.88rem;
+  color: #ffffff;
+  text-align: center;
+}
+
+.feedback-reserva strong {
+  font-weight: 800;
+}
+
+@media (max-width: 600px) {
+  .calendario-card {
+    width: 96%;
   }
 }
+@media (max-width: 1200px) {
+  .calendario-card {
+    max-width: 800px;
+  }
+}
+

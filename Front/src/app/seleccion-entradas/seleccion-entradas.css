@@ -1,31 +1,39 @@
+/* ==========================================================================
+   1. PANEL PRINCIPAL Y ESTRUCTURA GENERAL
+   ========================================================================== */
 .panel-seleccion {
   background-color: #ffffff;
-  padding: 30px;
+  padding: 32px;
   width: 100%;
   box-sizing: border-box;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  font-family: var(--font-body);
 }
 
 .titulo-seccion {
+  font-family: var(--font-heading);
   font-size: 1.5rem;
-  font-weight: bold;
-  color: #000000;
+  font-weight: 700;
+  color: var(--color-text);
   margin-top: 0;
   margin-bottom: 25px;
 }
 
+.titulo-seccion.extras {
+  margin-top: 35px; /* Separación limpia entre bloques de entradas y extras */
+}
+
 .entradas-lista {
-  max-height: 450px;
+  max-height: 300px;
   overflow-y: auto;
   padding-right: 10px;
   width: 100%;
 }
 
-.titulo-seccion.extras {
-  margin-top: 35px; /* Genera la separación limpia entre los dos bloques */
-}
-
-/* ⚡ LA MAGIA: Alinea los 3 bloques principales de izquierda a derecha */
+/* ==========================================================================
+   2. FILAS DE ITEMS (ENTRADAS / EXTRAS)
+   ========================================================================== */
 .fila-item {
   display: flex;
   align-items: center;
@@ -37,14 +45,14 @@
 .info-entrada {
   display: flex;
   flex-direction: column;
-  flex: 3;
+  flex: 3; /* Se adueña del mayor espacio para textos largos */
   padding-right: 20px;
 }
 
 .etiqueta {
   font-size: 1.1rem;
   font-weight: bold;
-  color: #000000;
+  color: var(--color-text);
 }
 
 .descripcion-entrada {
@@ -60,14 +68,17 @@
   font-size: 1.15rem;
   font-weight: 600;
   margin-right: 30px;
-  color: #222222;
+  color: var(--color-text-secondary);
   white-space: nowrap;
 }
 
+/* ==========================================================================
+   3. CONTROLES DE CANTIDAD (BOTONES - / +)
+   ========================================================================== */
 .control-cantidad {
   display: flex;
   align-items: center;
-  background-color: #e5e7eb;
+  background-color: var(--color-border);
   border-radius: 6px;
   overflow: hidden;
   height: 36px;
@@ -83,7 +94,7 @@
   font-size: 1.2rem;
   font-weight: bold;
   cursor: pointer;
-  color: #374151;
+  color: var(--color-text-secondary);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -99,47 +110,131 @@
   text-align: center;
   font-weight: bold;
   font-size: 1.05rem;
-  color: #111111;
+  color: var(--color-text);
   user-select: none;
 }
 
 .linea-divisora {
   border: none;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--color-border);
   margin: 0;
 }
 
+/* ==========================================================================
+   4. MÓDULO DE CUPÓN DE DESCUENTO
+   ========================================================================== */
+.cupon-modulo {
+  width: 100%;
+  margin-top: 25px;
+  padding-bottom: 5px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end; /* ⚡ Lo empuja a la derecha, alineado con el botón Siguiente */
+}
+
+/* El grupo del input se mantiene compacto */
+.cupon-input-grupo {
+  display: flex;
+  background-color: #f3f4f6;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 4px;
+  width: 100%;
+  max-width: 300px;
+  box-sizing: border-box;
+}
+
+.cupon-input-grupo input {
+  border: none;
+  background: none;
+  padding: 8px 12px;
+  font-size: 0.9rem;
+  outline: none;
+  width: 100%;
+  text-transform: uppercase;
+  color: #1f2937;
+}
+
+.cupon-input-grupo input:disabled {
+  color: #9ca3af;
+  font-weight: 600;
+}
+
+.btn-cupon {
+  background-color: #1f2937;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  padding: 0 16px;
+  font-size: 0.85rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.btn-cupon:hover { background-color: var(--color-text); }
+.btn-cupon.remover { background-color: var(--color-danger); }
+.btn-cupon.remover:hover { background-color: #b91c1c; }
+
+.cupon-error-msg { color: var(--color-danger); font-size: 0.8rem; font-weight: 500; margin-top: 6px; padding-left: 4px; }
+.cupon-success-msg { color: var(--color-primary); font-size: 0.8rem; font-weight: 600; margin-top: 6px; padding-left: 4px; }
+
+/* ==========================================================================
+   5. FOOTER DE LIQUIDACIÓN Y CIERRE (TOTAL / SIGUIENTE)
+   ========================================================================== */
 .footer-resumen {
-  margin-top: 40px;
+  margin-top: 20px;
   display: flex;
   flex-direction: row;
   justify-content: space-between;
   align-items: center;
   width: 100%;
   padding-top: 20px;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid var(--color-border);
 }
 
 .fila-total {
   display: flex;
-  align-items: baseline;
-  gap: 10px;
+  flex-direction: row;
+  align-items: center; /* Alineación perfecta del texto "TOTAL:" con los números */
+  gap: 12px;
 }
 
 .etiqueta-total {
-  font-size: 1.3rem;
-  font-weight: 500;
-  color: #000000;
+  font-family: var(--font-heading);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.precios-bloque {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .valor-total {
+  font-family: var(--font-heading);
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.precio-tachado {
+  text-decoration: line-through;
+  color: #9ca3af !important;
+  font-size: 1.15rem !important;
+  font-weight: 500 !important;
+}
+
+.valor-total.nuevo-precio {
+  color: var(--color-primary);
   font-size: 1.6rem;
-  font-weight: bold;
-  color: #000000;
+  font-weight: 900;
 }
 
 .btn-siguiente {
-  background-color: #009639;
+  background-color: var(--color-primary);
   color: #ffffff;
   border: none;
   border-radius: 6px;
@@ -152,39 +247,60 @@
 }
 
 .btn-siguiente:hover:not(:disabled) {
-  background-color: #007a2e;
+  background-color: var(--color-primary-dark);
   transform: scale(1.02);
 }
 
 .btn-siguiente:disabled {
-  background-color: #e5e7eb;
+  background-color: var(--color-border);
   color: #9ca3af;
   cursor: not-allowed;
 }
 
-@media (max-width: 480px) {
-  .footer-resumen {
-    flex-direction: column;
-    gap: 20px;
-    align-items: center;
-  }
-  .btn-siguiente {
-    width: 100%;
-  }
-}
-
+/* ==========================================================================
+   6. COMPONENTES DE CARGA (SPINNER)
+   ========================================================================== */
 .spinner-contenedor {
   display: flex;
   justify-content: center;
   align-items: center;
   min-height: 200px;
 }
+
 .spinner {
   width: 40px;
   height: 40px;
   border: 4px solid rgba(0,0,0,0.1);
-  border-top-color: #009639;
+  border-top-color: var(--color-primary);
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
-@keyframes spin { to { transform: rotate(360deg); } }
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ==========================================================================
+   7. MEDIA QUERIES (RESPONSIVE)
+   ========================================================================== */
+@media (max-width: 480px) {
+  .footer-resumen {
+    flex-direction: column;
+    gap: 20px;
+    align-items: center;
+  }
+
+  .fila-total {
+    justify-content: center;
+    width: 100%;
+  }
+
+  .btn-siguiente {
+    width: 100%; /* Botón ancho completo ideal para pulgares en mobile */
+  }
+
+  .cupon-input-grupo {
+    max-width: 100%; /* Permite adaptarse al ancho de pantallas ultra chicas */
+  }
+
+}

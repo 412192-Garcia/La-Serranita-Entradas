@@ -1,0 +1,88 @@
+:host {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.pago-exitoso-card {
+  width: 100%;
+  max-width: 460px;
+  background-color: #ffffff;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card-lg);
+  padding: 40px 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  font-family: var(--font-body);
+  animation: aparecer 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes aparecer {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.icono-exito {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  background-color: var(--color-primary-light);
+  color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.icono-exito svg {
+  width: 42px;
+  height: 42px;
+}
+
+.pago-exitoso-card h3 {
+  font-family: var(--font-heading);
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0 0 8px 0;
+}
+
+.pago-exitoso-card > p {
+  font-size: 0.98rem;
+  color: var(--color-text-muted);
+  margin: 0 0 24px 0;
+}
+
+.pago-exitoso-card > p strong {
+  color: var(--color-text);
+}
+
+.mensaje-dni-ingreso {
+  width: 100%;
+  box-sizing: border-box;
+  background-color: var(--color-primary-light);
+  border: 1px solid #cdebd6;
+  border-radius: var(--radius-md);
+  padding: 18px 20px;
+}
+
+.mensaje-dni-ingreso p {
+  margin: 0;
+  font-size: 0.92rem;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+.mensaje-dni-ingreso p:first-child {
+  font-size: 1rem;
+  color: var(--color-primary-dark);
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.mensaje-dni-ingreso strong {
+  color: var(--color-text);
+  font-weight: 800;
+}

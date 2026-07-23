@@ -14,6 +14,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -28,6 +29,37 @@ public class CompraController {
         this.compraService = compraService;
     }
 
+    @PostMapping("/iniciar-pago")
+    @Operation(summary = "Iniciar compra con pago online", description = "Crea la compra en estado PENDIENTE y genera la preferencia de Mercado Pago")
+    public ResponseEntity<?> iniciarPago(@RequestBody @Parameter(description = "Datos de la compra") CompraRequestDTO compraRequest) {
+        try {
+            CompraResponseDTO response = compraService.iniciarCompraConPago(compraRequest);
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.badRequest().body(ex.getMessage());
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            return ResponseEntity.internalServerError().body("Error al procesar la pasarela de pagos.");
+        }
+    }
+
+    @PostMapping("/cotizar")
+    @Operation(summary = "Cotizar precio", description = "Calcula el subtotal aplicando descuentos por grupo/forma de pago, sin persistir nada")
+    public ResponseEntity<?> cotizar(@RequestBody @Parameter(description = "Entradas y forma de pago a cotizar") CotizacionRequestDTO cotizacionRequest) {
+        try {
+            CotizacionResponseDTO response = compraService.cotizar(cotizacionRequest);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.badRequest().body(ex.getMessage());
+        }
+    }
+
+    @GetMapping("/{id}/estado")
+    public ResponseEntity<Map<String, String>> consultarEstadoCompra(@PathVariable Long id) {
+        return compraService.consultarEstadoCompra(id)
+                .map(estado -> ResponseEntity.ok(Map.of("estado", estado)))
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
 
     @GetMapping("/{id}")
     @Operation(summary = "Obtener compra por ID", description = "Obtiene una compra específica por su ID")
@@ -45,7 +77,7 @@ public class CompraController {
     @Operation(summary = "Obtener todas las compras por DNI", description = "Obtiene todas las compras de un cliente por su DNI")
     @ApiResponse(responseCode = "200", description = "Lista de compras obtenida exitosamente")
     public ResponseEntity<List<CompraResponseDTO>> obtenerComprasPorDni(@PathVariable @Parameter(description = "DNI del comprador") String dni) {
-        List<CompraResponseDTO> compras = compraService.getAllByDni(dni).stream().map(this::entityToDto).collect(Collectors.toList());
+        List<CompraResponseDTO> compras = compraService.getAllByDni(dni).stream().map(CompraController::entityToDto).collect(Collectors.toList());
         return ResponseEntity.ok(compras);
     }
 
@@ -53,7 +85,7 @@ public class CompraController {
     @Operation(summary = "Obtener todas las compras", description = "Obtiene la lista de todas las compras realizadas")
     @ApiResponse(responseCode = "200", description = "Lista de compras obtenida exitosamente")
     public ResponseEntity<List<CompraResponseDTO>> obtenerTodasCompras() {
-        List<CompraResponseDTO> compras = compraService.getAll().stream().map(this::entityToDto).collect(Collectors.toList());
+        List<CompraResponseDTO> compras = compraService.getAll().stream().map(CompraController::entityToDto).collect(Collectors.toList());
         return ResponseEntity.ok(compras);
     }
 
@@ -84,7 +116,7 @@ public class CompraController {
         }
     }
 
-    private CompraResponseDTO entityToDto(Compra c) {
+    static CompraResponseDTO entityToDto(Compra c) {
         CompraResponseDTO dto = new CompraResponseDTO();
         dto.setId(c.getId());
         if (c.getCliente() != null) {
@@ -102,14 +134,15 @@ public class CompraController {
         dto.setDescuentoAplicado(c.getDescuentoAplicado());
         dto.setEstado(c.getEstado() != null ? c.getEstado().name() : null);
         dto.setCuponCodigo(c.getCupon() != null ? c.getCupon().getCodigo() : null);
+        dto.setFormaPago(c.getFormaPago());
         if (c.getDetalles() != null) {
-            List<CompraDetalleResponseDTO> detalles = c.getDetalles().stream().map(this::detalleEntityToDto).collect(Collectors.toList());
+            List<CompraDetalleResponseDTO> detalles = c.getDetalles().stream().map(CompraController::detalleEntityToDto).collect(Collectors.toList());
             dto.setDetalles(detalles);
         }
         return dto;
     }
 
-    private CompraDetalleResponseDTO detalleEntityToDto(CompraDetalle d) {
+    static CompraDetalleResponseDTO detalleEntityToDto(CompraDetalle d) {
         CompraDetalleResponseDTO dto = new CompraDetalleResponseDTO();
         dto.setId(d.getId());
         if (d.getTipoEntrada() != null) {

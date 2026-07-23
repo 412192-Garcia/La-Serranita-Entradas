@@ -1,4 +1,7 @@
 <div class="calendario-card">
+
+  <div class="calendario-wrapper" [class.colapsado]="esRegalo">
+    <div class="calendario-inner">
   <div class="calendario-header">
     <button type="button" class="btn-nav" (click)="cambiarMes(-1)" [disabled]="esMesMinimo">&#10216;</button>
     <h2>{{ nombreMes }} {{ anioActual }}</h2>
@@ -28,12 +31,35 @@
     </div>
     }
   </div>
+    </div>
+  </div>
+  <div class="footer-regalo" [class.modo-activo]="esRegalo">
+    <label class="checkbox-regalo-label">
+      <input
+        type="checkbox"
+        class="checkbox-regalo-input"
+        [(ngModel)]="esRegalo"
+        (ngModelChange)="onCambioRegalo($event)"
+      >
+      <div class="info-regalo">
+        <span class="titulo-regalo">Comprar como Regalo</span>
+        <span class="desc-regalo">Sin fecha</span>
+      </div>
+    </label>
+  </div>
+
+  @if (esRegalo) {
+    <div class="feedback-regalo-activo">
+      Quien reciba el regalo podrá usarlo el día que prefiera. //TODO AJUSTAR TEXTO
+    </div>
+  }
+
 </div>
 
 @if (fechaSeleccionada)
 {
   <div class="feedback-reserva">
-    Dia seleccioando: <strong>{{fechaSeleccionada | date:'dd/MM/yyyy'}}</strong>
+    Día seleccionado: <strong>{{fechaSeleccionada | date:'dd/MM/yyyy'}}</strong>
   </div>
 }
 

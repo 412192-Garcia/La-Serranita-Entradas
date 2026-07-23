@@ -1,9 +1,10 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
+import {Component, OnInit, OnDestroy, ChangeDetectorRef, Output, EventEmitter} from '@angular/core';
 import { Semana } from './semana/semana';
 import { DiaCalendario } from './calendario-models';
 import { DatePipe } from '@angular/common';
 import { DiaAperturaService } from '../Services/dia-apertura.service';
 import { Subscription } from 'rxjs';
+import {FormsModule} from '@angular/forms';
 
 const MESES_LETRAS: string[] = [
   'ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO',
@@ -12,13 +13,15 @@ const MESES_LETRAS: string[] = [
 
 @Component({
   selector: 'app-calendario',
-  imports: [Semana, DatePipe],
+  imports: [Semana, DatePipe, FormsModule],
   templateUrl: './calendario.html',
   styleUrl: './calendario.css',
 })
 export class Calendario implements OnInit, OnDestroy {
 
   cargando: boolean = false;
+
+  esRegalo: boolean = false;
 
   nombreMes: string = MESES_LETRAS[new Date().getMonth()];
   anioActual: number = new Date().getFullYear();
@@ -27,6 +30,9 @@ export class Calendario implements OnInit, OnDestroy {
   semanas: DiaCalendario[][] = [];
   fechaSeleccionada: Date | null = null;
   esMesMinimo: boolean = true;
+
+  @Output() fechaSeleccionadaChange = new EventEmitter<Date | null>();
+  @Output() esRegaloChange = new EventEmitter<boolean>();
 
   private fechaBase: Date = new Date();
   private subscripcionApertura: Subscription | null = null;
@@ -145,6 +151,16 @@ export class Calendario implements OnInit, OnDestroy {
         seleccionado: dia.numero ? dia.fecha.getTime() === fecha.getTime() : false
       }))
     );
+    this.fechaSeleccionadaChange.emit(this.fechaSeleccionada);
     this.cdr.detectChanges();
+  }
+
+  onCambioRegalo(valor: boolean): void {
+    this.esRegalo = valor;
+    if (this.esRegalo) {
+      this.fechaSeleccionada = null;
+      this.fechaSeleccionadaChange.emit(null);
+    }
+    this.esRegaloChange.emit(this.esRegalo);
   }
 }

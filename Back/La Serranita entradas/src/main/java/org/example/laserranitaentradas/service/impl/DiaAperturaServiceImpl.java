@@ -41,7 +41,6 @@ public class DiaAperturaServiceImpl implements DiaAperturaService {
             if (existente.isPresent()) {
                 resultado.add(existente.get());
             } else {
-                // Si no existe registro, se considera cerrado.
                 DiaApertura noExiste = DiaApertura.builder()
                         .id(null)
                         .fecha(fecha)
