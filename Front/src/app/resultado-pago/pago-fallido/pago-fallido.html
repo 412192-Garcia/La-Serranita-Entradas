@@ -1,18 +1,14 @@
 <div class="pago-fallido-card">
   <div class="icono-fallido">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-      <circle cx="12" cy="12" r="10"></circle>
-      <line x1="15" y1="9" x2="9" y2="15"></line>
-      <line x1="9" y1="9" x2="15" y2="15"></line>
-    </svg>
+    <svg lucideCircleX [strokeWidth]="2.5"></svg>
   </div>
 
   <h3>El pago no pudo procesarse</h3>
   <p>Ocurrió un inconveniente al intentar cobrar tu entrada o cancelaste la operación.</p>
 
-  @if (compraId) {
+  @if (codigoReserva) {
     <div class="referencia-compra">
-      Referencia de compra: <strong>#{{ compraId }}</strong>
+      Referencia de compra: <strong>#{{ codigoReserva }}</strong>
     </div>
   }
 

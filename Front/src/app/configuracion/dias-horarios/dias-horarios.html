@@ -1,0 +1,138 @@
+<div class="seccion seccion-dias">
+
+  <div class="tarjeta tarjeta-horario-general">
+    <h2>Horario general</h2>
+    <p class="ayuda">Rige todos los días abiertos salvo que definas un horario especial puntual.</p>
+    <div class="fila-horario">
+      <label>
+        Apertura
+        <input type="time" [ngModel]="horaAperturaGeneral()" (ngModelChange)="horaAperturaGeneral.set($event)" />
+      </label>
+      <label>
+        Cierre
+        <input type="time" [ngModel]="horaCierreGeneral()" (ngModelChange)="horaCierreGeneral.set($event)" />
+      </label>
+      <button type="button" class="btn-primario" [disabled]="guardandoHorarioGeneral()" (click)="guardarHorarioGeneral()">
+        {{ guardandoHorarioGeneral() ? 'Guardando…' : 'Guardar' }}
+      </button>
+    </div>
+    @if (mensajeHorarioGeneral()) {
+      <p class="mensaje">{{ mensajeHorarioGeneral() }}</p>
+    }
+  </div>
+
+  <div class="tarjeta tarjeta-mes">
+    <div class="mes-header">
+      <button type="button" class="btn-mes" (click)="cambiarMes(-1)">‹</button>
+      <h2>{{ nombreMes() }} {{ anioMes() }}</h2>
+      <button type="button" class="btn-mes" (click)="cambiarMes(1)">›</button>
+    </div>
+
+    <p class="ayuda ayuda-tip">Tip: Ctrl (o Cmd)+click suma días sueltos a la selección; Shift+click selecciona todo el rango entre dos días.</p>
+
+    @if (errorDias()) {
+      <p class="alerta-error">{{ errorDias() }}</p>
+    }
+
+    @if (cargandoDias()) {
+      <div class="spinner-contenedor"><div class="spinner"></div></div>
+    } @else {
+      <div class="grid-nombres-dias">
+        <span>Lun</span><span>Mar</span><span>Mié</span><span>Jue</span><span>Vie</span><span>Sáb</span><span>Dom</span>
+      </div>
+      <div class="grid-mes">
+        @for (c of celdas(); track c.fecha || $index) {
+          @if (c.numero === null) {
+            <div class="celda-dia celda-vacia"></div>
+          } @else {
+            <button
+              type="button"
+              class="celda-dia"
+              [class.abierto]="c.dia?.abierto"
+              [class.cerrado]="!c.dia?.abierto"
+              [class.seleccionada]="diasSeleccionados().has(c.fecha)"
+              [class.con-horario-especial]="c.dia?.horaApertura"
+              (click)="onClickCelda(c, $event)">
+              <span class="numero-dia">{{ c.numero }}</span>
+              <span class="estado-dia">{{ c.dia?.abierto ? 'Abierto' : 'Cerrado' }}</span>
+              @if (c.dia?.horaApertura) {
+                <span class="horario-especial-badge">especial</span>
+              }
+            </button>
+          }
+        }
+      </div>
+    }
+  </div>
+
+  <div class="tarjeta tarjeta-dia-detalle">
+    @if (diasSeleccionados().size === 0) {
+      <h2>Configuración del día</h2>
+      <p class="ayuda">Tocá un día del calendario para ver su estado o definirle un horario especial.</p>
+    } @else if (diaUnicoSeleccionado(); as dia) {
+      <h2>{{ dia.fecha | date: 'dd/MM/yyyy' }}</h2>
+
+      <div class="fila-horario">
+        <span class="etiqueta-estado" [class.abierto]="dia.abierto" [class.cerrado]="!dia.abierto">
+          {{ dia.abierto ? 'Abierto' : 'Cerrado' }}
+        </span>
+        <button type="button" class="btn-secundario" (click)="toggleAbierto(dia, $event)">
+          {{ dia.abierto ? 'Marcar cerrado' : 'Marcar abierto' }}
+        </button>
+      </div>
+
+      <p class="ayuda">Horario especial para este día (dejalo vacío para usar el horario general):</p>
+      <div class="fila-horario">
+        <label>
+          Apertura
+          <input type="time" [ngModel]="horaAperturaEspecial()" (ngModelChange)="horaAperturaEspecial.set($event)" />
+        </label>
+        <label>
+          Cierre
+          <input type="time" [ngModel]="horaCierreEspecial()" (ngModelChange)="horaCierreEspecial.set($event)" />
+        </label>
+        <button type="button" class="btn-primario" [disabled]="guardandoDia()" (click)="guardarHorarioEspecial()">
+          {{ guardandoDia() ? 'Guardando…' : 'Guardar horario especial' }}
+        </button>
+        @if (dia.horaApertura) {
+          <button type="button" class="btn-secundario" [disabled]="guardandoDia()" (click)="quitarHorarioEspecial()">
+            Quitar
+          </button>
+        }
+      </div>
+    } @else {
+      <div class="fila-horario fila-grupo-header">
+        <h2>{{ diasSeleccionados().size }} días seleccionados</h2>
+        <button type="button" class="btn-secundario" (click)="limpiarSeleccion()">Cancelar selección</button>
+      </div>
+
+      <p class="ayuda">Aplicá un cambio a todos los días seleccionados a la vez:</p>
+      <div class="fila-horario">
+        <button type="button" class="btn-primario" [disabled]="aplicandoBulk()" (click)="aplicarEstadoBulk(true)">
+          {{ aplicandoBulk() ? 'Aplicando…' : 'Abrir todos' }}
+        </button>
+        <button type="button" class="btn-secundario" [disabled]="aplicandoBulk()" (click)="aplicarEstadoBulk(false)">
+          {{ aplicandoBulk() ? 'Aplicando…' : 'Cerrar todos' }}
+        </button>
+      </div>
+
+      <p class="ayuda">Horario especial para todos ellos (dejalo vacío para usar el horario general):</p>
+      <div class="fila-horario">
+        <label>
+          Apertura
+          <input type="time" [ngModel]="horaAperturaGrupo()" (ngModelChange)="horaAperturaGrupo.set($event)" />
+        </label>
+        <label>
+          Cierre
+          <input type="time" [ngModel]="horaCierreGrupo()" (ngModelChange)="horaCierreGrupo.set($event)" />
+        </label>
+        <button type="button" class="btn-primario" [disabled]="guardandoHorarioGrupo()" (click)="guardarHorarioGrupo()">
+          {{ guardandoHorarioGrupo() ? 'Guardando…' : 'Guardar horario' }}
+        </button>
+        <button type="button" class="btn-secundario" [disabled]="guardandoHorarioGrupo()" (click)="quitarHorarioGrupo()">
+          Quitar
+        </button>
+      </div>
+    }
+  </div>
+</div>

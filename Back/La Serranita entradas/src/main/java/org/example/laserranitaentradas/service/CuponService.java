@@ -11,6 +11,8 @@ public interface CuponService {
     Optional<Cupon> getByCode(String codigo);
     List<Cupon> getAll();
     List<Cupon> getAllActive();
+    /** Cupones creados de forma individual, sin pertenecer a ningún lote/familia. */
+    List<Cupon> getAllIndividuales();
     Cupon create(CrearCuponRequest request);
     Cupon update(Cupon cupon);
 }

@@ -48,43 +48,10 @@
       </div>
     }
 
-    <div class="cupon-modulo">
-      <div class="cupon-input-grupo">
-        <input
-          type="text"
-          placeholder="¿Tenés un cupón?"
-          [(ngModel)]="codigoInput"
-          [disabled]="cuponAplicado !== null"
-        />
-        @if (!cuponAplicado) {
-          <button type="button" class="btn-cupon" (click)="aplicarCupon()">Aplicar</button>
-        } @else {
-          <button type="button" class="btn-cupon remover" (click)="removerCupon()">Quitar</button>
-        }
-      </div>
-      @if (errorCupon) {
-        <small class="cupon-error-msg">{{ errorCupon }}</small>
-      }
-      @if (cuponAplicado) {
-        <small class="cupon-success-msg">
-          ¡Cupón {{ cuponAplicado.codigo }} aplicado! (-{{ cuponAplicado.porcentajeDescuento ? cuponAplicado.porcentajeDescuento + '%' : (cuponAplicado.montoDescuento | currency:'ARS':'symbol-narrow':'1.0-0') }})
-        </small>
-      }
-    </div>
-
     <div class="footer-resumen">
       <div class="fila-total">
         <span class="etiqueta-total">TOTAL:</span>
-        <div class="precios-bloque">
-          <span class="valor-total" [class.precio-tachado]="cuponAplicado">
-            {{ subtotal | currency:'ARS':'symbol-narrow':'1.0-0' }} ARS
-          </span>
-          @if (cuponAplicado) {
-            <span class="valor-total nuevo-precio">
-              {{ total | currency:'ARS':'symbol-narrow':'1.0-0' }} ARS
-            </span>
-          }
-        </div>
+        <span class="valor-total">{{ subtotal | currency:'ARS':'symbol-narrow':'1.0-0' }} ARS</span>
       </div>
 
       <button

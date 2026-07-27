@@ -1,10 +1,26 @@
+/*
+ * Este módulo se embebe dentro del sitio del parque, en una caja de ~760px como
+ * máximo. Por eso los puntos de quiebre miran el ancho de ESTA caja (@container)
+ * y no el de la ventana: si miraran la ventana, en una notebook de 1400px no se
+ * dispararía ninguno y el layout quedaría en dos columnas dentro de 760px.
+ * Funciona igual si el embebido termina siendo un iframe.
+ *
+ * El contenedor va en el :host y no en .modulo-compra-container porque una
+ * consulta @container sólo puede mirar a un contenedor ANCESTRO: si lo declarara
+ * el mismo elemento que quiero reacomodar, la regla no se aplicaría nunca.
+ */
+:host {
+  container: modulo / inline-size;
+  display: block;
+  width: 100%;
+}
+
 .modulo-compra-container {
   display: flex;
   flex-direction: row;
   justify-content: space-between;
-  align-items: stretch; /* ⚡ stretch hace que ambas columnas midan lo mismo de alto */
+  align-items: stretch; /* stretch iguala la altura de ambas columnas a la del contenido más alto */
   width: 100%;
-  height: 100%;
   padding: 0;
   box-sizing: border-box;
 }
@@ -14,9 +30,9 @@
   width: 100%;
   display: flex;
   flex-direction: column;
-  background-color: var(--color-accent);
-  padding: 28px 30px;
-  gap: 25px; /* Mantiene la separación sana entre el calendario y el cartel */
+  background: var(--gradient-accent);
+  padding: 22px 26px;
+  gap: 18px; /* Mantiene la separación sana entre el calendario y el cartel */
   justify-content: flex-start; /* ⚡ Obliga a los elementos a acomodarse uno abajo del otro en orden natural */
   box-sizing: border-box;
 }
@@ -34,11 +50,11 @@ app-calendario {
 .contenedor-info-util {
   width: 100%;
   max-width: 440px; /* Sigue exactamente el ancho del calendario */
-  margin: 25px auto 0 auto;
+  margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 16px; /* Separación interna entre los renglones */
-  padding: 20px; /* Aire interno para que el texto no toque los bordes */
+  gap: 12px; /* Separación interna entre los renglones */
+  padding: 16px 18px; /* Aire interno para que el texto no toque los bordes */
   box-sizing: border-box;
   font-family: var(--font-body);
 
@@ -92,14 +108,26 @@ app-calendario {
   flex: 1 1 70%;
   width: 100%;
 }
-@media  (max-width: 600px) {
+
+/* Avisos del checkout (antes eran alert() nativos del navegador). */
+.aviso-pago {
+  background-color: var(--color-danger-light);
+  color: var(--color-danger-dark);
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  margin: 0 0 16px;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+@container modulo (max-width: 600px) {
   .columna-izquierda-contenido{
     min-width: 100%;
     padding: 10px 10px
   }
 }
 
-@media (max-width: 1200px) {
+@container modulo (max-width: 1200px) {
   .modulo-compra-container {
     flex-direction: column;
     align-items: center;

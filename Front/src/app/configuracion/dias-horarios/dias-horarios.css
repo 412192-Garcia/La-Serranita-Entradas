@@ -1,0 +1,150 @@
+:host {
+  display: block;
+  width: 100%;
+}
+
+.seccion-dias {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+.tarjeta-horario-general {
+  grid-column: 1 / -1;
+}
+
+/* ---------- Calendario mensual admin ---------- */
+.mes-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.mes-header h2 { margin: 0; min-width: 180px; text-align: center; }
+
+.ayuda-tip {
+  text-align: center;
+  font-size: 0.75rem;
+}
+
+.fila-grupo-header {
+  justify-content: space-between;
+  align-items: center;
+}
+
+.fila-grupo-header h2 { margin: 0; }
+
+.btn-mes {
+  border: none;
+  background-color: var(--color-bg-soft);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 1.1rem;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+}
+
+.btn-mes:hover { background-color: var(--color-primary-light); color: var(--color-primary-dark); }
+
+.grid-nombres-dias {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  text-align: center;
+  margin-bottom: 6px;
+}
+
+.grid-mes {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+
+.celda-dia {
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: #fff;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s ease;
+  position: relative;
+  padding: 4px;
+}
+
+.celda-vacia {
+  border: none;
+  background: none;
+  cursor: default;
+}
+
+.celda-dia.abierto {
+  border-color: var(--color-calendar-border);
+  background-color: var(--color-primary-light);
+}
+
+.celda-dia.cerrado {
+  background-color: var(--color-bg-soft);
+  color: var(--color-text-muted);
+}
+
+.celda-dia.seleccionada {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
+.celda-dia.con-horario-especial {
+  border-color: var(--color-accent);
+}
+
+.numero-dia {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.estado-dia {
+  font-size: 0.62rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.horario-especial-badge {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  background-color: var(--color-accent);
+  color: #fff;
+  font-size: 0.55rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  padding: 1px 4px;
+  border-radius: 999px;
+}
+
+.etiqueta-estado {
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.etiqueta-estado.abierto { background-color: var(--color-primary-light); color: var(--color-primary-dark); }
+.etiqueta-estado.cerrado { background-color: var(--color-border); color: var(--color-text-secondary); }
+
+/* ---------- Responsive ---------- */
+@media (max-width: 900px) {
+  .seccion-dias { grid-template-columns: 1fr; }
+}

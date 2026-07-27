@@ -1,0 +1,185 @@
+<div class="panel">
+
+  <app-cabecera-interna
+    titulo="Control de Accesos"
+    descripcion="Buscá por DNI (tipealo o escaneá el código de barras del DNI en cualquier momento, sin necesidad de clickear el campo primero), mirá un día puntual, o listá todas las reservas — el parque acepta la entrada aunque sea de otro día."
+    [enlace]="enlaceCabecera()" />
+
+  <!-- ============ CONTROLES DE BÚSQUEDA ============ -->
+  <div class="controles">
+    <div class="buscador">
+      <input
+        type="text"
+        inputmode="numeric"
+        class="buscador-input"
+        placeholder="DNI del titular"
+        aria-label="DNI del comprador titular"
+        autofocus
+        [ngModel]="dni()"
+        (ngModelChange)="dni.set($event)"
+        (keyup.enter)="buscar()"
+      />
+      <button type="button" class="btn-buscar" (click)="buscar()" [disabled]="!dni().trim() || buscando()">
+        {{ buscando() ? 'Buscando…' : 'Buscar por DNI' }}
+      </button>
+      @if (dni()) {
+        <button type="button" class="btn-limpiar" (click)="limpiar()">Limpiar</button>
+      }
+    </div>
+
+    <div class="selector-vista">
+      <input
+        type="date"
+        class="buscador-dia-input"
+        aria-label="Día de visita a consultar"
+        [ngModel]="fecha()"
+        (ngModelChange)="fecha.set($event)"
+      />
+      <button
+        type="button"
+        class="btn-vista"
+        [class.activo]="modo() === 'dia'"
+        (click)="verReservasDelDia()"
+        [disabled]="!fecha() || buscando()">
+        Ver esa fecha
+      </button>
+      <button
+        type="button"
+        class="btn-vista"
+        [class.activo]="modo() === 'todas'"
+        (click)="verTodas()"
+        [disabled]="buscando()">
+        Ver todas las fechas
+      </button>
+    </div>
+  </div>
+
+  @if (errorBusqueda()) {
+    <p class="alerta-error">{{ errorBusqueda() }}</p>
+  }
+  @if (errorAccion()) {
+    <p class="alerta-error">{{ errorAccion() }}</p>
+  }
+
+  <!-- ============ RESULTADOS ============ -->
+  @if (buscando()) {
+    <div class="spinner-contenedor"><div class="spinner"></div></div>
+  } @else if (visibles() !== null) {
+
+    @if (visibles()!.length === 0) {
+      <div class="sin-resultados">
+        @if (resultados()!.length > 0) {
+          <!-- había resultados, pero ninguno requiere acción (usadas, canceladas o pendientes) y están ocultos -->
+          <span class="sin-resultados-icono">✅</span>
+          <p>
+            {{ resultados()!.length }} reserva{{ resultados()!.length === 1 ? '' : 's' }} encontrada{{ resultados()!.length === 1 ? '' : 's' }},
+            pero ninguna requiere acción ahora (ya utilizada, cancelada o con pago pendiente).
+          </p>
+          <button type="button" class="btn-limpiar" (click)="mostrarTodas.set(true)">Mostrar todas</button>
+        } @else {
+          <span class="sin-resultados-icono">🔎</span>
+          @if (modo() === 'dni') {
+            <p>No se encontraron compras para el DNI <strong>{{ dni() }}</strong>.</p>
+            <small>Verificá el número, o probá "Ver todas las fechas" si no estás seguro del DNI cargado.</small>
+          } @else if (modo() === 'dia') {
+            <p>No hay reservas cargadas para el <strong>{{ fecha() | date: 'dd/MM/yyyy' }}</strong>.</p>
+            <small>Probá "Ver todas las fechas" — el parque acepta entradas de otros días.</small>
+          } @else {
+            <p>Todavía no hay ninguna reserva cargada.</p>
+          }
+        }
+      </div>
+    } @else {
+      <div class="resumen-dia">
+        <span>
+          {{ visibles()!.length }} reserva{{ visibles()!.length === 1 ? '' : 's' }} ·
+          {{ totalPasesListados() }} pase{{ totalPasesListados() === 1 ? '' : 's' }} en total
+        </span>
+        <label class="toggle-usadas">
+          <input type="checkbox" [ngModel]="mostrarTodas()" (ngModelChange)="mostrarTodas.set($event)" />
+          Mostrar todas (usadas, canceladas y pendientes)
+        </label>
+      </div>
+
+      <div class="tabla-reservas">
+        <div class="fila fila-header">
+          <span class="col-titular">Titular</span>
+          <span class="col-fecha">Fecha visita</span>
+          <span class="col-codigo">Código</span>
+          <span class="col-pases">Pases</span>
+          <span class="col-estado">Estado</span>
+          <span class="col-accion">Acción</span>
+        </div>
+
+        @for (v of visibles(); track v.reserva.id) {
+          <div class="fila fila-reserva" [class.fila-usada]="v.reserva.estado === 'USADO'">
+
+            <div class="col-titular celda-titular">
+              <strong>{{ v.reserva.cliente?.nombre }} {{ v.reserva.cliente?.apellido }}</strong>
+              <span class="titular-dni">DNI {{ v.reserva.cliente?.dni }}</span>
+              @if (v.pases.length || v.extras.length) {
+                <span class="titular-detalle">
+                  @for (p of v.pases; track p.nombre) {
+                    <span>{{ p.cantidad }}× {{ p.nombre }}</span>
+                  }
+                  @for (e of v.extras; track e.nombre) {
+                    <span class="extra">{{ e.cantidad }}× {{ e.nombre }}</span>
+                  }
+                </span>
+              }
+            </div>
+
+            <div class="col-fecha celda-fecha">
+              @if (v.reserva.fechaVisita) {
+                <span>{{ v.reserva.fechaVisita | date: 'dd/MM/yyyy' }}</span>
+                @if (!v.esHoy) {
+                  <span class="badge-otro-dia">otro día</span>
+                }
+              } @else {
+                <span>Sin fecha</span>
+                <span class="badge-otro-dia">regalo</span>
+              }
+            </div>
+
+            <span class="col-codigo celda-codigo">#{{ v.reserva.codigoReserva }}</span>
+            <span class="col-pases celda-pases">{{ v.totalPases }}</span>
+
+            <span class="col-estado">
+              <span class="badge" [class]="'badge-' + v.reserva.estado">{{ v.etiquetaEstado }}</span>
+            </span>
+
+            <div class="col-accion celda-accion">
+              @switch (v.reserva.estado) {
+                @case ('APROBADO') {
+                  <button type="button" class="btn-accion btn-validar" [disabled]="procesando(v.reserva)" (click)="validarIngreso(v.reserva)">
+                    {{ procesando(v.reserva) ? 'Validando…' : 'Validar Ingreso' }}
+                  </button>
+                }
+                @case ('RESERVADO_EFECTIVO') {
+                  <span class="monto-cobrar">{{ v.reserva.montoTotal | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+                  <button type="button" class="btn-accion btn-cobrar" [disabled]="procesando(v.reserva)" (click)="cobrarYValidar(v.reserva)">
+                    {{ procesando(v.reserva) ? 'Registrando…' : 'Cobrar y Validar' }}
+                  </button>
+                }
+                @case ('USADO') {
+                  <span class="texto-usado">
+                    Usado
+                    @if (v.reserva.fechaValidacion) {
+                      {{ v.reserva.fechaValidacion | date: 'dd/MM HH:mm' }}
+                    }
+                  </span>
+                }
+                @case ('PENDIENTE_PAGO') {
+                  <span class="texto-aviso">Pago pendiente</span>
+                }
+                @case ('CANCELADO') {
+                  <span class="texto-aviso">Cancelada</span>
+                }
+              }
+            </div>
+          </div>
+        }
+      </div>
+    }
+  }
+</div>

@@ -1,0 +1,39 @@
+<div class="panel-login">
+  <div class="tarjeta-login">
+    <h1>Ingreso al módulo interno</h1>
+    <p class="ayuda">Boletería y Configuración del parque. Ingresá con tu usuario del staff.</p>
+
+    @if (error()) {
+      <p class="alerta-error">{{ error() }}</p>
+    }
+
+    <form (ngSubmit)="ingresar()">
+      <label>
+        Usuario
+        <input
+          type="text"
+          autocomplete="username"
+          [ngModel]="username()"
+          (ngModelChange)="username.set($event)"
+          name="username"
+        />
+      </label>
+      <label>
+        Contraseña
+        <input
+          type="password"
+          autocomplete="current-password"
+          [ngModel]="password()"
+          (ngModelChange)="password.set($event)"
+          name="password"
+        />
+      </label>
+
+      <button type="submit" class="btn-primario" [disabled]="ingresando() || !username().trim() || !password()">
+        {{ ingresando() ? 'Ingresando…' : 'Ingresar' }}
+      </button>
+    </form>
+
+    <a class="volver-web" routerLink="/entradas">Volver al sitio del parque</a>
+  </div>
+</div>

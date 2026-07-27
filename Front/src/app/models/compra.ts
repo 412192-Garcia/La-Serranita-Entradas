@@ -6,6 +6,8 @@ export interface ClienteData {
   dni: string;
   email: string;
   telefono: string;
+  edad?: number | null;
+  localidad?: string | null;
 }
 
 export interface EntradaSeleccionada {

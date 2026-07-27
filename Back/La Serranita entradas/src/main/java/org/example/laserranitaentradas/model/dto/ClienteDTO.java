@@ -9,5 +9,9 @@ public class ClienteDTO {
     String apellido;
     String email;
     String telefono;
+    /** Opcional. */
+    Integer edad;
+    /** Opcional. */
+    String localidad;
 }
 

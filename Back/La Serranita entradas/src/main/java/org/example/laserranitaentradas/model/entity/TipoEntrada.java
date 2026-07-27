@@ -39,6 +39,11 @@ public class TipoEntrada extends BaseEntity {
     @Builder.Default
     private Boolean activo = true;
 
+    /** Si es true, toda compra que incluya entradas debe tener al menos una unidad de algún tipo obligatorio (ej: un adulto responsable). */
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean obligatorio = false;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 50)
     private Tipo tipo;

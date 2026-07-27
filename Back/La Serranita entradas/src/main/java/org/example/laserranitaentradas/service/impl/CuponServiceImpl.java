@@ -47,6 +47,11 @@ public class CuponServiceImpl implements CuponService {
     }
 
     @Override
+    public List<Cupon> getAllIndividuales() {
+        return cuponRepository.findAllByFamiliaCuponIsNull();
+    }
+
+    @Override
     public Cupon update(Cupon cupon) {
         return cuponRepository.save(cupon);
     }

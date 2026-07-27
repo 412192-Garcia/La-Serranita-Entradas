@@ -1,0 +1,147 @@
+<div class="seccion seccion-tipos">
+
+  <div class="tarjeta">
+    <h2>{{ tipoEditandoId() ? 'Editar tipo de entrada' : 'Nuevo tipo de entrada' }}</h2>
+    @if (errorTipos()) {
+      <p class="alerta-error">{{ errorTipos() }}</p>
+    }
+    <div class="form-grid">
+      <label>
+        Nombre
+        <input type="text" [ngModel]="nombreTipo()" (ngModelChange)="nombreTipo.set($event)" placeholder="Ej: Pase General" />
+      </label>
+      <label>
+        Categoría
+        <select [ngModel]="categoriaTipo()" (ngModelChange)="categoriaTipo.set($event)">
+          <option value="ENTRADA">Entrada (pase)</option>
+          <option value="EXTRA">Extra (almuerzo, estacionamiento, etc.)</option>
+        </select>
+      </label>
+      <label>
+        <span class="etiqueta-campo">Descripción <span class="opcional">(opcional)</span></span>
+        <input type="text" [ngModel]="descripcionTipo()" (ngModelChange)="descripcionTipo.set($event)" />
+      </label>
+      <label>
+        Precio
+        <input type="number" min="0" [ngModel]="precioTipo()" (ngModelChange)="precioTipo.set($event)" />
+      </label>
+    </div>
+    @if (categoriaTipo() === 'ENTRADA') {
+      <label class="fila-checkbox">
+        <input type="checkbox" [ngModel]="obligatorioTipo()" (ngModelChange)="obligatorioTipo.set($event)" />
+        <span>
+          Obligatorio: toda compra con entradas debe incluir al menos un pase de este tipo
+          <span class="opcional">(ej: marcá esto en "Pase General" para exigir un adulto responsable y evitar que menores entren solos)</span>
+        </span>
+      </label>
+    }
+    <div class="fila-horario">
+      <button type="button" class="btn-primario" [disabled]="guardandoTipo()" (click)="guardarTipo()">
+        {{ guardandoTipo() ? 'Guardando…' : (tipoEditandoId() ? 'Guardar cambios' : 'Crear tipo de entrada') }}
+      </button>
+      @if (tipoEditandoId()) {
+        <button type="button" class="btn-secundario" (click)="cancelarEdicionTipo()">Cancelar</button>
+      }
+    </div>
+  </div>
+
+  <div class="tarjeta">
+    <h2>Tipos de entrada existentes</h2>
+    @if (cargandoTipos()) {
+      <div class="spinner-contenedor"><div class="spinner"></div></div>
+    } @else if (tiposEntrada().length === 0) {
+      <p class="ayuda">Todavía no hay tipos de entrada creados.</p>
+    } @else {
+      <div class="tabla-simple">
+        <div class="fila-simple fila-simple-tipos fila-simple-header">
+          <span>Nombre</span><span>Categoría</span><span>Precio</span><span>Obligatorio</span><span>Estado</span><span>Acción</span>
+        </div>
+        @for (t of tiposEntrada(); track t.id) {
+          <div class="fila-simple fila-simple-tipos">
+            <span>{{ t.nombre }}</span>
+            <span>{{ t.tipo === 'ENTRADA' ? 'Entrada' : 'Extra' }}</span>
+            <span>{{ t.precio | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+            <span>
+              @if (t.obligatorio) {
+                <span class="badge badge-activo">Sí</span>
+              } @else {
+                <span class="ayuda">—</span>
+              }
+            </span>
+            <span class="badge" [class.badge-activo]="t.activo" [class.badge-inactivo]="!t.activo">
+              {{ t.activo ? 'Activo' : 'Inactivo' }}
+            </span>
+            <span class="acciones-tipo">
+              <button type="button" class="btn-secundario" (click)="editarTipo(t)">Editar</button>
+              <button type="button" class="btn-secundario" (click)="toggleActivoTipo(t)">
+                {{ t.activo ? 'Desactivar' : 'Activar' }}
+              </button>
+            </span>
+          </div>
+        }
+      </div>
+    }
+  </div>
+
+  <div class="tarjeta tarjeta-ancha">
+    <h2>{{ descuentoEditandoId() ? 'Editar precio de grupo' : 'Nuevo precio de grupo (efectivo)' }}</h2>
+    <p class="ayuda">Precio total promocional para una cantidad puntual de pases, aplicado solo al pagar en efectivo en boletería.</p>
+    @if (errorDescuentos()) {
+      <p class="alerta-error">{{ errorDescuentos() }}</p>
+    }
+    <div class="form-grid">
+      <label>
+        Tipo de entrada
+        <select [ngModel]="tipoEntradaIdDescuento()" (ngModelChange)="tipoEntradaIdDescuento.set($event)">
+          <option [ngValue]="null">Elegí un tipo…</option>
+          @for (t of entradasParaDescuento(); track t.id) {
+            <option [ngValue]="t.id">{{ t.nombre }}</option>
+          }
+        </select>
+      </label>
+      <label>
+        Cantidad de pases
+        <input type="number" min="2" [ngModel]="cantidadPasesDescuento()" (ngModelChange)="cantidadPasesDescuento.set($event)" />
+      </label>
+      <label>
+        Precio total promocional
+        <input type="number" min="0" [ngModel]="precioTotalDescuento()" (ngModelChange)="precioTotalDescuento.set($event)" />
+      </label>
+    </div>
+    <div class="fila-horario">
+      <button type="button" class="btn-primario" [disabled]="guardandoDescuento()" (click)="guardarDescuento()">
+        {{ guardandoDescuento() ? 'Guardando…' : (descuentoEditandoId() ? 'Guardar cambios' : 'Crear precio de grupo') }}
+      </button>
+      @if (descuentoEditandoId()) {
+        <button type="button" class="btn-secundario" (click)="cancelarEdicionDescuento()">Cancelar</button>
+      }
+    </div>
+  </div>
+
+  <div class="tarjeta tarjeta-ancha">
+    <h2>Precios por grupo existentes</h2>
+    @if (cargandoDescuentos()) {
+      <div class="spinner-contenedor"><div class="spinner"></div></div>
+    } @else if (descuentosGrupo().length === 0) {
+      <p class="ayuda">Todavía no hay precios de grupo configurados.</p>
+    } @else {
+      <div class="tabla-simple">
+        <div class="fila-simple fila-simple-descuentos fila-simple-header">
+          <span>Tipo de entrada</span><span>Cantidad</span><span>Precio total</span><span>Ahorro</span><span>Acción</span>
+        </div>
+        @for (d of descuentosGrupo(); track d.id) {
+          <div class="fila-simple fila-simple-descuentos">
+            <span>{{ d.tipoEntradaNombre }}</span>
+            <span>{{ d.cantidadPases }}</span>
+            <span>{{ d.precioPromocionalTotal | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+            <span>{{ ahorroDescuento(d) | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+            <span class="acciones-tipo">
+              <button type="button" class="btn-secundario" (click)="editarDescuento(d)">Editar</button>
+              <button type="button" class="btn-secundario" (click)="eliminarDescuento(d)">Eliminar</button>
+            </span>
+          </div>
+        }
+      </div>
+    }
+  </div>
+</div>

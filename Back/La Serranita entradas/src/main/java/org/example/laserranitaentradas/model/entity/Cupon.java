@@ -1,5 +1,6 @@
 package org.example.laserranitaentradas.model.entity;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -58,7 +59,7 @@ public class Cupon extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "familia_cupon_id")
-    @JsonIgnore
+    @JsonBackReference
     private FamiliaCupon familiaCupon;
 
 }

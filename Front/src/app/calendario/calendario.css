@@ -11,10 +11,13 @@
 }
 
 .calendario-card {
+  /* Las celdas de día (dia.css) se dimensionan según el ancho real del calendario. */
+  container: calendario / inline-size;
   width: 100%;
   max-width: 600px;
   background-color: #ffffff;
-  border-radius: var(--radius-lg);
+  border: 3px solid var(--color-calendar-border);
+  border-radius: var(--radius-xl);
   overflow: hidden;
   box-shadow: var(--shadow-card-lg);
   font-family: var(--font-body);
@@ -218,12 +221,12 @@
   font-weight: 800;
 }
 
-@media (max-width: 600px) {
+@container modulo (max-width: 600px) {
   .calendario-card {
     width: 96%;
   }
 }
-@media (max-width: 1200px) {
+@container modulo (max-width: 1200px) {
   .calendario-card {
     max-width: 800px;
   }

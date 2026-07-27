@@ -7,6 +7,8 @@ import org.example.laserranitaentradas.model.entity.Compra;
 import org.example.laserranitaentradas.model.entity.CompraDetalle;
 import org.example.laserranitaentradas.repository.CompraRepository;
 import org.example.laserranitaentradas.service.EmailService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
@@ -17,6 +19,8 @@ import java.time.format.DateTimeFormatter;
 
 @Service
 public class EmailServiceImpl implements EmailService {
+
+    private static final Logger log = LoggerFactory.getLogger(EmailServiceImpl.class);
 
     private final JavaMailSender mailSender;
     private final CompraRepository compraRepository;
@@ -51,10 +55,11 @@ public class EmailServiceImpl implements EmailService {
             helper.setText(htmlBody, true);
 
             mailSender.send(message);
-            System.out.println("✉️ Email de confirmación enviado exitosamente a: " + compra.getContactEmail());
+            // Se loguea el id de compra, no el correo, para no volcar datos de contacto al log.
+            log.info("Email de confirmación enviado para la compra ID {}", compraId);
 
         } catch (MessagingException e) {
-            System.err.println("❌ Error al enviar el email de confirmación: " + e.getMessage());
+            log.error("Error al enviar el email de confirmación de la compra ID {}", compraId, e);
         }
     }
 
@@ -89,7 +94,7 @@ public class EmailServiceImpl implements EmailService {
                     <p style="margin-bottom: 0;"><strong>NO necesitas imprimir nada.</strong> Al llegar al parque, el titular debe presentar el DNI <strong>%s</strong> en la boletería para ingresar con todo el grupo.</p>
                 </div>
 
-                <h3>Resumen de la Compra (#%d)</h3>
+                <h3>Resumen de la Compra (#%s)</h3>
                 <p><strong>Fecha de visita:</strong> %s</p>
                 
                 <table style="width: 100%%; border-collapse: collapse; margin-bottom: 20px;">
@@ -112,7 +117,7 @@ public class EmailServiceImpl implements EmailService {
             """.formatted(
                 nombreCliente,
                 dniCliente,
-                compra.getId(),
+                compra.getCodigoReserva(),
                 fechaVisitaStr,
                 detallesHtml.toString(),
                 compra.getMontoTotal()

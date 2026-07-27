@@ -1,223 +1,139 @@
 -- =============================================================================
--- 1. USUARIOS (ADMIN, BOLETERO)
--- Contraseñas de prueba (en producción usar Bcrypt)
--- =============================================================================
-INSERT INTO usuarios (username, password, nombre, apellido, rol, activo, fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion)
-VALUES
-    ('admin.serrana', 'admin2026', 'Laura', 'Mendoza', 'ADMIN', true, NOW(), NOW(), 'system', 'system'),
-    ('admin.central', 'root1234', 'Sandro', 'Gómez', 'ADMIN', true, NOW(), NOW(), 'system', 'system'),
-    ('boletero.turnom', 'passm123', 'Juan Pablo', 'Pérez', 'BOLETERO', true, NOW(), NOW(), 'system', 'system'),
-    ('boletero.turnot', 'passt123', 'Milagros', 'Benítez', 'BOLETERO', true, NOW(), NOW(), 'system', 'system'),
-    ('boletero.franco', 'passf123', 'Lucas', 'Díaz', 'BOLETERO', false, NOW(), NOW(), 'system', 'system'); -- Inactivo de momento
-
--- =============================================================================
--- 2. CLIENTES
--- =============================================================================
-INSERT INTO clientes (dni, nombre, apellido, fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion)
-VALUES
-    ('11111111', 'Carlos', 'Gómez', NOW(), NOW(), 'system', 'system'),
-    ('22222222', 'Ana Maria', 'Rodríguez', NOW(), NOW(), 'system', 'system'),
-    ('33333333', 'Mariana', 'López', NOW(), NOW(), 'system', 'system'),
-    ('44444444', 'Diego', 'Maradona', NOW(), NOW(), 'system', 'system'),
-    ('55555555', 'Florencia', 'Fernández', NOW(), NOW(), 'system', 'system'),
-    ('66666666', 'Javier', 'Milei', NOW(), NOW(), 'system', 'system'),
-    ('77777777', 'Sofía', 'Martínez', NOW(), NOW(), 'system', 'system'),
-    ('88888888', 'Bautista', 'González', NOW(), NOW(), 'system', 'system'),
-    ('99999999', 'Valentina', 'Romero', NOW(), NOW(), 'system', 'system'),
-    ('12345678', 'Esteban', 'Quito', NOW(), NOW(), 'system', 'system');
-
--- =============================================================================
--- 3. TIPOS DE ENTRADA
--- =============================================================================
-INSERT INTO tipos_entrada (nombre, descripcion, precio, activo, tipo, fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion)
-VALUES
-    ('General Adulto', 'Entrada estándar para mayores de 12 años', 1500.00, true, 'entrada', NOW(), NOW(), 'system', 'system'),
-    ('General Menor', 'Entrada reducida para niños de 4 a 12 años', 0.00, true, 'entrada', NOW(), NOW(), 'system', 'system'),
-    ('Jubilados / Pensionados', 'Descuento para la tercera edad presentando acreditación', 1000.00, true, 'entrada', NOW(), NOW(), 'system', 'system'),
-    ('Pase Familiar (4 pers)', 'Combo especial: 2 Adultos + 2 Menores', 4000.00, true, 'entrada', NOW(), NOW(), 'system', 'system'),
-    ('Pase VIP Experiencia', 'Acceso preferencial sin filas + souvenir de La Ranita', 3500.00, true, 'entrada', NOW(), NOW(), 'system', 'system'),
-    ('Promoción Vecinos', 'Tarifa para residentes locales (solo días de semana)', 900.00, true, 'entrada', NOW(), NOW(), 'system', 'system'),
-    ('Pase Nocturno Especial', 'Entrada para eventos especiales de noche (Desactivada)', 2500.00, false, 'entrada', NOW(), NOW(), 'system', 'system'),
-    ('Almuerzo Completo', 'Incluye entrada, plato principal y postre', 1200.00, true, 'extra', NOW(), NOW(), 'system', 'system'),
-    ('Estacionamiento', 'Acceso al estacionamiento por un día', 500.00, true, 'extra', NOW(), NOW(), 'system', 'system');
-
--- =============================================================================
--- 4. CUPONES (Descuentos porcentuales o fijos)
--- =============================================================================
-INSERT INTO cupones (codigo, porcentaje_descuento, monto_descuento, fecha_expiracion, usos_maximos, usos_actuales, activo, fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion)
-VALUES
-    ('RANITA20', 20.00, NULL, '2026-12-31', 200, 3, true, NOW(), NOW(), 'system', 'system'),
-    ('BIENVENIDA500', NULL, 500.00, '2026-09-30', 100, 2, true, NOW(), NOW(), 'system', 'system'),
-    ('SUPERPROMO50', 50.00, NULL, '2026-07-15', 20, 1, true, NOW(), NOW(), 'system', 'system'),
-    ('CUPON_EXPIRADO', 15.00, NULL, '2025-12-31', 50, 50, false, NOW(), NOW(), 'system', 'system'),
-    ('CORDOBA2026', NULL, 300.00, '2026-08-31', 500, 0, true, NOW(), NOW(), 'system', 'system');
-
--- =============================================================================
--- 5. DÍAS ABIERTOS
--- =============================================================================
-INSERT INTO dias_apertura (fecha, abierto, fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion)
-VALUES
-    ('2026-06-20', true, NOW(), NOW(), 'system', 'system'),
-    ('2026-06-21', true, NOW(), NOW(), 'system', 'system'),
-    ('2026-06-22', true, NOW(), NOW(), 'system', 'system'),
-    ('2026-06-23', false, NOW(), NOW(), 'system', 'system'), -- Cerrado por limpieza profunda
-    ('2026-06-24', true, NOW(), NOW(), 'system', 'system'),
-    ('2026-06-25', true, NOW(), NOW(), 'system', 'system'),
-    ('2026-06-26', true, NOW(), NOW(), 'system', 'system'),
-    ('2026-06-27', true, NOW(), NOW(), 'system', 'system'),
-    ('2026-06-28', true, NOW(), NOW(), 'system', 'system'),
-    ('2026-07-04', true, NOW(), NOW(), 'system', 'system'),
-    ('2026-07-05', true, NOW(), NOW(), 'system', 'system'),
-    ('2026-07-09', true, NOW(), NOW(), 'system', 'system'), -- Feriado de Julio abierto
-    ('2026-07-10', false, NOW(), NOW(), 'system', 'system'), -- Feriado puente cerrado
-    ('2026-07-11', true, NOW(), NOW(), 'system', 'system'),
-    ('2026-07-12', true, NOW(), NOW(), 'system', 'system'),
-    ('2026-07-18', true, NOW(), NOW(), 'system', 'system'),
-    ('2026-07-19', true, NOW(), NOW(), 'system', 'system'),
-    ('2026-07-25', true, NOW(), NOW(), 'system', 'system'),
-    ('2026-07-26', true, NOW(), NOW(), 'system', 'system'),
-    ('2026-08-01', true, NOW(), NOW(), 'system', 'system'),
-    ('2026-08-02', true, NOW(), NOW(), 'system', 'system'),
-    ('2026-08-08', true, NOW(), NOW(), 'system', 'system'),
-    ('2026-08-09', true, NOW(), NOW(), 'system', 'system'),
-    ('2026-08-15', true, NOW(), NOW(), 'system', 'system'),
-    ('2026-08-16', true, NOW(), NOW(), 'system', 'system'),
-    ('2026-08-22', true, NOW(), NOW(), 'system', 'system'),
-    ('2026-08-23', true, NOW(), NOW(), 'system', 'system'),
-    ('2026-08-29', true, NOW(), NOW(), 'system', 'system'),
-    ('2026-08-30', true, NOW(), NOW(), 'system', 'system'),
-    ('2026-09-05', true, NOW(), NOW(), 'system', 'system'),
-    ('2026-09-06', true, NOW(), NOW(), 'system', 'system'),
-    ('2026-09-12', true, NOW(), NOW(), 'system', 'system'),
-    ('2026-09-13', true, NOW(), NOW(), 'system', 'system'),
-    ('2026-09-19', true, NOW(), NOW(), 'system', 'system'),
-    ('2026-09-20', true, NOW(), NOW(), 'system', 'system'),
-    ('2026-09-26', true, NOW(), NOW(), 'system', 'system'),
-    ('2026-09-27', true, NOW(), NOW(), 'system', 'system'),
-    ('2026-10-03', true, NOW(), NOW(), 'system', 'system'),
-    ('2026-10-04', true, NOW(), NOW(), 'system', 'system'),
-    ('2026-10-10', true, NOW(), NOW(), 'system', 'system'),
-    ('2026-10-11', true, NOW(), NOW(), 'system', 'system'),
-    ('2026-10-17', true, NOW(), NOW(), 'system', 'system'),
-    ('2026-10-18', true, NOW(), NOW(), 'system', 'system'),
-    ('2026-10-24', true, NOW(), NOW(), 'system', 'system'),
-    ('2026-10-25', true, NOW(), NOW(), 'system', 'system'),
-    ('2026-10-31', true, NOW(), NOW(), 'system', 'system'),
-    ('2026-11-01', true, NOW(), NOW(), 'system', 'system'),
-    ('2026-11-07', true, NOW(), NOW(), 'system', 'system'),
-    ('2026-11-08', true, NOW(), NOW(), 'system', 'system'),
-    ('2026-11-14', true, NOW(), NOW(), 'system', 'system'),
-    ('2026-11-15', true, NOW(), NOW(), 'system', 'system'),
-    ('2026-11-21', true, NOW(), NOW(), 'system', 'system'),
-    ('2026-11-22', true, NOW(), NOW(), 'system', 'system'),
-    ('2026-11-28', true, NOW(), NOW(), 'system', 'system'),
-    ('2026-11-29', true, NOW(), NOW(), 'system', 'system');
-
--- =============================================================================
--- 6. COMPRAS (Historial variado)
--- IDs autoincrementales asumidos secuenciales (1 al 9)
+-- SCRIPT DE CARGA INICIAL DE DATOS (data.sql)
+-- Proyecto: Sistema de Entradas - Parque Recreativo La Serranita
 -- =============================================================================
 
--- Compra 1: Carlos Gómez - Estado: USADO (Ya vino al parque el 20/06, validó boletero.turnom, usó RANITA20)
--- Subtotal original: 2 General Adulto (3000) -> 20% desc = 600. Total = 2400
-INSERT INTO compras (id_cliente, contact_email, contact_phone, fecha_visita, monto_total, descuento_aplicado, estado, id_usuario_validador, id_cupon, forma_pago, fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion)
-VALUES (1, 'carlos@gmail.com', '3515555555', '2026-06-20', 2400.00, 600.00, 'USADO', 3, 1, 'MERCADO_PAGO', NOW(), NOW(), 'admin.serrana', 'boletero.turnom');
+-- -----------------------------------------------------------------------------
+-- 1. USUARIOS (Empleados del Parque: Administradores y Boleteros)
+-- Contraseñas de prueba (hash bcrypt real): admin/admin123, boletero.marta y
+-- boletero.juan comparten boletero123.
+-- -----------------------------------------------------------------------------
+INSERT INTO usuarios (
+    username, password, nombre, apellido, rol, activo,
+    fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion
+) VALUES
+      ('admin', '$2a$10$3M7rO0WklkesAeyyf00aSeK08yXSQSwT.21ZXAIoo2PUsNCUxWHT.', 'Carlos', 'González', 'ADMIN', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'SYSTEM', 'SYSTEM'),
+      ('boletero.marta', '$2a$10$swVxIUB0PgsETN9ZpeccCOBIWETtSwOOczoTP7zCSFgRrZWT01h1y', 'Marta', 'Rodríguez', 'BOLETERO', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'admin', 'admin'),
+      ('boletero.juan', '$2a$10$9BZeHMV5216iLDRCNNT5feeoakYM9ZWWDannrEx6/ywX32vIZeYfW', 'Juan', 'Pérez', 'BOLETERO', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'admin', 'admin');
 
--- Compra 2: Ana Rodríguez - Estado: APROBADO (Viene mañana 21/06, no usó cupón, pagó online)
--- Subtotal original: 1 Pase Familiar (4000) + 1 Jubilado (1000) = 5000. Total = 5000
-INSERT INTO compras (id_cliente, contact_email, contact_phone, fecha_visita, monto_total, descuento_aplicado, estado, id_usuario_validador, id_cupon, forma_pago, fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion)
-VALUES (2, 'ana.rod@hotmail.com', '1144448888', '2026-06-21', 5000.00, 0.00, 'APROBADO', NULL, NULL, 'MERCADO_PAGO', NOW(), NOW(), 'system', 'system');
+-- -----------------------------------------------------------------------------
+-- 2. TIPOS DE ENTRADA Y EXTRAS
+-- ENTRADA: Pase General y Pase Menor
+-- EXTRA: Almuerzo / Combo Gastronómico
+-- -----------------------------------------------------------------------------
+INSERT INTO tipos_entrada (
+    id, nombre, descripcion, precio, tipo, activo, obligatorio,
+    fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion
+) VALUES
+      (1, 'Pase General', 'Acceso ilimitado a todos los juegos del parque (a partir de 4 años).', 34300.00, 'ENTRADA', true, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'admin', 'admin'),
+      (2, 'Pase Menor (0 a 3 años)', 'Ingreso gratuito para niños de 0 a 3 años cumplidos (presentando DNI).', 0.00, 'ENTRADA', true, false, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'admin', 'admin'),
+      (3, 'Menú Almuerzo Parque', 'Vale gastronómico por plato principal + bebida + postre en el patio de comidas.', 12500.00, 'EXTRA', true, false, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'admin', 'admin');
 
--- Compra 3: Mariana López - Estado: PENDIENTE_PAGO (Reserva web iniciada para el 24/06, sin pagar)
--- Subtotal original: 1 General Adulto (1500). Total = 1500
-INSERT INTO compras (id_cliente, contact_email, contact_phone, fecha_visita, monto_total, descuento_aplicado, estado, id_usuario_validador, id_cupon, forma_pago, fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion)
-VALUES (3, 'mariana.lopez@outlook.com', NULL, '2026-06-24', 1500.00, 0.00, 'PENDIENTE_PAGO', NULL, NULL, 'MERCADO_PAGO', NOW(), NOW(), 'system', 'system');
+-- IDs insertados a mano: hay que correr la identidad para que el próximo INSERT
+-- generado por la app (POST /api/tipos-entrada) no choque con el id=3 ya usado.
+ALTER TABLE tipos_entrada ALTER COLUMN id RESTART WITH 4;
 
--- Compra 4: Diego Maradona - Estado: CANCELADO (Canceló la visita del 20/06)
--- Subtotal original: 2 Pase VIP (7000). Total = 7000
-INSERT INTO compras (id_cliente, contact_email, contact_phone, fecha_visita, monto_total, descuento_aplicado, estado, id_usuario_validador, id_cupon, forma_pago, fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion)
-VALUES (4, 'dieguito@diego.com', '341999999', '2026-06-20', 7000.00, 0.00, 'CANCELADO', NULL, NULL, 'MERCADO_PAGO', NOW(), NOW(), 'system', 'admin.central');
+-- -----------------------------------------------------------------------------
+-- 3. DESCUENTOS EN EFECTIVO / PROMOCIONES FAMILIARES
+-- Aplicables sobre el Pase General (id_tipo_entrada = 1) abonando en Boletería
+-- -----------------------------------------------------------------------------
+INSERT INTO descuentos_efectivo (
+    id_tipo_entrada, cantidad_pases, precio_promocional_total
+) VALUES
+      (1, 3, 95700.00),
+      (1, 4, 126900.00),
+      (1, 5, 157800.00),
+      (1, 6, 188300.00),
+      (1, 7, 218500.00),
+      (1, 8, 248300.00),
+      (1, 9, 277800.00),
+      (1, 10, 307000.00);
 
--- Compra 5: Florencia Fernández - Estado: USADO (Vino el 20/06 por la tarde, validó boletero.turnot, usó BIENVENIDA500)
--- Subtotal original: 1 Pase Familiar (4000) -> Fijo desc = 500. Total = 3500
-INSERT INTO compras (id_cliente, contact_email, contact_phone, fecha_visita, monto_total, descuento_aplicado, estado, id_usuario_validador, id_cupon, forma_pago, fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion)
-VALUES (5, 'flor.f@gmail.com', '261456789', '2026-06-20', 3500.00, 500.00, 'USADO', 4, 2, 'MERCADO_PAGO', NOW(), NOW(), 'system', 'boletero.turnot');
+-- -----------------------------------------------------------------------------
+-- 4. DÍAS DE APERTURA Y AFORO
+-- -----------------------------------------------------------------------------
+INSERT INTO dias_apertura (
+    fecha, abierto,
+    fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion
+) VALUES
+      ('2026-07-25', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'admin', 'admin'),
+      ('2026-07-26', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'admin', 'admin'),
+      ('2026-08-01', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'admin', 'admin'),
+      ('2026-08-02', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'admin', 'admin'),
+      ('2026-08-08', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'admin', 'admin'),
+      ('2026-08-09', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'admin', 'admin');
 
--- Compra 6: Javier Milei - Estado: APROBADO (Viene el 22/06, usó SUPERPROMO50)
--- Subtotal original: 2 Pase VIP (7000) -> 50% desc = 3500. Total = 3500
-INSERT INTO compras (id_cliente, contact_email, contact_phone, fecha_visita, monto_total, descuento_aplicado, estado, id_usuario_validador, id_cupon, forma_pago, fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion)
-VALUES (6, 'jmilei@presidencia.gob.ar', '1111111111', '2026-06-22', 3500.00, 3500.00, 'APROBADO', NULL, 3, 'MERCADO_PAGO', NOW(), NOW(), 'system', 'system');
+-- -----------------------------------------------------------------------------
+-- 5. FAMILIAS DE CUPONES Y CUPONES DE PRUEBA
+-- -----------------------------------------------------------------------------
+INSERT INTO familias_cupones (
+    id, nombre, prefijo, descripcion,
+    fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion
+) VALUES
+    (1, 'Promociones Temporada Invierno', 'INV', 'Cupones promocionales de invierno', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'admin', 'admin');
 
--- Compra 7: Sofía Martínez - Estado: PENDIENTE_PAGO (Para las vacaciones de Julio 09/07, usó BIENVENIDA500)
--- Subtotal original: 2 General Adulto (3000) + 2 General Menor (1600) = 4600 -> Fijo desc = 500. Total = 4100
-INSERT INTO compras (id_cliente, contact_email, contact_phone, fecha_visita, monto_total, descuento_aplicado, estado, id_usuario_validador, id_cupon, forma_pago, fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion)
-VALUES (7, 'sofia.mtz@fox.com', '1154321098', '2026-07-09', 4100.00, 500.00, 'PENDIENTE_PAGO', NULL, 2, 'MERCADO_PAGO', NOW(), NOW(), 'system', 'system');
+ALTER TABLE familias_cupones ALTER COLUMN id RESTART WITH 2;
 
--- Compra 8: Bautista González - Estado: APROBADO (Viene el 21/06, sacó tarifa Vecinos)
--- Subtotal original: 3 Promoción Vecinos (2700). Total = 2700
-INSERT INTO compras (id_cliente, contact_email, contact_phone, fecha_visita, monto_total, descuento_aplicado, estado, id_usuario_validador, id_cupon, forma_pago, fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion)
-VALUES (8, 'bauti.gonzalez@gmail.com', NULL, '2026-06-21', 2700.00, 0.00, 'APROBADO', NULL, NULL, 'MERCADO_PAGO', NOW(), NOW(), 'system', 'system');
+INSERT INTO cupones (
+    codigo, porcentaje_descuento, monto_descuento, fecha_expiracion, usos_maximos, usos_actuales, activo,
+    fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion
+) VALUES
+      ('SERRANITA10', 10.00, NULL, '2026-12-31', 100, 0, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'admin', 'admin'),
+      ('VACACIONES15', 15.00, NULL, '2026-08-31', 50, 0, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'admin', 'admin');
 
--- Compra 9: Valentina Romero - Estado: USADO (Fue hoy por la mañana 20/06, validada en boletería física, usó RANITA20)
--- Subtotal original: 1 General Adulto (1500) + 1 General Menor (800) = 2300 -> 20% desc = 460. Total = 1840
-INSERT INTO compras (id_cliente, contact_email, contact_phone, fecha_visita, monto_total, descuento_aplicado, estado, id_usuario_validador, id_cupon, forma_pago, fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion)
-VALUES (9, 'valen_romero@live.com.ar', '3512223334', '2026-06-20', 1840.00, 460.00, 'USADO', 3, 1, 'MERCADO_PAGO', NOW(), NOW(), 'boletero.turnom', 'boletero.turnom');
+-- -----------------------------------------------------------------------------
+-- 6. CLIENTES Y COMPRAS DE PRUEBA
+-- -----------------------------------------------------------------------------
+INSERT INTO clientes (
+    id, dni, nombre, apellido,
+    fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion
+) VALUES
+    (1, '35123456', 'Mariano', 'López', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'WEB_GUEST', 'WEB_GUEST'),
+    (2, '30111222', 'Laura', 'Fernández', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'WEB_GUEST', 'WEB_GUEST'),
+    (3, '28999888', 'Diego', 'Martínez', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'WEB_GUEST', 'WEB_GUEST'),
+    (4, '40555666', 'Sofía', 'Gómez', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'WEB_GUEST', 'WEB_GUEST'),
+    (5, '33222111', 'Pedro', 'Ramírez', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'WEB_GUEST', 'WEB_GUEST'),
+    (6, '25444333', 'Valentina', 'Suárez', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'WEB_GUEST', 'WEB_GUEST');
 
+-- Sin esto, el primer cliente que crea la app en tiempo real (DNI distinto a los ya sembrados)
+-- choca contra un id ya insertado a mano: ese era el bug real del stacktrace.
+ALTER TABLE clientes ALTER COLUMN id RESTART WITH 7;
 
--- =============================================================================
--- 7. DETALLES DE COMPRA (Vinculados mediante id_compra)
--- =============================================================================
+-- Variedad de estados/fechas para poder probar Boletería y Configuración sin tener que
+-- crear compras a mano: RESERVADO_EFECTIVO, APROBADO, USADO, PENDIENTE_PAGO, CANCELADO y un regalo (sin fecha).
+INSERT INTO compras (
+    id, id_cliente, contact_email, contact_phone, fecha_visita, codigo_reserva, monto_total, descuento_aplicado, estado, forma_pago,
+    id_usuario_validador, fecha_validacion,
+    fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion
+) VALUES
+    (1001, 1, 'marianolopez@gmail.com', '351-5551234', '2026-07-25', '260725-1', 120700.00, 7200.00, 'RESERVADO_EFECTIVO', 'EFECTIVO_BOLETERIA',
+     NULL, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'WEB_GUEST', 'WEB_GUEST'),
+    (1002, 2, 'laura.fernandez@gmail.com', '351-5552345', '2026-07-25', '260725-2', 81100.00, 0.00, 'APROBADO', 'MERCADO_PAGO',
+     NULL, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'WEB_GUEST', 'WEB_GUEST'),
+    (1003, 3, 'diego.martinez@gmail.com', '351-5553456', '2026-07-25', '260725-3', 46800.00, 0.00, 'USADO', 'EFECTIVO_BOLETERIA',
+     2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'WEB_GUEST', 'WEB_GUEST'),
+    (1004, 4, 'sofia.gomez@gmail.com', '351-5554567', '2026-07-26', '260726-1', 68600.00, 0.00, 'RESERVADO_EFECTIVO', 'EFECTIVO_BOLETERIA',
+     NULL, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'WEB_GUEST', 'WEB_GUEST'),
+    (1005, 5, 'pedro.ramirez@gmail.com', '351-5555678', '2026-08-01', '260801-1', 34300.00, 0.00, 'PENDIENTE_PAGO', 'MERCADO_PAGO',
+     NULL, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'WEB_GUEST', 'WEB_GUEST'),
+    (1006, 6, 'valentina.suarez@gmail.com', '351-5556789', '2026-08-02', '260802-1', 126900.00, 10300.00, 'CANCELADO', 'MERCADO_PAGO',
+     NULL, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'WEB_GUEST', 'WEB_GUEST'),
+    (1007, 2, 'laura.fernandez@gmail.com', '351-5552345', NULL, 'REGALO-1', 68600.00, 0.00, 'APROBADO', 'MERCADO_PAGO',
+     NULL, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'WEB_GUEST', 'WEB_GUEST');
 
--- Detalles Compra 1 (Carlos)
-INSERT INTO compras_detalle (id_compra, id_tipo_entrada, cantidad, fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion)
-VALUES (1, 1, 2, NOW(), NOW(), 'system', 'system'); -- 2 General Adulto
-
--- Detalles Compra 2 (Ana)
-INSERT INTO compras_detalle (id_compra, id_tipo_entrada, cantidad, fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion)
-VALUES
-    (2, 4, 1, NOW(), NOW(), 'system', 'system'),  -- 1 Pase Familiar
-    (2, 3, 1, NOW(), NOW(), 'system', 'system');  -- 1 Jubilado
-
--- Detalles Compra 3 (Mariana)
-INSERT INTO compras_detalle (id_compra, id_tipo_entrada, cantidad, fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion)
-VALUES (3, 1, 1, NOW(), NOW(), 'system', 'system'); -- 1 General Adulto
-
--- Detalles Compra 4 (Diego)
-INSERT INTO compras_detalle (id_compra, id_tipo_entrada, cantidad, fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion)
-VALUES (4, 5, 2, NOW(), NOW(), 'system', 'system'); -- 2 Pase VIP
-
--- Detalles Compra 5 (Florencia)
-INSERT INTO compras_detalle (id_compra, id_tipo_entrada, cantidad, fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion)
-VALUES (5, 4, 1, NOW(), NOW(), 'system', 'system'); -- 1 Pase Familiar
-
--- Detalles Compra 6 (Javier)
-INSERT INTO compras_detalle (id_compra, id_tipo_entrada, cantidad, fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion)
-VALUES (6, 5, 2, NOW(), NOW(), 'system', 'system'); -- 2 Pase VIP
-
--- Detalles Compra 7 (Sofía)
-INSERT INTO compras_detalle (id_compra, id_tipo_entrada, cantidad, fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion)
-VALUES
-    (7, 1, 2, NOW(), NOW(), 'system', 'system'),  -- 2 General Adulto
-    (7, 2, 2, NOW(), NOW(), 'system', 'system');  -- 2 General Menor
-
--- Detalles Compra 8 (Bautista)
-INSERT INTO compras_detalle (id_compra, id_tipo_entrada, cantidad, fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion)
-VALUES (8, 6, 3, NOW(), NOW(), 'system', 'system'); -- 3 Promoción Vecinos
-
--- Detalles Compra 9 (Valentina)
-INSERT INTO compras_detalle (id_compra, id_tipo_entrada, cantidad, fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion)
-VALUES
-    (9, 1, 1, NOW(), NOW(), 'system', 'system'),  -- 1 General Adulto
-    (9, 2, 1, NOW(), NOW(), 'system', 'system');  -- 1 General Menor
-
--- =============================================================================
--- 8. DESCUENTOS EFECTIVO (Basados en tipo de entrada y cantidad de pases)
--- =============================================================================
-INSERT INTO descuentos_efectivo (id_tipo_entrada, cantidad_pases, precio_promocional_total) VALUES (1, 3, 95700.00);
-INSERT INTO descuentos_efectivo (id_tipo_entrada, cantidad_pases, precio_promocional_total) VALUES (1, 4, 126900.00);
-INSERT INTO descuentos_efectivo (id_tipo_entrada, cantidad_pases, precio_promocional_total) VALUES (1, 5, 157800.00);
-INSERT INTO descuentos_efectivo (id_tipo_entrada, cantidad_pases, precio_promocional_total) VALUES (1, 6, 188300.00);
-INSERT INTO descuentos_efectivo (id_tipo_entrada, cantidad_pases, precio_promocional_total) VALUES (1, 7, 218500.00);
-INSERT INTO descuentos_efectivo (id_tipo_entrada, cantidad_pases, precio_promocional_total) VALUES (1, 8, 248300.00);
-INSERT INTO descuentos_efectivo (id_tipo_entrada, cantidad_pases, precio_promocional_total) VALUES (1, 9, 277800.00);
-INSERT INTO descuentos_efectivo (id_tipo_entrada, cantidad_pases, precio_promocional_total) VALUES (1, 10, 307000.00);
+INSERT INTO compras_detalle (
+    id_compra, id_tipo_entrada, cantidad,
+    fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion
+) VALUES
+      (1001, 1, 3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'WEB_GUEST', 'WEB_GUEST'),
+      (1001, 3, 2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'WEB_GUEST', 'WEB_GUEST'),
+      (1002, 1, 2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'WEB_GUEST', 'WEB_GUEST'),
+      (1002, 3, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'WEB_GUEST', 'WEB_GUEST'),
+      (1003, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'WEB_GUEST', 'WEB_GUEST'),
+      (1003, 2, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'WEB_GUEST', 'WEB_GUEST'),
+      (1003, 3, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'WEB_GUEST', 'WEB_GUEST'),
+      (1004, 1, 2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'WEB_GUEST', 'WEB_GUEST'),
+      (1005, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'WEB_GUEST', 'WEB_GUEST'),
+      (1005, 2, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'WEB_GUEST', 'WEB_GUEST'),
+      (1006, 1, 4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'WEB_GUEST', 'WEB_GUEST'),
+      (1007, 1, 2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'WEB_GUEST', 'WEB_GUEST');

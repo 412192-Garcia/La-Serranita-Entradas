@@ -8,6 +8,8 @@ import org.example.laserranitaentradas.model.entity.Compra;
 import org.example.laserranitaentradas.model.entity.EstadoCompra;
 import org.example.laserranitaentradas.service.CompraService;
 import org.example.laserranitaentradas.service.EmailService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -17,6 +19,8 @@ import java.util.Optional;
 @RestController
 @RequestMapping("/api/pagos")
 public class PagoController {
+
+    private static final Logger log = LoggerFactory.getLogger(PagoController.class);
 
     private final CompraService compraService;
     private final EmailService emailService;
@@ -71,7 +75,9 @@ public class PagoController {
             return ResponseEntity.ok().build();
 
         } catch (Exception e) {
-            e.printStackTrace();
+            // Se responde 200 igual: Mercado Pago reintenta el webhook si recibe un error,
+            // y el reintento volvería a fallar por la misma causa.
+            log.error("Error procesando la notificación de Mercado Pago", e);
             return ResponseEntity.ok().build();
         }
     }
@@ -89,6 +95,6 @@ public class PagoController {
 
         compraService.actualizarEstado(idDeCompra, EstadoCompra.APROBADO);
         emailService.enviarComprobanteCompra(idDeCompra);
-        System.out.println("✅ Pago APROBADO confirmado en BD para la compra ID: " + idDeCompra);
+        log.info("Pago APROBADO confirmado en BD para la compra ID {}", idDeCompra);
     }
 }

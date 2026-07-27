@@ -121,66 +121,7 @@
 }
 
 /* ==========================================================================
-   4. MÓDULO DE CUPÓN DE DESCUENTO
-   ========================================================================== */
-.cupon-modulo {
-  width: 100%;
-  margin-top: 25px;
-  padding-bottom: 5px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end; /* ⚡ Lo empuja a la derecha, alineado con el botón Siguiente */
-}
-
-/* El grupo del input se mantiene compacto */
-.cupon-input-grupo {
-  display: flex;
-  background-color: #f3f4f6;
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  padding: 4px;
-  width: 100%;
-  max-width: 300px;
-  box-sizing: border-box;
-}
-
-.cupon-input-grupo input {
-  border: none;
-  background: none;
-  padding: 8px 12px;
-  font-size: 0.9rem;
-  outline: none;
-  width: 100%;
-  text-transform: uppercase;
-  color: #1f2937;
-}
-
-.cupon-input-grupo input:disabled {
-  color: #9ca3af;
-  font-weight: 600;
-}
-
-.btn-cupon {
-  background-color: #1f2937;
-  color: #ffffff;
-  border: none;
-  border-radius: 6px;
-  padding: 0 16px;
-  font-size: 0.85rem;
-  font-weight: bold;
-  cursor: pointer;
-  transition: background-color 0.15s ease;
-}
-
-.btn-cupon:hover { background-color: var(--color-text); }
-.btn-cupon.remover { background-color: var(--color-danger); }
-.btn-cupon.remover:hover { background-color: #b91c1c; }
-
-.cupon-error-msg { color: var(--color-danger); font-size: 0.8rem; font-weight: 500; margin-top: 6px; padding-left: 4px; }
-.cupon-success-msg { color: var(--color-primary); font-size: 0.8rem; font-weight: 600; margin-top: 6px; padding-left: 4px; }
-
-/* ==========================================================================
-   5. FOOTER DE LIQUIDACIÓN Y CIERRE (TOTAL / SIGUIENTE)
+   4. FOOTER DE LIQUIDACIÓN Y CIERRE (TOTAL / SIGUIENTE)
    ========================================================================== */
 .footer-resumen {
   margin-top: 20px;
@@ -207,30 +148,11 @@
   color: var(--color-text);
 }
 
-.precios-bloque {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
 .valor-total {
   font-family: var(--font-heading);
   font-size: 1.4rem;
   font-weight: 700;
   color: var(--color-primary);
-}
-
-.precio-tachado {
-  text-decoration: line-through;
-  color: #9ca3af !important;
-  font-size: 1.15rem !important;
-  font-weight: 500 !important;
-}
-
-.valor-total.nuevo-precio {
-  color: var(--color-primary);
-  font-size: 1.6rem;
-  font-weight: 900;
 }
 
 .btn-siguiente {
@@ -258,7 +180,7 @@
 }
 
 /* ==========================================================================
-   6. COMPONENTES DE CARGA (SPINNER)
+   5. COMPONENTES DE CARGA (SPINNER)
    ========================================================================== */
 .spinner-contenedor {
   display: flex;
@@ -281,9 +203,13 @@
 }
 
 /* ==========================================================================
-   7. MEDIA QUERIES (RESPONSIVE)
+   6. RESPONSIVE (según el ancho del contenedor embebido)
    ========================================================================== */
-@media (max-width: 480px) {
+@container modulo (max-width: 480px) {
+  .panel-seleccion {
+    padding: 20px 16px;
+  }
+
   .footer-resumen {
     flex-direction: column;
     gap: 20px;
@@ -299,8 +225,20 @@
     width: 100%; /* Botón ancho completo ideal para pulgares en mobile */
   }
 
-  .cupon-input-grupo {
-    max-width: 100%; /* Permite adaptarse al ancho de pantallas ultra chicas */
+  /* La fila (nombre+precio+contador) no entra en una sola línea a este ancho:
+     se parte en dos, con el nombre arriba y precio+contador abajo. */
+  .fila-item {
+    flex-wrap: wrap;
+    row-gap: 10px;
   }
 
+  .info-entrada {
+    flex: 1 1 100%;
+    padding-right: 0;
+  }
+
+  .precio {
+    margin-right: 0;
+    text-align: left;
+  }
 }

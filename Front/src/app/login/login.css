@@ -1,0 +1,112 @@
+:host {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  width: 100%;
+  background-color: var(--color-bg-page);
+  font-family: var(--font-body);
+  color: var(--color-text);
+}
+
+.panel-login {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  padding: 24px;
+  box-sizing: border-box;
+}
+
+.tarjeta-login {
+  width: 100%;
+  max-width: 380px;
+  background-color: #fff;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card-lg);
+  padding: 32px 28px;
+  box-sizing: border-box;
+}
+
+.tarjeta-login h1 {
+  font-family: var(--font-heading);
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  margin: 0 0 6px;
+  text-align: center;
+}
+
+.ayuda {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  text-align: center;
+  margin: 0 0 24px;
+}
+
+.alerta-error {
+  background-color: var(--color-danger-light);
+  color: var(--color-danger-dark);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  font-size: 0.85rem;
+  margin: 0 0 16px;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+input {
+  padding: 11px 14px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: #fff;
+  outline: none;
+  color: var(--color-text);
+}
+
+input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(57, 169, 53, 0.15);
+}
+
+.btn-primario {
+  border: none;
+  background-color: var(--color-primary);
+  color: #fff;
+  padding: 12px 20px;
+  border-radius: var(--radius-sm);
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background-color 0.18s ease;
+  margin-top: 4px;
+}
+
+.btn-primario:hover:not(:disabled) { background-color: var(--color-primary-dark); }
+.btn-primario:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.volver-web {
+  display: block;
+  text-align: center;
+  margin-top: 20px;
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+  text-decoration: none;
+}
+
+.volver-web:hover { color: var(--color-primary-dark); text-decoration: underline; }

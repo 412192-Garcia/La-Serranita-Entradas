@@ -1,0 +1,151 @@
+<div class="seccion seccion-cupones">
+
+  <div class="tarjeta">
+    <h2>Nuevo cupón individual</h2>
+    @if (errorCupon()) {
+      <p class="alerta-error">{{ errorCupon() }}</p>
+    }
+    <div class="form-grid">
+      <label>
+        <span class="etiqueta-campo">Código <span class="opcional">(opcional, se genera solo)</span></span>
+        <input type="text" [ngModel]="codigoCupon()" (ngModelChange)="codigoCupon.set($event)" placeholder="Ej: VERANO25" />
+      </label>
+      <label>
+        Tipo de descuento
+        <select [ngModel]="tipoDescuentoCupon()" (ngModelChange)="tipoDescuentoCupon.set($event)">
+          <option value="porcentaje">Porcentaje (%)</option>
+          <option value="monto">Monto fijo ($)</option>
+        </select>
+      </label>
+      <label>
+        Valor
+        <input type="number" min="0" [ngModel]="valorDescuentoCupon()" (ngModelChange)="valorDescuentoCupon.set($event)" />
+      </label>
+      <label>
+        Usos máximos
+        <input type="number" min="1" [ngModel]="usosMaximosCupon()" (ngModelChange)="usosMaximosCupon.set($event)" />
+      </label>
+      <label>
+        Fecha de expiración
+        <input type="date" [ngModel]="fechaExpiracionCupon()" (ngModelChange)="fechaExpiracionCupon.set($event)" />
+      </label>
+    </div>
+    <button type="button" class="btn-primario" [disabled]="creandoCupon()" (click)="crearCupon()">
+      {{ creandoCupon() ? 'Creando…' : 'Crear cupón' }}
+    </button>
+  </div>
+
+  <div class="tarjeta">
+    <h2>Generar lote de cupones</h2>
+    @if (errorLote()) {
+      <p class="alerta-error">{{ errorLote() }}</p>
+    }
+    <div class="form-grid">
+      <label>
+        Nombre del lote
+        <input type="text" [ngModel]="nombreLote()" (ngModelChange)="nombreLote.set($event)" placeholder="Ej: Promociones Invierno" />
+      </label>
+      <label>
+        Prefijo
+        <input type="text" [ngModel]="prefijoLote()" (ngModelChange)="prefijoLote.set($event)" placeholder="Ej: INV" maxlength="10" />
+      </label>
+      <label>
+        <span class="etiqueta-campo">Descripción <span class="opcional">(opcional)</span></span>
+        <input type="text" [ngModel]="descripcionLote()" (ngModelChange)="descripcionLote.set($event)" />
+      </label>
+      <label>
+        Cantidad a generar
+        <input type="number" min="1" [ngModel]="cantidadLote()" (ngModelChange)="cantidadLote.set($event)" />
+      </label>
+      <label>
+        Tipo de descuento
+        <select [ngModel]="tipoDescuentoLote()" (ngModelChange)="tipoDescuentoLote.set($event)">
+          <option value="porcentaje">Porcentaje (%)</option>
+          <option value="monto">Monto fijo ($)</option>
+        </select>
+      </label>
+      <label>
+        Valor
+        <input type="number" min="0" [ngModel]="valorDescuentoLote()" (ngModelChange)="valorDescuentoLote.set($event)" />
+      </label>
+      <label>
+        Usos máximos por cupón
+        <input type="number" min="1" [ngModel]="usosMaximosLote()" (ngModelChange)="usosMaximosLote.set($event)" />
+      </label>
+      <label>
+        Fecha de expiración
+        <input type="date" [ngModel]="fechaExpiracionLote()" (ngModelChange)="fechaExpiracionLote.set($event)" />
+      </label>
+    </div>
+    <button type="button" class="btn-primario" [disabled]="generandoLote()" (click)="generarLote()">
+      {{ generandoLote() ? 'Generando…' : 'Generar lote' }}
+    </button>
+  </div>
+
+  <div class="tarjeta tarjeta-ancha">
+    <h2>Cupones existentes</h2>
+    @if (cargandoCupones()) {
+      <div class="spinner-contenedor"><div class="spinner"></div></div>
+    } @else if (cupones().length === 0) {
+      <p class="ayuda">Todavía no hay cupones creados.</p>
+    } @else {
+      <div class="tabla-simple">
+        <div class="fila-simple fila-simple-header">
+          <span>Código</span><span>Descuento</span><span>Usos</span><span>Expira</span><span>Estado</span>
+        </div>
+        @for (c of cupones(); track c.id) {
+          <div class="fila-simple">
+            <span class="codigo-mono">{{ c.codigo }}</span>
+            <span>{{ descuentoLegible(c) }}</span>
+            <span>{{ c.usosActuales }} / {{ c.usosMaximos }}</span>
+            <span>{{ c.fechaExpiracion | date: 'dd/MM/yyyy' }}</span>
+            <span class="badge" [class.badge-activo]="c.activo" [class.badge-inactivo]="!c.activo">
+              {{ c.activo ? 'Activo' : 'Inactivo' }}
+            </span>
+          </div>
+        }
+      </div>
+    }
+  </div>
+
+  <div class="tarjeta tarjeta-ancha">
+    <div class="lotes-header">
+      <h2>Lotes de Cupones</h2>
+      @if (lotes().length > 0) {
+        <span class="resumen-lotes">{{ lotes().length }} lote{{ lotes().length === 1 ? '' : 's' }} · {{ totalCuponesGenerados() }} cupones en total</span>
+      }
+    </div>
+    @if (cargandoLotes()) {
+      <div class="spinner-contenedor"><div class="spinner"></div></div>
+    } @else if (lotes().length === 0) {
+      <p class="ayuda">Todavía no se generó ningún lote de cupones.</p>
+    } @else {
+      @for (l of lotes(); track l.id) {
+        <div class="lote-item">
+          <button type="button" class="lote-resumen" (click)="toggleLoteExpandido(l.id)">
+            <span class="lote-nombre">
+              {{ l.nombre }}
+              @if (l.descripcion) {
+                <span class="lote-descripcion">{{ l.descripcion }}</span>
+              }
+            </span>
+            <span class="lote-prefijo">{{ l.prefijo }}</span>
+            <span class="lote-descuento">{{ l.cupones.length ? descuentoLegible(l.cupones[0]) : '—' }}</span>
+            <span class="lote-expira">{{ l.cupones.length ? (l.cupones[0].fechaExpiracion | date: 'dd/MM/yyyy') : '—' }}</span>
+            <span class="lote-cantidad">{{ l.cupones.length }} cupones</span>
+            <span class="lote-toggle">{{ loteExpandidoId() === l.id ? '▲' : '▼' }}</span>
+          </button>
+          @if (loteExpandidoId() === l.id) {
+            <div class="lote-codigos">
+              @for (c of l.cupones; track c.id) {
+                <span class="codigo-chip" [class.chip-usado]="!c.activo || c.usosActuales >= c.usosMaximos">
+                  {{ c.codigo }}
+                </span>
+              }
+            </div>
+          }
+        </div>
+      }
+    }
+  </div>
+</div>

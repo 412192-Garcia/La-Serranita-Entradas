@@ -1,4 +1,4 @@
-import {ChangeDetectorRef, Component, NgZone, OnDestroy, OnInit} from '@angular/core';
+import {ChangeDetectorRef, Component, NgZone, OnDestroy} from '@angular/core';
 import { Calendario } from '../calendario/calendario';
 import { SeleccionEntradas } from '../seleccion-entradas/seleccion-entradas';
 import { FormCliente } from '../form-cliente/form-cliente';
@@ -6,14 +6,16 @@ import { Resumen } from '../resumen/resumen';
 import { CompraService } from '../Services/compra.service';
 import { PagoExitoso } from '../resultado-pago/pago-exitoso/pago-exitoso';
 import {FormaPagoType, ResumenCompraData} from "../models/compra";
+import { Cupon } from '../models/cupon';
+import { LucideClock, LucideCloudRain, LucideTriangleAlert } from '@lucide/angular';
+import { Observable, Subscription, of, timer } from 'rxjs';
+import { catchError, map, switchMap, take } from 'rxjs/operators';
 
 enum etapaCompra {
   SELECCION,
   DATOS,
   RESUMEN
 }
-
-declare var MercadoPago: any;
 
 @Component({
   selector: 'app-entradas',
@@ -22,12 +24,22 @@ declare var MercadoPago: any;
     SeleccionEntradas,
     FormCliente,
     Resumen,
-    PagoExitoso
+    PagoExitoso,
+    LucideClock,
+    LucideCloudRain,
+    LucideTriangleAlert
   ],
   templateUrl: './entradas.html',
   styleUrl: './entradas.css',
 })
-export class Entradas implements OnInit, OnDestroy {
+export class Entradas implements OnDestroy {
+  /** Cada cuánto se le pregunta al backend si el pago se acreditó. */
+  private static readonly INTERVALO_POLL_MS = 3000;
+  /** Techo de consultas (~10 min): pasado eso se deja de insistir. */
+  private static readonly MAX_CONSULTAS_POLL = 200;
+  /** Estado sintético para distinguir "cerró la ventana" de un estado real del backend. */
+  private static readonly VENTANA_CERRADA = 'VENTANA_CERRADA';
+
   etapa: etapaCompra = etapaCompra.SELECCION;
 
   // Inyectamos únicamente CompraService
@@ -35,22 +47,32 @@ export class Entradas implements OnInit, OnDestroy {
   private cdr: ChangeDetectorRef,
               private ngZone: NgZone) {}
 
-  ngOnInit(): void {
-    this.mp = new MercadoPago('APP_USR-97241536-2c5b-48fc-945f-e44720698927', {
-      locale: 'es-AR'
-    });
-  }
-
   ngOnDestroy(): void {
     this.detenerVerificacion();
+    this.ventanaPago = null;
   }
 
-  mp: any;
   procesandoPago: boolean = false;
   compraIdActual: number | null = null;
+  codigoReservaActual: string | null = null;
   pagoConfirmado: boolean = false;
+  /**
+   * Aviso al usuario durante el checkout. Reemplaza a los alert() nativos, que
+   * rompían la contención visual del módulo embebido en el sitio del parque y
+   * eran inconsistentes con el resto de la app, que muestra los errores inline.
+   */
+  aviso: string | null = null;
 
-  private checkInterval: any = null;
+  private suscripcionPago: Subscription | null = null;
+  private ventanaPago: Window | null = null;
+
+  /**
+   * El cupón se aplica en el resumen (ya elegida la forma de pago), pero el
+   * objeto vive acá porque tiene que sobrevivir a un cambio de forma de pago:
+   * si es porcentual, el monto a descontar depende del subtotal vigente
+   * (precio de lista o precio de grupo), que sólo se conoce en este nivel.
+   */
+  cuponAplicado: Cupon | null = null;
 
   compraAcumulada: ResumenCompraData = {
     fechaVisita: null,
@@ -97,10 +119,9 @@ export class Entradas implements OnInit, OnDestroy {
     }).subscribe({
       next: (res) => {
         this.ngZone.run(() => {
-          const descuentoCupon = Math.min(this.compraAcumulada.descuentoMonto, res.subtotal);
           this.compraAcumulada.subtotal = res.subtotal;
           this.compraAcumulada.descuentoGrupo = res.ahorro > 0 ? res.ahorro : 0;
-          this.compraAcumulada.total = Math.max(0, res.subtotal - descuentoCupon);
+          this.recalcularTotal();
           this.cdr.detectChanges();
         });
       },
@@ -108,15 +129,46 @@ export class Entradas implements OnInit, OnDestroy {
     });
   }
 
+  /** El cupón se aplica o quita desde el resumen; ver el comentario en `cuponAplicado`. */
+  onCuponCambio(cupon: Cupon | null): void {
+    this.cuponAplicado = cupon;
+    this.compraAcumulada.cuponCodigo = cupon?.codigo ?? null;
+    this.recalcularTotal();
+    this.cdr.detectChanges();
+  }
+
+  /**
+   * El precio por grupo NO es un descuento (ver resumen.html): cambia el subtotal
+   * en sí. El cupón sí es un descuento real, y su monto se recalcula siempre
+   * contra el subtotal vigente en ese momento — así, si el cupón es porcentual,
+   * un cambio posterior de forma de pago (precio de lista ↔ precio de grupo)
+   * no deja un monto de cupón calculado sobre una base que ya no corresponde.
+   */
+  private recalcularTotal(): void {
+    const descuentoCupon = this.calcularDescuentoCupon(this.cuponAplicado, this.compraAcumulada.subtotal);
+    this.compraAcumulada.descuentoMonto = descuentoCupon;
+    this.compraAcumulada.total = Math.max(0, this.compraAcumulada.subtotal - descuentoCupon);
+  }
+
+  private calcularDescuentoCupon(cupon: Cupon | null, subtotal: number): number {
+    if (!cupon || subtotal <= 0) return 0;
+    if (cupon.porcentajeDescuento) return (subtotal * cupon.porcentajeDescuento) / 100;
+    if (cupon.montoDescuento) return Math.min(cupon.montoDescuento, subtotal);
+    return 0;
+  }
+
   onPasoSiguiente(datosPaso: any): void {
     if (this.etapa === etapaCompra.SELECCION) {
       this.compraAcumulada = {
         ...this.compraAcumulada,
-        ...datosPaso,
+        ...datosPaso, // fechaVisita, esRegalo, entradas, subtotal (precio de lista actualizado)
         subtotalLista: datosPaso.subtotal,
-        descuentoGrupo: 0,
-        formaPago: datosPaso.formaPago
+        descuentoGrupo: 0, // se vuelve a definir según la forma de pago que se elija en el resumen
       };
+      // No se toca cuponAplicado/cuponCodigo acá: si el usuario ya había aplicado un
+      // cupón en el resumen y vuelve a editar la selección, el cupón se mantiene — sólo
+      // se recalcula el monto contra el nuevo subtotal.
+      this.recalcularTotal();
       this.etapa = etapaCompra.DATOS;
     } else if (this.etapa === etapaCompra.DATOS) {
       this.compraAcumulada.cliente = datosPaso;
@@ -134,6 +186,7 @@ export class Entradas implements OnInit, OnDestroy {
 
   iniciarPagoMercadoPago(): void {
     this.procesandoPago = true;
+    this.aviso = null;
 
     // 1. Convertimos la fecha al formato YYYY-MM-DD que espera Spring Boot
     let fechaFormateada = null;
@@ -149,7 +202,9 @@ export class Entradas implements OnInit, OnDestroy {
         nombre: this.compraAcumulada.cliente?.nombre,
         apellido: this.compraAcumulada.cliente?.apellido,
         email: this.compraAcumulada.cliente?.email,
-        telefono: this.compraAcumulada.cliente?.telefono
+        telefono: this.compraAcumulada.cliente?.telefono,
+        edad: this.compraAcumulada.cliente?.edad || null,
+        localidad: this.compraAcumulada.cliente?.localidad || null
       },
       fecha: fechaFormateada,
       formaPago: this.compraAcumulada.formaPago,
@@ -160,14 +215,11 @@ export class Entradas implements OnInit, OnDestroy {
       }))
     };
 
-    console.log('📦 Estado de compraAcumulada:', this.compraAcumulada);
-    console.log('💳 formaPago específica:', this.compraAcumulada.formaPago);
-
     // 3. Invocamos al backend a través del CompraService
     this.compraService.iniciarCompraConPago(payloadBackend).subscribe({
       next: (res) => {
-        this.procesandoPago = false;
         this.compraIdActual = res.id;
+        this.codigoReservaActual = res.codigoReserva;
 
         // EVALUAMOS LA ESTRATEGIA DEVUELTA POR EL BACKEND
         if (res.formaPago === 'MERCADO_PAGO' && res.initPoint) {
@@ -176,15 +228,23 @@ export class Entradas implements OnInit, OnDestroy {
           const izquierda = (window.screen.width - ancho) / 2;
           const arriba = (window.screen.height - alto) / 2;
 
-          window.open(
+          // El botón sigue "procesando" mientras esperamos que el usuario complete el
+          // pago en la ventana de Mercado Pago (se libera al cerrarla, al confirmarse o al fallar el pago).
+          this.ventanaPago = window.open(
               res.initPoint,
               'MercadoPagoCheckout',
               `width=${ancho},height=${alto},top=${arriba},left=${izquierda},scrollbars=yes,status=yes`
           );
 
+          if (!this.ventanaPago) {
+            this.finalizarConAviso('No se pudo abrir la ventana de pago. Revisá que tu navegador no esté bloqueando ventanas emergentes e intentá de nuevo.');
+            return;
+          }
+
           this.iniciarMonitoreoPago();
         } else if (res.formaPago === 'EFECTIVO_BOLETERIA') {
           // Para efectivo no abre ventana popup; congela la reserva y muestra el comprobante
+          this.procesandoPago = false;
           this.ngZone.run(() => {
             this.pagoConfirmado = true;
             this.cdr.detectChanges();
@@ -193,72 +253,97 @@ export class Entradas implements OnInit, OnDestroy {
       },
       error: (err) => {
         console.error('Error al procesar la reserva:', err);
-        this.procesandoPago = false;
-        alert(err.error || 'Ocurrió un error al procesar la reserva.');
+        this.finalizarConAviso(
+          typeof err?.error === 'string' ? err.error : 'Ocurrió un error al procesar la reserva.'
+        );
       }
     });
   }
 
+  /**
+   * Consulta periódicamente si el pago se acreditó, mientras el usuario opera en la
+   * ventana de Mercado Pago.
+   *
+   * Usa timer + switchMap en vez de setInterval por dos motivos: switchMap descarta la
+   * consulta anterior si el backend tarda más que el intervalo (con setInterval se
+   * encimaban), y take() le pone un techo — antes, si la compra quedaba en
+   * PENDIENTE_PAGO y el usuario dejaba la pestaña abierta, seguía consultando para siempre.
+   */
   private iniciarMonitoreoPago(): void {
     this.detenerVerificacion();
 
-    this.checkInterval = setInterval(() => {
-      if (!this.compraIdActual) {
-        console.warn('⚠️ No hay compraIdActual configurado');
-        return;
-      }
-
-      console.log(`📡 Consultando estado para compra ID: ${this.compraIdActual}...`);
-
-      this.compraService.obtenerEstadoCompra(this.compraIdActual).subscribe({
-        next: (res) => {
-          console.log('📩 Respuesta del servidor recibida:', res);
-          if (res.estado === 'APROBADO') {
-            this.pagoConfirmado = true;
-            this.detenerVerificacion();
-            console.log('¡Pago verificado con éxito!');
-
-            this.ngZone.run(() => {
-              this.pagoConfirmado = true;
-              this.procesandoPago = false;
-              this.detenerVerificacion();
-              this.cdr.detectChanges(); // Re-evalúa la plantilla HTML al instante
-            });
-
-          }
-        },
-        error: (err) => {
-          console.error('Error al consultar el estado de la compra:', err);
-        }
+    this.suscripcionPago = timer(0, Entradas.INTERVALO_POLL_MS)
+      .pipe(
+        take(Entradas.MAX_CONSULTAS_POLL),
+        switchMap(() => this.consultarEstadoPago())
+      )
+      .subscribe({
+        next: (estado) => this.procesarEstadoPago(estado),
+        complete: () => this.alAgotarseElMonitoreo(),
       });
-    }, 3000);
   }
 
-  private detenerVerificacion(): void {
-    if (this.checkInterval) {
-      clearInterval(this.checkInterval);
-      this.checkInterval = null;
+  private consultarEstadoPago(): Observable<string | null> {
+    // El usuario cerró la ventana sin completar el pago: dejamos de esperar y liberamos
+    // el botón para que pueda reintentar, en vez de quedar "procesando" para siempre.
+    if (this.ventanaPago?.closed && !this.pagoConfirmado) {
+      return of(Entradas.VENTANA_CERRADA);
+    }
+    if (!this.compraIdActual) {
+      return of(null);
+    }
+
+    return this.compraService.obtenerEstadoCompra(this.compraIdActual).pipe(
+      map((res) => res.estado),
+      // Un error puntual de red no corta el monitoreo: se reintenta en el próximo tick.
+      catchError(() => of(null))
+    );
+  }
+
+  private procesarEstadoPago(estado: string | null): void {
+    if (estado === null) return;
+
+    if (estado === Entradas.VENTANA_CERRADA) {
+      this.detenerVerificacion();
+      this.finalizarConAviso('La ventana de pago se cerró sin completarse. Podés intentarlo de nuevo cuando quieras.');
+      return;
+    }
+
+    if (estado === 'APROBADO') {
+      this.detenerVerificacion();
+      this.ngZone.run(() => {
+        this.pagoConfirmado = true;
+        this.procesandoPago = false;
+        this.cdr.detectChanges(); // Re-evalúa la plantilla HTML al instante
+      });
+      return;
+    }
+
+    if (estado === 'CANCELADO') {
+      this.detenerVerificacion();
+      this.finalizarConAviso('El pago fue cancelado o rechazado. Podés intentarlo de nuevo.');
     }
   }
 
-  verificarEstadoCompra(): void {
-    if (!this.compraIdActual) return;
+  /** Se agotaron los intentos sin novedades del backend. */
+  private alAgotarseElMonitoreo(): void {
+    if (this.pagoConfirmado) return;
+    this.finalizarConAviso(
+      'Todavía no pudimos confirmar el pago. Si ya lo completaste vas a recibir el comprobante por mail; si no, podés reintentar.'
+    );
+  }
 
-    this.compraService.obtenerEstadoCompra(this.compraIdActual).subscribe({
-      next: (res) => {
-        if (res.estado === 'APROBADO') {
-          this.pagoConfirmado = true;
-          this.detenerVerificacion();
-          this.cdr.detectChanges();
-          console.log('¡Compra confirmada correctamente!');
-        } else {
-          alert('El pago está siendo procesado. Te informaremos apenas se acredite.');
-        }
-      },
-      error: (err) => {
-        console.error('Error al consultar el estado de la compra:', err);
-      }
+  private finalizarConAviso(mensaje: string): void {
+    this.ngZone.run(() => {
+      this.procesandoPago = false;
+      this.aviso = mensaje;
+      this.cdr.detectChanges();
     });
+  }
+
+  private detenerVerificacion(): void {
+    this.suscripcionPago?.unsubscribe();
+    this.suscripcionPago = null;
   }
 
   protected readonly etapaCompra = etapaCompra;

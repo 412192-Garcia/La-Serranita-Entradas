@@ -1,5 +1,9 @@
 package org.example.laserranitaentradas.controller;
 
+import org.example.laserranitaentradas.config.JwtService;
+import org.example.laserranitaentradas.model.dto.LoginRequest;
+import org.example.laserranitaentradas.model.dto.LoginResponseDTO;
+import org.example.laserranitaentradas.model.dto.UsuarioResponseDTO;
 import org.example.laserranitaentradas.model.entity.Usuario;
 import org.example.laserranitaentradas.service.UsuarioService;
 import org.springframework.http.HttpStatus;
@@ -13,6 +17,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/usuarios")
@@ -20,17 +25,35 @@ import java.util.Optional;
 public class UsuarioController {
 
     private final UsuarioService usuarioService;
+    private final JwtService jwtService;
 
-    public UsuarioController(UsuarioService usuarioService) {
+    public UsuarioController(UsuarioService usuarioService, JwtService jwtService) {
         this.usuarioService = usuarioService;
+        this.jwtService = jwtService;
+    }
+
+    @PostMapping("/login")
+    @Operation(summary = "Iniciar sesión", description = "Valida usuario/contraseña para el módulo interno (boletería/configuración)")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Credenciales válidas"),
+            @ApiResponse(responseCode = "401", description = "Usuario o contraseña incorrectos")
+    })
+    public ResponseEntity<?> login(@RequestBody LoginRequest request) {
+        Optional<Usuario> autenticado = usuarioService.autenticar(request.getUsername(), request.getPassword());
+        if (autenticado.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Usuario o contraseña incorrectos");
+        }
+        LoginResponseDTO dto = entityToLoginDto(autenticado.get());
+        dto.setToken(jwtService.generarToken(autenticado.get()));
+        return ResponseEntity.ok(dto);
     }
 
     @PostMapping
     @Operation(summary = "Crear un nuevo usuario", description = "Crea un nuevo usuario en el sistema")
     @ApiResponse(responseCode = "201", description = "Usuario creado exitosamente")
-    public ResponseEntity<Usuario> crearUsuario(@RequestBody Usuario usuario) {
+    public ResponseEntity<UsuarioResponseDTO> crearUsuario(@RequestBody Usuario usuario) {
         Usuario nuevoUsuario = usuarioService.crearUsuario(usuario);
-        return ResponseEntity.status(HttpStatus.CREATED).body(nuevoUsuario);
+        return ResponseEntity.status(HttpStatus.CREATED).body(entityToDto(nuevoUsuario));
     }
 
     @GetMapping("/{id}")
@@ -39,9 +62,9 @@ public class UsuarioController {
             @ApiResponse(responseCode = "200", description = "Usuario encontrado"),
             @ApiResponse(responseCode = "404", description = "Usuario no encontrado")
     })
-    public ResponseEntity<Usuario> obtenerUsuarioPorId(@PathVariable @Parameter(description = "ID del usuario") Long id) {
-        Optional<Usuario> usuario = usuarioService.obtenerUsuarioPorId(id);
-        return usuario.map(ResponseEntity::ok)
+    public ResponseEntity<UsuarioResponseDTO> obtenerUsuarioPorId(@PathVariable @Parameter(description = "ID del usuario") Long id) {
+        return usuarioService.obtenerUsuarioPorId(id)
+                .map(u -> ResponseEntity.ok(entityToDto(u)))
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
@@ -51,17 +74,19 @@ public class UsuarioController {
             @ApiResponse(responseCode = "200", description = "Usuario encontrado"),
             @ApiResponse(responseCode = "404", description = "Usuario no encontrado")
     })
-    public ResponseEntity<Usuario> obtenerUsuarioPorUsername(@PathVariable @Parameter(description = "Nombre de usuario") String username) {
-        Optional<Usuario> usuario = usuarioService.obtenerUsuarioPorUsername(username);
-        return usuario.map(ResponseEntity::ok)
+    public ResponseEntity<UsuarioResponseDTO> obtenerUsuarioPorUsername(@PathVariable @Parameter(description = "Nombre de usuario") String username) {
+        return usuarioService.obtenerUsuarioPorUsername(username)
+                .map(u -> ResponseEntity.ok(entityToDto(u)))
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @GetMapping
     @Operation(summary = "Obtener todos los usuarios", description = "Obtiene la lista de todos los usuarios registrados")
     @ApiResponse(responseCode = "200", description = "Lista de usuarios obtenida exitosamente")
-    public ResponseEntity<List<Usuario>> obtenerTodosUsuarios() {
-        List<Usuario> usuarios = usuarioService.obtenerTodosUsuarios();
+    public ResponseEntity<List<UsuarioResponseDTO>> obtenerTodosUsuarios() {
+        List<UsuarioResponseDTO> usuarios = usuarioService.obtenerTodosUsuarios().stream()
+                .map(UsuarioController::entityToDto)
+                .collect(Collectors.toList());
         return ResponseEntity.ok(usuarios);
     }
 
@@ -71,11 +96,10 @@ public class UsuarioController {
             @ApiResponse(responseCode = "200", description = "Usuario actualizado exitosamente"),
             @ApiResponse(responseCode = "404", description = "Usuario no encontrado")
     })
-    public ResponseEntity<Usuario> actualizarUsuario(@PathVariable @Parameter(description = "ID del usuario") Long id, @RequestBody Usuario usuario) {
+    public ResponseEntity<UsuarioResponseDTO> actualizarUsuario(@PathVariable @Parameter(description = "ID del usuario") Long id, @RequestBody Usuario usuario) {
         if (usuarioService.obtenerUsuarioPorId(id).isPresent()) {
             usuario.setId(id);
-            Usuario usuarioActualizado = usuarioService.actualizarUsuario(usuario);
-            return ResponseEntity.ok(usuarioActualizado);
+            return ResponseEntity.ok(entityToDto(usuarioService.actualizarUsuario(usuario)));
         }
         return ResponseEntity.notFound().build();
     }
@@ -92,5 +116,26 @@ public class UsuarioController {
             return ResponseEntity.noContent().build();
         }
         return ResponseEntity.notFound().build();
+    }
+
+    private static UsuarioResponseDTO entityToDto(Usuario u) {
+        UsuarioResponseDTO dto = new UsuarioResponseDTO();
+        dto.setId(u.getId());
+        dto.setUsername(u.getUsername());
+        dto.setNombre(u.getNombre());
+        dto.setApellido(u.getApellido());
+        dto.setRol(u.getRol());
+        dto.setActivo(u.getActivo());
+        return dto;
+    }
+
+    private static LoginResponseDTO entityToLoginDto(Usuario u) {
+        LoginResponseDTO dto = new LoginResponseDTO();
+        dto.setId(u.getId());
+        dto.setUsername(u.getUsername());
+        dto.setNombre(u.getNombre());
+        dto.setApellido(u.getApellido());
+        dto.setRol(u.getRol());
+        return dto;
     }
 }

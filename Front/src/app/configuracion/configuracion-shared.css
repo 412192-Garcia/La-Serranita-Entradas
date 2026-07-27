@@ -1,0 +1,192 @@
+/* Estilos comunes al "kit" de admin de Configuración: tarjetas, formularios, botones,
+   tablas simples y spinner. Cada pestaña (componente hijo) importa este archivo además
+   del propio para no repetir estas reglas en cada uno. */
+
+.seccion {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.tarjeta {
+  background-color: #fff;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  padding: 20px 24px;
+}
+
+.tarjeta h2 {
+  font-family: var(--font-heading);
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0 0 8px;
+}
+
+.ayuda {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  margin: 0 0 12px;
+}
+
+.mensaje {
+  font-size: 0.85rem;
+  color: var(--color-primary-dark);
+  margin: 10px 0 0;
+  font-weight: 600;
+}
+
+.alerta-error {
+  background-color: var(--color-danger-light);
+  color: var(--color-danger-dark);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  font-size: 0.85rem;
+  margin: 0 0 12px;
+}
+
+/* ---------- Inputs / forms ---------- */
+.fila-horario {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 14px;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.opcional {
+  font-weight: 500;
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+}
+
+input, select {
+  padding: 9px 12px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: #fff;
+  outline: none;
+  color: var(--color-text);
+}
+
+input:focus, select:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(57, 169, 53, 0.15);
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.btn-primario {
+  border: none;
+  background-color: var(--color-primary);
+  color: #fff;
+  padding: 10px 20px;
+  border-radius: var(--radius-sm);
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+  transition: background-color 0.18s ease;
+}
+
+.btn-primario:hover:not(:disabled) { background-color: var(--color-primary-dark); }
+.btn-primario:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.btn-secundario {
+  border: 1.5px solid var(--color-border);
+  background-color: #fff;
+  color: var(--color-text-secondary);
+  padding: 9px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+  transition: all 0.18s ease;
+}
+
+.btn-secundario:hover:not(:disabled) { border-color: var(--color-primary); color: var(--color-primary-dark); }
+.btn-secundario:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* ---------- Tabla simple ---------- */
+.tabla-simple {
+  display: flex;
+  flex-direction: column;
+}
+
+.fila-simple {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr 1fr 1fr 1fr;
+  gap: 10px;
+  padding: 10px 4px;
+  align-items: center;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 0.85rem;
+}
+
+.fila-simple:last-child { border-bottom: none; }
+
+.fila-simple-header {
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  letter-spacing: 0.3px;
+}
+
+.codigo-mono {
+  font-family: monospace;
+  font-weight: 700;
+}
+
+.badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  width: fit-content;
+}
+
+.badge-activo { background-color: var(--color-primary-light); color: var(--color-primary-dark); }
+.badge-inactivo { background-color: var(--color-border); color: var(--color-text-secondary); }
+
+/* ---------- Spinner ---------- */
+.spinner-contenedor {
+  display: flex;
+  justify-content: center;
+  padding: 30px 0;
+}
+
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 4px solid rgba(0, 0, 0, 0.08);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: girar 1s linear infinite;
+}
+
+@keyframes girar { to { transform: rotate(360deg); } }
+
+/* ---------- Responsive ---------- */
+@media (max-width: 900px) {
+  .fila-simple { grid-template-columns: 1fr 1fr; }
+}

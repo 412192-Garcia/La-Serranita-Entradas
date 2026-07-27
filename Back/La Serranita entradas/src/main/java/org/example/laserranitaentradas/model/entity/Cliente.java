@@ -33,4 +33,10 @@ public class Cliente extends BaseEntity {
     @Column
     private String apellido;
 
+    @Column
+    private Integer edad;
+
+    @Column
+    private String localidad;
+
 }

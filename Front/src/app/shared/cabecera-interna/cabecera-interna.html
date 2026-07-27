@@ -1,0 +1,18 @@
+<header class="cabecera">
+  <div class="cabecera-texto">
+    <h1>{{ titulo }}</h1>
+    @if (descripcion) {
+      <p>{{ descripcion }}</p>
+    }
+  </div>
+
+  <div class="cabecera-acciones">
+    @if (enlace) {
+      <a class="btn-secundario" [routerLink]="enlace.ruta">{{ enlace.texto }}</a>
+    }
+    @if (operador(); as usuario) {
+      <span class="operador">{{ usuario.nombre }}</span>
+      <button type="button" class="btn-secundario" (click)="cerrarSesion()">Cerrar sesión</button>
+    }
+  </div>
+</header>
