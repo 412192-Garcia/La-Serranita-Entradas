@@ -12,6 +12,10 @@ import java.util.Optional;
 public interface CompraRepository extends JpaRepository<Compra, Long> {
     Optional<Compra> findByClienteDniAndFechaVisita(String dni, LocalDate fechaVisita);
     List<Compra> findAllByClienteDni(String dni);
+    List<Compra> findAllByFechaVisitaOrderByCodigoReservaAsc(LocalDate fechaVisita);
+    long countByFechaVisita(LocalDate fechaVisita);
+    long countByFechaVisitaIsNull();
+    List<Compra> findAllByOrderByFechaVisitaAscCodigoReservaAsc();
 }
 
 

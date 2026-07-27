@@ -20,18 +20,13 @@ public class MercadoPagoController {
     }
 
     @PostMapping("/preferences")
-    public ResponseEntity<?> createPreference(@RequestBody Map<String, Object> body) {
-        try {
-            // Validación mínima: debe contener 'items' como lista
-            Object itemsObj = body.get("items");
-            if (itemsObj == null) {
-                return ResponseEntity.badRequest().body(Map.of("error", "'items' es obligatorio en el payload de la preferencia"));
-            }
-
-            Map<String, Object> preference = preferenceService.createPreference(body);
-            return ResponseEntity.ok(preference);
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("error", "Error al crear preferencia", "detail", e.getMessage()));
+    public ResponseEntity<Map<String, Object>> createPreference(@RequestBody Map<String, Object> body) throws Exception {
+        // Validación mínima: debe contener 'items' como lista.
+        // El resto de los errores los traduce ManejadorGlobalErrores.
+        if (body.get("items") == null) {
+            throw new IllegalArgumentException("'items' es obligatorio en el payload de la preferencia");
         }
+
+        return ResponseEntity.ok(preferenceService.createPreference(body));
     }
 }

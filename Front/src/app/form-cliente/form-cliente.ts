@@ -29,7 +29,10 @@ export class FormCliente implements OnInit {
       apellido: ['', [Validators.required, Validators.minLength(2)]],
       dni: ['', [Validators.required, Validators.pattern('^[0-9]{7,8}$')]],
       email: ['', [Validators.required, Validators.email]],
-      telefono: ['', [Validators.required, Validators.pattern('^[0-9]{10,13}$')]]
+      telefono: ['', [Validators.required, Validators.pattern('^[0-9]{10,13}$')]],
+      // Opcionales: no llevan Validators.required.
+      edad: [null, [Validators.min(0), Validators.max(120)]],
+      localidad: ['']
     });
 
     if (this.datosPrevios) {

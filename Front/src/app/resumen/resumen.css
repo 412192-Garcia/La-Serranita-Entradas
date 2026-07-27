@@ -23,17 +23,30 @@
 
 .subtitulo-seccion {
   font-size: 0.88rem;
-  color: #6b7280;
+  color: var(--color-text-muted);
   margin-top: -8px;
   margin-bottom: 4px;
 }
 
+/* Grilla de tarjetas: 1 columna por defecto, 2x2 cuando el contenedor tiene lugar.
+   align-items: start evita que una tarjeta corta (p. ej. Cupón) se estire para
+   igualar la altura de su vecina más alta (p. ej. Método de Pago con 2 opciones),
+   lo que dejaba un hueco vacío adentro de la tarjeta corta. */
+.grilla-tarjetas {
+  display: grid;
+  grid-template-columns: 1fr;
+  align-items: start;
+  gap: 16px;
+  width: 100%;
+}
+
 /* Tarjetas Informativas (Mismo estilo que la tarjeta de liquidación de abajo) */
 .tarjeta-resumen {
-  background-color: var(--color-bg-soft);
+  background-color: #ffffff;
   border: 1px solid var(--color-border);
-  border-radius: 10px;
-  padding: 16px;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+  padding: 16px 18px;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -44,19 +57,33 @@
 .cabecera-tarjeta {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   border-bottom: 1px solid var(--color-border);
-  padding-bottom: 8px;
+  padding-bottom: 10px;
 }
 
 .icono-tarjeta {
-  font-size: 1.1rem;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background-color: var(--color-primary-light);
+  color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icono-tarjeta svg {
+  width: 17px;
+  height: 17px;
 }
 
 .cabecera-tarjeta h3 {
+  font-family: var(--font-heading);
   font-size: 0.95rem;
   font-weight: 700;
-  color: #1f2937;
+  color: var(--color-text);
   margin: 0;
 }
 
@@ -65,7 +92,8 @@
 }
 
 .dato-destacado {
-  font-size: 1rem;
+  font-family: var(--font-heading);
+  font-size: 1.05rem;
   font-weight: 600;
   color: var(--color-primary);
   margin: 0;
@@ -73,12 +101,12 @@
 }
 
 .badge-regalo {
-  background-color: #fef3c7;
-  color: #92400e;
+  background-color: var(--color-accent-light);
+  color: var(--color-accent-dark);
   padding: 10px 14px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   font-size: 0.88rem;
-  border: 1px solid #fde68a;
+  border: 1px solid #f6dcb8;
 }
 
 /* Lista de Entradas */
@@ -97,6 +125,7 @@
   align-items: center;
   font-size: 0.92rem;
   color: var(--color-text-secondary);
+  padding: 2px 0;
 }
 
 .item-cant-nombre strong {
@@ -116,28 +145,47 @@
 }
 
 .opcion-pago-card {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 14px;
-  border: 1.5px solid #d1d5db;
-  border-radius: 8px;
+  padding: 12px 40px 12px 14px;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.18s ease;
   background-color: #ffffff;
   width: 100%;
   box-sizing: border-box;
 }
 
 .opcion-pago-card:hover {
-  border-color: #86efac;
-  background-color: #f0fdf4;
+  border-color: var(--color-primary);
+  background-color: var(--color-primary-light);
 }
 
 .opcion-pago-card.seleccionada {
   border-color: var(--color-primary);
-  background-color: #f0fdf4;
+  background-color: var(--color-primary-light);
   box-shadow: 0 0 0 1px var(--color-primary);
+}
+
+.opcion-pago-card.seleccionada::after {
+  content: '✓';
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background-color: var(--color-primary);
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .opcion-pago-card input[type="radio"] {
@@ -146,6 +194,7 @@
   height: 18px;
   cursor: pointer;
   margin: 0;
+  flex-shrink: 0;
 }
 
 .contenido-opcion {
@@ -161,19 +210,73 @@
 
 .desc-opcion {
   font-size: 0.8rem;
-  color: #6b7280;
+  color: var(--color-text-muted);
   margin-top: 1px;
 }
+
+/* Cupón de descuento */
+.cupon-modulo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.cupon-input-grupo {
+  display: flex;
+  background-color: #f3f4f6;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 4px;
+  width: 100%;
+  max-width: 300px;
+  box-sizing: border-box;
+}
+
+.cupon-input-grupo input {
+  border: none;
+  background: none;
+  padding: 8px 12px;
+  font-size: 0.9rem;
+  outline: none;
+  width: 100%;
+  text-transform: uppercase;
+  color: #1f2937;
+}
+
+.cupon-input-grupo input:disabled {
+  color: #9ca3af;
+  font-weight: 600;
+}
+
+.btn-cupon {
+  background-color: #1f2937;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  padding: 0 16px;
+  font-size: 0.85rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.btn-cupon:hover { background-color: var(--color-text); }
+.btn-cupon.remover { background-color: var(--color-danger); }
+.btn-cupon.remover:hover { background-color: #b91c1c; }
+
+.cupon-error-msg { color: var(--color-danger); font-size: 0.8rem; font-weight: 500; display: block; }
+.cupon-success-msg { color: var(--color-primary); font-size: 0.8rem; font-weight: 600; display: block; }
 
 /* Bloque de Liquidación y Totales */
 .bloque-liquidacion {
   background-color: var(--color-bg-soft);
   border: 1px solid var(--color-border);
-  border-radius: 10px;
-  padding: 16px;
+  border-radius: var(--radius-md);
+  padding: 18px 20px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 9px;
   width: 100%;
   box-sizing: border-box;
 }
@@ -182,7 +285,7 @@
   display: flex;
   justify-content: space-between;
   font-size: 0.92rem;
-  color: #4b5563;
+  color: var(--color-text-secondary);
 }
 
 .precios-bloque {
@@ -206,7 +309,7 @@
 .linea-divisora {
   height: 1px;
   background-color: var(--color-border);
-  margin: 4px 0;
+  margin: 5px 0;
 }
 
 .fila-total {
@@ -217,13 +320,14 @@
 
 .etiqueta-total {
   font-family: var(--font-heading);
-  font-size: 1rem;
+  font-size: 1.05rem;
   font-weight: 800;
   color: var(--color-text);
 }
 
 .valor-total {
-  font-size: 1.35rem;
+  font-family: var(--font-heading);
+  font-size: 1.6rem;
   font-weight: 800;
   color: var(--color-primary);
 }
@@ -238,46 +342,74 @@
 
 .btn-volver {
   flex: 1;
-  padding: 12px 16px;
+  padding: 13px 16px;
   border: 1px solid #d1d5db;
   background-color: #ffffff;
   color: var(--color-text-secondary);
   font-weight: 600;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.18s ease;
   font-size: 0.92rem;
 }
 
 .btn-volver:hover:not(:disabled) {
-  background-color: #f3f4f6;
+  background-color: var(--color-bg-soft);
+  border-color: #9ca3af;
 }
 
 .btn-pagar {
   flex: 2;
-  padding: 12px 16px;
+  padding: 13px 16px;
   border: none;
   background-color: var(--color-primary);
   color: #ffffff;
   font-weight: 700;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.18s ease;
   font-size: 0.95rem;
   display: flex;
   justify-content: center;
   align-items: center;
   gap: 8px;
+  box-shadow: 0 4px 10px -2px rgba(57, 169, 53, 0.4);
 }
 
 .btn-pagar:hover:not(:disabled) {
   background-color: var(--color-primary-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px -2px rgba(57, 169, 53, 0.45);
 }
 
 .btn-volver:disabled,
 .btn-pagar:disabled {
   opacity: 0.55;
   cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* Con lugar de sobra, las 4 tarjetas pasan de apiladas a una grilla de 2x2. */
+@container modulo (min-width: 640px) {
+  .grilla-tarjetas {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@container modulo (max-width: 480px) {
+  .footer-acciones {
+    flex-direction: column;
+  }
+
+  .btn-volver,
+  .btn-pagar {
+    flex: none;
+    width: 100%;
+  }
+
+  .cupon-input-grupo {
+    max-width: 100%;
+  }
 }
 
 /* Spinner */

@@ -7,6 +7,7 @@ import org.example.laserranitaentradas.model.entity.Compra;
 import org.example.laserranitaentradas.model.entity.CompraDetalle;
 import org.example.laserranitaentradas.model.entity.Cupon;
 import org.example.laserranitaentradas.model.entity.FormaPago;
+import org.example.laserranitaentradas.model.entity.Tipo;
 import org.example.laserranitaentradas.model.entity.TipoEntrada;
 import org.example.laserranitaentradas.model.entity.Usuario;
 import org.example.laserranitaentradas.model.entity.EstadoCompra;
@@ -17,6 +18,8 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -78,6 +81,7 @@ public class CompraServiceImpl implements CompraService {
 
         CompraResponseDTO dto = new CompraResponseDTO();
         dto.setId(compraGuardada.getId());
+        dto.setCodigoReserva(compraGuardada.getCodigoReserva());
         dto.setMontoTotal(compraGuardada.getMontoTotal());
         dto.setEstado(compraGuardada.getEstado().name());
         dto.setPreferenceId(respuestaPago.getPreferenceId());
@@ -103,13 +107,12 @@ public class CompraServiceImpl implements CompraService {
         ClienteDTO clienteDTO = compraRequest.getCliente();
         LocalDate fechaVisita = compraRequest.getFecha();
 
-        if (fechaVisita == null) {
-            throw new IllegalArgumentException("Fecha de visita requerida");
-        }
-
-        Boolean abierto = diaAperturaService.getAbiertoByDate(fechaVisita);
-        if (abierto == null || !abierto) {
-            throw new IllegalArgumentException("El parque está cerrado en la fecha solicitada: " + fechaVisita);
+        // fechaVisita null = compra como regalo: quien lo recibe elige el día, no hay fecha que validar.
+        if (fechaVisita != null) {
+            Boolean abierto = diaAperturaService.getAbiertoByDate(fechaVisita);
+            if (abierto == null || !abierto) {
+                throw new IllegalArgumentException("El parque está cerrado en la fecha solicitada: " + fechaVisita);
+            }
         }
 
 
@@ -122,6 +125,8 @@ public class CompraServiceImpl implements CompraService {
                         .dni(dniStr)
                         .nombre(clienteDTO.getNombre())
                         .apellido(clienteDTO.getApellido())
+                        .edad(clienteDTO.getEdad())
+                        .localidad(clienteDTO.getLocalidad())
                         .build();
                 cliente = clienteService.create(nuevo);
             }
@@ -171,6 +176,16 @@ public class CompraServiceImpl implements CompraService {
             }
         }
 
+        boolean hayEntradas = detalles.stream()
+                .anyMatch(d -> d.getTipoEntrada().getTipo() == Tipo.ENTRADA);
+        boolean hayObligatorio = detalles.stream()
+                .anyMatch(d -> Boolean.TRUE.equals(d.getTipoEntrada().getObligatorio()) && d.getCantidad() > 0);
+        if (hayEntradas && !hayObligatorio) {
+            throw new IllegalArgumentException(
+                    "La compra debe incluir al menos un pase de un tipo obligatorio (por ejemplo, un adulto responsable) para poder ingresar al parque."
+            );
+        }
+
         BigDecimal descuentoAplicado = BigDecimal.ZERO;
         if (cupon != null) {
 
@@ -192,11 +207,24 @@ public class CompraServiceImpl implements CompraService {
 
         }
 
+        // Código visible yyMMdd-N: N es el orden de esta reserva entre todas las
+        // que ya existen para ese mismo día de visita (se asigna una sola vez, al crear).
+        // Para regalos (sin fecha) se usa un contador propio: REGALO-N.
+        String codigoReserva;
+        if (fechaVisita != null) {
+            long numeroDelDia = compraRepository.countByFechaVisita(fechaVisita) + 1;
+            codigoReserva = fechaVisita.format(DateTimeFormatter.ofPattern("yyMMdd")) + "-" + numeroDelDia;
+        } else {
+            long numeroRegalo = compraRepository.countByFechaVisitaIsNull() + 1;
+            codigoReserva = "REGALO-" + numeroRegalo;
+        }
+
         Compra nuevaCompra = Compra.builder()
                 .cliente(cliente)
                 .contactEmail(contactEmail)
                 .contactPhone(contactPhone)
                 .fechaVisita(fechaVisita)
+                .codigoReserva(codigoReserva)
                 .montoTotal(montoTotal)
                 .descuentoAplicado(descuentoAplicado)
                 .cupon(cupon)
@@ -239,8 +267,13 @@ public class CompraServiceImpl implements CompraService {
     }
 
     @Override
+    public List<Compra> getAllByFechaVisita(LocalDate fechaVisita) {
+        return compraRepository.findAllByFechaVisitaOrderByCodigoReservaAsc(fechaVisita);
+    }
+
+    @Override
     public List<Compra> getAll() {
-        return compraRepository.findAll();
+        return compraRepository.findAllByOrderByFechaVisitaAscCodigoReservaAsc();
     }
 
     @Transactional
@@ -254,6 +287,7 @@ public class CompraServiceImpl implements CompraService {
 
         compra.setEstado(EstadoCompra.USADO);
         compra.setUsuarioValidador(usuario);
+        compra.setFechaValidacion(LocalDateTime.now());
 
         return compraRepository.save(compra);
     }

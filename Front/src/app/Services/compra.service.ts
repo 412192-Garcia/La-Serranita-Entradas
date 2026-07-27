@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import {HttpClient} from '@angular/common/http';
 import {Observable} from 'rxjs';
+import {environment} from '../../environments/environment';
 
 export interface EstadoCompraResponse {
   estado: string;
@@ -8,6 +9,7 @@ export interface EstadoCompraResponse {
 
 export interface CompraResponseDTO {
   id: number;
+  codigoReserva: string;
   preferenceId?: string | null;
   formaPago: 'MERCADO_PAGO' | 'EFECTIVO_BOLETERIA';
   initPoint?: string | null;
@@ -26,7 +28,7 @@ export interface CotizacionResponseDTO {
 })
 export class CompraService {
   constructor(private http: HttpClient) { }
-  private apiUrl = 'http://localhost:8080/api/compras';
+  private apiUrl = `${environment.apiBase}/compras`;
 
   /**
    * Inicia la compra en el backend (crea la compra PENDIENTE + preferencia MP)
@@ -40,6 +42,14 @@ export class CompraService {
    */
   obtenerEstadoCompra(compraId: number): Observable<EstadoCompraResponse> {
     return this.http.get<EstadoCompraResponse>(`${this.apiUrl}/${compraId}/estado`);
+  }
+
+  /**
+   * Trae la compra completa (usado para resolver el código de reserva a partir
+   * del id numérico que Mercado Pago devuelve en external_reference).
+   */
+  obtenerCompra(compraId: number): Observable<CompraResponseDTO> {
+    return this.http.get<CompraResponseDTO>(`${this.apiUrl}/${compraId}`);
   }
 
   /**

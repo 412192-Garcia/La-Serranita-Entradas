@@ -12,5 +12,7 @@ public interface UsuarioService {
     List<Usuario> obtenerTodosUsuarios();
     Usuario actualizarUsuario(Usuario usuario);
     void eliminarUsuario(Long id);
+    /** Valida usuario/contraseña para el login del módulo interno. Vacío si no matchea o el usuario está inactivo. */
+    Optional<Usuario> autenticar(String username, String password);
 }
 

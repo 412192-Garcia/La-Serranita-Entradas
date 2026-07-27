@@ -1,0 +1,242 @@
+import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { CurrencyPipe } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { ConfiguracionService, DescuentoEfectivo } from '../../Services/configuracion.service';
+import { TipoEntradaService } from '../../Services/tipo-entrada.service';
+import { TipoEntrada } from '../../models/tipo-entrada';
+
+@Component({
+  selector: 'app-configuracion-tipos-entrada',
+  imports: [FormsModule, CurrencyPipe],
+  templateUrl: './tipos-entrada.html',
+  styleUrls: ['../configuracion-shared.css', './tipos-entrada.css'],
+})
+export class ConfiguracionTiposEntrada implements OnInit {
+  private configuracionService = inject(ConfiguracionService);
+  private tipoEntradaService = inject(TipoEntradaService);
+
+  tiposEntrada = signal<TipoEntrada[]>([]);
+  cargandoTipos = signal(false);
+  errorTipos = signal<string | null>(null);
+
+  tipoEditandoId = signal<number | null>(null);
+  nombreTipo = signal('');
+  descripcionTipo = signal('');
+  precioTipo = signal<number | null>(null);
+  categoriaTipo = signal<'ENTRADA' | 'EXTRA'>('ENTRADA');
+  obligatorioTipo = signal(false);
+  guardandoTipo = signal(false);
+
+  descuentosGrupo = signal<DescuentoEfectivo[]>([]);
+  cargandoDescuentos = signal(false);
+  errorDescuentos = signal<string | null>(null);
+
+  descuentoEditandoId = signal<number | null>(null);
+  tipoEntradaIdDescuento = signal<number | null>(null);
+  cantidadPasesDescuento = signal<number | null>(null);
+  precioTotalDescuento = signal<number | null>(null);
+  guardandoDescuento = signal(false);
+
+  /** Entradas (no extras) disponibles para configurarles un precio de grupo. */
+  entradasParaDescuento = computed(() => this.tiposEntrada().filter((t) => t.tipo === 'ENTRADA'));
+
+  ngOnInit(): void {
+    this.cargarTipos();
+    this.cargarDescuentosGrupo();
+  }
+
+  cargarTipos(): void {
+    this.cargandoTipos.set(true);
+    this.tipoEntradaService.getTiposEntrada().subscribe({
+      next: (ts) => {
+        this.tiposEntrada.set(ts);
+        this.cargandoTipos.set(false);
+      },
+      error: (err) => {
+        console.error('Error al cargar los tipos de entrada:', err);
+        this.cargandoTipos.set(false);
+      },
+    });
+  }
+
+  editarTipo(t: TipoEntrada): void {
+    this.tipoEditandoId.set(t.id);
+    this.nombreTipo.set(t.nombre);
+    this.descripcionTipo.set(t.descripcion ?? '');
+    this.precioTipo.set(t.precio);
+    this.categoriaTipo.set(t.tipo);
+    this.obligatorioTipo.set(t.obligatorio);
+    this.errorTipos.set(null);
+  }
+
+  cancelarEdicionTipo(): void {
+    this.tipoEditandoId.set(null);
+    this.nombreTipo.set('');
+    this.descripcionTipo.set('');
+    this.precioTipo.set(null);
+    this.categoriaTipo.set('ENTRADA');
+    this.obligatorioTipo.set(false);
+    this.errorTipos.set(null);
+  }
+
+  guardarTipo(): void {
+    if (this.guardandoTipo()) return;
+    if (!this.nombreTipo().trim() || this.precioTipo() === null) {
+      this.errorTipos.set('Completá nombre y precio.');
+      return;
+    }
+    this.guardandoTipo.set(true);
+    this.errorTipos.set(null);
+
+    const payload = {
+      nombre: this.nombreTipo().trim(),
+      descripcion: this.descripcionTipo().trim(),
+      precio: this.precioTipo()!,
+      tipo: this.categoriaTipo(),
+      obligatorio: this.categoriaTipo() === 'ENTRADA' ? this.obligatorioTipo() : false,
+      activo: true,
+    };
+
+    const idEditando = this.tipoEditandoId();
+    const request = idEditando
+      ? this.tipoEntradaService.actualizar(idEditando, payload)
+      : this.tipoEntradaService.crear(payload);
+
+    request.subscribe({
+      next: (guardado) => {
+        this.tiposEntrada.update((ts) => {
+          const existe = ts.some((t) => t.id === guardado.id);
+          return existe ? ts.map((t) => (t.id === guardado.id ? guardado : t)) : [guardado, ...ts];
+        });
+        this.cancelarEdicionTipo();
+        this.guardandoTipo.set(false);
+      },
+      error: (err) => {
+        console.error('Error al guardar el tipo de entrada:', err);
+        this.errorTipos.set(
+          typeof err?.error === 'string' ? err.error : 'No se pudo guardar el tipo de entrada.'
+        );
+        this.guardandoTipo.set(false);
+      },
+    });
+  }
+
+  toggleActivoTipo(t: TipoEntrada): void {
+    if (t.activo) {
+      this.tipoEntradaService.eliminar(t.id).subscribe({
+        next: () => {
+          this.tiposEntrada.update((ts) =>
+            ts.map((x) => (x.id === t.id ? { ...x, activo: false } : x))
+          );
+        },
+        error: (err) => {
+          console.error('Error al desactivar el tipo de entrada:', err);
+          this.errorTipos.set('No se pudo desactivar el tipo de entrada.');
+        },
+      });
+    } else {
+      this.tipoEntradaService.actualizar(t.id, { ...t, activo: true }).subscribe({
+        next: (actualizado) => {
+          this.tiposEntrada.update((ts) => ts.map((x) => (x.id === t.id ? actualizado : x)));
+        },
+        error: (err) => {
+          console.error('Error al reactivar el tipo de entrada:', err);
+          this.errorTipos.set('No se pudo reactivar el tipo de entrada.');
+        },
+      });
+    }
+  }
+
+  // ---------- Precios por grupo (efectivo) ----------
+
+  cargarDescuentosGrupo(): void {
+    this.cargandoDescuentos.set(true);
+    this.configuracionService.getDescuentosEfectivo().subscribe({
+      next: (ds) => {
+        this.descuentosGrupo.set(ds);
+        this.cargandoDescuentos.set(false);
+      },
+      error: (err) => {
+        console.error('Error al cargar los precios por grupo:', err);
+        this.cargandoDescuentos.set(false);
+      },
+    });
+  }
+
+  editarDescuento(d: DescuentoEfectivo): void {
+    this.descuentoEditandoId.set(d.id);
+    this.tipoEntradaIdDescuento.set(d.tipoEntradaId);
+    this.cantidadPasesDescuento.set(d.cantidadPases);
+    this.precioTotalDescuento.set(d.precioPromocionalTotal);
+    this.errorDescuentos.set(null);
+  }
+
+  cancelarEdicionDescuento(): void {
+    this.descuentoEditandoId.set(null);
+    this.tipoEntradaIdDescuento.set(null);
+    this.cantidadPasesDescuento.set(null);
+    this.precioTotalDescuento.set(null);
+    this.errorDescuentos.set(null);
+  }
+
+  guardarDescuento(): void {
+    if (this.guardandoDescuento()) return;
+    if (!this.tipoEntradaIdDescuento() || !this.cantidadPasesDescuento() || this.precioTotalDescuento() === null) {
+      this.errorDescuentos.set('Completá tipo de entrada, cantidad de pases y precio total.');
+      return;
+    }
+    this.guardandoDescuento.set(true);
+    this.errorDescuentos.set(null);
+
+    const payload = {
+      tipoEntradaId: this.tipoEntradaIdDescuento()!,
+      cantidadPases: this.cantidadPasesDescuento()!,
+      precioPromocionalTotal: this.precioTotalDescuento()!,
+    };
+
+    const idEditando = this.descuentoEditandoId();
+    const request = idEditando
+      ? this.configuracionService.actualizarDescuentoEfectivo(idEditando, payload)
+      : this.configuracionService.crearDescuentoEfectivo(payload);
+
+    request.subscribe({
+      next: (guardado) => {
+        this.descuentosGrupo.update((ds) => {
+          const existe = ds.some((d) => d.id === guardado.id);
+          return existe ? ds.map((d) => (d.id === guardado.id ? guardado : d)) : [guardado, ...ds];
+        });
+        this.cancelarEdicionDescuento();
+        this.guardandoDescuento.set(false);
+      },
+      error: (err) => {
+        console.error('Error al guardar el precio de grupo:', err);
+        this.errorDescuentos.set(
+          typeof err?.error === 'string' ? err.error : 'No se pudo guardar el precio de grupo.'
+        );
+        this.guardandoDescuento.set(false);
+      },
+    });
+  }
+
+  eliminarDescuento(d: DescuentoEfectivo): void {
+    this.configuracionService.eliminarDescuentoEfectivo(d.id).subscribe({
+      next: () => {
+        this.descuentosGrupo.update((ds) => ds.filter((x) => x.id !== d.id));
+        if (this.descuentoEditandoId() === d.id) {
+          this.cancelarEdicionDescuento();
+        }
+      },
+      error: (err) => {
+        console.error('Error al eliminar el precio de grupo:', err);
+        this.errorDescuentos.set('No se pudo eliminar el precio de grupo.');
+      },
+    });
+  }
+
+  /** Cuánto ahorra el grupo respecto de pagar cada pase por separado a precio de lista. */
+  ahorroDescuento(d: DescuentoEfectivo): number {
+    const tipo = this.tiposEntrada().find((t) => t.id === d.tipoEntradaId);
+    if (!tipo) return 0;
+    return Math.max(0, tipo.precio * d.cantidadPases - d.precioPromocionalTotal);
+  }
+}

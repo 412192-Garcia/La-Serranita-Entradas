@@ -13,27 +13,26 @@ import java.util.Optional;
 @EnableJpaAuditing
 public class AuditConfig {
 
+    /** Compras y consultas del sitio público se hacen sin sesión. */
+    private static final String AUDITOR_ANONIMO = "SISTEMA";
+
+    /**
+     * Quién queda registrado en los campos de auditoría de las entidades.
+     * Cuando la request trae un JWT válido, el filtro deja un UsuarioAutenticado
+     * como principal y se usa su username.
+     */
     @Bean
     public AuditorAware<String> auditorAware() {
-        return new AuditorAware<String>() {
-            @Override
-            public Optional<String> getCurrentAuditor() {
-                try {
-                    Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        return () -> {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
-                    if (authentication != null && authentication.isAuthenticated()) {
-                        // TODO: Obtener el nombre/ID del usuario autenticado
-                        Object principal = authentication.getPrincipal();
-                        if (principal instanceof String) {
-                            return Optional.of((String) principal);
-                        }
-                    }
-                } catch (Exception e) {
-                    // Si hay error en seguridad, usa usuario por defecto
-                }
-
-                return Optional.of("SISTEMA");
+            if (authentication != null
+                    && authentication.isAuthenticated()
+                    && authentication.getPrincipal() instanceof UsuarioAutenticado usuario) {
+                return Optional.of(usuario.username());
             }
+
+            return Optional.of(AUDITOR_ANONIMO);
         };
     }
 

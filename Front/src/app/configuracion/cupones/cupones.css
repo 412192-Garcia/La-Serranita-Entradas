@@ -1,0 +1,101 @@
+:host {
+  display: block;
+  width: 100%;
+}
+
+.seccion-cupones {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+.tarjeta-ancha {
+  grid-column: 1 / -1;
+}
+
+/* ---------- Lotes de cupones ---------- */
+.lotes-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.resumen-lotes {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.lote-item {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.lote-item:last-child { border-bottom: none; }
+
+.lote-resumen {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 4px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+}
+
+.lote-nombre {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+.lote-descripcion {
+  font-weight: 500;
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+}
+.lote-prefijo {
+  font-family: monospace;
+  font-weight: 700;
+  color: var(--color-accent-dark);
+}
+.lote-descuento, .lote-expira { font-size: 0.85rem; font-weight: 600; color: var(--color-text-secondary); }
+.lote-cantidad { font-size: 0.82rem; color: var(--color-text-muted); }
+.lote-toggle { color: var(--color-text-muted); font-size: 0.75rem; }
+
+.lote-codigos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 4px 14px;
+}
+
+.codigo-chip {
+  font-family: monospace;
+  font-size: 0.78rem;
+  font-weight: 700;
+  background-color: var(--color-primary-light);
+  color: var(--color-primary-dark);
+  border: 1px solid var(--color-calendar-border);
+  border-radius: var(--radius-sm);
+  padding: 4px 9px;
+}
+
+.codigo-chip.chip-usado {
+  background-color: var(--color-bg-soft);
+  color: var(--color-text-muted);
+  border-color: var(--color-border);
+  text-decoration: line-through;
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 900px) {
+  .lote-resumen { grid-template-columns: 1fr 1fr; }
+}

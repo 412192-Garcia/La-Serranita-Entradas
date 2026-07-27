@@ -1,12 +1,13 @@
 import { Injectable } from '@angular/core';
 import {HttpClient, HttpParams} from '@angular/common/http';
 import {Observable} from 'rxjs';
+import {environment} from '../../environments/environment';
 
 @Injectable({
   providedIn: 'root',
 })
 export class DiaAperturaService {
-  private apiUrl = 'http://localhost:8080/api/dias-apertura/abiertos';
+  private apiUrl = `${environment.apiBase}/dias-apertura/abiertos`;
 
   constructor(private http: HttpClient) { }
 

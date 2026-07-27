@@ -2,105 +2,154 @@
   <h2 class="titulo-seccion">Resumen de tu Compra</h2>
   <p class="subtitulo-seccion">Por favor, verificá que los datos sean correctos antes de proceder al pago.</p>
 
-  <!-- FECHA DE VISITA -->
-  <div class="tarjeta-resumen">
-    <div class="cabecera-tarjeta">
-      <span class="icono-tarjeta">📅</span>
-      <h3>Fecha de Visita</h3>
-    </div>
-    <div class="cuerpo-tarjeta">
-      @if (datosCompra?.esRegalo) {
-        <div class="badge-regalo">
-          🎁 <strong>Pase Abierto para Regalo</strong> (Válido por 90 días desde la fecha de compra)
-        </div>
-      } @else {
-        <p class="dato-destacado">{{ datosCompra?.fechaVisita | date:'fullDate':'':'es-AR' }}</p>
-      }
-    </div>
-  </div>
-
-  <!-- DETALLE DE ENTRADAS -->
-  <div class="tarjeta-resumen">
-    <div class="cabecera-tarjeta">
-      <span class="icono-tarjeta">🎟️</span>
-      <h3>Detalle de Entradas</h3>
-    </div>
-    <div class="cuerpo-tarjeta">
-      <ul class="lista-items">
-        @for (item of datosCompra?.entradas; track item.nombre) {
-          @if (item.cantidad > 0) {
-            <li class="item-resumen">
-              <span class="item-cant-nombre"><strong>{{ item.cantidad }}x</strong> {{ item.nombre }}</span>
-              <span class="item-precio">{{ (item.precioUnitario * item.cantidad) | currency:'ARS':'symbol':'1.0-0' }}</span>
-            </li>
-          }
+  <!--
+    Las 4 tarjetas van en una grilla: en 1 columna apiladas por defecto, y en 2x2
+    cuando el contenedor tiene ancho de sobra (ver @container en resumen.css) —
+    si no, en una pantalla ancha quedan una debajo de la otra desperdiciando todo
+    el espacio horizontal.
+  -->
+  <div class="grilla-tarjetas">
+    <!-- FECHA DE VISITA -->
+    <div class="tarjeta-resumen">
+      <div class="cabecera-tarjeta">
+        <span class="icono-tarjeta">
+          <svg lucideCalendar [strokeWidth]="2.5"></svg>
+        </span>
+        <h3>Fecha de Visita</h3>
+      </div>
+      <div class="cuerpo-tarjeta">
+        @if (datosCompra.esRegalo) {
+          <div class="badge-regalo">
+            🎁 <strong>Pase Abierto para Regalo</strong> (Válido por 90 días desde la fecha de compra)
+          </div>
+        } @else {
+          <p class="dato-destacado">{{ datosCompra.fechaVisita | date:'fullDate':'':'es-AR' }}</p>
         }
-      </ul>
+      </div>
     </div>
-  </div>
 
-  <!-- MÉTODO DE PAGO -->
-  <div class="tarjeta-resumen">
-    <div class="cabecera-tarjeta">
-      <span class="icono-tarjeta">💳</span>
-      <h3>Método de Pago</h3>
+    <!-- DETALLE DE ENTRADAS -->
+    <div class="tarjeta-resumen">
+      <div class="cabecera-tarjeta">
+        <span class="icono-tarjeta">
+          <svg lucideTicket [strokeWidth]="2.5"></svg>
+        </span>
+        <h3>Detalle de Entradas</h3>
+      </div>
+      <div class="cuerpo-tarjeta">
+        <ul class="lista-items">
+          @for (item of datosCompra.entradas; track item.nombre) {
+            @if (item.cantidad > 0) {
+              <li class="item-resumen">
+                <span class="item-cant-nombre"><strong>{{ item.cantidad }}x</strong> {{ item.nombre }}</span>
+                <span class="item-precio">{{ (item.precioUnitario * item.cantidad) | currency:'ARS':'symbol':'1.0-0' }}</span>
+              </li>
+            }
+          }
+        </ul>
+      </div>
     </div>
-    <div class="cuerpo-tarjeta">
-      <div class="opciones-pago">
-        <label class="opcion-pago-card" [class.seleccionada]="datosCompra?.formaPago === 'MERCADO_PAGO'">
-          <input
-            type="radio"
-            name="formaPago"
-            value="MERCADO_PAGO"
-            [checked]="datosCompra?.formaPago === 'MERCADO_PAGO'"
-            (change)="onCambiarFormaPago('MERCADO_PAGO')">
-          <div class="contenido-opcion">
-            <span class="titulo-opcion">Mercado Pago</span>
-            <span class="desc-opcion">Tarjetas de crédito, débito o dinero en cuenta (Acreditación inmediata).</span>
-          </div>
-        </label>
 
-        <label class="opcion-pago-card" [class.seleccionada]="datosCompra?.formaPago === 'EFECTIVO_BOLETERIA'">
-          <input
-            type="radio"
-            name="formaPago"
-            value="EFECTIVO_BOLETERIA"
-            [checked]="datosCompra?.formaPago === 'EFECTIVO_BOLETERIA'"
-            (change)="onCambiarFormaPago('EFECTIVO_BOLETERIA')">
-          <div class="contenido-opcion">
-            <span class="titulo-opcion">Efectivo en Boletería</span>
-            <span class="desc-opcion">Reservá tus lugares ahora y aboná en efectivo al llegar al parque.</span>
+    <!-- MÉTODO DE PAGO -->
+    <div class="tarjeta-resumen">
+      <div class="cabecera-tarjeta">
+        <span class="icono-tarjeta">
+          <svg lucideCreditCard [strokeWidth]="2.5"></svg>
+        </span>
+        <h3>Método de Pago</h3>
+      </div>
+      <div class="cuerpo-tarjeta">
+        <div class="opciones-pago">
+          <label class="opcion-pago-card" [class.seleccionada]="datosCompra.formaPago === 'MERCADO_PAGO'">
+            <input
+              type="radio"
+              name="formaPago"
+              value="MERCADO_PAGO"
+              [checked]="datosCompra.formaPago === 'MERCADO_PAGO'"
+              (change)="onCambiarFormaPago('MERCADO_PAGO')">
+            <div class="contenido-opcion">
+              <span class="titulo-opcion">Mercado Pago</span>
+              <span class="desc-opcion">Tarjetas de crédito, débito o dinero en cuenta (Acreditación inmediata).</span>
+            </div>
+          </label>
+
+          <label class="opcion-pago-card" [class.seleccionada]="datosCompra.formaPago === 'EFECTIVO_BOLETERIA'">
+            <input
+              type="radio"
+              name="formaPago"
+              value="EFECTIVO_BOLETERIA"
+              [checked]="datosCompra.formaPago === 'EFECTIVO_BOLETERIA'"
+              (change)="onCambiarFormaPago('EFECTIVO_BOLETERIA')">
+            <div class="contenido-opcion">
+              <span class="titulo-opcion">Efectivo en Boletería</span>
+              <span class="desc-opcion">Reservá tus lugares ahora y aboná en efectivo al llegar al parque.</span>
+            </div>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- CUPÓN DE DESCUENTO -->
+    <div class="tarjeta-resumen">
+      <div class="cabecera-tarjeta">
+        <span class="icono-tarjeta">
+          <svg lucideTag [strokeWidth]="2.5"></svg>
+        </span>
+        <h3>Cupón de Descuento</h3>
+      </div>
+      <div class="cuerpo-tarjeta">
+        <div class="cupon-modulo">
+          <div class="cupon-input-grupo">
+            <input
+              type="text"
+              placeholder="¿Tenés un cupón?"
+              [(ngModel)]="codigoInput"
+              [disabled]="cuponAplicado !== null"
+            />
+            @if (!cuponAplicado) {
+              <button type="button" class="btn-cupon" (click)="aplicarCupon()">Aplicar</button>
+            } @else {
+              <button type="button" class="btn-cupon remover" (click)="removerCupon()">Quitar</button>
+            }
           </div>
-        </label>
+          @if (errorCupon) {
+            <small class="cupon-error-msg">{{ errorCupon }}</small>
+          }
+          @if (cuponAplicado) {
+            <small class="cupon-success-msg">
+              ¡Cupón {{ cuponAplicado.codigo }} aplicado! (-{{ cuponAplicado.porcentajeDescuento ? cuponAplicado.porcentajeDescuento + '%' : (cuponAplicado.montoDescuento | currency:'ARS':'symbol':'1.0-0') }})
+            </small>
+          }
+        </div>
       </div>
     </div>
   </div>
 
   <!-- BLOQUE LIQUIDACIÓN / TOTAL -->
   <div class="bloque-liquidacion">
+    <!--
+      El precio por grupo (efectivo en boletería) no es un descuento que se resta:
+      es directamente otro precio para esa cantidad de pases. Por eso se muestra
+      tachando el precio de lista y reemplazándolo por el precio de grupo, en vez
+      de restarlo aparte más abajo (lo que antes hacía parecer que se descontaba
+      dos veces). El cupón sí es un descuento real, así que ese queda como resta.
+    -->
     <div class="fila-calculo">
       <span>Subtotal:</span>
-      @if (datosCompra?.descuentoGrupo && datosCompra.descuentoGrupo > 0) {
+      @if (datosCompra.descuentoGrupo && datosCompra.descuentoGrupo > 0) {
         <span class="precios-bloque">
-          <span class="precio-tachado">{{ datosCompra?.subtotalLista | currency:'ARS':'symbol':'1.0-0' }}</span>
-          <span>{{ datosCompra?.subtotal | currency:'ARS':'symbol':'1.0-0' }}</span>
+          <span class="precio-tachado">{{ datosCompra.subtotalLista | currency:'ARS':'symbol':'1.0-0' }}</span>
+          <span>{{ datosCompra.subtotal | currency:'ARS':'symbol':'1.0-0' }}</span>
         </span>
       } @else {
-        <span>{{ datosCompra?.subtotal | currency:'ARS':'symbol':'1.0-0' }}</span>
+        <span>{{ datosCompra.subtotalLista | currency:'ARS':'symbol':'1.0-0' }}</span>
       }
     </div>
 
-    @if (datosCompra?.descuentoGrupo && datosCompra.descuentoGrupo > 0) {
+    @if (datosCompra.descuentoMonto && datosCompra.descuentoMonto > 0) {
       <div class="fila-calculo descuento">
-        <span>Descuento por grupo (efectivo en boletería):</span>
-        <span>-{{ datosCompra?.descuentoGrupo | currency:'ARS':'symbol':'1.0-0' }}</span>
-      </div>
-    }
-
-    @if (datosCompra?.descuentoMonto && datosCompra.descuentoMonto > 0) {
-      <div class="fila-calculo descuento">
-        <span>Cupón ({{ datosCompra?.cuponCodigo }}):</span>
-        <span>-{{ datosCompra?.descuentoMonto | currency:'ARS':'symbol':'1.0-0' }}</span>
+        <span>Cupón ({{ datosCompra.cuponCodigo }}):</span>
+        <span>-{{ datosCompra.descuentoMonto | currency:'ARS':'symbol':'1.0-0' }}</span>
       </div>
     }
 
@@ -108,7 +157,7 @@
 
     <div class="fila-total">
       <span class="etiqueta-total">TOTAL A PAGAR:</span>
-      <span class="valor-total">{{ datosCompra?.total | currency:'ARS':'symbol':'1.0-0' }}</span>
+      <span class="valor-total">{{ datosCompra.total | currency:'ARS':'symbol':'1.0-0' }}</span>
     </div>
   </div>
 
@@ -118,11 +167,11 @@
       ← Volver / Editar
     </button>
 
-    <button type="button" class="btn-pagar" (click)="onPagar()" [disabled]="cargandoPago || !datosCompra?.formaPago">
+    <button type="button" class="btn-pagar" (click)="onPagar()" [disabled]="cargandoPago || !datosCompra.formaPago">
       @if (cargandoPago) {
         <span class="spinner-sm"></span> Procesando...
       } @else {
-        @if (datosCompra?.formaPago === 'MERCADO_PAGO') {
+        @if (datosCompra.formaPago === 'MERCADO_PAGO') {
           Pagar con Mercado Pago 💳
         } @else {
           Reservar y Pagar en Parque 💵

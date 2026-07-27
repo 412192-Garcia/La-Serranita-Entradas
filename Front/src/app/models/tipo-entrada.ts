@@ -4,5 +4,6 @@ export interface TipoEntrada {
   descripcion: string;
   precio: number;
   activo: boolean;
+  obligatorio: boolean;
   tipo: 'ENTRADA' | 'EXTRA';
 }

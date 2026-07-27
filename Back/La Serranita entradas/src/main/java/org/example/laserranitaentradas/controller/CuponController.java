@@ -86,7 +86,31 @@ public class CuponController {
         return ResponseEntity.ok(cupones);
     }
 
+    @GetMapping("/individuales")
+    @Operation(summary = "Obtener cupones individuales", description = "Obtiene los cupones creados de forma individual, sin incluir los generados como parte de un lote/familia")
+    @ApiResponse(responseCode = "200", description = "Lista de cupones individuales obtenida exitosamente")
+    public ResponseEntity<List<Cupon>> obtenerCuponesIndividuales() {
+        List<Cupon> cupones = cuponService.getAllIndividuales();
+        return ResponseEntity.ok(cupones);
+    }
 
+    @GetMapping("/familias")
+    @Operation(summary = "Obtener todas las familias de cupones", description = "Obtiene la lista de familias de cupones, cada una con sus cupones generados")
+    @ApiResponse(responseCode = "200", description = "Lista de familias obtenida exitosamente")
+    public ResponseEntity<List<FamiliaCupon>> obtenerTodasLasFamilias() {
+        List<FamiliaCupon> familias = familiaService.getAll();
+        return ResponseEntity.ok(familias);
+    }
 
-
+    @GetMapping("/familias/{id}")
+    @Operation(summary = "Obtener familia de cupones por ID", description = "Obtiene una familia de cupones específica junto con sus cupones")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Familia encontrada"),
+            @ApiResponse(responseCode = "404", description = "Familia no encontrada")
+    })
+    public ResponseEntity<FamiliaCupon> obtenerFamiliaPorId(@PathVariable @Parameter(description = "ID de la familia de cupones") Long id) {
+        Optional<FamiliaCupon> familia = familiaService.getById(id);
+        return familia.map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
 }

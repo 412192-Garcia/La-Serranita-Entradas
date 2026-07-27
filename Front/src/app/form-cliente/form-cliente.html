@@ -79,6 +79,33 @@
           <small class="error-text">Ingresá un teléfono válido (Mínimo 10 dígitos sin espacios).</small>
         }
       </div>
+
+      <div class="fila-campos">
+        <div class="campo-grupo">
+          <label for="edad">Edad <span class="label-opcional">(opcional)</span></label>
+          <input
+            type="number"
+            id="edad"
+            name="edad"
+            min="0"
+            max="120"
+            formControlName="edad"
+            [class.input-error]="f['edad'].touched && f['edad'].invalid">
+          @if (f['edad'].touched && f['edad'].invalid) {
+            <small class="error-text">Ingresá una edad válida.</small>
+          }
+        </div>
+
+        <div class="campo-grupo">
+          <label for="localidad">Localidad <span class="label-opcional">(opcional)</span></label>
+          <input
+            type="text"
+            id="localidad"
+            name="localidad"
+            autocomplete="section-persona address-level2"
+            formControlName="localidad">
+        </div>
+      </div>
     </form>
     <div class="footer-resumen">
       <button type="button" class="btn-volver" (click)="onVolver()">

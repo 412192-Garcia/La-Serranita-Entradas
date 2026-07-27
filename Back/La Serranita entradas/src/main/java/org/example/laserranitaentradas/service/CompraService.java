@@ -15,6 +15,7 @@ public interface CompraService {
     Optional<Compra> findById(Long id);
     Optional<Compra> findByDniandFecha(String dni, LocalDate fechaVisita);
     List<Compra> getAllByDni(String dni);
+    List<Compra> getAllByFechaVisita(LocalDate fechaVisita);
     List<Compra> getAll();
     Compra create(CompraRequestDTO Compra);
     Compra marcarEntradasComoUsadas(Long compraId, Long usuarioValidadorId);

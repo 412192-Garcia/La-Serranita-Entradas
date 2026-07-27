@@ -102,7 +102,7 @@
   background-color: var(--color-primary-dark);
 }
 
-@media (max-width: 480px) {
+@container modulo (max-width: 480px) {
   .footer-acciones {
     flex-direction: column;
   }

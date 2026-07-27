@@ -1,5 +1,6 @@
 package org.example.laserranitaentradas.controller;
 
+import org.example.laserranitaentradas.model.dto.HorarioRequest;
 import org.example.laserranitaentradas.model.entity.DiaApertura;
 import org.example.laserranitaentradas.service.DiaAperturaService;
 import org.springframework.http.ResponseEntity;
@@ -81,5 +82,13 @@ public class DiaAperturaController {
 
         List<String> diasAbiertos = diaAperturaService.getDiasAbiertos(year, month);
         return ResponseEntity.ok(diasAbiertos);
+    }
+
+    @PutMapping("/fecha/{fecha}/horario")
+    @Operation(summary = "Establecer horario especial por fecha", description = "Asigna un horario distinto al general para un día puntual. Enviar ambos campos null para volver al horario general.")
+    public ResponseEntity<DiaApertura> setHorarioEspecial(@PathVariable @Parameter(description = "Fecha (YYYY-MM-DD)") LocalDate fecha,
+                                                          @RequestBody HorarioRequest request) {
+        DiaApertura dia = diaAperturaService.setHorarioEspecial(fecha, request.getHoraApertura(), request.getHoraCierre());
+        return ResponseEntity.ok(dia);
     }
 }

@@ -70,16 +70,16 @@
 }
 
 .dia-abierto {
-  background-color: var(--color-primary);
+  background-color: var(--color-calendar-day);
   color: #ffffff;
   pointer-events: auto !important;
 }
 .dia-abierto:hover {
-  background-color: var(--color-primary-dark);
+  background-color: var(--color-primary);
   transform: scale(1.04);
 }
 .dia-seleccionado {
-  background-color: #004d1f;
+  background-color: var(--color-primary-dark);
   color: #ffffff;
   box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);
   pointer-events: auto !important;
@@ -103,7 +103,8 @@
 }
 
 
-@media (min-width: 420px) {
+/* Se agranda el número cuando el propio calendario tiene lugar, no cuando lo tiene la ventana. */
+@container calendario (min-width: 420px) {
   .btn-dia {
     border-radius: 8px;
     font-size: 1.1rem;

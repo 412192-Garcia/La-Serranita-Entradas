@@ -10,6 +10,7 @@ import lombok.ToString;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Entity
@@ -36,8 +37,13 @@ public class Compra extends BaseEntity {
     @Column(nullable = true)
     private String contactPhone;
 
-    @Column(nullable = false)
+    /** Null cuando la compra es un regalo: quien lo recibe puede usarlo el día que prefiera. */
+    @Column(nullable = true)
     private LocalDate fechaVisita;
+
+    /** Código visible para el cliente/boletería: yyMMdd-N (N = orden de la reserva ese día de visita). */
+    @Column(name = "codigo_reserva", nullable = false, unique = true, length = 20)
+    private String codigoReserva;
 
     @Column(nullable = false)
     private BigDecimal montoTotal;
@@ -54,6 +60,10 @@ public class Compra extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_usuario_validador")
     private Usuario usuarioValidador;
+
+    /** Momento exacto del check-in en boletería. Null mientras la compra no se haya usado. */
+    @Column(name = "fecha_validacion")
+    private LocalDateTime fechaValidacion;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_cupon")

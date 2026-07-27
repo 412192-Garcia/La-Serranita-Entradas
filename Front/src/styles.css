@@ -6,18 +6,24 @@ html, body {
 }
 
 :root {
-  /* Paleta — verde parque + acento terracota cálido */
-  --color-primary: #009639;
-  --color-primary-dark: #007a2e;
-  --color-primary-light: #e6f5ea;
+  /* Paleta — tomada de parquelaserranita.com.ar (sitio real donde se embebe el módulo) */
+  --color-primary: #39a935;
+  --color-primary-dark: #2e8a2a;
+  --color-primary-light: #e8f5e5;
 
-  --color-accent: #e08e3e;
-  --color-accent-dark: #c17324;
+  /* Verde usado puntualmente en el calendario del sitio real (más "menta" que el primary) */
+  --color-calendar-border: #39b56a;
+  --color-calendar-day: #5fc17b;
+
+  /* Naranja del hero: gradiente #F1AC20 → #EC761D */
+  --color-accent: #ec761d;
+  --color-accent-dark: #d4650f;
   --color-accent-light: #fdf1e3;
+  --gradient-accent: linear-gradient(180deg, #f1ac20 0%, #ec761d 100%);
 
-  --color-danger: #dc2626;
-  --color-danger-dark: #b91c1c;
-  --color-danger-light: #fef2f2;
+  --color-danger: #bd1622;
+  --color-danger-dark: #96111a;
+  --color-danger-light: #fdecee;
 
   --color-text: #111827;
   --color-text-secondary: #374151;
@@ -30,11 +36,12 @@ html, body {
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 18px;
+  --radius-xl: 28px;
 
   --shadow-card: 0 2px 8px rgba(17, 24, 39, 0.06), 0 1px 2px rgba(17, 24, 39, 0.04);
   --shadow-card-lg: 0 12px 28px -8px rgba(17, 24, 39, 0.16);
 
-  --font-heading: 'Baloo 2', 'Segoe UI', sans-serif;
+  --font-heading: 'Rubik', 'Segoe UI', sans-serif;
   --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
 }
 

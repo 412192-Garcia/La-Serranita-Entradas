@@ -6,8 +6,11 @@ import org.example.laserranitaentradas.service.DiaAperturaService;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Service
@@ -33,21 +36,26 @@ public class DiaAperturaServiceImpl implements DiaAperturaService {
     public List<DiaApertura> getMonthStatus(Integer year, Integer month) {
         LocalDate inicioMes = LocalDate.of(year, month, 1);
         int daysInMonth = inicioMes.lengthOfMonth();
-        List<DiaApertura> resultado = new ArrayList<>(daysInMonth);
+        LocalDate finMes = inicioMes.withDayOfMonth(daysInMonth);
 
+        // Una sola consulta por rango: antes se hacía un findByFecha por cada día,
+        // o sea 28-31 viajes a la base para pintar un mes del calendario.
+        Map<LocalDate, DiaApertura> existentes = new HashMap<>();
+        for (DiaApertura dia : diaAperturaRepository.findAllByFechaBetween(inicioMes, finMes)) {
+            existentes.put(dia.getFecha(), dia);
+        }
+
+        // Los días que no están cargados se completan como cerrados para que el
+        // calendario siempre reciba el mes entero.
+        List<DiaApertura> resultado = new ArrayList<>(daysInMonth);
         for (int d = 1; d <= daysInMonth; d++) {
             LocalDate fecha = LocalDate.of(year, month, d);
-            Optional<DiaApertura> existente = diaAperturaRepository.findByFecha(fecha);
-            if (existente.isPresent()) {
-                resultado.add(existente.get());
-            } else {
-                DiaApertura noExiste = DiaApertura.builder()
-                        .id(null)
-                        .fecha(fecha)
-                        .abierto(false)
-                        .build();
-                resultado.add(noExiste);
-            }
+            DiaApertura dia = existentes.get(fecha);
+            resultado.add(dia != null ? dia : DiaApertura.builder()
+                    .id(null)
+                    .fecha(fecha)
+                    .abierto(false)
+                    .build());
         }
         return resultado;
     }
@@ -86,6 +94,18 @@ public class DiaAperturaServiceImpl implements DiaAperturaService {
                 .filter(DiaApertura::getAbierto)
                 .map(dia -> dia.getFecha().toString())
                 .toList();
+    }
+
+    @Override
+    public DiaApertura setHorarioEspecial(LocalDate fecha, LocalTime horaApertura, LocalTime horaCierre) {
+        Optional<DiaApertura> opt = diaAperturaRepository.findByFecha(fecha);
+        DiaApertura dia = opt.orElseGet(() -> DiaApertura.builder()
+                .fecha(fecha)
+                .abierto(true)
+                .build());
+        dia.setHoraApertura(horaApertura);
+        dia.setHoraCierre(horaCierre);
+        return diaAperturaRepository.save(dia);
     }
 
 }

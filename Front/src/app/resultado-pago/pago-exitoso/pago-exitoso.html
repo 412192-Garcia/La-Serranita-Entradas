@@ -1,12 +1,9 @@
 <div class="pago-exitoso-card">
   <div class="icono-exito">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-      <polyline points="22 4 12 14.01 9 11.01"></polyline>
-    </svg>
+    <svg lucideCircleCheck [strokeWidth]="2.5"></svg>
   </div>
   <h3>¡Compra confirmada! 🎉</h3>
-  <p>Tu orden <strong>#{{ compraIdActual }}</strong> ya está lista.</p>
+  <p>Tu orden <strong>#{{ codigoReserva }}</strong> ya está lista.</p>
 
   <div class="mensaje-dni-ingreso">
     <p>🪪 <strong>¡Ingreso simplificado!</strong></p>

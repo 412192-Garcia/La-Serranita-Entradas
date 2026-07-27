@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 import lombok.ToString;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 
 @Entity
 @Table(name = "dias_apertura", uniqueConstraints = {
@@ -32,6 +33,13 @@ public class DiaApertura extends BaseEntity {
     @Column(nullable = false)
     @Builder.Default
     private Boolean abierto = true;
+
+    /** Horario especial para este día puntual. Si es null, rige el horario general del parque. */
+    @Column(name = "hora_apertura")
+    private LocalTime horaApertura;
+
+    @Column(name = "hora_cierre")
+    private LocalTime horaCierre;
 
 }
 
