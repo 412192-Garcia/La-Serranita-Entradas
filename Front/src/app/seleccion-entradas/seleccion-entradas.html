@@ -49,18 +49,24 @@
     }
 
     <div class="footer-resumen">
-      <div class="fila-total">
-        <span class="etiqueta-total">TOTAL:</span>
-        <span class="valor-total">{{ subtotal | currency:'ARS':'symbol-narrow':'1.0-0' }} ARS</span>
+      <div class="fila-footer-principal">
+        <div class="fila-total">
+          <span class="etiqueta-total">TOTAL:</span>
+          <span class="valor-total">{{ subtotal | currency:'ARS':'symbol-narrow':'1.0-0' }} ARS</span>
+        </div>
+
+        <button
+          type="button"
+          class="btn-siguiente"
+          [disabled]="!esPasoValido"
+          (click)="onSiguiente()">
+          SIGUIENTE
+        </button>
       </div>
 
-      <button
-        type="button"
-        class="btn-siguiente"
-        [disabled]="!esPasoValido"
-        (click)="onSiguiente()">
-        SIGUIENTE
-      </button>
+      @if (motivoBloqueoSiguiente) {
+        <p class="motivo-bloqueo">{{ motivoBloqueoSiguiente }}</p>
+      }
     </div>
   }
 </div>

@@ -3,9 +3,9 @@
   <div class="calendario-wrapper" [class.colapsado]="esRegalo">
     <div class="calendario-inner">
   <div class="calendario-header">
-    <button type="button" class="btn-nav" (click)="cambiarMes(-1)" [disabled]="esMesMinimo">&#10216;</button>
+    <button type="button" class="btn-nav" (click)="cambiarMes(-1)" [disabled]="esMesMinimo" [attr.aria-label]="'Mes anterior'">&#10216;</button>
     <h2>{{ nombreMes }} {{ anioActual }}</h2>
-    <button type="button" class="btn-nav" (click)="cambiarMes(1)">&#10217;</button>
+    <button type="button" class="btn-nav" (click)="cambiarMes(1)" [disabled]="esMesMaximo" [attr.aria-label]="'Mes siguiente'">&#10217;</button>
   </div>
 
   <div class="calendario-body">

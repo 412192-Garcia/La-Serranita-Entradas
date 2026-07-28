@@ -14,6 +14,8 @@ public class CompraRequestDTO {
     String cuponCodigo;
     FormaPago formaPago;
     List<DetalleCompraDTO> entradas;
+    /** Sólo cuando es un regalo (fecha null): a quién avisarle. */
+    ReceptorRegaloDTO receptor;
 }
 
 

@@ -25,6 +25,10 @@
         Precio
         <input type="number" min="0" [ngModel]="precioTipo()" (ngModelChange)="precioTipo.set($event)" />
       </label>
+      <label>
+        <span class="etiqueta-campo">Máximo por día <span class="opcional">(opcional)</span></span>
+        <input type="number" min="1" placeholder="Sin límite" [ngModel]="maximoPorDiaTipo()" (ngModelChange)="maximoPorDiaTipo.set($event)" />
+      </label>
     </div>
     @if (categoriaTipo() === 'ENTRADA') {
       <label class="fila-checkbox">
@@ -54,7 +58,7 @@
     } @else {
       <div class="tabla-simple">
         <div class="fila-simple fila-simple-tipos fila-simple-header">
-          <span>Nombre</span><span>Categoría</span><span>Precio</span><span>Obligatorio</span><span>Estado</span><span>Acción</span>
+          <span>Nombre</span><span>Categoría</span><span>Precio</span><span>Obligatorio</span><span>Máx/día</span><span>Estado</span><span>Acción</span>
         </div>
         @for (t of tiposEntrada(); track t.id) {
           <div class="fila-simple fila-simple-tipos">
@@ -68,6 +72,7 @@
                 <span class="ayuda">—</span>
               }
             </span>
+            <span>{{ t.maximoPorDia ?? '—' }}</span>
             <span class="badge" [class.badge-activo]="t.activo" [class.badge-inactivo]="!t.activo">
               {{ t.activo ? 'Activo' : 'Inactivo' }}
             </span>

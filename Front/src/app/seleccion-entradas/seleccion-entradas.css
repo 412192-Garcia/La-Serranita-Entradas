@@ -126,12 +126,27 @@
 .footer-resumen {
   margin-top: 20px;
   display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  padding-top: 20px;
+  border-top: 1px solid var(--color-border);
+}
+
+.fila-footer-principal {
+  display: flex;
   flex-direction: row;
   justify-content: space-between;
   align-items: center;
   width: 100%;
-  padding-top: 20px;
-  border-top: 1px solid var(--color-border);
+  gap: 12px;
+}
+
+.motivo-bloqueo {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  text-align: right;
 }
 
 .fila-total {
@@ -210,10 +225,14 @@
     padding: 20px 16px;
   }
 
-  .footer-resumen {
+  .fila-footer-principal {
     flex-direction: column;
     gap: 20px;
     align-items: center;
+  }
+
+  .motivo-bloqueo {
+    text-align: center;
   }
 
   .fila-total {

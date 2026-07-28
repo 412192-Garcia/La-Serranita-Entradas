@@ -1,12 +1,26 @@
 <div class="pago-exitoso-card">
-  <div class="icono-exito">
-    <svg lucideCircleCheck [strokeWidth]="2.5"></svg>
-  </div>
-  <h3>¡Compra confirmada! 🎉</h3>
-  <p>Tu orden <strong>#{{ codigoReserva }}</strong> ya está lista.</p>
+  @if (verificando) {
+    <p>Confirmando tu pago…</p>
+  } @else if (noEncontrada) {
+    <h3>No pudimos confirmar tu pago todavía</h3>
+    <p>Si ya pagaste, en unos minutos vas a recibir el comprobante por mail. Si no llega, contactanos con el código de reserva o el comprobante de Mercado Pago.</p>
+    @if (esRutaDirecta) {
+      <button type="button" class="btn-primario" (click)="irAInicio()">Volver al Inicio</button>
+    }
+  } @else {
+    <div class="icono-exito">
+      <svg lucideCircleCheck [strokeWidth]="2.5"></svg>
+    </div>
+    <h3>¡Compra confirmada! 🎉</h3>
+    <p>Tu orden <strong>#{{ codigoReserva }}</strong> ya está lista.</p>
 
-  <div class="mensaje-dni-ingreso">
-    <p>🪪 <strong>¡Ingreso simplificado!</strong></p>
-    <p>Al llegar al parque, solo tenés que presentar el DNI <strong>{{ compraAcumulada.cliente?.dni }}</strong> en el acceso para ingresar con todo tu grupo.</p>
-  </div>
+    <div class="mensaje-dni-ingreso">
+      <p><strong>¡Ingreso simplificado!</strong></p>
+      <p>Al llegar al parque, solo tenés que presentar el DNI <strong>{{ compraAcumulada.cliente?.dni }}</strong> en el acceso para ingresar con todo tu grupo.</p>
+    </div>
+
+    @if (esRutaDirecta) {
+      <button type="button" class="btn-primario" (click)="irAInicio()">Volver al Inicio</button>
+    }
+  }
 </div>

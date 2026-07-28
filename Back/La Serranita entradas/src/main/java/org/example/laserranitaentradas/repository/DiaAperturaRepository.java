@@ -15,5 +15,7 @@ public interface DiaAperturaRepository extends JpaRepository<DiaApertura, Long> 
     List<DiaApertura> findAllByFechaBetween(LocalDate desde, LocalDate hasta);
 
     List<DiaApertura> getAllByFechaBetweenAndAbierto(LocalDate fechaAfter, LocalDate fechaBefore, Boolean abierto);
+
+    Optional<DiaApertura> findTopByAbiertoTrueOrderByFechaDesc();
 }
 

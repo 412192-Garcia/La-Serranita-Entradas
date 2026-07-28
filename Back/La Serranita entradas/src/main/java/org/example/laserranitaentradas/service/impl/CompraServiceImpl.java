@@ -1,5 +1,10 @@
 package org.example.laserranitaentradas.service.impl;
 
+import com.mercadopago.client.payment.PaymentClient;
+import com.mercadopago.exceptions.MPApiException;
+import com.mercadopago.exceptions.MPException;
+import com.mercadopago.net.MPSearchRequest;
+import com.mercadopago.resources.payment.Payment;
 import jakarta.transaction.Transactional;
 import org.example.laserranitaentradas.model.dto.*;
 import org.example.laserranitaentradas.model.entity.Cliente;
@@ -13,6 +18,8 @@ import org.example.laserranitaentradas.model.entity.Usuario;
 import org.example.laserranitaentradas.model.entity.EstadoCompra;
 import org.example.laserranitaentradas.repository.CompraRepository;
 import org.example.laserranitaentradas.service.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -21,6 +28,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -29,6 +37,8 @@ import java.util.stream.Collectors;
 @Service
 public class CompraServiceImpl implements CompraService {
 
+    private static final Logger log = LoggerFactory.getLogger(CompraServiceImpl.class);
+
     private final CompraRepository compraRepository;
     private final TipoEntradaService tipoEntradaService;
     private final CuponService cuponService;
@@ -36,6 +46,7 @@ public class CompraServiceImpl implements CompraService {
     private final ClienteService clienteService;
     private final UsuarioService usuarioService;
     private final CalculoPrecioService calculoPrecioService;
+    private final EmailService emailService;
     private final Map<FormaPago, PagoService> estrategiasPago;
 
     public CompraServiceImpl
@@ -46,6 +57,7 @@ public class CompraServiceImpl implements CompraService {
              ClienteService clienteService,
              UsuarioService usuarioService,
              CalculoPrecioService calculoPrecioService,
+             EmailService emailService,
              List<PagoService> estrategiasDisponibles)
     {
         this.compraRepository = compraRepository;
@@ -55,6 +67,7 @@ public class CompraServiceImpl implements CompraService {
         this.clienteService = clienteService;
         this.usuarioService = usuarioService;
         this.calculoPrecioService = calculoPrecioService;
+        this.emailService = emailService;
         this.estrategiasPago = estrategiasDisponibles.stream()
                 .collect(Collectors.toMap(PagoService::getFormaPago, estrategia -> estrategia));
     }
@@ -108,11 +121,24 @@ public class CompraServiceImpl implements CompraService {
         LocalDate fechaVisita = compraRequest.getFecha();
 
         // fechaVisita null = compra como regalo: quien lo recibe elige el día, no hay fecha que validar.
+        String receptorNombre = null;
+        String receptorEmail = null;
+        String receptorDni = null;
+        String receptorTelefono = null;
         if (fechaVisita != null) {
             Boolean abierto = diaAperturaService.getAbiertoByDate(fechaVisita);
             if (abierto == null || !abierto) {
                 throw new IllegalArgumentException("El parque está cerrado en la fecha solicitada: " + fechaVisita);
             }
+        } else {
+            ReceptorRegaloDTO receptor = compraRequest.getReceptor();
+            if (receptor == null || esBlanco(receptor.getNombre()) || esBlanco(receptor.getEmail()) || esBlanco(receptor.getDni())) {
+                throw new IllegalArgumentException("Para comprar como regalo hay que indicar nombre, DNI y email de quien lo recibe.");
+            }
+            receptorNombre = receptor.getNombre();
+            receptorEmail = receptor.getEmail();
+            receptorDni = receptor.getDni();
+            receptorTelefono = receptor.getTelefono();
         }
 
 
@@ -151,6 +177,19 @@ public class CompraServiceImpl implements CompraService {
             }
         }
 
+        // Cupo diario por tipo de entrada: se suma lo ya vendido ese día (sin contar lo cancelado)
+        // más lo que se está agregando en esta misma compra. Los regalos no tienen fecha todavía,
+        // así que no hay contra qué día chequear el cupo.
+        Map<Long, Integer> cantidadVendidaPorTipo = new HashMap<>();
+        if (fechaVisita != null) {
+            for (Compra otra : compraRepository.findAllByFechaVisitaOrderByCodigoReservaAsc(fechaVisita)) {
+                if (otra.getEstado() == EstadoCompra.CANCELADO || otra.getDetalles() == null) continue;
+                for (CompraDetalle det : otra.getDetalles()) {
+                    cantidadVendidaPorTipo.merge(det.getTipoEntrada().getId(), det.getCantidad(), Integer::sum);
+                }
+            }
+        }
+
         BigDecimal montoTotal = BigDecimal.ZERO;
         List<CompraDetalle> detalles = new ArrayList<>();
 
@@ -164,6 +203,15 @@ public class CompraServiceImpl implements CompraService {
                     throw new IllegalArgumentException("TipoEntrada no encontrada para id: " + tipoId);
                 }
                 TipoEntrada tipoEntrada = tipoOpt.get();
+
+                if (tipoEntrada.getMaximoPorDia() != null) {
+                    int nuevoTotal = cantidadVendidaPorTipo.merge(tipoId, d.getCantidad(), Integer::sum);
+                    if (nuevoTotal > tipoEntrada.getMaximoPorDia()) {
+                        throw new IllegalArgumentException(
+                                "Se alcanzó el cupo diario de " + tipoEntrada.getNombre() + " para el " + fechaVisita
+                                        + " (máximo " + tipoEntrada.getMaximoPorDia() + " por día).");
+                    }
+                }
 
                 BigDecimal subtotal = calculoPrecioService.calcularTotal(tipoEntrada, d.getCantidad(), compraRequest.getFormaPago());
                 montoTotal = montoTotal.add(subtotal);
@@ -231,6 +279,10 @@ public class CompraServiceImpl implements CompraService {
                 .detalles(detalles)
                 .estado(estrategia.getEstadoInicial())
                 .formaPago(compraRequest.getFormaPago())
+                .receptorNombre(receptorNombre)
+                .receptorEmail(receptorEmail)
+                .receptorDni(receptorDni)
+                .receptorTelefono(receptorTelefono)
                 .build();
 
 
@@ -339,5 +391,98 @@ public class CompraServiceImpl implements CompraService {
     @Override
     public Optional<String> consultarEstadoCompra(Long id) {
         return compraRepository.findById(id).map(compra -> compra.getEstado().name());
+    }
+
+    private boolean esBlanco(String s) {
+        return s == null || s.isBlank();
+    }
+
+    @Transactional
+    @Override
+    public Compra actualizarContacto(Long compraId, EditarContactoRequest request) {
+        Compra compra = compraRepository.findById(compraId)
+                .orElseThrow(() -> new IllegalArgumentException("Compra no encontrada ID: " + compraId));
+
+        if (compra.getCliente() != null) {
+            if (!esBlanco(request.getNombre())) compra.getCliente().setNombre(request.getNombre());
+            if (!esBlanco(request.getApellido())) compra.getCliente().setApellido(request.getApellido());
+        }
+        if (!esBlanco(request.getEmail())) compra.setContactEmail(request.getEmail());
+        if (!esBlanco(request.getTelefono())) compra.setContactPhone(request.getTelefono());
+
+        return compraRepository.save(compra);
+    }
+
+    @Override
+    public void reenviarComprobante(Long compraId) {
+        Compra compra = compraRepository.findById(compraId)
+                .orElseThrow(() -> new IllegalArgumentException("Compra no encontrada ID: " + compraId));
+
+        if (compra.getEstado() != EstadoCompra.APROBADO && compra.getEstado() != EstadoCompra.USADO) {
+            throw new IllegalStateException("La compra ID " + compraId + " todavía no tiene un comprobante confirmado para reenviar.");
+        }
+        emailService.enviarComprobanteCompra(compraId);
+        if (compra.getFechaVisita() == null) {
+            emailService.enviarAvisoRegalo(compraId);
+        }
+    }
+
+    @Transactional
+    @Override
+    public boolean confirmarAprobado(Long compraId) {
+        Compra compra = compraRepository.findById(compraId).orElse(null);
+        // Idempotente: si ya está aprobada o usada no hay nada que hacer (evita
+        // reprocesar y reenviar el comprobante si Mercado Pago reintenta el aviso,
+        // o si el webhook y la verificación directa llegan casi al mismo tiempo).
+        if (compra == null || compra.getEstado() == EstadoCompra.APROBADO || compra.getEstado() == EstadoCompra.USADO) {
+            return false;
+        }
+        compra.setEstado(EstadoCompra.APROBADO);
+        compraRepository.save(compra);
+        emailService.enviarComprobanteCompra(compraId);
+        if (compra.getFechaVisita() == null) {
+            emailService.enviarAvisoRegalo(compraId);
+        }
+        return true;
+    }
+
+    @Override
+    public String verificarPagoDirecto(Long compraId) {
+        Compra compra = compraRepository.findById(compraId)
+                .orElseThrow(() -> new IllegalArgumentException("Compra no encontrada ID: " + compraId));
+
+        // Si ya se sabe el resultado (por webhook o una verificación previa) no hace
+        // falta volver a preguntarle a Mercado Pago.
+        if (compra.getEstado() != EstadoCompra.PENDIENTE_PAGO || compra.getFormaPago() != FormaPago.MERCADO_PAGO) {
+            return compra.getEstado().name();
+        }
+
+        try {
+            // limit/offset van explícitos: si se dejan sin setear, el SDK arma la URL
+            // iterando todos los parámetros y revienta con NullPointerException al
+            // encontrar esos dos en null (bug conocido de esta versión del SDK).
+            MPSearchRequest searchRequest = MPSearchRequest.builder()
+                    .filters(Map.of("external_reference", compraId.toString()))
+                    .limit(10)
+                    .offset(0)
+                    .build();
+            List<Payment> pagos = new PaymentClient().search(searchRequest).getResults();
+            // El external_reference identifica la compra, pero no es una clave 100% exclusiva
+            // de Mercado Pago (por ejemplo, en un entorno de pruebas donde la base se reinicia
+            // y los IDs se reciclan, puede haber un pago viejo con el mismo external_reference).
+            // Exigir que el monto coincida evita aprobar una compra por un pago que en realidad
+            // es de otra.
+            boolean hayAprobado = pagos != null && pagos.stream()
+                    .anyMatch(p -> "approved".equals(p.getStatus()) && compra.getMontoTotal().compareTo(p.getTransactionAmount()) == 0);
+            if (hayAprobado) {
+                confirmarAprobado(compraId);
+            }
+        } catch (MPException | MPApiException | RuntimeException e) {
+            // No se pudo consultar a Mercado Pago ahora: se deja la compra como está
+            // para poder reintentar más tarde (webhook, otra verificación, etc.).
+            log.error("Error consultando a Mercado Pago el estado de la compra ID {}", compraId, e);
+        }
+
+        return compraRepository.findById(compraId).map(c -> c.getEstado().name()).orElse(compra.getEstado().name());
     }
 }

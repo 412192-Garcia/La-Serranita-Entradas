@@ -46,10 +46,12 @@ public class SecurityConfig {
                 // ---------- Storefront público (compra de entradas online) ----------
                 .requestMatchers(HttpMethod.POST, "/api/usuarios/login").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/dias-apertura/abiertos").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/dias-apertura/ultima-abierta").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/tipos-entrada/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/cupones/codigo/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/compras", "/api/compras/iniciar-pago", "/api/compras/cotizar").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/compras/{id}", "/api/compras/{id}/estado").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/compras/{id}/verificar-pago").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/mercadopago/preferences").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/pagos/webhook").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/ping").permitAll()
@@ -69,6 +71,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/descuentos-efectivo/**").hasRole("ADMIN")
                 .requestMatchers("/api/configuracion/**").hasRole("ADMIN")
                 .requestMatchers("/api/usuarios/**").hasRole("ADMIN")
+                .requestMatchers("/api/reportes/**").hasRole("ADMIN")
 
                 .anyRequest().authenticated()
             )

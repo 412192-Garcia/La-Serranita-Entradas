@@ -167,6 +167,51 @@
 
 .toggle-usadas input { cursor: pointer; }
 
+.filtro-forma-pago {
+  display: flex;
+  gap: 6px;
+}
+
+.btn-filtro {
+  padding: 6px 12px;
+  border: 1.5px solid var(--color-border);
+  border-radius: 999px;
+  background-color: #fff;
+  color: var(--color-text-secondary);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+}
+
+.btn-filtro:hover { border-color: var(--color-primary); }
+
+.btn-filtro.activo {
+  border-color: var(--color-primary);
+  background-color: var(--color-primary);
+  color: #fff;
+}
+
+.acciones-sin-resultados {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.aviso-reenvio {
+  background-color: var(--color-primary-light);
+  color: var(--color-primary-dark);
+  border-radius: var(--radius-sm);
+  padding: 10px 16px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  margin: 0;
+}
+
 /* ---------- Avisos ---------- */
 .alerta-error {
   background-color: var(--color-danger-light);
@@ -211,7 +256,7 @@
 
 .fila {
   display: grid;
-  grid-template-columns: minmax(220px, 2fr) 140px 110px 70px 150px 220px;
+  grid-template-columns: minmax(220px, 2fr) 140px 110px 150px 220px 44px;
   align-items: center;
   gap: 12px;
   padding: 10px 20px;
@@ -254,18 +299,36 @@
   white-space: nowrap;
 }
 
+/* DNI y email van en la misma línea; los pases van abajo, cada uno en la suya (ver .titular-detalle). */
+.titular-contacto {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+}
+
 .titular-dni {
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.titular-email {
   font-size: 0.78rem;
   color: var(--color-text-muted);
 }
 
+/* Un renglón por tipo de pase, en vez de todo corrido en una sola línea: con
+   varios tipos (ej. Pase General + Pase Menor + un extra) antes quedaba
+   ilegible apretado en un solo párrafo. */
 .titular-detalle {
   display: flex;
-  flex-wrap: wrap;
-  gap: 2px 8px;
-  font-size: 0.76rem;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 0.95rem;
+  font-weight: 700;
   color: var(--color-text-secondary);
-  margin-top: 2px;
+  margin-top: 4px;
 }
 
 .titular-detalle .extra { color: var(--color-accent-dark); }
@@ -294,14 +357,6 @@
   font-size: 0.85rem;
   font-weight: 600;
   color: var(--color-text-secondary);
-}
-
-.celda-pases {
-  font-family: var(--font-heading);
-  font-size: 1.15rem;
-  font-weight: 800;
-  color: var(--color-primary);
-  text-align: center;
 }
 
 .badge {
@@ -386,6 +441,120 @@
   color: var(--color-text-muted);
 }
 
+/* ---------- Menú de 3 puntitos ---------- */
+.celda-menu {
+  position: relative;
+  display: flex;
+  justify-content: center;
+}
+
+.btn-menu {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  border-radius: 50%;
+  font-size: 1.2rem;
+  line-height: 1;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.btn-menu:hover { background-color: var(--color-bg-soft); }
+
+.menu-dropdown {
+  position: absolute;
+  top: 36px;
+  right: 0;
+  z-index: 10;
+  background-color: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-card-lg);
+  display: flex;
+  flex-direction: column;
+  min-width: 170px;
+  overflow: hidden;
+}
+
+.menu-dropdown button {
+  padding: 10px 16px;
+  border: none;
+  background: none;
+  text-align: left;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text);
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.menu-dropdown button:hover:not(:disabled) { background-color: var(--color-bg-soft); }
+.menu-dropdown button:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* ---------- Modal de edición de contacto ---------- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 16px;
+}
+
+.modal-contenido {
+  background-color: #fff;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card-lg);
+  padding: 28px;
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.modal-contenido h3 {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 1.1rem;
+  color: var(--color-text);
+}
+
+.modal-contenido label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.modal-contenido input {
+  padding: 9px 12px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  outline: none;
+}
+
+.modal-contenido input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(57, 169, 53, 0.15);
+}
+
+.modal-acciones {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 6px;
+}
+
 /* ---------- Spinner ---------- */
 .spinner-contenedor {
   display: flex;
@@ -407,7 +576,7 @@
 /* ---------- Responsive ---------- */
 @media (max-width: 1100px) {
   .fila {
-    grid-template-columns: minmax(180px, 2fr) 120px 90px 60px 130px 170px;
+    grid-template-columns: minmax(180px, 2fr) 120px 90px 130px 170px 40px;
   }
 }
 
@@ -429,10 +598,17 @@
     padding: 14px 16px;
   }
 
-  .col-fecha, .col-codigo, .col-pases, .col-estado {
+  .col-fecha, .col-codigo, .col-estado {
     display: flex;
     justify-content: space-between;
   }
 
-  .celda-pases { text-align: left; }
+  .celda-menu {
+    justify-content: flex-end;
+  }
+
+  .menu-dropdown {
+    top: auto;
+    bottom: 36px;
+  }
 }

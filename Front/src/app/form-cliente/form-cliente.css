@@ -83,6 +83,22 @@
   font-weight: 500;
   margin-top: 2px;
 }
+
+.titulo-seccion-receptor {
+  font-family: var(--font-heading);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 4px 0 0;
+  padding-top: 18px;
+  border-top: 1px solid var(--color-border);
+}
+
+.ayuda-receptor {
+  font-size: 0.88rem;
+  color: var(--color-text-muted);
+  margin: -12px 0 0;
+}
 .footer-resumen {
   margin-top: 40px;
   display: flex;

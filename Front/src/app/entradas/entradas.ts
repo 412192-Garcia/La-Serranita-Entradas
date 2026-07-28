@@ -85,7 +85,8 @@ export class Entradas implements OnDestroy {
     descuentoGrupo: 0,
     total: 0,
     formaPago: 'MERCADO_PAGO',
-    cliente: null
+    cliente: null,
+    receptor: null
   };
 
   onFechaSeleccionada(fecha: Date | null): void {
@@ -171,7 +172,8 @@ export class Entradas implements OnDestroy {
       this.recalcularTotal();
       this.etapa = etapaCompra.DATOS;
     } else if (this.etapa === etapaCompra.DATOS) {
-      this.compraAcumulada.cliente = datosPaso;
+      this.compraAcumulada.cliente = datosPaso.cliente;
+      this.compraAcumulada.receptor = datosPaso.receptor ?? null;
       this.etapa = etapaCompra.RESUMEN;
     }
   }
@@ -212,7 +214,14 @@ export class Entradas implements OnDestroy {
       entradas: this.compraAcumulada.entradas.map((item: any) => ({
         tipoEntradaId: item.id || item.tipoEntradaId,
         cantidad: item.cantidad
-      }))
+      })),
+      // Sólo va cuando es un regalo: el backend le manda un mail de aviso al receptor.
+      receptor: this.compraAcumulada.esRegalo && this.compraAcumulada.receptor ? {
+        nombre: this.compraAcumulada.receptor.nombre,
+        email: this.compraAcumulada.receptor.email,
+        dni: this.compraAcumulada.receptor.dni,
+        telefono: this.compraAcumulada.receptor.telefono || null,
+      } : null,
     };
 
     // 3. Invocamos al backend a través del CompraService
@@ -284,10 +293,12 @@ export class Entradas implements OnDestroy {
   }
 
   private consultarEstadoPago(): Observable<string | null> {
-    // El usuario cerró la ventana sin completar el pago: dejamos de esperar y liberamos
-    // el botón para que pueda reintentar, en vez de quedar "procesando" para siempre.
+    // El usuario cerró la ventana. Antes de darlo por perdido, se reconcilia una vez
+    // directamente contra Mercado Pago: si el pago se acreditó pero el webhook nunca
+    // llegó (por ejemplo, con el túnel de notificaciones caído), esto lo detecta igual
+    // sin depender de esa notificación — es el caso real que motivó este chequeo.
     if (this.ventanaPago?.closed && !this.pagoConfirmado) {
-      return of(Entradas.VENTANA_CERRADA);
+      return this.verificarConMercadoPago();
     }
     if (!this.compraIdActual) {
       return of(null);
@@ -297,6 +308,15 @@ export class Entradas implements OnDestroy {
       map((res) => res.estado),
       // Un error puntual de red no corta el monitoreo: se reintenta en el próximo tick.
       catchError(() => of(null))
+    );
+  }
+
+  /** Le pregunta a Mercado Pago (no a nuestra propia DB) si el pago realmente se acreditó. */
+  private verificarConMercadoPago(): Observable<string> {
+    if (!this.compraIdActual) return of(Entradas.VENTANA_CERRADA);
+    return this.compraService.verificarPago(this.compraIdActual).pipe(
+      map((res) => (res.estado === 'APROBADO' || res.estado === 'CANCELADO') ? res.estado : Entradas.VENTANA_CERRADA),
+      catchError(() => of(Entradas.VENTANA_CERRADA))
     );
   }
 
@@ -325,12 +345,28 @@ export class Entradas implements OnDestroy {
     }
   }
 
-  /** Se agotaron los intentos sin novedades del backend. */
+  /** Se agotaron los intentos sin novedades del backend: último intento, directo contra Mercado Pago. */
   private alAgotarseElMonitoreo(): void {
-    if (this.pagoConfirmado) return;
-    this.finalizarConAviso(
-      'Todavía no pudimos confirmar el pago. Si ya lo completaste vas a recibir el comprobante por mail; si no, podés reintentar.'
-    );
+    if (this.pagoConfirmado || !this.compraIdActual) return;
+
+    this.compraService.verificarPago(this.compraIdActual).subscribe({
+      next: (res) => {
+        if (res.estado === 'APROBADO') {
+          this.ngZone.run(() => {
+            this.pagoConfirmado = true;
+            this.procesandoPago = false;
+            this.cdr.detectChanges();
+          });
+        } else {
+          this.finalizarConAviso(
+            'Todavía no pudimos confirmar el pago. Si ya lo completaste vas a recibir el comprobante por mail; si no, podés reintentar.'
+          );
+        }
+      },
+      error: () => this.finalizarConAviso(
+        'Todavía no pudimos confirmar el pago. Si ya lo completaste vas a recibir el comprobante por mail; si no, podés reintentar.'
+      ),
+    });
   }
 
   private finalizarConAviso(mensaje: string): void {

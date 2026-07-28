@@ -21,4 +21,9 @@ export class DiaAperturaService {
 
     return this.http.get<string[]>(this.apiUrl, { params });
   }
+
+  /** Fecha abierta más lejana ya cargada (null si no hay ninguna); limita el avance del calendario. */
+  getUltimaFechaAbierta(): Observable<string | null> {
+    return this.http.get<string | null>(`${environment.apiBase}/dias-apertura/ultima-abierta`);
+  }
 }

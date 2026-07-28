@@ -6,4 +6,6 @@ export interface TipoEntrada {
   activo: boolean;
   obligatorio: boolean;
   tipo: 'ENTRADA' | 'EXTRA';
+  /** Cupo máximo vendible por día para este tipo. Null = sin límite. */
+  maximoPorDia: number | null;
 }

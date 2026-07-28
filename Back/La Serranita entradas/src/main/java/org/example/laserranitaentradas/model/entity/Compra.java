@@ -69,6 +69,20 @@ public class Compra extends BaseEntity {
     @JoinColumn(name = "id_cupon")
     private Cupon cupon;
 
+    // Datos de quien recibe el regalo (sólo se cargan cuando fechaVisita es null, o sea, es un regalo).
+    @Column(name = "receptor_nombre")
+    private String receptorNombre;
+
+    @Column(name = "receptor_email")
+    private String receptorEmail;
+
+    @Column(name = "receptor_dni", length = 15)
+    private String receptorDni;
+
+    /** Opcional. */
+    @Column(name = "receptor_telefono")
+    private String receptorTelefono;
+
     @OneToMany(mappedBy = "compra", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<CompraDetalle> detalles;
 

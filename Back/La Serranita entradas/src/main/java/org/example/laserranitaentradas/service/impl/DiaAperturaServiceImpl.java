@@ -108,4 +108,11 @@ public class DiaAperturaServiceImpl implements DiaAperturaService {
         return diaAperturaRepository.save(dia);
     }
 
+    @Override
+    public LocalDate getUltimaFechaAbierta() {
+        return diaAperturaRepository.findTopByAbiertoTrueOrderByFechaDesc()
+                .map(DiaApertura::getFecha)
+                .orElse(null);
+    }
+
 }

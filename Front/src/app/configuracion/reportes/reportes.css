@@ -1,0 +1,56 @@
+:host {
+  display: block;
+  width: 100%;
+}
+
+.seccion-reportes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.tarjeta-ancha {
+  grid-column: 1 / -1;
+}
+
+.tarjeta-kpis {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.kpi-numero {
+  font-family: var(--font-heading);
+  font-size: 2.4rem;
+  font-weight: 800;
+  color: var(--color-primary-dark);
+  margin: 4px 0;
+}
+
+.kpi-numero-secundario {
+  color: var(--color-text);
+}
+
+.grafico-contenedor {
+  position: relative;
+  height: 260px;
+  margin-bottom: 16px;
+}
+
+.grafico-torta {
+  height: 220px;
+}
+
+.oculta {
+  display: none;
+}
+
+.fila-simple-desglose {
+  grid-template-columns: 2fr 1fr 1fr;
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 900px) {
+  .seccion-reportes, .tarjeta-kpis { grid-template-columns: 1fr; }
+  .fila-simple-desglose { grid-template-columns: 1fr 1fr 1fr; }
+}

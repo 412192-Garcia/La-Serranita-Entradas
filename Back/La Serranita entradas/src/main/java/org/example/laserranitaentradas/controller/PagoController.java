@@ -4,17 +4,13 @@ import com.mercadopago.client.merchantorder.MerchantOrderClient;
 import com.mercadopago.client.payment.PaymentClient;
 import com.mercadopago.resources.merchantorder.MerchantOrder;
 import com.mercadopago.resources.payment.Payment;
-import org.example.laserranitaentradas.model.entity.Compra;
-import org.example.laserranitaentradas.model.entity.EstadoCompra;
 import org.example.laserranitaentradas.service.CompraService;
-import org.example.laserranitaentradas.service.EmailService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/pagos")
@@ -23,11 +19,9 @@ public class PagoController {
     private static final Logger log = LoggerFactory.getLogger(PagoController.class);
 
     private final CompraService compraService;
-    private final EmailService emailService;
 
-    public PagoController(CompraService compraService, EmailService emailService) {
+    public PagoController(CompraService compraService) {
         this.compraService = compraService;
-        this.emailService = emailService;
     }
 
     @PostMapping("/webhook")
@@ -86,15 +80,11 @@ public class PagoController {
         if (!"approved".equals(estadoPago) || compraIdStr == null) return;
 
         Long idDeCompra = Long.parseLong(compraIdStr);
-        Optional<Compra> compraActual = compraService.findById(idDeCompra);
-
-        // Idempotencia: Mercado Pago puede reenviar la misma notificación varias veces.
-        if (compraActual.isEmpty() || compraActual.get().getEstado() == EstadoCompra.APROBADO) {
-            return;
+        // La idempotencia (Mercado Pago puede reenviar la misma notificación varias
+        // veces) y el envío del comprobante viven en el service: es la misma lógica
+        // que usa la verificación directa en /api/compras/{id}/verificar-pago.
+        if (compraService.confirmarAprobado(idDeCompra)) {
+            log.info("Pago APROBADO confirmado en BD para la compra ID {}", idDeCompra);
         }
-
-        compraService.actualizarEstado(idDeCompra, EstadoCompra.APROBADO);
-        emailService.enviarComprobanteCompra(idDeCompra);
-        log.info("Pago APROBADO confirmado en BD para la compra ID {}", idDeCompra);
     }
 }

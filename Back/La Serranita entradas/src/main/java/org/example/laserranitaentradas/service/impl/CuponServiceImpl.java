@@ -6,6 +6,7 @@ import org.example.laserranitaentradas.repository.CuponRepository;
 import org.example.laserranitaentradas.service.CuponService;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.security.SecureRandom;
 import java.time.LocalDate;
 import java.util.List;
@@ -58,6 +59,12 @@ public class CuponServiceImpl implements CuponService {
 
     @Override
     public Cupon create(CrearCuponRequest request) {
+        boolean tienePorcentaje = request.getPorcentajeDescuento() != null && request.getPorcentajeDescuento().compareTo(BigDecimal.ZERO) > 0;
+        boolean tieneMonto = request.getMontoDescuento() != null && request.getMontoDescuento().compareTo(BigDecimal.ZERO) > 0;
+        if (!tienePorcentaje && !tieneMonto) {
+            throw new IllegalArgumentException("El cupón necesita un porcentaje o un monto de descuento mayor a cero.");
+        }
+
         String codigo = request.getCodigo();
         if (codigo == null || codigo.isBlank()) {
             // generar hasta encontrar un codigo unico (probablemente inmediato)

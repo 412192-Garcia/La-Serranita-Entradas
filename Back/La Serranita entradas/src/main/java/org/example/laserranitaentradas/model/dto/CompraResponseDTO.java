@@ -33,4 +33,10 @@ public class CompraResponseDTO {
 
     private String preferenceId;
     private String initPoint;
+
+    // Sólo tienen valor cuando la compra es un regalo (fechaVisita null).
+    private String receptorNombre;
+    private String receptorEmail;
+    private String receptorDni;
+    private String receptorTelefono;
 }

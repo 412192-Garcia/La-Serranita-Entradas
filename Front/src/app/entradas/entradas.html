@@ -48,6 +48,8 @@
                         (siguiente)="onPasoSiguiente($event)"
                         (atras)="volverPasoAnterior()"
                         [datosPrevios]="compraAcumulada.cliente"
+                        [esRegalo]="compraAcumulada.esRegalo"
+                        [datosPreviosReceptor]="compraAcumulada.receptor"
       >
       </app-form-cliente>
     }

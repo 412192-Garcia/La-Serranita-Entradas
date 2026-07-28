@@ -183,6 +183,13 @@
 }
 .btn-nav:hover { background-color: rgba(255, 255, 255, 0.15); }
 
+.btn-nav:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.btn-nav:disabled:hover { background-color: transparent; }
+
 .spinner-contenedor {
   display: flex;
   justify-content: center;
