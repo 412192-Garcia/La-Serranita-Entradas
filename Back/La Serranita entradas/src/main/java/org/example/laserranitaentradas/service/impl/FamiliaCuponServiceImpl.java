@@ -8,6 +8,7 @@ import org.example.laserranitaentradas.repository.FamiliaCuponRepository;
 import org.example.laserranitaentradas.service.FamiliaCuponService;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.security.SecureRandom;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -39,6 +40,12 @@ public class FamiliaCuponServiceImpl implements FamiliaCuponService {
 
     @Override
     public FamiliaCupon create(CrearFamiliaCuponRequest request) {
+        boolean tienePorcentaje = request.getPorcentajeDescuento() != null && request.getPorcentajeDescuento().compareTo(BigDecimal.ZERO) > 0;
+        boolean tieneMonto = request.getMontoDescuento() != null && request.getMontoDescuento().compareTo(BigDecimal.ZERO) > 0;
+        if (!tienePorcentaje && !tieneMonto) {
+            throw new IllegalArgumentException("El cupón necesita un porcentaje o un monto de descuento mayor a cero.");
+        }
+
         int cantidad = (request.getCantidad() == null || request.getCantidad() < 1) ? 1 : request.getCantidad();
         int usos = (request.getUsosMaximos() == null || request.getUsosMaximos() < 1) ? 1 : request.getUsosMaximos();
         LocalDate fechaExp = (request.getFechaExpiracion() == null) ? LocalDate.now().plusMonths(1) : request.getFechaExpiracion();

@@ -16,4 +16,7 @@ public interface DiaAperturaService {
     List<String> getDiasAbiertos(Integer year, Integer month);
     /** Establece (o limpia, si ambos son null) el horario especial de un día puntual. */
     DiaApertura setHorarioEspecial(LocalDate fecha, LocalTime horaApertura, LocalTime horaCierre);
+
+    /** Fecha abierta más lejana ya cargada; null si no hay ninguna. Limita hasta dónde puede avanzar el calendario. */
+    LocalDate getUltimaFechaAbierta();
 }

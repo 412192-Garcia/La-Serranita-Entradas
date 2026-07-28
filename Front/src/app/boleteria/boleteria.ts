@@ -3,6 +3,7 @@ import { CurrencyPipe, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Observable } from 'rxjs';
 import { BoleteriaService, EstadoCompra, Reserva } from '../Services/boleteria.service';
+import { FormaPagoType } from '../models/compra';
 import { SesionService } from '../Services/sesion.service';
 import { CabeceraInterna, EnlaceCabecera } from '../shared/cabecera-interna/cabecera-interna';
 
@@ -32,7 +33,9 @@ function extraerDniDeEscaneo(valorCrudo: string): string {
 }
 
 /** Qué generó los resultados actuales: elige el mensaje de "sin resultados" y resalta la vista activa. */
-type ModoBusqueda = 'dni' | 'dia' | 'todas';
+type ModoBusqueda = 'dni' | 'dia' | 'todas' | 'texto';
+
+type FiltroFormaPago = 'TODAS' | FormaPagoType;
 
 /** Estados que no requieren ninguna acción en boletería. */
 const ESTADOS_NO_ACCIONABLES: EstadoCompra[] = ['USADO', 'CANCELADO', 'PENDIENTE_PAGO'];
@@ -114,15 +117,20 @@ export class Boleteria implements OnInit {
   /** Por defecto solo mostramos lo accionable (a validar o a cobrar). */
   mostrarTodas = signal(false);
 
+  /** Filtro adicional por forma de pago (además del de estado). */
+  filtroFormaPago = signal<FiltroFormaPago>('TODAS');
+
   /** Lo que realmente se ve en pantalla, ya preparado para el template. */
   visibles = computed<ReservaVista[] | null>(() => {
     const rs = this.resultados();
     if (rs === null) return null;
 
     const mostrarTodas = this.mostrarTodas();
+    const formaPago = this.filtroFormaPago();
     const hoy = hoyComoFechaInput();
     return rs
       .filter((r) => mostrarTodas || !ESTADOS_NO_ACCIONABLES.includes(r.estado))
+      .filter((r) => formaPago === 'TODAS' || r.formaPago === formaPago)
       .map((r) => aVista(r, hoy));
   });
 
@@ -193,22 +201,64 @@ export class Boleteria implements OnInit {
     }
   }
 
+  /**
+   * Un único campo de búsqueda sirve para DNI, código de reserva o nombre. Un escaneo de
+   * DNI o un DNI tipeado a mano siguen yendo por el endpoint exacto (rápido, y es el flujo
+   * más frecuente); cualquier otra cosa se busca por texto contra el universo completo de
+   * reservas, porque no hay forma de saber de antemano si es un nombre o un código.
+   */
   buscar(): void {
     const crudo = this.dni().trim();
     if (!crudo || this.buscando()) return;
 
-    // Si lo que llegó es un escaneo PDF417 (lector de DNI) en vez de un DNI tipeado a mano,
-    // limpiamos el campo para que se vea el número solo, no la cadena cruda del código de barras.
-    const dni = extraerDniDeEscaneo(crudo);
-    if (dni !== crudo) {
-      this.dni.set(dni);
+    // Si lo que llegó es un escaneo PDF417 (lector de DNI), extraemos el DNI puro antes de
+    // buscar. Para texto libre (nombre, código de reserva) esto no aplica: se buscaría "0"
+    // caracteres si el input no tiene dígitos.
+    const query = crudo.includes('@') ? extraerDniDeEscaneo(crudo) : crudo;
+    if (query !== crudo) {
+      this.dni.set(query);
     }
 
-    this.ejecutarBusqueda(
-      'dni',
-      this.boleteriaService.buscarPorDni(dni),
-      'No se pudo consultar el DNI. Revisá la conexión y reintentá.'
-    );
+    if (/^\d{5,}$/.test(query)) {
+      this.ejecutarBusqueda(
+        'dni',
+        this.boleteriaService.buscarPorDni(query),
+        'No se pudo consultar el DNI. Revisá la conexión y reintentá.'
+      );
+      return;
+    }
+
+    this.buscarPorTexto(query);
+  }
+
+  /** Nombre/apellido o código de reserva: se trae todo y se filtra en el cliente. */
+  private buscarPorTexto(query: string): void {
+    this.modo.set('texto');
+    this.buscando.set(true);
+    this.errorBusqueda.set(null);
+    this.errorAccion.set(null);
+    this.resultados.set(null);
+
+    this.boleteriaService.buscarTodas().subscribe({
+      next: (todas) => {
+        const q = query.toLowerCase();
+        const filtradas = todas.filter((r) => {
+          const nombreCompleto = `${r.cliente?.nombre ?? ''} ${r.cliente?.apellido ?? ''}`.toLowerCase();
+          return (
+            r.codigoReserva.toLowerCase().includes(q) ||
+            nombreCompleto.includes(q) ||
+            (r.cliente?.dni ?? '').includes(q)
+          );
+        });
+        this.resultados.set(filtradas);
+        this.buscando.set(false);
+      },
+      error: (err) => {
+        console.error('No se pudo buscar:', err);
+        this.errorBusqueda.set('No se pudo buscar. Revisá la conexión y reintentá.');
+        this.buscando.set(false);
+      },
+    });
   }
 
   /** Trae todas las reservas del día de visita elegido en el selector de fecha. */
@@ -306,5 +356,92 @@ export class Boleteria implements OnInit {
   /** Comparación barata y sin asignaciones, por eso sigue siendo un método y no parte del view model. */
   procesando(reserva: Reserva): boolean {
     return this.procesandoId() === reserva.id;
+  }
+
+  // ---------- Menú de acciones (editar contacto / reenviar mail) ----------
+
+  /** ID de la reserva cuyo menú de 3 puntitos está abierto (null = ninguno). */
+  menuAbiertoId = signal<number | null>(null);
+
+  toggleMenu(reserva: Reserva, event: MouseEvent): void {
+    event.stopPropagation();
+    this.menuAbiertoId.update((actual) => (actual === reserva.id ? null : reserva.id));
+  }
+
+  @HostListener('document:click')
+  cerrarMenu(): void {
+    this.menuAbiertoId.set(null);
+  }
+
+  /** Reserva que se está editando (null = el modal de edición está cerrado). */
+  editando = signal<Reserva | null>(null);
+  formEdit = { nombre: '', apellido: '', email: '', telefono: '' };
+  guardandoEdit = signal(false);
+  errorEdit = signal<string | null>(null);
+
+  abrirEdicion(reserva: Reserva, event: MouseEvent): void {
+    event.stopPropagation();
+    this.menuAbiertoId.set(null);
+    this.errorEdit.set(null);
+    this.formEdit = {
+      nombre: reserva.cliente?.nombre ?? '',
+      apellido: reserva.cliente?.apellido ?? '',
+      email: reserva.contactEmail ?? '',
+      telefono: reserva.contactPhone ?? '',
+    };
+    this.editando.set(reserva);
+  }
+
+  cancelarEdicion(): void {
+    this.editando.set(null);
+    this.errorEdit.set(null);
+  }
+
+  guardarEdicion(): void {
+    const reserva = this.editando();
+    if (!reserva || this.guardandoEdit()) return;
+
+    this.guardandoEdit.set(true);
+    this.errorEdit.set(null);
+
+    this.boleteriaService.editarContacto(reserva.id, { ...this.formEdit }).subscribe({
+      next: (actualizada) => {
+        this.resultados.update((rs) => (rs ?? []).map((r) => (r.id === actualizada.id ? actualizada : r)));
+        this.guardandoEdit.set(false);
+        this.editando.set(null);
+      },
+      error: (err) => {
+        console.error('Error al editar el contacto:', err);
+        this.errorEdit.set(
+          typeof err?.error === 'string' ? err.error : 'No se pudo guardar los cambios.'
+        );
+        this.guardandoEdit.set(false);
+      },
+    });
+  }
+
+  /** ID de la reserva cuyo mail se está reenviando (para bloquear sólo ese botón del menú). */
+  reenviandoId = signal<number | null>(null);
+  avisoReenvio = signal<string | null>(null);
+
+  reenviarMail(reserva: Reserva, event: MouseEvent): void {
+    event.stopPropagation();
+    this.menuAbiertoId.set(null);
+    this.reenviandoId.set(reserva.id);
+    this.avisoReenvio.set(null);
+
+    this.boleteriaService.reenviarMail(reserva.id).subscribe({
+      next: () => {
+        this.reenviandoId.set(null);
+        this.avisoReenvio.set(`Mail reenviado (compra #${reserva.codigoReserva}).`);
+      },
+      error: (err) => {
+        console.error('Error al reenviar el mail:', err);
+        this.reenviandoId.set(null);
+        this.avisoReenvio.set(
+          typeof err?.error === 'string' ? err.error : 'No se pudo reenviar el mail.'
+        );
+      },
+    });
   }
 }

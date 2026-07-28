@@ -16,6 +16,7 @@ export interface CompraResponseDTO {
   estado: string;
   montoTotal: number;
   mensaje?: string;
+  cliente?: { dni: string } | null;
 }
 
 export interface CotizacionResponseDTO {
@@ -57,5 +58,14 @@ export class CompraService {
    */
   cotizar(cotizacionRequest: any): Observable<CotizacionResponseDTO> {
     return this.http.post<CotizacionResponseDTO>(`${this.apiUrl}/cotizar`, cotizacionRequest);
+  }
+
+  /**
+   * Fuerza una reconciliación directa contra la API de Mercado Pago (no depende del
+   * webhook). Se llama al volver del pago y como respaldo si el monitoreo del popup
+   * no logra confirmar nada por su cuenta.
+   */
+  verificarPago(compraId: number): Observable<EstadoCompraResponse> {
+    return this.http.post<EstadoCompraResponse>(`${this.apiUrl}/${compraId}/verificar-pago`, {});
   }
 }

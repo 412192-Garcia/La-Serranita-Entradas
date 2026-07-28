@@ -1,0 +1,122 @@
+<div class="seccion seccion-reportes">
+
+  <div class="tarjeta tarjeta-ancha">
+    <h2>Rango de fechas</h2>
+    <p class="ayuda">Filtra por fecha de visita. Por defecto muestra los últimos 30 días.</p>
+    @if (error()) {
+      <p class="alerta-error">{{ error() }}</p>
+    }
+    <div class="form-grid">
+      <label>
+        Desde
+        <input type="date" [ngModel]="desde()" (ngModelChange)="desde.set($event)" />
+      </label>
+      <label>
+        Hasta
+        <input type="date" [ngModel]="hasta()" (ngModelChange)="hasta.set($event)" />
+      </label>
+    </div>
+    <button type="button" class="btn-primario" [disabled]="cargando()" (click)="cargar()">
+      {{ cargando() ? 'Cargando…' : 'Aplicar' }}
+    </button>
+  </div>
+
+  @if (resumen(); as r) {
+    <div class="tarjeta tarjeta-ancha tarjeta-kpis">
+      <div>
+        <h2>Recaudación total</h2>
+        <p class="kpi-numero">{{ r.recaudacionTotal | currency: 'ARS' : 'symbol' : '1.0-0' }}</p>
+        <p class="ayuda">{{ r.cantidadCompras }} compra{{ r.cantidadCompras === 1 ? '' : 's' }} facturada{{ r.cantidadCompras === 1 ? '' : 's' }} (aprobadas o ya validadas en boletería)</p>
+      </div>
+      <div>
+        <h2>Ticket promedio</h2>
+        @if (ticketPromedio(r); as promedio) {
+          <p class="kpi-numero kpi-numero-secundario">{{ promedio | currency: 'ARS' : 'symbol' : '1.0-0' }}</p>
+        } @else {
+          <p class="kpi-numero kpi-numero-secundario">—</p>
+        }
+        <p class="ayuda">Recaudación total dividida por compras facturadas</p>
+      </div>
+    </div>
+  }
+
+  <div class="tarjeta tarjeta-ancha" [class.oculta]="!resumen()">
+    <h2>Afluencia diaria</h2>
+    <p class="ayuda">Pases de ingreso vendidos por día vs. realmente validados por DNI en boletería.</p>
+    <div class="grafico-contenedor">
+      <canvas #afluenciaCanvas></canvas>
+    </div>
+  </div>
+
+  <div class="tarjeta tarjeta-ancha" [class.oculta]="!resumen()">
+    <h2>Desglose por tipo de entrada</h2>
+    <div class="grafico-contenedor">
+      <canvas #desgloseCanvas></canvas>
+    </div>
+    @if (resumen(); as r) {
+      <div class="tabla-simple">
+        <div class="fila-simple fila-simple-desglose fila-simple-header">
+          <span>Tipo</span><span>Cantidad</span><span>Monto</span>
+        </div>
+        @for (t of r.desglosePorTipo; track t.tipoEntradaId) {
+          <div class="fila-simple fila-simple-desglose">
+            <span>{{ t.nombre }}</span>
+            <span>{{ t.cantidad }}</span>
+            <span>{{ t.montoRecaudado | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+          </div>
+        }
+      </div>
+    }
+  </div>
+
+  <div class="tarjeta" [class.oculta]="!resumen()">
+    <h2>Recaudación por forma de pago</h2>
+    <p class="ayuda">Solo compras aprobadas o ya validadas.</p>
+    <div class="grafico-contenedor grafico-torta">
+      <canvas #formaPagoCanvas></canvas>
+    </div>
+  </div>
+
+  <div class="tarjeta" [class.oculta]="!resumen()">
+    <h2>Compras por estado</h2>
+    <p class="ayuda">Todas las compras del rango, incluidas las pendientes y canceladas.</p>
+    <div class="grafico-contenedor grafico-torta">
+      <canvas #estadoCanvas></canvas>
+    </div>
+  </div>
+
+  <div class="tarjeta tarjeta-ancha" [class.oculta]="!resumen()">
+    <h2>Extras vendidos</h2>
+    <p class="ayuda">Consumos adicionales a la entrada (ej. almuerzo), aprobados o ya validados.</p>
+    <div class="grafico-contenedor">
+      <canvas #extrasCanvas></canvas>
+    </div>
+    @if (resumen(); as r) {
+      @if (r.desgloseExtras.length === 0) {
+        <p class="ayuda">No hay extras activos configurados.</p>
+      } @else {
+        <div class="tabla-simple">
+          <div class="fila-simple fila-simple-desglose fila-simple-header">
+            <span>Extra</span><span>Cantidad</span><span>Monto</span>
+          </div>
+          @for (t of r.desgloseExtras; track t.tipoEntradaId) {
+            <div class="fila-simple fila-simple-desglose">
+              <span>{{ t.nombre }}</span>
+              <span>{{ t.cantidad }}</span>
+              <span>{{ t.montoRecaudado | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+            </div>
+          }
+        </div>
+      }
+    }
+  </div>
+
+  <div class="tarjeta tarjeta-ancha" [class.oculta]="!resumen()">
+    <h2>Compras por hora del día</h2>
+    <p class="ayuda">A qué hora se hacen más compras (según el momento de la compra, no el de la visita).</p>
+    <div class="grafico-contenedor">
+      <canvas #horaCanvas></canvas>
+    </div>
+  </div>
+
+</div>

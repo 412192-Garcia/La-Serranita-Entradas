@@ -10,6 +10,14 @@ export interface ClienteData {
   localidad?: string | null;
 }
 
+export interface ReceptorRegaloData {
+  nombre: string;
+  email: string;
+  dni: string;
+  /** Opcional. */
+  telefono?: string | null;
+}
+
 export interface EntradaSeleccionada {
   id?: number;
   tipoEntradaId?: number;
@@ -31,4 +39,6 @@ export interface ResumenCompraData {
   total: number;
   formaPago: FormaPagoType;
   cliente: ClienteData | null;
+  /** Sólo cuando esRegalo es true: a quién avisarle por mail. */
+  receptor?: ReceptorRegaloData | null;
 }

@@ -44,6 +44,10 @@ public class TipoEntrada extends BaseEntity {
     @Builder.Default
     private Boolean obligatorio = false;
 
+    /** Cupo máximo vendible por día para este tipo. Null = sin límite. */
+    @Column(name = "maximo_por_dia")
+    private Integer maximoPorDia;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 50)
     private Tipo tipo;

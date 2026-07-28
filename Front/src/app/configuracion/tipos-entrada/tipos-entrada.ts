@@ -25,6 +25,7 @@ export class ConfiguracionTiposEntrada implements OnInit {
   precioTipo = signal<number | null>(null);
   categoriaTipo = signal<'ENTRADA' | 'EXTRA'>('ENTRADA');
   obligatorioTipo = signal(false);
+  maximoPorDiaTipo = signal<number | null>(null);
   guardandoTipo = signal(false);
 
   descuentosGrupo = signal<DescuentoEfectivo[]>([]);
@@ -66,6 +67,7 @@ export class ConfiguracionTiposEntrada implements OnInit {
     this.precioTipo.set(t.precio);
     this.categoriaTipo.set(t.tipo);
     this.obligatorioTipo.set(t.obligatorio);
+    this.maximoPorDiaTipo.set(t.maximoPorDia ?? null);
     this.errorTipos.set(null);
   }
 
@@ -76,6 +78,7 @@ export class ConfiguracionTiposEntrada implements OnInit {
     this.precioTipo.set(null);
     this.categoriaTipo.set('ENTRADA');
     this.obligatorioTipo.set(false);
+    this.maximoPorDiaTipo.set(null);
     this.errorTipos.set(null);
   }
 
@@ -94,6 +97,7 @@ export class ConfiguracionTiposEntrada implements OnInit {
       precio: this.precioTipo()!,
       tipo: this.categoriaTipo(),
       obligatorio: this.categoriaTipo() === 'ENTRADA' ? this.obligatorioTipo() : false,
+      maximoPorDia: this.maximoPorDiaTipo(),
       activo: true,
     };
 

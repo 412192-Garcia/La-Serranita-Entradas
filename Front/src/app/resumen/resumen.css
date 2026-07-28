@@ -4,8 +4,14 @@
   box-sizing: border-box;
 }
 
-/* Panel Principal que aprovecha el 100% del contenedor */
+/* Panel Principal que aprovecha el 100% del contenedor. Mismo tratamiento que
+   .panel-seleccion/.panel-cliente (fondo, padding, sombra): sin esto el paso de
+   Resumen quedaba pegado a los bordes del módulo, a diferencia de sus hermanos. */
 .panel-resumen {
+  background-color: #ffffff;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  padding: 32px;
   display: flex;
   flex-direction: column;
   gap: 16px;

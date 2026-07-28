@@ -2,7 +2,7 @@
 
   <app-cabecera-interna
     titulo="Control de Accesos"
-    descripcion="Buscá por DNI (tipealo o escaneá el código de barras del DNI en cualquier momento, sin necesidad de clickear el campo primero), mirá un día puntual, o listá todas las reservas — el parque acepta la entrada aunque sea de otro día."
+    descripcion="Buscá por DNI (tipealo o escaneá el código de barras del DNI en cualquier momento, sin necesidad de clickear el campo primero), por nombre o por código de reserva, mirá un día puntual, o listá todas las reservas — el parque acepta la entrada aunque sea de otro día."
     [enlace]="enlaceCabecera()" />
 
   <!-- ============ CONTROLES DE BÚSQUEDA ============ -->
@@ -10,17 +10,16 @@
     <div class="buscador">
       <input
         type="text"
-        inputmode="numeric"
         class="buscador-input"
-        placeholder="DNI del titular"
-        aria-label="DNI del comprador titular"
+        placeholder="DNI, nombre o N° de reserva"
+        aria-label="Buscar por DNI, nombre o código de reserva"
         autofocus
         [ngModel]="dni()"
         (ngModelChange)="dni.set($event)"
         (keyup.enter)="buscar()"
       />
       <button type="button" class="btn-buscar" (click)="buscar()" [disabled]="!dni().trim() || buscando()">
-        {{ buscando() ? 'Buscando…' : 'Buscar por DNI' }}
+        {{ buscando() ? 'Buscando…' : 'Buscar' }}
       </button>
       @if (dni()) {
         <button type="button" class="btn-limpiar" (click)="limpiar()">Limpiar</button>
@@ -69,18 +68,26 @@
     @if (visibles()!.length === 0) {
       <div class="sin-resultados">
         @if (resultados()!.length > 0) {
-          <!-- había resultados, pero ninguno requiere acción (usadas, canceladas o pendientes) y están ocultos -->
+          <!-- había resultados, pero los filtros actuales (estado y/o forma de pago) los ocultan a todos -->
           <span class="sin-resultados-icono">✅</span>
           <p>
             {{ resultados()!.length }} reserva{{ resultados()!.length === 1 ? '' : 's' }} encontrada{{ resultados()!.length === 1 ? '' : 's' }},
-            pero ninguna requiere acción ahora (ya utilizada, cancelada o con pago pendiente).
+            pero ninguna coincide con los filtros actuales.
           </p>
-          <button type="button" class="btn-limpiar" (click)="mostrarTodas.set(true)">Mostrar todas</button>
+          <div class="acciones-sin-resultados">
+            <button type="button" class="btn-limpiar" (click)="mostrarTodas.set(true)">Mostrar todas</button>
+            @if (filtroFormaPago() !== 'TODAS') {
+              <button type="button" class="btn-limpiar" (click)="filtroFormaPago.set('TODAS')">Quitar filtro de forma de pago</button>
+            }
+          </div>
         } @else {
           <span class="sin-resultados-icono">🔎</span>
           @if (modo() === 'dni') {
             <p>No se encontraron compras para el DNI <strong>{{ dni() }}</strong>.</p>
             <small>Verificá el número, o probá "Ver todas las fechas" si no estás seguro del DNI cargado.</small>
+          } @else if (modo() === 'texto') {
+            <p>No se encontraron reservas para "<strong>{{ dni() }}</strong>".</p>
+            <small>Probá con el DNI completo, el nombre del titular, o el código de reserva (ej: 260725-1).</small>
           } @else if (modo() === 'dia') {
             <p>No hay reservas cargadas para el <strong>{{ fecha() | date: 'dd/MM/yyyy' }}</strong>.</p>
             <small>Probá "Ver todas las fechas" — el parque acepta entradas de otros días.</small>
@@ -99,16 +106,26 @@
           <input type="checkbox" [ngModel]="mostrarTodas()" (ngModelChange)="mostrarTodas.set($event)" />
           Mostrar todas (usadas, canceladas y pendientes)
         </label>
+
+        <div class="filtro-forma-pago">
+          <button type="button" class="btn-filtro" [class.activo]="filtroFormaPago() === 'TODAS'" (click)="filtroFormaPago.set('TODAS')">Todas</button>
+          <button type="button" class="btn-filtro" [class.activo]="filtroFormaPago() === 'MERCADO_PAGO'" (click)="filtroFormaPago.set('MERCADO_PAGO')">Mercado Pago</button>
+          <button type="button" class="btn-filtro" [class.activo]="filtroFormaPago() === 'EFECTIVO_BOLETERIA'" (click)="filtroFormaPago.set('EFECTIVO_BOLETERIA')">Efectivo</button>
+        </div>
       </div>
+
+      @if (avisoReenvio()) {
+        <p class="aviso-reenvio">{{ avisoReenvio() }}</p>
+      }
 
       <div class="tabla-reservas">
         <div class="fila fila-header">
           <span class="col-titular">Titular</span>
           <span class="col-fecha">Fecha visita</span>
           <span class="col-codigo">Código</span>
-          <span class="col-pases">Pases</span>
           <span class="col-estado">Estado</span>
           <span class="col-accion">Acción</span>
+          <span class="col-menu"></span>
         </div>
 
         @for (v of visibles(); track v.reserva.id) {
@@ -116,16 +133,21 @@
 
             <div class="col-titular celda-titular">
               <strong>{{ v.reserva.cliente?.nombre }} {{ v.reserva.cliente?.apellido }}</strong>
-              <span class="titular-dni">DNI {{ v.reserva.cliente?.dni }}</span>
+              <span class="titular-contacto">
+                <span class="titular-dni">DNI {{ v.reserva.cliente?.dni }}</span>
+                @if (v.reserva.contactEmail) {
+                  <span class="titular-email">{{ v.reserva.contactEmail }}</span>
+                }
+              </span>
               @if (v.pases.length || v.extras.length) {
-                <span class="titular-detalle">
+                <div class="titular-detalle">
                   @for (p of v.pases; track p.nombre) {
                     <span>{{ p.cantidad }}× {{ p.nombre }}</span>
                   }
                   @for (e of v.extras; track e.nombre) {
                     <span class="extra">{{ e.cantidad }}× {{ e.nombre }}</span>
                   }
-                </span>
+                </div>
               }
             </div>
 
@@ -142,7 +164,6 @@
             </div>
 
             <span class="col-codigo celda-codigo">#{{ v.reserva.codigoReserva }}</span>
-            <span class="col-pases celda-pases">{{ v.totalPases }}</span>
 
             <span class="col-estado">
               <span class="badge" [class]="'badge-' + v.reserva.estado">{{ v.etiquetaEstado }}</span>
@@ -177,9 +198,54 @@
                 }
               }
             </div>
+
+            <div class="col-menu celda-menu">
+              <button type="button" class="btn-menu" (click)="toggleMenu(v.reserva, $event)" aria-label="Más acciones">⋮</button>
+              @if (menuAbiertoId() === v.reserva.id) {
+                <div class="menu-dropdown" (click)="$event.stopPropagation()">
+                  <button type="button" (click)="abrirEdicion(v.reserva, $event)">Editar contacto</button>
+                  <button type="button" [disabled]="reenviandoId() === v.reserva.id" (click)="reenviarMail(v.reserva, $event)">
+                    {{ reenviandoId() === v.reserva.id ? 'Enviando…' : 'Reenviar mail' }}
+                  </button>
+                </div>
+              }
+            </div>
           </div>
         }
       </div>
     }
+  }
+
+  @if (editando(); as reserva) {
+    <div class="modal-overlay" (click)="cancelarEdicion()">
+      <div class="modal-contenido" (click)="$event.stopPropagation()">
+        <h3>Editar contacto — #{{ reserva.codigoReserva }}</h3>
+        @if (errorEdit()) {
+          <p class="alerta-error">{{ errorEdit() }}</p>
+        }
+        <label>
+          Nombre
+          <input type="text" [(ngModel)]="formEdit.nombre" name="editNombre" />
+        </label>
+        <label>
+          Apellido
+          <input type="text" [(ngModel)]="formEdit.apellido" name="editApellido" />
+        </label>
+        <label>
+          Email
+          <input type="email" [(ngModel)]="formEdit.email" name="editEmail" />
+        </label>
+        <label>
+          Teléfono
+          <input type="text" [(ngModel)]="formEdit.telefono" name="editTelefono" />
+        </label>
+        <div class="modal-acciones">
+          <button type="button" class="btn-limpiar" (click)="cancelarEdicion()">Cancelar</button>
+          <button type="button" class="btn-buscar" [disabled]="guardandoEdit()" (click)="guardarEdicion()">
+            {{ guardandoEdit() ? 'Guardando…' : 'Guardar' }}
+          </button>
+        </div>
+      </div>
+    </div>
   }
 </div>

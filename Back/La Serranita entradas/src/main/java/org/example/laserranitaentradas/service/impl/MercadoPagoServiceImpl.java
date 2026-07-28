@@ -1,6 +1,7 @@
 package org.example.laserranitaentradas.service.impl;
 
 import com.mercadopago.MercadoPagoConfig;
+import com.mercadopago.client.preference.PreferenceBackUrlsRequest;
 import com.mercadopago.client.preference.PreferenceClient;
 import com.mercadopago.client.preference.PreferenceItemRequest;
 import com.mercadopago.client.preference.PreferenceRequest;
@@ -28,6 +29,9 @@ public class MercadoPagoServiceImpl implements PagoService {
     @Value("${mercadopago.notification-url}")
     private String notificationUrl;
 
+    @Value("${mercadopago.frontend-url}")
+    private String frontendUrl;
+
     @PostConstruct
     public void init() {
         MercadoPagoConfig.setAccessToken(accessToken);
@@ -54,6 +58,21 @@ public class MercadoPagoServiceImpl implements PagoService {
             PreferenceRequest.PreferenceRequestBuilder requestBuilder = PreferenceRequest.builder()
                     .items(items)
                     .externalReference(String.valueOf(compra.getId())); // Impactamos el ID auto-incremental generado
+
+            // El navegador del propio cliente vuelve acá al terminar de pagar. A diferencia
+            // del webhook, esto no depende de que nuestro servidor sea alcanzable desde afuera
+            // (ver Entradas/PagoExitoso: ahí se re-confirma directamente contra Mercado Pago).
+            // Mercado Pago rechaza (o directamente ignora) back_urls con "localhost": en dev
+            // se sigue dependiendo solo del webhook y de la verificación de respaldo del
+            // polling, sin back_urls ni auto_return.
+            if (frontendUrl != null && !frontendUrl.contains("localhost")) {
+                requestBuilder.backUrls(PreferenceBackUrlsRequest.builder()
+                                .success(frontendUrl + "/pago-exitoso")
+                                .pending(frontendUrl + "/pago-exitoso")
+                                .failure(frontendUrl + "/pago-fallido")
+                                .build())
+                        .autoReturn("approved");
+            }
 
             if (notificationUrl != null && !notificationUrl.isBlank()) {
                 requestBuilder.notificationUrl(notificationUrl + "/api/pagos/webhook");

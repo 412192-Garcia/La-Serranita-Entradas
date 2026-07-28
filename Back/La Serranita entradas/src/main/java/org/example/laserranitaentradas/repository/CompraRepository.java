@@ -16,6 +16,7 @@ public interface CompraRepository extends JpaRepository<Compra, Long> {
     long countByFechaVisita(LocalDate fechaVisita);
     long countByFechaVisitaIsNull();
     List<Compra> findAllByOrderByFechaVisitaAscCodigoReservaAsc();
+    List<Compra> findAllByFechaVisitaBetween(LocalDate desde, LocalDate hasta);
 }
 
 

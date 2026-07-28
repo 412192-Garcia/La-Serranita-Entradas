@@ -52,6 +52,15 @@ public class CompraController {
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
+    @PostMapping("/{id}/verificar-pago")
+    @Operation(summary = "Verificar el pago directamente contra Mercado Pago",
+            description = "Si la compra sigue PENDIENTE_PAGO, consulta la API de Mercado Pago por external_reference en vez de esperar al webhook. " +
+                    "Pensado para que el navegador del cliente lo dispare al volver del pago, sin depender de que el webhook haya llegado.")
+    public ResponseEntity<Map<String, String>> verificarPago(@PathVariable Long id) {
+        String estado = compraService.verificarPagoDirecto(id);
+        return ResponseEntity.ok(Map.of("estado", estado));
+    }
+
     @GetMapping("/{id}")
     @Operation(summary = "Obtener compra por ID", description = "Obtiene una compra específica por su ID")
     @ApiResponses(value = {
@@ -133,6 +142,10 @@ public class CompraController {
         dto.setFormaPago(c.getFormaPago());
         dto.setFechaValidacion(c.getFechaValidacion());
         dto.setUsuarioValidador(c.getUsuarioValidador() != null ? c.getUsuarioValidador().getUsername() : null);
+        dto.setReceptorNombre(c.getReceptorNombre());
+        dto.setReceptorEmail(c.getReceptorEmail());
+        dto.setReceptorDni(c.getReceptorDni());
+        dto.setReceptorTelefono(c.getReceptorTelefono());
         if (c.getDetalles() != null) {
             List<CompraDetalleResponseDTO> detalles = c.getDetalles().stream().map(CompraController::detalleEntityToDto).collect(Collectors.toList());
             dto.setDetalles(detalles);

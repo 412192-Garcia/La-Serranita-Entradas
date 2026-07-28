@@ -81,12 +81,33 @@ export class SeleccionEntradas implements OnInit {
   }
 
 
+  /** Al menos un pase de tipo obligatorio (ej: un adulto responsable) — misma regla que valida el backend al crear la compra. */
+  get tieneObligatorioSeleccionado(): boolean {
+    return this.entradas.some(t => t.obligatorio && (this.cantidades[t.id] || 0) > 0);
+  }
+
   get esPasoValido(): boolean {
     const tieneFechaOEsRegalo = this.esRegalo || this.fechaSeleccionada !== null;
     const tieneAlMenosUnaEntrada = this.cantidadEntradasSeleccionadas > 0;
     const tieneMontoValido = this.subtotal > 0;
 
-    return tieneFechaOEsRegalo && tieneAlMenosUnaEntrada && tieneMontoValido;
+    return tieneFechaOEsRegalo && tieneAlMenosUnaEntrada && tieneMontoValido && this.tieneObligatorioSeleccionado;
+  }
+
+  /** Motivo por el que "Siguiente" está deshabilitado, para mostrarlo en vez de dejar el botón mudo. */
+  get motivoBloqueoSiguiente(): string | null {
+    if (this.esPasoValido) return null;
+    if (!this.esRegalo && this.fechaSeleccionada === null) {
+      return 'Elegí una fecha de visita, o marcá "Comprar como Regalo".';
+    }
+    if (this.cantidadEntradasSeleccionadas === 0) {
+      return 'Seleccioná al menos un pase de ingreso.';
+    }
+    if (!this.tieneObligatorioSeleccionado) {
+      const nombresObligatorios = this.entradas.filter(t => t.obligatorio).map(t => t.nombre).join(' o ');
+      return `Agregá al menos un pase de tipo ${nombresObligatorios || 'obligatorio'} (no se puede ingresar solo con menores).`;
+    }
+    return 'Revisá tu selección para continuar.';
   }
 
   onSiguiente(): void {

@@ -63,6 +63,59 @@ public class EmailServiceImpl implements EmailService {
         }
     }
 
+    @Async
+    @Transactional
+    @Override
+    public void enviarAvisoRegalo(Long compraId) {
+        Compra compra = compraRepository.findById(compraId).orElse(null);
+
+        if (compra == null || compra.getReceptorEmail() == null || compra.getReceptorEmail().isBlank()) {
+            return;
+        }
+
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            helper.setFrom(remitente);
+            helper.setTo(compra.getReceptorEmail());
+            helper.setSubject("¡Recibiste un regalo! - La Serranita Parque Recreativo");
+
+            String htmlBody = construirHtmlAvisoRegalo(compra);
+            helper.setText(htmlBody, true);
+
+            mailSender.send(message);
+            log.info("Email de aviso de regalo enviado para la compra ID {}", compraId);
+
+        } catch (MessagingException e) {
+            log.error("Error al enviar el email de aviso de regalo de la compra ID {}", compraId, e);
+        }
+    }
+
+    private String construirHtmlAvisoRegalo(Compra compra) {
+        String nombreComprador = compra.getCliente() != null
+                ? compra.getCliente().getNombre() + " " + compra.getCliente().getApellido()
+                : "Alguien";
+
+        return """
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
+                <h2 style="color: #2e7d32; text-align: center;">¡Recibiste un regalo! 🎁</h2>
+                <p>Hola <strong>%s</strong>,</p>
+                <p><strong>%s</strong> te regaló una entrada para <strong>La Serranita Parque Recreativo</strong>. ¡Felicitaciones!</p>
+
+                <div style="background-color: #e8f5e9; padding: 15px; border-radius: 6px; margin: 20px 0;">
+                    <h3 style="margin-top: 0; color: #1b5e20;">🪪 Cómo usarla</h3>
+                    <p style="margin-bottom: 0;">Es válida por 90 días desde la fecha de compra y no tiene un día fijo asignado. Al llegar al parque, presentá tu DNI <strong>%s</strong> en la boletería para ingresar.</p>
+                </div>
+
+                <p>Código de referencia: <strong>#%s</strong></p>
+
+                <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+                <p style="font-size: 0.85em; color: #777; text-align: center;">La Serranita Parque Recreativo - Te esperamos de 11:00 a 18:30 hs.</p>
+            </div>
+            """.formatted(compra.getReceptorNombre(), nombreComprador, compra.getReceptorDni(), compra.getCodigoReserva());
+    }
+
     private String construirHtmlEmail(Compra compra) {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
         String fechaVisitaStr = compra.getFechaVisita() != null ? compra.getFechaVisita().format(formatter) : "Fecha a confirmar";

@@ -2,6 +2,8 @@
   display: flex;
   justify-content: center;
   width: 100%;
+  padding: 32px 16px;
+  box-sizing: border-box;
 }
 
 .pago-exitoso-card {
@@ -85,4 +87,21 @@
 .mensaje-dni-ingreso strong {
   color: var(--color-text);
   font-weight: 800;
+}
+
+.btn-primario {
+  margin-top: 20px;
+  padding: 12px 20px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background-color: var(--color-primary);
+  color: #ffffff;
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.btn-primario:hover {
+  background-color: var(--color-primary-dark);
 }

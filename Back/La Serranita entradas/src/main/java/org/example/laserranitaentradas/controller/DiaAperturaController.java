@@ -84,6 +84,12 @@ public class DiaAperturaController {
         return ResponseEntity.ok(diasAbiertos);
     }
 
+    @GetMapping("/ultima-abierta")
+    @Operation(summary = "Última fecha abierta cargada", description = "Fecha abierta más lejana ya cargada, para limitar hasta dónde puede avanzar el calendario del comprador. Null si no hay ninguna.")
+    public ResponseEntity<LocalDate> obtenerUltimaFechaAbierta() {
+        return ResponseEntity.ok(diaAperturaService.getUltimaFechaAbierta());
+    }
+
     @PutMapping("/fecha/{fecha}/horario")
     @Operation(summary = "Establecer horario especial por fecha", description = "Asigna un horario distinto al general para un día puntual. Enviar ambos campos null para volver al horario general.")
     public ResponseEntity<DiaApertura> setHorarioEspecial(@PathVariable @Parameter(description = "Fecha (YYYY-MM-DD)") LocalDate fecha,

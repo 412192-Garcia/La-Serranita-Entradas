@@ -99,14 +99,3 @@ input:focus {
 
 .btn-primario:hover:not(:disabled) { background-color: var(--color-primary-dark); }
 .btn-primario:disabled { opacity: 0.6; cursor: not-allowed; }
-
-.volver-web {
-  display: block;
-  text-align: center;
-  margin-top: 20px;
-  font-size: 0.82rem;
-  color: var(--color-text-muted);
-  text-decoration: none;
-}
-
-.volver-web:hover { color: var(--color-primary-dark); text-decoration: underline; }

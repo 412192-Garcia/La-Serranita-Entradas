@@ -30,12 +30,15 @@ export class Calendario implements OnInit, OnDestroy {
   semanas: DiaCalendario[][] = [];
   fechaSeleccionada: Date | null = null;
   esMesMinimo: boolean = true;
+  esMesMaximo: boolean = false;
 
   @Output() fechaSeleccionadaChange = new EventEmitter<Date | null>();
   @Output() esRegaloChange = new EventEmitter<boolean>();
 
   private fechaBase: Date = new Date();
   private subscripcionApertura: Subscription | null = null;
+  /** Mes/año de la fecha abierta más lejana ya cargada; null si no hay ninguna (no limita el avance). */
+  private ultimaFechaAbierta: Date | null = null;
 
   constructor(
     private diaService: DiaAperturaService,
@@ -43,7 +46,27 @@ export class Calendario implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
+    // cargarDatosMes() ya arma el calendario sin esperar esto (evita que un mes se vea
+    // "sin límite" un instante antes de que llegue la respuesta).
     this.cargarDatosMes();
+
+    this.diaService.getUltimaFechaAbierta().subscribe({
+      next: (fechaStr) => {
+        this.ultimaFechaAbierta = fechaStr ? new Date(fechaStr + 'T12:00:00') : null;
+        this.actualizarLimiteMaximo();
+        this.cdr.detectChanges();
+      },
+      error: () => {},
+    });
+  }
+
+  private actualizarLimiteMaximo(): void {
+    const anioDestino = this.fechaBase.getFullYear();
+    const mesDestino = this.fechaBase.getMonth();
+    this.esMesMaximo = this.ultimaFechaAbierta
+      ? (anioDestino > this.ultimaFechaAbierta.getFullYear() ||
+         (anioDestino === this.ultimaFechaAbierta.getFullYear() && mesDestino >= this.ultimaFechaAbierta.getMonth()))
+      : false;
   }
 
   ngOnDestroy(): void {
@@ -58,6 +81,7 @@ export class Calendario implements OnInit, OnDestroy {
     this.cargando = true;
 
     this.esMesMinimo = (anioDestino === hoy.getFullYear() && mesDestino === hoy.getMonth());
+    this.actualizarLimiteMaximo();
     this.semanas = [];
 
     if (this.subscripcionApertura) this.subscripcionApertura.unsubscribe();
