@@ -1,16 +1,47 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { TipoEntrada } from '../models/tipo-entrada';
-import { FormaPagoType } from '../models/compra';
+import { FormaPagoPos, FormaPagoType } from '../models/compra';
 
 export type EstadoCompra =
   | 'PENDIENTE_PAGO'
   | 'RESERVADO_EFECTIVO'
   | 'APROBADO'
   | 'USADO'
-  | 'CANCELADO';
+  | 'CANCELADO'
+  /** Venta cerrada en la puerta: no es una reserva anticipada, cae en el filtro "Boletería". */
+  | 'VENDIDO_EN_PUERTA'
+  /** Pagada online y devuelta antes de que el visitante entrara. */
+  | 'REEMBOLSADA';
+
+/** Cómo se llegó a la compra: en el filtro de boletería, o de antemano (online/efectivo). */
+export type TipoListadoCompra = 'BOLETERIA' | 'ANTICIPADA';
+
+/** Página tal como la devuelve Spring Data — sólo los campos que usamos. */
+export interface Pagina<T> {
+  content: T[];
+  totalElements: number;
+  totalPages: number;
+  number: number;
+  size: number;
+}
+
+/** Claves de orden que soporta el backend para /compras/buscar. */
+export type CampoOrdenCompras = 'fechaVisita' | 'codigoReserva' | 'estado' | 'monto' | 'titular';
+
+export interface FiltroBusquedaCompras {
+  texto?: string;
+  fecha?: string;
+  tipo?: TipoListadoCompra;
+  estados?: EstadoCompra[];
+  formaPago?: FormaPagoType;
+  ordenarPor?: CampoOrdenCompras;
+  direccion?: 'ASC' | 'DESC';
+  page?: number;
+  size?: number;
+}
 
 export interface DetalleReserva {
   id: number;
@@ -45,6 +76,23 @@ export interface EditarContactoRequest {
   telefono?: string;
 }
 
+/** Una línea del carrito del POS, tal como la espera el backend. */
+export interface LineaVentaPos {
+  tipoEntradaId: number;
+  cantidad: number;
+}
+
+export interface VentaPosRequest {
+  formaPago: FormaPagoPos;
+  entradas: LineaVentaPos[];
+}
+
+export interface CotizacionResponse {
+  subtotal: number;
+  /** Cuánto se ahorra respecto del precio de lista (sólo hay promo pagando en efectivo). */
+  ahorro: number;
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -54,22 +102,21 @@ export class BoleteriaService {
   private comprasUrl = `${environment.apiBase}/compras`;
   private internoUrl = `${environment.apiBase}/interno/compras`;
 
-  /** Busca las compras asociadas al DNI del titular. */
-  buscarPorDni(dni: string): Observable<Reserva[]> {
-    return this.http.get<Reserva[]>(`${this.comprasUrl}/dni/${dni}`);
-  }
-
-  /** Todas las reservas para un día de visita puntual (yyyy-MM-dd), ordenadas por código. */
-  buscarPorFecha(fecha: string): Observable<Reserva[]> {
-    return this.http.get<Reserva[]>(`${this.comprasUrl}/fecha/${fecha}`);
-  }
-
   /**
-   * Todas las reservas, sin filtrar por fecha (el parque es laxo: una entrada
-   * comprada para otro día igual se deja usar), ordenadas por fecha de visita.
+   * Búsqueda paginada de boletería: filtra y pagina en el backend (un día con miles de
+   * visitantes no puede traerse entero a memoria del navegador para filtrarlo ahí).
    */
-  buscarTodas(): Observable<Reserva[]> {
-    return this.http.get<Reserva[]>(this.comprasUrl);
+  buscar(filtro: FiltroBusquedaCompras): Observable<Pagina<Reserva>> {
+    let params = new HttpParams();
+    if (filtro.texto) params = params.set('texto', filtro.texto);
+    if (filtro.fecha) params = params.set('fecha', filtro.fecha);
+    if (filtro.tipo) params = params.set('tipo', filtro.tipo);
+    for (const estado of filtro.estados ?? []) params = params.append('estados', estado);
+    if (filtro.formaPago) params = params.set('formaPago', filtro.formaPago);
+    if (filtro.ordenarPor) params = params.set('ordenarPor', filtro.ordenarPor);
+    if (filtro.direccion) params = params.set('direccion', filtro.direccion);
+    params = params.set('page', filtro.page ?? 0).set('size', filtro.size ?? 50);
+    return this.http.get<Pagina<Reserva>>(`${this.comprasUrl}/buscar`, { params });
   }
 
   // Quién valida o cobra lo resuelve el backend a partir del JWT, así que estas
@@ -93,5 +140,27 @@ export class BoleteriaService {
   /** Reenvía el comprobante ya enviado (y el aviso al receptor, si es un regalo). */
   reenviarMail(compraId: number): Observable<void> {
     return this.http.post<void>(`${this.internoUrl}/${compraId}/reenviar-mail`, {});
+  }
+
+  /**
+   * Reembolsa una compra pagada online que todavía no fue utilizada: dispara el
+   * reembolso real en Mercado Pago y, si funciona, la pasa a REEMBOLSADA.
+   */
+  reembolsar(compraId: number): Observable<Reserva> {
+    return this.http.post<Reserva>(`${this.internoUrl}/${compraId}/reembolsar`, {});
+  }
+
+  /**
+   * Precio del carrito según la forma de pago, sin registrar nada. Hace falta porque
+   * el precio promocional por grupo sólo existe pagando en efectivo: el total cambia
+   * según qué botón de cobro elija el boletero.
+   */
+  cotizar(formaPago: FormaPagoPos, entradas: LineaVentaPos[]): Observable<CotizacionResponse> {
+    return this.http.post<CotizacionResponse>(`${this.comprasUrl}/cotizar`, { formaPago, entradas });
+  }
+
+  /** Venta presencial: cobra y habilita el ingreso en un solo paso (queda USADO). */
+  registrarVentaPos(venta: VentaPosRequest): Observable<Reserva> {
+    return this.http.post<Reserva>(`${this.internoUrl}/venta-pos`, venta);
   }
 }

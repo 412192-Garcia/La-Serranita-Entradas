@@ -5,6 +5,7 @@ import jakarta.mail.internet.MimeMessage;
 import jakarta.transaction.Transactional;
 import org.example.laserranitaentradas.model.entity.Compra;
 import org.example.laserranitaentradas.model.entity.CompraDetalle;
+import org.example.laserranitaentradas.model.entity.EstadoCompra;
 import org.example.laserranitaentradas.repository.CompraRepository;
 import org.example.laserranitaentradas.service.EmailService;
 import org.slf4j.Logger;
@@ -47,9 +48,13 @@ public class EmailServiceImpl implements EmailService {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
+            boolean pendienteDePago = compra.getEstado() == EstadoCompra.RESERVADO_EFECTIVO;
+
             helper.setFrom(remitente);
             helper.setTo(compra.getContactEmail());
-            helper.setSubject("¡Compra confirmada! - La Serranita Parque Recreativo");
+            helper.setSubject(pendienteDePago
+                    ? "¡Reserva confirmada! Pagás en la entrada - La Serranita Parque Recreativo"
+                    : "¡Compra confirmada! - La Serranita Parque Recreativo");
 
             String htmlBody = construirHtmlEmail(compra);
             helper.setText(htmlBody, true);
@@ -136,12 +141,59 @@ public class EmailServiceImpl implements EmailService {
             }
         }
 
+        // Una reserva en efectivo todavía no cobró nada: el mail no puede decir "pago confirmado"
+        // ni "NO necesitas imprimir nada" como si ya hubiese pagado, porque le falta abonar en la
+        // boletería al llegar. El pagado online sí entra directo con el DNI, sin nada pendiente.
+        boolean pendienteDePago = compra.getEstado() == EstadoCompra.RESERVADO_EFECTIVO;
+
+        if (pendienteDePago) {
+            return """
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
+                    <h2 style="color: #b8860b; text-align: center;">¡Reserva confirmada! 🎉</h2>
+                    <p>Hola <strong>%s</strong>,</p>
+                    <p>Tu reserva en <strong>La Serranita Parque Recreativo</strong> quedó registrada.</p>
+
+                    <div style="background-color: #fff8e1; padding: 15px; border-radius: 6px; margin: 20px 0;">
+                        <h3 style="margin-top: 0; color: #8a6d1a;">🪪 Modalidad de Ingreso</h3>
+                        <p style="margin-bottom: 0;"><strong>Todavía no abonaste.</strong> Al llegar al parque, el titular debe presentar el DNI <strong>%s</strong> en la boletería y pagar el total en efectivo antes de ingresar con todo el grupo.</p>
+                    </div>
+
+                    <h3>Resumen de la Reserva (#%s)</h3>
+                    <p><strong>Fecha de visita:</strong> %s</p>
+
+                    <table style="width: 100%%; border-collapse: collapse; margin-bottom: 20px;">
+                        <thead>
+                            <tr style="background-color: #f5f5f5;">
+                                <th style="padding: 8px; text-align: left;">Entrada</th>
+                                <th style="padding: 8px; text-align: center;">Cantidad</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            %s
+                        </tbody>
+                    </table>
+
+                    <p style="text-align: right; font-size: 1.1em;"><strong>Total a abonar en la entrada:</strong> $%s</p>
+
+                    <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+                    <p style="font-size: 0.85em; color: #777; text-align: center;">La Serranita Parque Recreativo - Te esperamos de 11:00 a 18:30 hs.</p>
+                </div>
+                """.formatted(
+                    nombreCliente,
+                    dniCliente,
+                    compra.getCodigoReserva(),
+                    fechaVisitaStr,
+                    detallesHtml.toString(),
+                    compra.getMontoTotal()
+            );
+        }
+
         return """
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
                 <h2 style="color: #2e7d32; text-align: center;">¡Pago Confirmado! 🎉</h2>
                 <p>Hola <strong>%s</strong>,</p>
                 <p>Tu compra en <strong>La Serranita Parque Recreativo</strong> fue procesada exitosamente.</p>
-                
+
                 <div style="background-color: #e8f5e9; padding: 15px; border-radius: 6px; margin: 20px 0;">
                     <h3 style="margin-top: 0; color: #1b5e20;">🪪 Modalidad de Ingreso</h3>
                     <p style="margin-bottom: 0;"><strong>NO necesitas imprimir nada.</strong> Al llegar al parque, el titular debe presentar el DNI <strong>%s</strong> en la boletería para ingresar con todo el grupo.</p>
@@ -149,7 +201,7 @@ public class EmailServiceImpl implements EmailService {
 
                 <h3>Resumen de la Compra (#%s)</h3>
                 <p><strong>Fecha de visita:</strong> %s</p>
-                
+
                 <table style="width: 100%%; border-collapse: collapse; margin-bottom: 20px;">
                     <thead>
                         <tr style="background-color: #f5f5f5;">
@@ -163,7 +215,7 @@ public class EmailServiceImpl implements EmailService {
                 </table>
 
                 <p style="text-align: right; font-size: 1.1em;"><strong>Total pagado:</strong> $%s</p>
-                
+
                 <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
                 <p style="font-size: 0.85em; color: #777; text-align: center;">La Serranita Parque Recreativo - Te esperamos de 11:00 a 18:30 hs.</p>
             </div>

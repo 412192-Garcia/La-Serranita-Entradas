@@ -9,6 +9,7 @@ import org.example.laserranitaentradas.service.CalculoPrecioService;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.Optional;
 
 @Service
@@ -27,6 +28,17 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
 
             if (promo.isPresent()) {
                 return promo.get().getPrecioPromocionalTotal();
+            }
+
+            // Grupos más grandes que el escalón máximo configurado pagan el precio por
+            // persona de ese último escalón (no vuelven a precio de lista completo).
+            Optional<DescuentoEfectivo> escalonMasAlto = descuentoEfectivoRepository
+                    .findFirstByTipoEntradaOrderByCantidadPasesDesc(tipoEntrada);
+            if (escalonMasAlto.isPresent() && cantidad > escalonMasAlto.get().getCantidadPases()) {
+                DescuentoEfectivo tope = escalonMasAlto.get();
+                BigDecimal precioPorPersona = tope.getPrecioPromocionalTotal()
+                        .divide(BigDecimal.valueOf(tope.getCantidadPases()), 4, RoundingMode.HALF_UP);
+                return precioPorPersona.multiply(BigDecimal.valueOf(cantidad)).setScale(2, RoundingMode.HALF_UP);
             }
         }
 

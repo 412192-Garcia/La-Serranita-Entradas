@@ -154,23 +154,54 @@
   padding: 8px 14px;
 }
 
-.toggle-usadas {
+/* ---------- Panel de filtros (listado, estado y forma de pago) ---------- */
+.panel-filtros {
   display: flex;
-  align-items: center;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 12px 28px;
+  background-color: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 14px 18px;
+}
+
+.grupo-filtro {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.etiqueta-filtro {
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-text-muted);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
   gap: 6px;
-  font-size: 0.82rem;
-  font-weight: 600;
+}
+
+.btn-restablecer {
+  margin-left: auto;
+  align-self: center;
+  padding: 8px 14px;
+  border: 1.5px solid var(--color-border);
+  background-color: #fff;
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  font-weight: 700;
   color: var(--color-text-secondary);
   cursor: pointer;
+  font-family: inherit;
   white-space: nowrap;
 }
 
-.toggle-usadas input { cursor: pointer; }
-
-.filtro-forma-pago {
-  display: flex;
-  gap: 6px;
-}
+.btn-restablecer:hover { border-color: var(--color-primary); color: var(--color-primary-dark); }
 
 .btn-filtro {
   padding: 6px 12px;
@@ -194,12 +225,21 @@
   color: #fff;
 }
 
-.acciones-sin-resultados {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-top: 8px;
+.select-forma-pago {
+  padding: 6px 10px;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: #fff;
+  color: var(--color-text);
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.select-forma-pago:focus {
+  outline: none;
+  border-color: var(--color-primary);
 }
 
 .aviso-reenvio {
@@ -231,10 +271,12 @@
 }
 
 .sin-resultados-icono {
-  font-size: 2rem;
   display: block;
-  margin-bottom: 10px;
-  opacity: 0.6;
+  width: 40px;
+  height: 40px;
+  margin: 0 auto 10px;
+  color: var(--color-text-muted);
+  stroke-width: 1.5;
 }
 
 .sin-resultados p {
@@ -272,6 +314,36 @@
   letter-spacing: 0.4px;
   padding-top: 12px;
   padding-bottom: 12px;
+}
+
+.col-ordenable {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.col-ordenable:hover {
+  color: var(--color-text);
+}
+
+.col-ordenable svg {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+}
+
+.icono-orden-inactivo {
+  opacity: 0.35;
 }
 
 .fila-reserva {
@@ -316,6 +388,13 @@
 .titular-email {
   font-size: 0.78rem;
   color: var(--color-text-muted);
+}
+
+/* Se aclara en vez de dejar el renglón del nombre vacío. */
+.titular-anonimo {
+  color: var(--color-text-muted) !important;
+  font-style: italic;
+  font-weight: 600 !important;
 }
 
 /* Un renglón por tipo de pase, en vez de todo corrido en una sola línea: con
@@ -384,10 +463,20 @@
   color: var(--color-danger-dark);
 }
 
+.badge-VENDIDO_EN_PUERTA {
+  background-color: #e3edfa;
+  color: #2c5896;
+}
+
 .badge-PENDIENTE_PAGO,
 .badge-CANCELADO {
   background-color: var(--color-border);
   color: var(--color-text-secondary);
+}
+
+.badge-REEMBOLSADA {
+  background-color: var(--color-danger-light);
+  color: var(--color-danger-dark);
 }
 
 /* ---------- Columna de acción ---------- */
@@ -451,14 +540,20 @@
 .btn-menu {
   width: 32px;
   height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border: none;
   background: transparent;
   border-radius: 50%;
-  font-size: 1.2rem;
-  line-height: 1;
   color: var(--color-text-secondary);
   cursor: pointer;
   transition: background-color 0.15s ease;
+}
+
+.btn-menu svg {
+  width: 18px;
+  height: 18px;
 }
 
 .btn-menu:hover { background-color: var(--color-bg-soft); }
@@ -493,6 +588,22 @@
 
 .menu-dropdown button:hover:not(:disabled) { background-color: var(--color-bg-soft); }
 .menu-dropdown button:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* Reembolsar mueve dinero real: se distingue del resto de las acciones del menú. */
+.opcion-riesgosa { color: var(--color-danger-dark) !important; }
+.opcion-riesgosa:hover:not(:disabled) { background-color: var(--color-danger-light) !important; }
+
+/* ---------- Paginador ---------- */
+.paginador {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 6px 0 4px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
 
 /* ---------- Modal de edición de contacto ---------- */
 .modal-overlay {

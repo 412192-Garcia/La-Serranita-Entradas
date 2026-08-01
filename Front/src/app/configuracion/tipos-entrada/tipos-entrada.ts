@@ -243,4 +243,9 @@ export class ConfiguracionTiposEntrada implements OnInit {
     if (!tipo) return 0;
     return Math.max(0, tipo.precio * d.cantidadPases - d.precioPromocionalTotal);
   }
+
+  /** Precio total dividido por la cantidad de pases: es lo que se extrapola para grupos aún más grandes. */
+  precioPorPersona(d: DescuentoEfectivo): number {
+    return d.cantidadPases > 0 ? d.precioPromocionalTotal / d.cantidadPases : 0;
+  }
 }

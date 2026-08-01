@@ -1,12 +1,14 @@
 package org.example.laserranitaentradas.service.impl;
 
 import com.mercadopago.client.payment.PaymentClient;
+import com.mercadopago.client.payment.PaymentRefundClient;
 import com.mercadopago.exceptions.MPApiException;
 import com.mercadopago.exceptions.MPException;
 import com.mercadopago.net.MPSearchRequest;
 import com.mercadopago.resources.payment.Payment;
 import jakarta.transaction.Transactional;
 import org.example.laserranitaentradas.model.dto.*;
+import org.example.laserranitaentradas.model.entity.Caja;
 import org.example.laserranitaentradas.model.entity.Cliente;
 import org.example.laserranitaentradas.model.entity.Compra;
 import org.example.laserranitaentradas.model.entity.CompraDetalle;
@@ -17,9 +19,13 @@ import org.example.laserranitaentradas.model.entity.TipoEntrada;
 import org.example.laserranitaentradas.model.entity.Usuario;
 import org.example.laserranitaentradas.model.entity.EstadoCompra;
 import org.example.laserranitaentradas.repository.CompraRepository;
+import org.example.laserranitaentradas.repository.CompraSpecifications;
 import org.example.laserranitaentradas.service.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -28,6 +34,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -47,6 +54,7 @@ public class CompraServiceImpl implements CompraService {
     private final UsuarioService usuarioService;
     private final CalculoPrecioService calculoPrecioService;
     private final EmailService emailService;
+    private final CajaService cajaService;
     private final Map<FormaPago, PagoService> estrategiasPago;
 
     public CompraServiceImpl
@@ -58,6 +66,7 @@ public class CompraServiceImpl implements CompraService {
              UsuarioService usuarioService,
              CalculoPrecioService calculoPrecioService,
              EmailService emailService,
+             CajaService cajaService,
              List<PagoService> estrategiasDisponibles)
     {
         this.compraRepository = compraRepository;
@@ -68,6 +77,7 @@ public class CompraServiceImpl implements CompraService {
         this.usuarioService = usuarioService;
         this.calculoPrecioService = calculoPrecioService;
         this.emailService = emailService;
+        this.cajaService = cajaService;
         this.estrategiasPago = estrategiasDisponibles.stream()
                 .collect(Collectors.toMap(PagoService::getFormaPago, estrategia -> estrategia));
     }
@@ -131,6 +141,11 @@ public class CompraServiceImpl implements CompraService {
                 throw new IllegalArgumentException("El parque está cerrado en la fecha solicitada: " + fechaVisita);
             }
         } else {
+            // Un regalo tiene que llegar pagado: si se reservara en efectivo, quien lo recibe
+            // terminaría pagando de su bolsillo en la boletería lo que se supone que le regalaron.
+            if (compraRequest.getFormaPago() == FormaPago.EFECTIVO_BOLETERIA) {
+                throw new IllegalArgumentException("Los regalos sólo se pueden pagar online: no se puede reservar en efectivo.");
+            }
             ReceptorRegaloDTO receptor = compraRequest.getReceptor();
             if (receptor == null || esBlanco(receptor.getNombre()) || esBlanco(receptor.getEmail()) || esBlanco(receptor.getDni())) {
                 throw new IllegalArgumentException("Para comprar como regalo hay que indicar nombre, DNI y email de quien lo recibe.");
@@ -177,62 +192,12 @@ public class CompraServiceImpl implements CompraService {
             }
         }
 
-        // Cupo diario por tipo de entrada: se suma lo ya vendido ese día (sin contar lo cancelado)
-        // más lo que se está agregando en esta misma compra. Los regalos no tienen fecha todavía,
-        // así que no hay contra qué día chequear el cupo.
-        Map<Long, Integer> cantidadVendidaPorTipo = new HashMap<>();
-        if (fechaVisita != null) {
-            for (Compra otra : compraRepository.findAllByFechaVisitaOrderByCodigoReservaAsc(fechaVisita)) {
-                if (otra.getEstado() == EstadoCompra.CANCELADO || otra.getDetalles() == null) continue;
-                for (CompraDetalle det : otra.getDetalles()) {
-                    cantidadVendidaPorTipo.merge(det.getTipoEntrada().getId(), det.getCantidad(), Integer::sum);
-                }
-            }
-        }
+        DetallesCalculados calculo = construirDetalles(
+                compraRequest.getEntradas(), compraRequest.getFormaPago(), fechaVisita);
+        List<CompraDetalle> detalles = calculo.detalles();
+        BigDecimal montoTotal = calculo.montoTotal();
 
-        BigDecimal montoTotal = BigDecimal.ZERO;
-        List<CompraDetalle> detalles = new ArrayList<>();
-
-        if (compraRequest.getEntradas() != null) {
-            for (DetalleCompraDTO d : compraRequest.getEntradas()) {
-                if (d == null || d.getTipoEntradaId() == null || d.getCantidad() == null) continue;
-
-                Long tipoId = d.getTipoEntradaId();
-                Optional<TipoEntrada> tipoOpt = tipoEntradaService.findById(tipoId);
-                if (tipoOpt.isEmpty()) {
-                    throw new IllegalArgumentException("TipoEntrada no encontrada para id: " + tipoId);
-                }
-                TipoEntrada tipoEntrada = tipoOpt.get();
-
-                if (tipoEntrada.getMaximoPorDia() != null) {
-                    int nuevoTotal = cantidadVendidaPorTipo.merge(tipoId, d.getCantidad(), Integer::sum);
-                    if (nuevoTotal > tipoEntrada.getMaximoPorDia()) {
-                        throw new IllegalArgumentException(
-                                "Se alcanzó el cupo diario de " + tipoEntrada.getNombre() + " para el " + fechaVisita
-                                        + " (máximo " + tipoEntrada.getMaximoPorDia() + " por día).");
-                    }
-                }
-
-                BigDecimal subtotal = calculoPrecioService.calcularTotal(tipoEntrada, d.getCantidad(), compraRequest.getFormaPago());
-                montoTotal = montoTotal.add(subtotal);
-
-                CompraDetalle detalle = CompraDetalle.builder()
-                        .tipoEntrada(tipoEntrada)
-                        .cantidad(d.getCantidad())
-                        .build();
-                detalles.add(detalle);
-            }
-        }
-
-        boolean hayEntradas = detalles.stream()
-                .anyMatch(d -> d.getTipoEntrada().getTipo() == Tipo.ENTRADA);
-        boolean hayObligatorio = detalles.stream()
-                .anyMatch(d -> Boolean.TRUE.equals(d.getTipoEntrada().getObligatorio()) && d.getCantidad() > 0);
-        if (hayEntradas && !hayObligatorio) {
-            throw new IllegalArgumentException(
-                    "La compra debe incluir al menos un pase de un tipo obligatorio (por ejemplo, un adulto responsable) para poder ingresar al parque."
-            );
-        }
+        validarPaseObligatorio(detalles);
 
         BigDecimal descuentoAplicado = BigDecimal.ZERO;
         if (cupon != null) {
@@ -255,17 +220,7 @@ public class CompraServiceImpl implements CompraService {
 
         }
 
-        // Código visible yyMMdd-N: N es el orden de esta reserva entre todas las
-        // que ya existen para ese mismo día de visita (se asigna una sola vez, al crear).
-        // Para regalos (sin fecha) se usa un contador propio: REGALO-N.
-        String codigoReserva;
-        if (fechaVisita != null) {
-            long numeroDelDia = compraRepository.countByFechaVisita(fechaVisita) + 1;
-            codigoReserva = fechaVisita.format(DateTimeFormatter.ofPattern("yyMMdd")) + "-" + numeroDelDia;
-        } else {
-            long numeroRegalo = compraRepository.countByFechaVisitaIsNull() + 1;
-            codigoReserva = "REGALO-" + numeroRegalo;
-        }
+        String codigoReserva = generarCodigoReserva(fechaVisita);
 
         Compra nuevaCompra = Compra.builder()
                 .cliente(cliente)
@@ -314,18 +269,26 @@ public class CompraServiceImpl implements CompraService {
     }
 
     @Override
-    public List<Compra> getAllByDni(String dni) {
-        return compraRepository.findAllByClienteDni(dni);
-    }
+    public Page<Compra> buscar(BusquedaComprasFiltroDTO filtro, Pageable pageable) {
+        List<EstadoCompra> estados = filtro.estados();
+        if (filtro.tipo() == TipoListadoCompra.BOLETERIA) {
+            // La venta de puerta es el único estado que nunca fue una reserva anticipada.
+            estados = List.of(EstadoCompra.VENDIDO_EN_PUERTA);
+        } else if (filtro.tipo() == TipoListadoCompra.ANTICIPADA && (estados == null || estados.isEmpty())) {
+            // Sin un estado puntual elegido, "anticipada" es todo lo que no sea venta de puerta.
+            estados = Arrays.stream(EstadoCompra.values())
+                    .filter(e -> e != EstadoCompra.VENDIDO_EN_PUERTA)
+                    .toList();
+        }
 
-    @Override
-    public List<Compra> getAllByFechaVisita(LocalDate fechaVisita) {
-        return compraRepository.findAllByFechaVisitaOrderByCodigoReservaAsc(fechaVisita);
-    }
+        Specification<Compra> spec = Specification.allOf(
+                CompraSpecifications.textoLibre(filtro.texto()),
+                CompraSpecifications.fecha(filtro.fecha()),
+                CompraSpecifications.estadoIn(estados),
+                CompraSpecifications.formaPago(filtro.formaPago())
+        );
 
-    @Override
-    public List<Compra> getAll() {
-        return compraRepository.findAllByOrderByFechaVisitaAscCodigoReservaAsc();
+        return compraRepository.findAll(spec, pageable);
     }
 
     @Transactional
@@ -357,7 +320,11 @@ public class CompraServiceImpl implements CompraService {
             throw new IllegalStateException("La compra ID " + compraId + " no está pendiente de cobro en boletería (estado actual: " + compra.getEstado() + ")");
         }
 
-        return marcarEntradasComoUsadas(compraId, usuarioValidadorId);
+        // El cobro pasa a integrar la caja abierta del boletero: sin caja no se puede cobrar.
+        Caja caja = cajaService.getAbiertaOrThrow(usuarioValidadorId);
+        Compra actualizada = marcarEntradasComoUsadas(compraId, usuarioValidadorId);
+        actualizada.setCaja(caja);
+        return compraRepository.save(actualizada);
     }
 
     @Override
@@ -395,6 +362,138 @@ public class CompraServiceImpl implements CompraService {
 
     private boolean esBlanco(String s) {
         return s == null || s.isBlank();
+    }
+
+    /** Detalles ya validados junto con el monto que suman, para devolver ambos de una sola pasada. */
+    private record DetallesCalculados(List<CompraDetalle> detalles, BigDecimal montoTotal) {}
+
+    /**
+     * Convierte las líneas del pedido en detalles de compra, cobrando el precio que
+     * corresponde a la forma de pago (el precio promocional por grupo sólo existe en
+     * efectivo) y verificando contra el cupo diario de cada tipo.
+     */
+    private DetallesCalculados construirDetalles(List<DetalleCompraDTO> entradas, FormaPago formaPago, LocalDate fechaVisita) {
+        // Cupo diario por tipo: se suma lo ya vendido ese día (sin contar lo cancelado)
+        // más lo que se está agregando ahora. Los regalos no tienen fecha todavía, así
+        // que no hay contra qué día chequear el cupo.
+        Map<Long, Integer> cantidadVendidaPorTipo = new HashMap<>();
+        if (fechaVisita != null) {
+            for (Compra otra : compraRepository.findAllByFechaVisitaOrderByCodigoReservaAsc(fechaVisita)) {
+                if (otra.getEstado() == EstadoCompra.CANCELADO || otra.getDetalles() == null) continue;
+                for (CompraDetalle det : otra.getDetalles()) {
+                    cantidadVendidaPorTipo.merge(det.getTipoEntrada().getId(), det.getCantidad(), Integer::sum);
+                }
+            }
+        }
+
+        BigDecimal montoTotal = BigDecimal.ZERO;
+        List<CompraDetalle> detalles = new ArrayList<>();
+
+        if (entradas != null) {
+            for (DetalleCompraDTO d : entradas) {
+                if (d == null || d.getTipoEntradaId() == null || d.getCantidad() == null) continue;
+
+                Long tipoId = d.getTipoEntradaId();
+                TipoEntrada tipoEntrada = tipoEntradaService.findById(tipoId)
+                        .orElseThrow(() -> new IllegalArgumentException("TipoEntrada no encontrada para id: " + tipoId));
+
+                if (tipoEntrada.getMaximoPorDia() != null) {
+                    int nuevoTotal = cantidadVendidaPorTipo.merge(tipoId, d.getCantidad(), Integer::sum);
+                    if (nuevoTotal > tipoEntrada.getMaximoPorDia()) {
+                        throw new IllegalArgumentException(
+                                "Se alcanzó el cupo diario de " + tipoEntrada.getNombre() + " para el " + fechaVisita
+                                        + " (máximo " + tipoEntrada.getMaximoPorDia() + " por día).");
+                    }
+                }
+
+                montoTotal = montoTotal.add(calculoPrecioService.calcularTotal(tipoEntrada, d.getCantidad(), formaPago));
+
+                detalles.add(CompraDetalle.builder()
+                        .tipoEntrada(tipoEntrada)
+                        .cantidad(d.getCantidad())
+                        .build());
+            }
+        }
+
+        return new DetallesCalculados(detalles, montoTotal);
+    }
+
+    /** Si se compran entradas, tiene que haber al menos un pase de un tipo obligatorio (ej: un adulto responsable). */
+    private void validarPaseObligatorio(List<CompraDetalle> detalles) {
+        boolean hayEntradas = detalles.stream()
+                .anyMatch(d -> d.getTipoEntrada().getTipo() == Tipo.ENTRADA);
+        boolean hayObligatorio = detalles.stream()
+                .anyMatch(d -> Boolean.TRUE.equals(d.getTipoEntrada().getObligatorio()) && d.getCantidad() > 0);
+        if (hayEntradas && !hayObligatorio) {
+            throw new IllegalArgumentException(
+                    "La compra debe incluir al menos un pase de un tipo obligatorio (por ejemplo, un adulto responsable) para poder ingresar al parque."
+            );
+        }
+    }
+
+    /**
+     * Código visible yyMMdd-N: N es el orden de esta reserva entre todas las que ya
+     * existen para ese mismo día de visita. Para regalos (sin fecha) se usa REGALO-N.
+     */
+    private String generarCodigoReserva(LocalDate fechaVisita) {
+        if (fechaVisita != null) {
+            long numeroDelDia = compraRepository.countByFechaVisita(fechaVisita) + 1;
+            return fechaVisita.format(DateTimeFormatter.ofPattern("yyMMdd")) + "-" + numeroDelDia;
+        }
+        long numeroRegalo = compraRepository.countByFechaVisitaIsNull() + 1;
+        return "REGALO-" + numeroRegalo;
+    }
+
+    @Transactional
+    @Override
+    public Compra registrarVentaPos(VentaPosRequestDTO request, Long usuarioVendedorId) {
+        if (request.getFormaPago() == null) {
+            throw new IllegalArgumentException("Debe indicar la forma de pago del cobro");
+        }
+        if (request.getEntradas() == null || request.getEntradas().isEmpty()) {
+            throw new IllegalArgumentException("La venta no tiene entradas cargadas");
+        }
+
+        Usuario vendedor = usuarioService.obtenerUsuarioPorId(usuarioVendedorId)
+                .orElseThrow(() -> new IllegalArgumentException("Usuario vendedor no encontrado para id: " + usuarioVendedorId));
+
+        // Toda venta de puerta se hace contra una caja abierta, sea cual sea la forma de
+        // pago: es la que después se cierra y concilia al final del turno.
+        Caja caja = cajaService.getAbiertaOrThrow(usuarioVendedorId);
+
+        // El visitante está entrando en este momento, así que la fecha de visita es hoy.
+        // A diferencia de la compra online no se valida que el día esté marcado como
+        // abierto: si hay alguien vendiendo en la boletería, el parque está abierto.
+        LocalDate hoy = LocalDate.now();
+
+        DetallesCalculados calculo = construirDetalles(request.getEntradas(), request.getFormaPago(), hoy);
+        if (calculo.detalles().isEmpty()) {
+            throw new IllegalArgumentException("La venta no tiene entradas cargadas");
+        }
+        validarPaseObligatorio(calculo.detalles());
+
+        // Venta anónima: no hay cliente ni contacto que cargar (ya están entrando, no hay
+        // nada que validar después ni comprobante que mandar). Nace VENDIDO_EN_PUERTA porque
+        // el cobro y el ingreso pasan en el mismo acto y nunca fue una reserva anticipada.
+        Compra venta = Compra.builder()
+                .cliente(null)
+                .fechaVisita(hoy)
+                .codigoReserva(generarCodigoReserva(hoy))
+                .montoTotal(calculo.montoTotal())
+                .descuentoAplicado(BigDecimal.ZERO)
+                .detalles(calculo.detalles())
+                .estado(EstadoCompra.VENDIDO_EN_PUERTA)
+                .formaPago(request.getFormaPago())
+                .usuarioValidador(vendedor)
+                .fechaValidacion(LocalDateTime.now())
+                .caja(caja)
+                .build();
+
+        for (CompraDetalle det : calculo.detalles()) {
+            det.setCompra(venta);
+        }
+
+        return compraRepository.save(venta);
     }
 
     @Transactional
@@ -484,5 +583,43 @@ public class CompraServiceImpl implements CompraService {
         }
 
         return compraRepository.findById(compraId).map(c -> c.getEstado().name()).orElse(compra.getEstado().name());
+    }
+
+    @Transactional
+    @Override
+    public Compra reembolsarCompra(Long compraId) {
+        Compra compra = compraRepository.findById(compraId)
+                .orElseThrow(() -> new IllegalArgumentException("Compra no encontrada ID: " + compraId));
+
+        // Sólo se reembolsa lo pagado online y todavía no usado: APROBADO es el único
+        // estado que cumple ambas cosas (el efectivo nunca llega a APROBADO, pasa
+        // directo a USADO al cobrarse en boletería).
+        if (compra.getEstado() != EstadoCompra.APROBADO) {
+            throw new IllegalStateException(
+                    "Sólo se pueden reembolsar compras pagadas online que todavía no fueron utilizadas (estado actual: " + compra.getEstado() + ")");
+        }
+
+        try {
+            MPSearchRequest searchRequest = MPSearchRequest.builder()
+                    .filters(Map.of("external_reference", compraId.toString()))
+                    .limit(10)
+                    .offset(0)
+                    .build();
+            List<Payment> pagos = new PaymentClient().search(searchRequest).getResults();
+            Payment pagoAprobado = pagos == null ? null : pagos.stream()
+                    .filter(p -> "approved".equals(p.getStatus()) && compra.getMontoTotal().compareTo(p.getTransactionAmount()) == 0)
+                    .findFirst()
+                    .orElse(null);
+            if (pagoAprobado == null) {
+                throw new IllegalStateException("No se encontró en Mercado Pago el pago aprobado de la compra ID " + compraId);
+            }
+            new PaymentRefundClient().refund(pagoAprobado.getId());
+        } catch (MPException | MPApiException e) {
+            log.error("Error al reembolsar en Mercado Pago la compra ID {}", compraId, e);
+            throw new IllegalStateException("No se pudo procesar el reembolso en Mercado Pago. Reintentá en unos minutos.");
+        }
+
+        compra.setEstado(EstadoCompra.REEMBOLSADA);
+        return compraRepository.save(compra);
     }
 }

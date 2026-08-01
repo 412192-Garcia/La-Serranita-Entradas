@@ -115,6 +115,14 @@
   border: 1px solid #f6dcb8;
 }
 
+/* Icono en línea con texto (badge de regalo, botón de pago). */
+.icono-inline {
+  width: 16px;
+  height: 16px;
+  vertical-align: -3px;
+  stroke-width: 2;
+}
+
 /* Lista de Entradas */
 .lista-items {
   list-style: none;
@@ -218,6 +226,12 @@
   font-size: 0.8rem;
   color: var(--color-text-muted);
   margin-top: 1px;
+}
+
+.ayuda-pago-regalo {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  margin-top: 10px;
 }
 
 /* Cupón de descuento */

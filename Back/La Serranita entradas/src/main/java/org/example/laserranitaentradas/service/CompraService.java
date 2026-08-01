@@ -1,12 +1,16 @@
 package org.example.laserranitaentradas.service;
 
+import org.example.laserranitaentradas.model.dto.BusquedaComprasFiltroDTO;
 import org.example.laserranitaentradas.model.dto.CompraRequestDTO;
 import org.example.laserranitaentradas.model.dto.CompraResponseDTO;
 import org.example.laserranitaentradas.model.dto.CotizacionRequestDTO;
 import org.example.laserranitaentradas.model.dto.CotizacionResponseDTO;
 import org.example.laserranitaentradas.model.dto.EditarContactoRequest;
+import org.example.laserranitaentradas.model.dto.VentaPosRequestDTO;
 import org.example.laserranitaentradas.model.entity.Compra;
 import org.example.laserranitaentradas.model.entity.EstadoCompra;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -15,9 +19,10 @@ import java.util.Optional;
 public interface CompraService {
     Optional<Compra> findById(Long id);
     Optional<Compra> findByDniandFecha(String dni, LocalDate fechaVisita);
-    List<Compra> getAllByDni(String dni);
-    List<Compra> getAllByFechaVisita(LocalDate fechaVisita);
-    List<Compra> getAll();
+
+    /** Búsqueda paginada de boletería: texto libre, fecha, boletería/anticipada, estado(s) y forma de pago. */
+    Page<Compra> buscar(BusquedaComprasFiltroDTO filtro, Pageable pageable);
+
     Compra create(CompraRequestDTO Compra);
     Compra marcarEntradasComoUsadas(Long compraId, Long usuarioValidadorId);
     Compra confirmarPagoEfectivo(Long compraId, Long usuarioValidadorId);
@@ -45,4 +50,17 @@ public interface CompraService {
 
     /** Reenvía el comprobante ya enviado; sólo tiene sentido si la compra está APROBADO o USADO. */
     void reenviarComprobante(Long compraId);
+
+    /**
+     * Venta presencial en boletería: cobra y habilita el ingreso en un solo paso, así que
+     * la compra nace directamente en USADO y sin datos de cliente.
+     */
+    Compra registrarVentaPos(VentaPosRequestDTO request, Long usuarioVendedorId);
+
+    /**
+     * Reembolsa una compra pagada online (Mercado Pago) que todavía no fue utilizada:
+     * llama a la API de reembolsos de Mercado Pago y, si funciona, pasa la compra a
+     * REEMBOLSADA. Sólo válido en estado APROBADO.
+     */
+    Compra reembolsarCompra(Long compraId);
 }

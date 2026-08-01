@@ -18,8 +18,8 @@ import java.util.List;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@EqualsAndHashCode(callSuper = true, exclude = {"usuarioValidador", "cupon", "detalles", "cliente"})
-@ToString(callSuper = true, exclude = {"usuarioValidador", "cupon", "detalles", "cliente"})
+@EqualsAndHashCode(callSuper = true, exclude = {"usuarioValidador", "cupon", "detalles", "cliente", "caja"})
+@ToString(callSuper = true, exclude = {"usuarioValidador", "cupon", "detalles", "cliente", "caja"})
 @Builder
 public class Compra extends BaseEntity {
 
@@ -89,5 +89,13 @@ public class Compra extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "forma_pago", nullable = false, length = 30)
     private FormaPago formaPago;
+
+    /**
+     * Turno de caja en el que se cobró (venta de puerta o cobro de una reserva en
+     * efectivo). Null en las compras online: esas nunca pasan efectivo por una caja.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_caja")
+    private Caja caja;
 
 }

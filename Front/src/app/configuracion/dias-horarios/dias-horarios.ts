@@ -37,7 +37,7 @@ export class ConfiguracionDiasHorarios implements OnInit {
 
   /** Días tildados en el calendario: 1 = detalle individual, 2+ = panel de grupo. Click simple reemplaza, Ctrl/Cmd+click suma o saca, Shift+click selecciona el rango desde el ancla. */
   diasSeleccionados = signal<Set<string>>(new Set());
-  /** Último día tocado con click simple o Ctrl/Cmd+click: punto de partida para el rango de Shift+click. */
+  /** Último día tocado con click simple o Ctrl+click: punto de partida para el rango de Shift+click. */
   private anclaSeleccion = signal<string | null>(null);
   horaAperturaEspecial = signal('');
   horaCierreEspecial = signal('');

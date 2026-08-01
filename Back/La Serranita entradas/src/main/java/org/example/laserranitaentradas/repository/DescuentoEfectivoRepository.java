@@ -10,4 +10,7 @@ import java.util.Optional;
 @Repository
 public interface DescuentoEfectivoRepository extends JpaRepository<DescuentoEfectivo,Long> {
     Optional<DescuentoEfectivo> findByTipoEntradaAndCantidadPases(TipoEntrada tipoEntrada, Integer cantidadPases);
+
+    /** El escalón más alto configurado para ese tipo de entrada, para extrapolar grupos aún más grandes. */
+    Optional<DescuentoEfectivo> findFirstByTipoEntradaOrderByCantidadPasesDesc(TipoEntrada tipoEntrada);
 }

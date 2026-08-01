@@ -2,8 +2,8 @@
 
   <app-cabecera-interna
     titulo="Control de Accesos"
-    descripcion="Buscá por DNI (tipealo o escaneá el código de barras del DNI en cualquier momento, sin necesidad de clickear el campo primero), por nombre o por código de reserva, mirá un día puntual, o listá todas las reservas — el parque acepta la entrada aunque sea de otro día."
-    [enlace]="enlaceCabecera()" />
+    descripcion="Buscá por DNI, por nombre, por email o por código de reserva, mirá un día puntual, o listá todas las reservas."
+    [enlaces]="enlacesCabecera()" />
 
   <!-- ============ CONTROLES DE BÚSQUEDA ============ -->
   <div class="controles">
@@ -11,17 +11,17 @@
       <input
         type="text"
         class="buscador-input"
-        placeholder="DNI, nombre o N° de reserva"
-        aria-label="Buscar por DNI, nombre o código de reserva"
+        placeholder="DNI, nombre, email o N° de reserva"
+        aria-label="Buscar por DNI, nombre, email o código de reserva"
         autofocus
-        [ngModel]="dni()"
-        (ngModelChange)="dni.set($event)"
+        [ngModel]="texto()"
+        (ngModelChange)="texto.set($event)"
         (keyup.enter)="buscar()"
       />
-      <button type="button" class="btn-buscar" (click)="buscar()" [disabled]="!dni().trim() || buscando()">
+      <button type="button" class="btn-buscar" (click)="buscar()" [disabled]="!texto().trim() || buscando()">
         {{ buscando() ? 'Buscando…' : 'Buscar' }}
       </button>
-      @if (dni()) {
+      @if (texto()) {
         <button type="button" class="btn-limpiar" (click)="limpiar()">Limpiar</button>
       }
     </div>
@@ -37,20 +37,62 @@
       <button
         type="button"
         class="btn-vista"
-        [class.activo]="modo() === 'dia'"
-        (click)="verReservasDelDia()"
+        [class.activo]="!todasLasFechas()"
+        (click)="verEsaFecha()"
         [disabled]="!fecha() || buscando()">
         Ver esa fecha
       </button>
       <button
         type="button"
         class="btn-vista"
-        [class.activo]="modo() === 'todas'"
-        (click)="verTodas()"
+        [class.activo]="todasLasFechas()"
+        (click)="verTodasLasFechas()"
         [disabled]="buscando()">
         Ver todas las fechas
       </button>
     </div>
+  </div>
+
+  <!-- ============ FILTROS ============ -->
+  <div class="panel-filtros">
+    <div class="grupo-filtro">
+      <span class="etiqueta-filtro">Listado</span>
+      <div class="chips">
+        <button type="button" class="btn-filtro" [class.activo]="tipoListado() === 'ANTICIPADA'" (click)="toggleTipoListado('ANTICIPADA')">
+          Anticipada
+        </button>
+        <button type="button" class="btn-filtro" [class.activo]="tipoListado() === 'BOLETERIA'" (click)="toggleTipoListado('BOLETERIA')">
+          Boletería
+        </button>
+      </div>
+    </div>
+
+    @if (tipoListado() === 'ANTICIPADA') {
+      <div class="grupo-filtro">
+        <span class="etiqueta-filtro">Estado</span>
+        <div class="chips">
+          @for (e of estadosAnticipadaFiltrables; track e.valor) {
+            <button type="button" class="btn-filtro" [class.activo]="estadoActivo(e.valor)" (click)="toggleEstado(e.valor)">
+              {{ e.etiqueta }}
+            </button>
+          }
+        </div>
+      </div>
+    }
+
+    <div class="grupo-filtro">
+      <span class="etiqueta-filtro">Forma de pago</span>
+      <select class="select-forma-pago" [ngModel]="formaPago()" (ngModelChange)="onFormaPagoChange($event)">
+        <option value="">Todas</option>
+        @for (f of formasPagoFiltrables; track f.valor) {
+          <option [value]="f.valor">{{ f.etiqueta }}</option>
+        }
+      </select>
+    </div>
+
+    @if (!filtrosEnDefecto()) {
+      <button type="button" class="btn-restablecer" (click)="restablecerFiltros()">Restablecer filtros</button>
+    }
   </div>
 
   @if (errorBusqueda()) {
@@ -67,51 +109,16 @@
 
     @if (visibles()!.length === 0) {
       <div class="sin-resultados">
-        @if (resultados()!.length > 0) {
-          <!-- había resultados, pero los filtros actuales (estado y/o forma de pago) los ocultan a todos -->
-          <span class="sin-resultados-icono">✅</span>
-          <p>
-            {{ resultados()!.length }} reserva{{ resultados()!.length === 1 ? '' : 's' }} encontrada{{ resultados()!.length === 1 ? '' : 's' }},
-            pero ninguna coincide con los filtros actuales.
-          </p>
-          <div class="acciones-sin-resultados">
-            <button type="button" class="btn-limpiar" (click)="mostrarTodas.set(true)">Mostrar todas</button>
-            @if (filtroFormaPago() !== 'TODAS') {
-              <button type="button" class="btn-limpiar" (click)="filtroFormaPago.set('TODAS')">Quitar filtro de forma de pago</button>
-            }
-          </div>
-        } @else {
-          <span class="sin-resultados-icono">🔎</span>
-          @if (modo() === 'dni') {
-            <p>No se encontraron compras para el DNI <strong>{{ dni() }}</strong>.</p>
-            <small>Verificá el número, o probá "Ver todas las fechas" si no estás seguro del DNI cargado.</small>
-          } @else if (modo() === 'texto') {
-            <p>No se encontraron reservas para "<strong>{{ dni() }}</strong>".</p>
-            <small>Probá con el DNI completo, el nombre del titular, o el código de reserva (ej: 260725-1).</small>
-          } @else if (modo() === 'dia') {
-            <p>No hay reservas cargadas para el <strong>{{ fecha() | date: 'dd/MM/yyyy' }}</strong>.</p>
-            <small>Probá "Ver todas las fechas" — el parque acepta entradas de otros días.</small>
-          } @else {
-            <p>Todavía no hay ninguna reserva cargada.</p>
-          }
-        }
+        <svg lucideSearchX class="sin-resultados-icono" [strokeWidth]="1.5"></svg>
+        <p>No se encontraron reservas con los filtros actuales.</p>
+        <small>Probá "Ver todas las fechas", ajustá los filtros de arriba, o revisá el texto buscado.</small>
       </div>
     } @else {
       <div class="resumen-dia">
         <span>
-          {{ visibles()!.length }} reserva{{ visibles()!.length === 1 ? '' : 's' }} ·
-          {{ totalPasesListados() }} pase{{ totalPasesListados() === 1 ? '' : 's' }} en total
+          {{ totalElementos() }} reserva{{ totalElementos() === 1 ? '' : 's' }} en total ·
+          {{ totalPasesPagina() }} pase{{ totalPasesPagina() === 1 ? '' : 's' }} en esta página
         </span>
-        <label class="toggle-usadas">
-          <input type="checkbox" [ngModel]="mostrarTodas()" (ngModelChange)="mostrarTodas.set($event)" />
-          Mostrar todas (usadas, canceladas y pendientes)
-        </label>
-
-        <div class="filtro-forma-pago">
-          <button type="button" class="btn-filtro" [class.activo]="filtroFormaPago() === 'TODAS'" (click)="filtroFormaPago.set('TODAS')">Todas</button>
-          <button type="button" class="btn-filtro" [class.activo]="filtroFormaPago() === 'MERCADO_PAGO'" (click)="filtroFormaPago.set('MERCADO_PAGO')">Mercado Pago</button>
-          <button type="button" class="btn-filtro" [class.activo]="filtroFormaPago() === 'EFECTIVO_BOLETERIA'" (click)="filtroFormaPago.set('EFECTIVO_BOLETERIA')">Efectivo</button>
-        </div>
       </div>
 
       @if (avisoReenvio()) {
@@ -120,10 +127,38 @@
 
       <div class="tabla-reservas">
         <div class="fila fila-header">
-          <span class="col-titular">Titular</span>
-          <span class="col-fecha">Fecha visita</span>
-          <span class="col-codigo">Código</span>
-          <span class="col-estado">Estado</span>
+          <button type="button" class="col-titular col-ordenable" (click)="ordenarColumna('titular')">
+            Titular
+            @switch (estadoOrden('titular')) {
+              @case ('asc') { <svg lucideArrowUp [strokeWidth]="2"></svg> }
+              @case ('desc') { <svg lucideArrowDown [strokeWidth]="2"></svg> }
+              @default { <svg lucideChevronsUpDown [strokeWidth]="2" class="icono-orden-inactivo"></svg> }
+            }
+          </button>
+          <button type="button" class="col-fecha col-ordenable" (click)="ordenarColumna('fechaVisita')">
+            Fecha visita
+            @switch (estadoOrden('fechaVisita')) {
+              @case ('asc') { <svg lucideArrowUp [strokeWidth]="2"></svg> }
+              @case ('desc') { <svg lucideArrowDown [strokeWidth]="2"></svg> }
+              @default { <svg lucideChevronsUpDown [strokeWidth]="2" class="icono-orden-inactivo"></svg> }
+            }
+          </button>
+          <button type="button" class="col-codigo col-ordenable" (click)="ordenarColumna('codigoReserva')">
+            Código
+            @switch (estadoOrden('codigoReserva')) {
+              @case ('asc') { <svg lucideArrowUp [strokeWidth]="2"></svg> }
+              @case ('desc') { <svg lucideArrowDown [strokeWidth]="2"></svg> }
+              @default { <svg lucideChevronsUpDown [strokeWidth]="2" class="icono-orden-inactivo"></svg> }
+            }
+          </button>
+          <button type="button" class="col-estado col-ordenable" (click)="ordenarColumna('estado')">
+            Estado
+            @switch (estadoOrden('estado')) {
+              @case ('asc') { <svg lucideArrowUp [strokeWidth]="2"></svg> }
+              @case ('desc') { <svg lucideArrowDown [strokeWidth]="2"></svg> }
+              @default { <svg lucideChevronsUpDown [strokeWidth]="2" class="icono-orden-inactivo"></svg> }
+            }
+          </button>
           <span class="col-accion">Acción</span>
           <span class="col-menu"></span>
         </div>
@@ -132,13 +167,18 @@
           <div class="fila fila-reserva" [class.fila-usada]="v.reserva.estado === 'USADO'">
 
             <div class="col-titular celda-titular">
-              <strong>{{ v.reserva.cliente?.nombre }} {{ v.reserva.cliente?.apellido }}</strong>
-              <span class="titular-contacto">
-                <span class="titular-dni">DNI {{ v.reserva.cliente?.dni }}</span>
-                @if (v.reserva.contactEmail) {
-                  <span class="titular-email">{{ v.reserva.contactEmail }}</span>
-                }
-              </span>
+              <!-- Las ventas de puerta son anónimas: no hay titular ni contacto que mostrar. -->
+              @if (v.reserva.cliente; as cliente) {
+                <strong>{{ cliente.nombre }} {{ cliente.apellido }}</strong>
+                <span class="titular-contacto">
+                  <span class="titular-dni">DNI {{ cliente.dni }}</span>
+                  @if (v.reserva.contactEmail) {
+                    <span class="titular-email">{{ v.reserva.contactEmail }}</span>
+                  }
+                </span>
+              } @else {
+                <strong class="titular-anonimo">Venta en boletería</strong>
+              }
               @if (v.pases.length || v.extras.length) {
                 <div class="titular-detalle">
                   @for (p of v.pases; track p.nombre) {
@@ -153,9 +193,10 @@
 
             <div class="col-fecha celda-fecha">
               @if (v.reserva.fechaVisita) {
-                <span>{{ v.reserva.fechaVisita | date: 'dd/MM/yyyy' }}</span>
-                @if (!v.esHoy) {
-                  <span class="badge-otro-dia">otro día</span>
+                @if (v.etiquetaFecha) {
+                  <span>{{ v.etiquetaFecha }}</span>
+                } @else {
+                  <span>{{ v.reserva.fechaVisita | date: 'EEE dd/MM' : '' : 'es-AR' }}</span>
                 }
               } @else {
                 <span>Sin fecha</span>
@@ -190,29 +231,59 @@
                     }
                   </span>
                 }
+                @case ('VENDIDO_EN_PUERTA') {
+                  <span class="texto-usado">
+                    Vendida en puerta
+                    @if (v.reserva.fechaValidacion) {
+                      {{ v.reserva.fechaValidacion | date: 'dd/MM HH:mm' }}
+                    }
+                  </span>
+                }
                 @case ('PENDIENTE_PAGO') {
                   <span class="texto-aviso">Pago pendiente</span>
                 }
                 @case ('CANCELADO') {
                   <span class="texto-aviso">Cancelada</span>
                 }
+                @case ('REEMBOLSADA') {
+                  <span class="texto-aviso">Reembolsada</span>
+                }
               }
             </div>
 
             <div class="col-menu celda-menu">
-              <button type="button" class="btn-menu" (click)="toggleMenu(v.reserva, $event)" aria-label="Más acciones">⋮</button>
+              <button type="button" class="btn-menu" (click)="toggleMenu(v.reserva, $event)" aria-label="Más acciones">
+                <svg lucideEllipsisVertical [strokeWidth]="2"></svg>
+              </button>
               @if (menuAbiertoId() === v.reserva.id) {
                 <div class="menu-dropdown" (click)="$event.stopPropagation()">
                   <button type="button" (click)="abrirEdicion(v.reserva, $event)">Editar contacto</button>
                   <button type="button" [disabled]="reenviandoId() === v.reserva.id" (click)="reenviarMail(v.reserva, $event)">
                     {{ reenviandoId() === v.reserva.id ? 'Enviando…' : 'Reenviar mail' }}
                   </button>
+                  @if (puedeReembolsar(v.reserva)) {
+                    <button
+                      type="button"
+                      class="opcion-riesgosa"
+                      [disabled]="reembolsandoId() === v.reserva.id"
+                      (click)="reembolsar(v.reserva, $event)">
+                      {{ reembolsandoId() === v.reserva.id ? 'Reembolsando…' : 'Reembolsar' }}
+                    </button>
+                  }
                 </div>
               }
             </div>
           </div>
         }
       </div>
+
+      @if (totalPaginas() > 1) {
+        <div class="paginador">
+          <button type="button" class="btn-limpiar" [disabled]="pagina() === 0 || buscando()" (click)="paginaAnterior()">Anterior</button>
+          <span>Página {{ pagina() + 1 }} de {{ totalPaginas() }}</span>
+          <button type="button" class="btn-limpiar" [disabled]="pagina() + 1 >= totalPaginas() || buscando()" (click)="paginaSiguiente()">Siguiente</button>
+        </div>
+      }
     }
   }
 

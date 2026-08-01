@@ -9,8 +9,6 @@ import {rolGuard} from './guards/rol-guard';
 export const routes: Routes = [
   // ---------- Módulo web (público) ----------
   // Va en el bundle inicial: es lo que se embebe en el sitio del parque.
-  { path: 'calendario', component: Calendario, pathMatch: 'full' },
-  { path: 'seleccion', component: SeleccionEntradas, pathMatch: 'full' },
   { path: 'entradas', component: Entradas, pathMatch: 'full' },
   { path: 'pago-exitoso', component: PagoExitoso },
   { path: 'pago-fallido', component: PagoFallido },
@@ -25,6 +23,11 @@ export const routes: Routes = [
   {
     path: 'boleteria',
     loadComponent: () => import('./boleteria/boleteria').then((m) => m.Boleteria),
+    canActivate: [rolGuard(['BOLETERO', 'ADMIN'])],
+  },
+  {
+    path: 'pos',
+    loadComponent: () => import('./pos/pos').then((m) => m.Pos),
     canActivate: [rolGuard(['BOLETERO', 'ADMIN'])],
   },
   {

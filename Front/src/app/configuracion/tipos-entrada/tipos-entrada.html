@@ -132,13 +132,14 @@
     } @else {
       <div class="tabla-simple">
         <div class="fila-simple fila-simple-descuentos fila-simple-header">
-          <span>Tipo de entrada</span><span>Cantidad</span><span>Precio total</span><span>Ahorro</span><span>Acción</span>
+          <span>Tipo de entrada</span><span>Cantidad</span><span>Precio total</span><span>Precio por persona</span><span>Ahorro</span><span>Acción</span>
         </div>
         @for (d of descuentosGrupo(); track d.id) {
           <div class="fila-simple fila-simple-descuentos">
             <span>{{ d.tipoEntradaNombre }}</span>
             <span>{{ d.cantidadPases }}</span>
             <span>{{ d.precioPromocionalTotal | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+            <span>{{ precioPorPersona(d) | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
             <span>{{ ahorroDescuento(d) | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
             <span class="acciones-tipo">
               <button type="button" class="btn-secundario" (click)="editarDescuento(d)">Editar</button>

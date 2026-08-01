@@ -29,8 +29,15 @@ export class CabeceraInterna {
 
   @Input({ required: true }) titulo = '';
   @Input() descripcion = '';
-  /** null oculta el enlace (Boletería sólo lo muestra a los ADMIN). */
+  /** Un solo enlace (atajo para el caso más común); null lo oculta. */
   @Input() enlace: EnlaceCabecera | null = null;
+  /** Varios enlaces, cuando una pantalla lleva a más de una sección. */
+  @Input() enlaces: EnlaceCabecera[] = [];
+
+  /** Unifica ambas entradas para que la plantilla recorra una sola lista. */
+  get enlacesVisibles(): EnlaceCabecera[] {
+    return this.enlace ? [this.enlace, ...this.enlaces] : this.enlaces;
+  }
 
   readonly operador = this.sesion.usuario;
 

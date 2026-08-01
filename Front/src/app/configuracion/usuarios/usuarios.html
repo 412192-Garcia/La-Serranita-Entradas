@@ -1,0 +1,83 @@
+<div class="seccion seccion-usuarios">
+
+  <div class="tarjeta">
+    <h2>{{ editandoId() ? 'Editar usuario' : 'Nuevo usuario' }}</h2>
+    @if (error()) {
+      <p class="alerta-error">{{ error() }}</p>
+    }
+    <div class="form-grid">
+      <label>
+        Usuario
+        <input type="text" [ngModel]="usernameForm()" (ngModelChange)="usernameForm.set($event)" placeholder="Ej: boletero.marta" />
+      </label>
+      <label>
+        <span class="etiqueta-campo">
+          Contraseña
+          @if (editandoId()) {
+            <span class="opcional">(dejar en blanco para no cambiarla)</span>
+          }
+        </span>
+        <input type="password" [ngModel]="passwordForm()" (ngModelChange)="passwordForm.set($event)" placeholder="••••••••" />
+      </label>
+      <label>
+        Nombre
+        <input type="text" [ngModel]="nombreForm()" (ngModelChange)="nombreForm.set($event)" />
+      </label>
+      <label>
+        Apellido
+        <input type="text" [ngModel]="apellidoForm()" (ngModelChange)="apellidoForm.set($event)" />
+      </label>
+      <label>
+        Rol
+        <select [ngModel]="rolForm()" (ngModelChange)="rolForm.set($event)">
+          <option value="BOLETERO">Boletero</option>
+          <option value="ADMIN">Administrador</option>
+        </select>
+      </label>
+    </div>
+    <div class="fila-horario">
+      <button type="button" class="btn-primario" [disabled]="guardando()" (click)="guardar()">
+        {{ guardando() ? 'Guardando…' : (editandoId() ? 'Guardar cambios' : 'Crear usuario') }}
+      </button>
+      @if (editandoId()) {
+        <button type="button" class="btn-secundario" (click)="cancelarEdicion()">Cancelar</button>
+      }
+    </div>
+  </div>
+
+  <div class="tarjeta tarjeta-ancha">
+    <h2>Usuarios existentes</h2>
+    @if (cargando()) {
+      <div class="spinner-contenedor"><div class="spinner"></div></div>
+    } @else if (usuarios().length === 0) {
+      <p class="ayuda">Todavía no hay usuarios creados.</p>
+    } @else {
+      <div class="tabla-simple">
+        <div class="fila-simple fila-simple-usuarios fila-simple-header">
+          <span>Usuario</span><span>Nombre</span><span>Rol</span><span>Estado</span><span>Acción</span>
+        </div>
+        @for (u of usuarios(); track u.id) {
+          <div class="fila-simple fila-simple-usuarios">
+            <span>{{ u.username }}</span>
+            <span>{{ u.nombre }} {{ u.apellido }}</span>
+            <span>{{ u.rol === 'ADMIN' ? 'Administrador' : 'Boletero' }}</span>
+            <span class="badge" [class.badge-activo]="u.activo" [class.badge-inactivo]="!u.activo">
+              {{ u.activo ? 'Activo' : 'Inactivo' }}
+            </span>
+            <span class="acciones-tipo">
+              <button type="button" class="btn-secundario" (click)="editar(u)">Editar</button>
+              <button
+                type="button"
+                class="btn-secundario"
+                [disabled]="esUsuarioActual(u)"
+                [title]="esUsuarioActual(u) ? 'No podés desactivar tu propio usuario' : ''"
+                (click)="toggleActivo(u)">
+                {{ u.activo ? 'Desactivar' : 'Activar' }}
+              </button>
+            </span>
+          </div>
+        }
+      </div>
+    }
+  </div>
+</div>
