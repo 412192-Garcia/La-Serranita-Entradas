@@ -1,4 +1,9 @@
-export type FormaPagoType = 'MERCADO_PAGO' | 'EFECTIVO_BOLETERIA';
+/** MERCADO_PAGO y EFECTIVO_BOLETERIA salen de la compra online; TARJETA y
+ *  MERCADO_PAGO_QR sólo existen en la venta presencial del POS de boletería. */
+export type FormaPagoType = 'MERCADO_PAGO' | 'EFECTIVO_BOLETERIA' | 'TARJETA' | 'MERCADO_PAGO_QR';
+
+/** Las que el POS puede cobrar (la boletería no genera pagos online). */
+export type FormaPagoPos = 'EFECTIVO_BOLETERIA' | 'TARJETA' | 'MERCADO_PAGO_QR';
 
 export interface ClienteData {
   nombre: string;

@@ -22,6 +22,9 @@ public class UsuarioServiceImpl implements UsuarioService {
 
     @Override
     public Usuario crearUsuario(Usuario usuario) {
+        if (usuarioRepository.findByUsername(usuario.getUsername()).isPresent()) {
+            throw new IllegalArgumentException("Ya existe un usuario con el nombre de usuario \"" + usuario.getUsername() + "\"");
+        }
         usuario.setPassword(passwordEncoder.encode(usuario.getPassword()));
         return usuarioRepository.save(usuario);
     }
@@ -43,7 +46,21 @@ public class UsuarioServiceImpl implements UsuarioService {
 
     @Override
     public Usuario actualizarUsuario(Usuario usuario) {
-        return usuarioRepository.save(usuario);
+        Usuario existente = usuarioRepository.findById(usuario.getId())
+                .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado para id: " + usuario.getId()));
+
+        // La contraseña es write-only: si el formulario de edición no manda una nueva,
+        // llega en null/vacío acá, y guardarla tal cual pisaría el hash existente,
+        // dejando al usuario sin poder iniciar sesión nunca más.
+        if (usuario.getPassword() != null && !usuario.getPassword().isBlank()) {
+            existente.setPassword(passwordEncoder.encode(usuario.getPassword()));
+        }
+        existente.setUsername(usuario.getUsername());
+        existente.setNombre(usuario.getNombre());
+        existente.setApellido(usuario.getApellido());
+        existente.setRol(usuario.getRol());
+        existente.setActivo(usuario.getActivo());
+        return usuarioRepository.save(existente);
     }
 
     @Override

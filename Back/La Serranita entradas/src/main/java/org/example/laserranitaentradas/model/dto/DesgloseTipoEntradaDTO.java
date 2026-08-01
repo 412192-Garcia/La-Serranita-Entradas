@@ -10,6 +10,10 @@ import java.math.BigDecimal;
 public class DesgloseTipoEntradaDTO {
     private Long tipoEntradaId;
     private String nombre;
-    private long cantidad;
-    private BigDecimal montoRecaudado;
+    /** Vendido como reserva anticipada (pagada online o a cobrar en caja), sin contar venta en puerta. */
+    private long cantidadAnticipada;
+    private BigDecimal montoAnticipada;
+    /** Vendido directamente en la puerta (POS). */
+    private long cantidadBoleteria;
+    private BigDecimal montoBoleteria;
 }

@@ -4,7 +4,7 @@ import {FormsModule} from '@angular/forms';
 import { FormaPagoType, ResumenCompraData } from '../models/compra';
 import { Cupon } from '../models/cupon';
 import { CuponService } from '../Services/cupon.service';
-import { LucideCalendar, LucideTicket, LucideCreditCard, LucideTag } from '@lucide/angular';
+import { LucideCalendar, LucideTicket, LucideCreditCard, LucideTag, LucideGift, LucideBanknote } from '@lucide/angular';
 
 @Component({
   selector: 'app-resumen',
@@ -15,7 +15,9 @@ import { LucideCalendar, LucideTicket, LucideCreditCard, LucideTag } from '@luci
     LucideCalendar,
     LucideTicket,
     LucideCreditCard,
-    LucideTag
+    LucideTag,
+    LucideGift,
+    LucideBanknote
   ],
   templateUrl: './resumen.html',
   styleUrl: './resumen.css',

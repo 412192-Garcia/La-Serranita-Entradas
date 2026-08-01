@@ -97,6 +97,10 @@ export class Entradas implements OnDestroy {
     this.compraAcumulada.esRegalo = esRegalo;
     if (esRegalo) {
       this.compraAcumulada.fechaVisita = null;
+      // Un regalo tiene que estar pagado de antemano: si quedó en efectivo de un
+      // paso anterior, el receptor terminaría pagando de su bolsillo lo que le
+      // "regalaron" al llegar al parque.
+      this.compraAcumulada.formaPago = 'MERCADO_PAGO';
     }
   }
   onFormaPagoCambio(metodo: FormaPagoType): void {

@@ -3,8 +3,15 @@ package org.example.laserranitaentradas.controller;
 import org.example.laserranitaentradas.model.dto.*;
 import org.example.laserranitaentradas.model.entity.Compra;
 import org.example.laserranitaentradas.model.entity.CompraDetalle;
+import org.example.laserranitaentradas.model.entity.EstadoCompra;
+import org.example.laserranitaentradas.model.entity.FormaPago;
 import org.example.laserranitaentradas.config.UsuarioAutenticado;
 import org.example.laserranitaentradas.service.CompraService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.http.ResponseEntity;
@@ -73,28 +80,41 @@ public class CompraController {
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
-    @GetMapping("/dni/{dni}")
-    @Operation(summary = "Obtener todas las compras por DNI", description = "Obtiene todas las compras de un cliente por su DNI")
-    @ApiResponse(responseCode = "200", description = "Lista de compras obtenida exitosamente")
-    public ResponseEntity<List<CompraResponseDTO>> obtenerComprasPorDni(@PathVariable @Parameter(description = "DNI del comprador") String dni) {
-        List<CompraResponseDTO> compras = compraService.getAllByDni(dni).stream().map(CompraController::entityToDto).collect(Collectors.toList());
-        return ResponseEntity.ok(compras);
-    }
+    /** Claves de orden que expone el frontend, mapeadas a la propiedad JPA real (evita inyectar cualquier campo). */
+    private static final Map<String, String> CAMPOS_ORDENABLES = Map.of(
+            "fechaVisita", "fechaVisita",
+            "codigoReserva", "codigoReserva",
+            "estado", "estado",
+            "monto", "montoTotal",
+            "titular", "cliente.apellido"
+    );
 
-    @GetMapping("/fecha/{fecha}")
-    @Operation(summary = "Obtener compras por fecha de visita", description = "Obtiene todas las reservas para un día de visita puntual (yyyy-MM-dd), ordenadas por código de reserva")
-    @ApiResponse(responseCode = "200", description = "Lista de compras obtenida exitosamente")
-    public ResponseEntity<List<CompraResponseDTO>> obtenerComprasPorFecha(@PathVariable @Parameter(description = "Fecha de visita (yyyy-MM-dd)") LocalDate fecha) {
-        List<CompraResponseDTO> compras = compraService.getAllByFechaVisita(fecha).stream().map(CompraController::entityToDto).collect(Collectors.toList());
-        return ResponseEntity.ok(compras);
-    }
-
-    @GetMapping
-    @Operation(summary = "Obtener todas las compras", description = "Obtiene la lista de todas las compras realizadas")
-    @ApiResponse(responseCode = "200", description = "Lista de compras obtenida exitosamente")
-    public ResponseEntity<List<CompraResponseDTO>> obtenerTodasCompras() {
-        List<CompraResponseDTO> compras = compraService.getAll().stream().map(CompraController::entityToDto).collect(Collectors.toList());
-        return ResponseEntity.ok(compras);
+    @GetMapping("/buscar")
+    @Operation(summary = "Búsqueda paginada de boletería",
+            description = "Texto libre (DNI/nombre/apellido/código de reserva/email), fecha, boletería vs. anticipada, estado(s) y forma de pago. " +
+                    "Filtra, ordena y pagina en la base, así que soporta días con miles de compras sin traer todo a memoria.")
+    public ResponseEntity<Page<CompraResponseDTO>> buscar(
+            @RequestParam(required = false) String texto,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fecha,
+            @RequestParam(required = false) TipoListadoCompra tipo,
+            @RequestParam(required = false) List<EstadoCompra> estados,
+            @RequestParam(required = false) FormaPago formaPago,
+            @RequestParam(defaultValue = "fechaVisita") String ordenarPor,
+            @RequestParam(defaultValue = "ASC") String direccion,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size) {
+        int tamanioPagina = Math.min(Math.max(size, 1), 200);
+        String campoOrden = CAMPOS_ORDENABLES.getOrDefault(ordenarPor, "fechaVisita");
+        Sort.Direction sentido = "DESC".equalsIgnoreCase(direccion) ? Sort.Direction.DESC : Sort.Direction.ASC;
+        // codigoReserva como desempate: mismo orden estable entre páginas aunque el campo elegido tenga empates.
+        Sort orden = Sort.by(sentido, campoOrden);
+        if (!"codigoReserva".equals(campoOrden)) {
+            orden = orden.and(Sort.by(Sort.Direction.ASC, "codigoReserva"));
+        }
+        Pageable pageable = PageRequest.of(Math.max(page, 0), tamanioPagina, orden);
+        BusquedaComprasFiltroDTO filtro = new BusquedaComprasFiltroDTO(texto, fecha, tipo, estados, formaPago);
+        Page<CompraResponseDTO> resultado = compraService.buscar(filtro, pageable).map(CompraController::entityToDto);
+        return ResponseEntity.ok(resultado);
     }
 
     @PostMapping

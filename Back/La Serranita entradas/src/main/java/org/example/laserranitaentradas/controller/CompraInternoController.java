@@ -3,8 +3,10 @@ package org.example.laserranitaentradas.controller;
 import org.example.laserranitaentradas.config.UsuarioAutenticado;
 import org.example.laserranitaentradas.model.dto.CompraResponseDTO;
 import org.example.laserranitaentradas.model.dto.EditarContactoRequest;
+import org.example.laserranitaentradas.model.dto.VentaPosRequestDTO;
 import org.example.laserranitaentradas.model.entity.Compra;
 import org.example.laserranitaentradas.service.CompraService;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -33,6 +35,18 @@ public class CompraInternoController {
         return ResponseEntity.ok(CompraController.entityToDto(compra));
     }
 
+    @PostMapping("/venta-pos")
+    @Operation(summary = "Registrar una venta presencial en boletería",
+            description = "Cobra y habilita el ingreso en un solo paso: la compra queda en USADO, sin datos de cliente. " +
+                    "El precio promocional por grupo sólo se aplica si el cobro es en efectivo.")
+    public ResponseEntity<CompraResponseDTO> registrarVentaPos(
+            @RequestBody VentaPosRequestDTO request,
+            @AuthenticationPrincipal UsuarioAutenticado operador) {
+        // Quién vendió sale del token, no del cuerpo del request.
+        Compra venta = compraService.registrarVentaPos(request, operador.id());
+        return ResponseEntity.status(HttpStatus.CREATED).body(CompraController.entityToDto(venta));
+    }
+
     @PutMapping("/{id}/contacto")
     @Operation(summary = "Editar datos de contacto de la reserva", description = "Corrige nombre/apellido del titular y su email/teléfono de contacto. No permite tocar fecha, entradas ni montos.")
     public ResponseEntity<CompraResponseDTO> actualizarContacto(
@@ -47,5 +61,13 @@ public class CompraInternoController {
     public ResponseEntity<Void> reenviarMail(@PathVariable @Parameter(description = "ID de la compra") Long id) {
         compraService.reenviarComprobante(id);
         return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/{id}/reembolsar")
+    @Operation(summary = "Reembolsar una compra pagada online",
+            description = "Sólo válido para compras APROBADO (pagadas por Mercado Pago) que todavía no ingresaron; dispara el reembolso real vía la API de Mercado Pago")
+    public ResponseEntity<CompraResponseDTO> reembolsar(@PathVariable @Parameter(description = "ID de la compra") Long id) {
+        Compra compra = compraService.reembolsarCompra(id);
+        return ResponseEntity.ok(CompraController.entityToDto(compra));
     }
 }

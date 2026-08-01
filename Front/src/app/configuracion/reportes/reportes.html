@@ -37,13 +37,18 @@
         }
         <p class="ayuda">Recaudación total dividida por compras facturadas</p>
       </div>
+      <div>
+        <h2>Personas que entraron</h2>
+        <p class="kpi-numero kpi-numero-secundario">{{ r.personasIngresadas | number }}</p>
+        <p class="ayuda">Venta en puerta + reservas anticipadas ya validadas por DNI</p>
+      </div>
     </div>
   }
 
   <div class="tarjeta tarjeta-ancha" [class.oculta]="!resumen()">
     <h2>Afluencia diaria</h2>
     <p class="ayuda">Pases de ingreso vendidos por día vs. realmente validados por DNI en boletería.</p>
-    <div class="grafico-contenedor">
+    <div class="grafico-contenedor grafico-contenedor-grande">
       <canvas #afluenciaCanvas></canvas>
     </div>
   </div>
@@ -56,13 +61,15 @@
     @if (resumen(); as r) {
       <div class="tabla-simple">
         <div class="fila-simple fila-simple-desglose fila-simple-header">
-          <span>Tipo</span><span>Cantidad</span><span>Monto</span>
+          <span>Tipo</span><span>Cant. anticipada</span><span>Monto anticipada</span><span>Cant. boletería</span><span>Monto boletería</span>
         </div>
         @for (t of r.desglosePorTipo; track t.tipoEntradaId) {
           <div class="fila-simple fila-simple-desglose">
             <span>{{ t.nombre }}</span>
-            <span>{{ t.cantidad }}</span>
-            <span>{{ t.montoRecaudado | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+            <span>{{ t.cantidadAnticipada }}</span>
+            <span>{{ t.montoAnticipada | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+            <span>{{ t.cantidadBoleteria }}</span>
+            <span>{{ t.montoBoleteria | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
           </div>
         }
       </div>
@@ -85,9 +92,26 @@
     </div>
   </div>
 
+  <div class="tarjeta" [class.oculta]="!resumen()">
+    <h2>Boletería vs. anticipada</h2>
+    <p class="ayuda">Cuánto se cobró en la puerta (POS) contra reservas hechas de antemano.</p>
+    <div class="grafico-contenedor grafico-torta">
+      <canvas #origenCanvas></canvas>
+    </div>
+  </div>
+
+  @if (resumen(); as r) {
+    <div class="tarjeta">
+      <h2>Cupones aplicados</h2>
+      <p class="ayuda">Descuento total otorgado por códigos de cupón en compras facturadas.</p>
+      <p class="kpi-numero kpi-numero-secundario">{{ r.totalDescuentos | currency: 'ARS' : 'symbol' : '1.0-0' }}</p>
+      <p class="ayuda">{{ r.cantidadComprasConDescuento }} compra{{ r.cantidadComprasConDescuento === 1 ? '' : 's' }} con cupón aplicado</p>
+    </div>
+  }
+
   <div class="tarjeta tarjeta-ancha" [class.oculta]="!resumen()">
     <h2>Extras vendidos</h2>
-    <p class="ayuda">Consumos adicionales a la entrada (ej. almuerzo), aprobados o ya validados.</p>
+    <p class="ayuda">Consumos adicionales a la entrada (ej. almuerzo), aprobados o ya validados. Sólo se venden en la compra anticipada: no se ofrecen en boletería.</p>
     <div class="grafico-contenedor">
       <canvas #extrasCanvas></canvas>
     </div>
@@ -96,14 +120,14 @@
         <p class="ayuda">No hay extras activos configurados.</p>
       } @else {
         <div class="tabla-simple">
-          <div class="fila-simple fila-simple-desglose fila-simple-header">
+          <div class="fila-simple fila-simple-desglose-simple fila-simple-header">
             <span>Extra</span><span>Cantidad</span><span>Monto</span>
           </div>
           @for (t of r.desgloseExtras; track t.tipoEntradaId) {
-            <div class="fila-simple fila-simple-desglose">
+            <div class="fila-simple fila-simple-desglose-simple">
               <span>{{ t.nombre }}</span>
-              <span>{{ t.cantidad }}</span>
-              <span>{{ t.montoRecaudado | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+              <span>{{ t.cantidadAnticipada }}</span>
+              <span>{{ t.montoAnticipada | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
             </div>
           }
         </div>
@@ -118,5 +142,92 @@
       <canvas #horaCanvas></canvas>
     </div>
   </div>
+
+  @if (resumen(); as r) {
+    <div class="tarjeta tarjeta-ancha">
+      <h2>Cajas cerradas</h2>
+      <p class="ayuda">
+        Filtradas por cuándo se cerraron (no por fecha de visita). Sirve para detectar faltantes o sobrantes por boletero.
+      </p>
+
+      @if (boleterosDisponibles(r).length > 1) {
+        <div class="filtro-boleteros">
+          <button type="button" class="chip-filtro" [class.activo]="filtroBoletero() === ''" (click)="filtroBoletero.set('')">
+            Todos
+          </button>
+          @for (nombre of boleterosDisponibles(r); track nombre) {
+            <button type="button" class="chip-filtro" [class.activo]="filtroBoletero() === nombre" (click)="filtroBoletero.set(nombre)">
+              {{ nombre }}
+            </button>
+          }
+        </div>
+      }
+
+      @let totalesCajas = totalesCajasFiltradas(r);
+      <div class="tarjeta-kpis">
+        <div>
+          <h2>Retiros</h2>
+          <p class="kpi-numero kpi-numero-secundario">{{ totalesCajas.retiros | currency: 'ARS' : 'symbol' : '1.0-0' }}</p>
+        </div>
+        <div>
+          <h2>Faltantes</h2>
+          <p class="kpi-numero kpi-numero-secundario kpi-numero-negativo">{{ totalesCajas.faltantes | currency: 'ARS' : 'symbol' : '1.0-0' }}</p>
+        </div>
+        <div>
+          <h2>Sobrantes</h2>
+          <p class="kpi-numero kpi-numero-secundario">{{ totalesCajas.sobrantes | currency: 'ARS' : 'symbol' : '1.0-0' }}</p>
+        </div>
+      </div>
+
+      @if (r.cajas.length === 0) {
+        <p class="ayuda">No se cerró ninguna caja en este rango.</p>
+      } @else {
+        <div class="tabla-simple">
+          <div class="fila-simple fila-simple-cajas fila-simple-header">
+            <span>Boletero</span><span>Apertura</span><span>Cierre</span><span>Inicial</span><span>Retiros</span><span>Esperado</span><span>Contado</span><span>Diferencia</span>
+          </div>
+          @for (c of cajasFiltradas(r); track c.id) {
+            <div class="fila-simple fila-simple-cajas">
+              <span>{{ c.usuarioNombre }}</span>
+              <span>{{ c.fechaApertura | date: 'dd/MM HH:mm' }}</span>
+              <span>{{ c.fechaCierre | date: 'dd/MM HH:mm' }}</span>
+              <span>{{ c.montoInicial | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+              <span>{{ c.totalRetiros | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+              <span>{{ c.montoEsperado | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+              <span>{{ c.montoContado | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+              <span [class]="claseDiferencia(c)">{{ c.diferencia | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+            </div>
+          }
+        </div>
+      }
+    </div>
+  }
+
+  @if (resumen(); as r) {
+    <div class="tarjeta tarjeta-ancha">
+      <h2>Ranking de boleteros</h2>
+      <p class="ayuda">Desempeño acumulado por boletero en el rango: turnos trabajados, efectivo vendido en puerta, retiros y diferencia de caja.</p>
+      @if (rankingBoleteros(r).length === 0) {
+        <p class="ayuda">No se cerró ninguna caja en este rango.</p>
+      } @else {
+        <div class="tabla-simple">
+          <div class="fila-simple fila-simple-ranking fila-simple-header">
+            <span>Boletero</span><span>Turnos</span><span>Efectivo vendido</span><span>Retiros</span><span>Diferencia</span>
+          </div>
+          @for (b of rankingBoleteros(r); track b.nombre) {
+            <div class="fila-simple fila-simple-ranking">
+              <span>{{ b.nombre }}</span>
+              <span>{{ b.turnos }}</span>
+              <span>{{ b.efectivoVendido | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+              <span>{{ b.retiros | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+              <span [class]="b.diferencia < 0 ? 'diferencia-faltante' : b.diferencia > 0 ? 'diferencia-sobrante' : 'diferencia-exacta'">
+                {{ b.diferencia | currency: 'ARS' : 'symbol' : '1.0-0' }}
+              </span>
+            </div>
+          }
+        </div>
+      }
+    </div>
+  }
 
 </div>

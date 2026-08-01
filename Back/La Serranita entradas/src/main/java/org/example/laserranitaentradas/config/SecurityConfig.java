@@ -57,8 +57,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/ping").permitAll()
 
                 // ---------- Boletería (BOLETERO o ADMIN) ----------
-                .requestMatchers(HttpMethod.GET, "/api/compras/dni/**", "/api/compras/fecha/**").hasAnyRole("BOLETERO", "ADMIN")
-                .requestMatchers(HttpMethod.GET, "/api/compras").hasAnyRole("BOLETERO", "ADMIN")
+                .requestMatchers(HttpMethod.GET, "/api/compras/buscar").hasAnyRole("BOLETERO", "ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/api/compras/*/validar").hasAnyRole("BOLETERO", "ADMIN")
                 .requestMatchers("/api/interno/**").hasAnyRole("BOLETERO", "ADMIN")
 

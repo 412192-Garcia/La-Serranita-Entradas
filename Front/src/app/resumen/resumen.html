@@ -20,7 +20,8 @@
       <div class="cuerpo-tarjeta">
         @if (datosCompra.esRegalo) {
           <div class="badge-regalo">
-            🎁 <strong>Pase Abierto para Regalo</strong> (Válido por 90 días desde la fecha de compra)
+            <svg lucideGift class="icono-inline" [strokeWidth]="2"></svg>
+            <strong>Pase Abierto para Regalo</strong> (Válido por 90 días desde la fecha de compra)
           </div>
         } @else {
           <p class="dato-destacado">{{ datosCompra.fechaVisita | date:'fullDate':'':'es-AR' }}</p>
@@ -109,19 +110,24 @@
             </div>
           </label>
 
-          <label class="opcion-pago-card" [class.seleccionada]="datosCompra.formaPago === 'EFECTIVO_BOLETERIA'">
-            <input
-              type="radio"
-              name="formaPago"
-              value="EFECTIVO_BOLETERIA"
-              [checked]="datosCompra.formaPago === 'EFECTIVO_BOLETERIA'"
-              (change)="onCambiarFormaPago('EFECTIVO_BOLETERIA')">
-            <div class="contenido-opcion">
-              <span class="titulo-opcion">Efectivo en Boletería</span>
-              <span class="desc-opcion">Reservá tus lugares ahora y aboná en efectivo al llegar al parque.</span>
-            </div>
-          </label>
+          @if (!datosCompra.esRegalo) {
+            <label class="opcion-pago-card" [class.seleccionada]="datosCompra.formaPago === 'EFECTIVO_BOLETERIA'">
+              <input
+                type="radio"
+                name="formaPago"
+                value="EFECTIVO_BOLETERIA"
+                [checked]="datosCompra.formaPago === 'EFECTIVO_BOLETERIA'"
+                (change)="onCambiarFormaPago('EFECTIVO_BOLETERIA')">
+              <div class="contenido-opcion">
+                <span class="titulo-opcion">Efectivo en Boletería</span>
+                <span class="desc-opcion">Reservá tus lugares ahora y aboná en efectivo al llegar al parque.</span>
+              </div>
+            </label>
+          }
         </div>
+        @if (datosCompra.esRegalo) {
+          <p class="ayuda-pago-regalo">Los regalos sólo se pueden pagar online: así quien lo recibe no tiene que abonar nada al llegar.</p>
+        }
       </div>
     </div>
   </div>
@@ -173,9 +179,9 @@
         <span class="spinner-sm"></span> Procesando...
       } @else {
         @if (datosCompra.formaPago === 'MERCADO_PAGO') {
-          Pagar con Mercado Pago 💳
+          Pagar con Mercado Pago <svg lucideCreditCard class="icono-inline" [strokeWidth]="2"></svg>
         } @else {
-          Reservar y Pagar en Parque 💵
+          Reservar y Pagar en Parque <svg lucideBanknote class="icono-inline" [strokeWidth]="2"></svg>
         }
       }
     </button>

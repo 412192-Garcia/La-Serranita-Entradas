@@ -18,6 +18,9 @@
     <button type="button" class="tab" [class.activo]="tab() === 'reportes'" (click)="tab.set('reportes')">
       Reportes
     </button>
+    <button type="button" class="tab" [class.activo]="tab() === 'usuarios'" (click)="tab.set('usuarios')">
+      Usuarios
+    </button>
   </nav>
 
   @if (tab() === 'dias') {
@@ -28,6 +31,8 @@
     <app-configuracion-tipos-entrada />
   } @else if (tab() === 'reportes') {
     <app-configuracion-reportes />
+  } @else if (tab() === 'usuarios') {
+    <app-configuracion-usuarios />
   }
 
 </div>

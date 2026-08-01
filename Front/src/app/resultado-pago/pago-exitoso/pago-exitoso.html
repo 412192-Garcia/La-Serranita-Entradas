@@ -11,13 +11,23 @@
     <div class="icono-exito">
       <svg lucideCircleCheck [strokeWidth]="2.5"></svg>
     </div>
-    <h3>¡Compra confirmada! 🎉</h3>
-    <p>Tu orden <strong>#{{ codigoReserva }}</strong> ya está lista.</p>
+    @if (compraAcumulada?.formaPago === 'EFECTIVO_BOLETERIA') {
+      <h3>¡Reserva confirmada!</h3>
+      <p>Tu orden <strong>#{{ codigoReserva }}</strong> quedó registrada.</p>
 
-    <div class="mensaje-dni-ingreso">
-      <p><strong>¡Ingreso simplificado!</strong></p>
-      <p>Al llegar al parque, solo tenés que presentar el DNI <strong>{{ compraAcumulada.cliente?.dni }}</strong> en el acceso para ingresar con todo tu grupo.</p>
-    </div>
+      <div class="mensaje-dni-ingreso">
+        <p><strong>Todavía no abonaste.</strong></p>
+        <p>Al llegar al parque, presentá el DNI <strong>{{ compraAcumulada.cliente?.dni }}</strong> en la boletería y pagá el total en efectivo antes de ingresar con todo tu grupo.</p>
+      </div>
+    } @else {
+      <h3>¡Compra confirmada!</h3>
+      <p>Tu orden <strong>#{{ codigoReserva }}</strong> ya está lista.</p>
+
+      <div class="mensaje-dni-ingreso">
+        <p><strong>¡Ingreso simplificado!</strong></p>
+        <p>Al llegar al parque, solo tenés que presentar el DNI <strong>{{ compraAcumulada.cliente?.dni }}</strong> en el acceso para ingresar con todo tu grupo.</p>
+      </div>
+    }
 
     @if (esRutaDirecta) {
       <button type="button" class="btn-primario" (click)="irAInicio()">Volver al Inicio</button>

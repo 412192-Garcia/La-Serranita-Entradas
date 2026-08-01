@@ -7,8 +7,8 @@
   </div>
 
   <div class="cabecera-acciones">
-    @if (enlace) {
-      <a class="btn-secundario" [routerLink]="enlace.ruta">{{ enlace.texto }}</a>
+    @for (e of enlacesVisibles; track e.ruta) {
+      <a class="btn-secundario" [routerLink]="e.ruta">{{ e.texto }}</a>
     }
     @if (operador(); as usuario) {
       <span class="operador">{{ usuario.nombre }}</span>
