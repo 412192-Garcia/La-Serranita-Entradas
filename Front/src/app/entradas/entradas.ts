@@ -1,4 +1,4 @@
-import {ChangeDetectorRef, Component, NgZone, OnDestroy} from '@angular/core';
+import {ChangeDetectorRef, Component, NgZone, OnDestroy, OnInit} from '@angular/core';
 import { Calendario } from '../calendario/calendario';
 import { SeleccionEntradas } from '../seleccion-entradas/seleccion-entradas';
 import { FormCliente } from '../form-cliente/form-cliente';
@@ -32,13 +32,15 @@ enum etapaCompra {
   templateUrl: './entradas.html',
   styleUrl: './entradas.css',
 })
-export class Entradas implements OnDestroy {
+export class Entradas implements OnInit, OnDestroy {
   /** Cada cuánto se le pregunta al backend si el pago se acreditó. */
   private static readonly INTERVALO_POLL_MS = 3000;
   /** Techo de consultas (~10 min): pasado eso se deja de insistir. */
   private static readonly MAX_CONSULTAS_POLL = 200;
   /** Estado sintético para distinguir "cerró la ventana" de un estado real del backend. */
   private static readonly VENTANA_CERRADA = 'VENTANA_CERRADA';
+  /** El sitio embebido escucha este "type" para saber que el mensaje es nuestro y no de otra cosa. */
+  private static readonly MENSAJE_ALTURA = 'la-serranita-alto';
 
   etapa: etapaCompra = etapaCompra.SELECCION;
 
@@ -47,9 +49,35 @@ export class Entradas implements OnDestroy {
   private cdr: ChangeDetectorRef,
               private ngZone: NgZone) {}
 
+  /**
+   * Embebido en un <iframe> del sitio del parque, en un origen distinto: el padre no
+   * puede leer la altura del documento por política de mismo origen. En vez de eso,
+   * avisamos la altura por postMessage cada vez que cambia (cambio de paso, error
+   * mostrado, etc.) para que el sitio pueda ajustar el alto del iframe y no le quede
+   * scroll propio. El snippet que tiene que poner el sitio para escuchar esto está en
+   * el README, sección "Embeber el módulo /entradas en el sitio del parque".
+   */
+  private observadorAltura: ResizeObserver | null = null;
+
+  ngOnInit(): void {
+    if (window.parent === window) return; // no está embebido, no hay a quién avisarle
+
+    const avisarAltura = () => {
+      const alto = document.documentElement.scrollHeight;
+      // "*" porque el origen del padre varía (sitio real, túnel de prueba, etc.) y acá
+      // sólo viaja un número de píxeles, nada sensible.
+      window.parent.postMessage({ type: Entradas.MENSAJE_ALTURA, alto }, '*');
+    };
+
+    this.observadorAltura = new ResizeObserver(avisarAltura);
+    this.observadorAltura.observe(document.documentElement);
+    avisarAltura();
+  }
+
   ngOnDestroy(): void {
     this.detenerVerificacion();
     this.ventanaPago = null;
+    this.observadorAltura?.disconnect();
   }
 
   procesandoPago: boolean = false;

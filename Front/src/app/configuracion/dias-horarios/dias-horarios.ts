@@ -24,6 +24,8 @@ interface CeldaMes {
 export class ConfiguracionDiasHorarios implements OnInit {
   private configuracionService = inject(ConfiguracionService);
 
+  readonly nombresDias = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+
   private mesBase = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
   nombreMes = signal(MESES[this.mesBase.getMonth()]);
   anioMes = signal(this.mesBase.getFullYear());
@@ -190,6 +192,38 @@ export class ConfiguracionDiasHorarios implements OnInit {
       }
       if (actual.size === 1 && actual.has(c.fecha)) return actual;
       return new Set([c.fecha]);
+    });
+  }
+
+  /**
+   * Click en el nombre de un día de la semana (Lun, Mar, ...) selecciona todas sus
+   * ocurrencias del mes visible. La columna del header coincide siempre con el índice
+   * `i % 7` dentro de celdas(), porque armarCeldas() arranca la grilla alineando el 1°
+   * del mes a su día de semana real. Ctrl/Cmd+click suma a la selección en vez de
+   * reemplazarla, igual que en onClickCelda.
+   */
+  seleccionarDiaSemana(indice: number, event: MouseEvent): void {
+    const fechas = this.celdas()
+      .filter((c, i) => c.dia && i % 7 === indice)
+      .map((c) => c.fecha);
+    if (fechas.length === 0) return;
+
+    const esMulti = event.ctrlKey || event.metaKey;
+    this.diasSeleccionados.update((actual) => {
+      if (esMulti) {
+        const copia = new Set(actual);
+        const yaEstabanTodos = fechas.every((f) => copia.has(f));
+        if (yaEstabanTodos) {
+          fechas.forEach((f) => copia.delete(f));
+        } else {
+          fechas.forEach((f) => copia.add(f));
+        }
+        return copia;
+      }
+      if (fechas.length === actual.size && fechas.every((f) => actual.has(f))) {
+        return new Set();
+      }
+      return new Set(fechas);
     });
   }
 

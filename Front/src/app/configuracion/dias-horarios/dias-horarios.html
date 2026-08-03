@@ -28,7 +28,7 @@
       <button type="button" class="btn-mes" (click)="cambiarMes(1)">›</button>
     </div>
 
-    <p class="ayuda ayuda-tip">Tip: Ctrl+click suma días a la selección; Shift+click selecciona todo el rango entre dos días.</p>
+    <p class="ayuda ayuda-tip">Tip: Ctrl+click suma días (o un día de la semana entero) a la selección; Shift+click selecciona todo el rango entre dos días. Tocar "Lun", "Sáb", etc. selecciona todas sus ocurrencias del mes.</p>
 
     @if (errorDias()) {
       <p class="alerta-error">{{ errorDias() }}</p>
@@ -38,7 +38,9 @@
       <div class="spinner-contenedor"><div class="spinner"></div></div>
     } @else {
       <div class="grid-nombres-dias">
-        <span>Lun</span><span>Mar</span><span>Mié</span><span>Jue</span><span>Vie</span><span>Sáb</span><span>Dom</span>
+        @for (nombre of nombresDias; track nombre; let i = $index) {
+          <button type="button" class="btn-dia-semana" (click)="seleccionarDiaSemana(i, $event)">{{ nombre }}</button>
+        }
       </div>
       <div class="grid-mes">
         @for (c of celdas(); track c.fecha || $index) {
