@@ -17,6 +17,8 @@
   gap: 16px;
   width: 100%;
   box-sizing: border-box;
+  /* Iguala el alto con la columna del calendario (ver .panel-derecho en entradas.css). */
+  flex: 1;
 }
 
 .titulo-seccion {

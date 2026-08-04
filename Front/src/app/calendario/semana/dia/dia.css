@@ -3,7 +3,7 @@
   width: 100%;
 }
 
-.btn-dia, .cuerpo-hoy, .cabecera-hoy {
+.btn-dia {
   font-family: var(--font-body);
 }
 
@@ -13,15 +13,16 @@
   align-items: center;
   width: 100%;
 }
-.btn-dia, .tarjeta-hoy, .celda-vacia {
+.btn-dia, .celda-vacia {
   width: 100%;
-
   aspect-ratio: 1 / 1;
 }
 
 .btn-dia {
+  position: relative; /* ancla el cartelito "HOY" de .dia-hoy::before */
   border: none;
   border-radius: 6px;
+  box-sizing: border-box; /* así el borde de .dia-hoy no le suma tamaño a la celda */
   font-size: 0.95rem;
   font-weight: bold;
   transition: all 0.2s ease-in-out;
@@ -30,43 +31,40 @@
   align-items: center;
   user-select: none;
 }
-.tarjeta-hoy {
-  position: relative;
+
+/* El número de "hoy" tiene que quedar siempre centrado igual que cualquier otro día
+   (mismo botón, mismo flex centrado): el cartel "HOY" va con position:absolute, así
+   que no le come alto a la celda ni empuja el número. overflow:hidden recorta el
+   cartel para que respete la esquina redondeada del botón, como el diseño original. */
+.dia-hoy {
   border: 2px solid #e02424;
-  border-radius: 6px;
-  box-sizing: border-box;
-  background-color: var(--color-border);
-  overflow: hidden;
   cursor: default;
-  user-select: none;
+  overflow: hidden;
 }
-.tarjeta-hoy.hoy-abierto {
-  background-color: #c2e6cf;
-}
-.cabecera-hoy {
+
+.dia-hoy::before {
+  content: "HOY";
   position: absolute;
   top: 0;
   left: 0;
-  width: 100%;
+  right: 0;
   background-color: #e02424;
   color: #ffffff;
   font-size: 0.5rem;
   font-weight: 900;
-  text-align: center;
-  padding: 1px 0;
   letter-spacing: 0.5px;
-  z-index: 2;
   line-height: 1;
+  padding: 2px 0;
+  text-align: center;
+  pointer-events: none;
 }
-.cuerpo-hoy {
-  width: 100%;
-  height: 100%;
-  color: #e02424;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  font-size: 0.95rem;
-  font-weight: bold;
+
+/* En un embed muy angosto no hay margen arriba de la celda para el cartelito sin que
+   se superponga con la fila de arriba: en ese caso extremo alcanza con el borde rojo. */
+@container calendario (max-width: 260px) {
+  .dia-hoy::before {
+    display: none;
+  }
 }
 
 .dia-abierto {
@@ -110,16 +108,8 @@
     font-size: 1.1rem;
   }
 
-  .tarjeta-hoy {
-    border-radius: 10px;
-  }
-
-  .cabecera-hoy {
+  .dia-hoy::before {
     font-size: 0.65rem;
-    padding: 2px 0;
-  }
-
-  .cuerpo-hoy {
-    font-size: 1.1rem;
+    padding: 3px 0;
   }
 }

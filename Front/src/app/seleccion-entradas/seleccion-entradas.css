@@ -9,6 +9,10 @@
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card);
   font-family: var(--font-body);
+  /* El host (.panel-derecho, en entradas.css) ya mide lo mismo que la columna del
+     calendario; sin esto la tarjeta blanca sólo ocupa lo que pide su contenido y
+     queda mucho más baja que el naranja de al lado. */
+  flex: 1;
 }
 
 .titulo-seccion {

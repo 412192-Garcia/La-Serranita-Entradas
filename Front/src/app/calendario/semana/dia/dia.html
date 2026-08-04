@@ -1,17 +1,14 @@
 <div class="dia-contenedor" (click)="onDiaClick()">
   @if (dia.numero)
   {
-    @if (dia.esHoy)
-    {
-      <div class="tarjeta-hoy" [class.seleccionado]="dia.seleccionado" [class.hoy-abierto]="dia.abierto">
-        <div class="cabecera-hoy">HOY</div>
-        <div class="cuerpo-hoy">{{dia.numero}}</div>
-      </div>
-    } @else {
-    <button type="button" class="btn-dia" [ngClass]="clasesEstado" [disabled]="dia.esPasado || !dia.abierto">
+    <button
+      type="button"
+      class="btn-dia"
+      [ngClass]="clasesEstado"
+      [class.dia-hoy]="dia.esHoy"
+      [disabled]="dia.esPasado || !dia.abierto || dia.esHoy">
       {{dia.numero}}
     </button>
-    }
   } @else {
     <div class="celda-vacia"></div>
   }
