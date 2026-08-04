@@ -138,6 +138,13 @@ public class CompraController {
         return ResponseEntity.ok(entityToDto(actualizada));
     }
 
+    @PutMapping("/{id}/deshacer-validacion")
+    @Operation(summary = "Deshacer una validación reciente", description = "Vuelve la compra al estado anterior (APROBADO o RESERVADO_EFECTIVO). Sólo funciona dentro de una ventana corta desde que se validó.")
+    public ResponseEntity<CompraResponseDTO> deshacerValidacion(@PathVariable @Parameter(description = "ID de la compra") Long id) {
+        Compra actualizada = compraService.deshacerValidacion(id);
+        return ResponseEntity.ok(entityToDto(actualizada));
+    }
+
     static CompraResponseDTO entityToDto(Compra c) {
         CompraResponseDTO dto = new CompraResponseDTO();
         dto.setId(c.getId());

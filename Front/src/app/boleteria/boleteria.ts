@@ -173,8 +173,9 @@ export class Boleteria implements OnInit {
   visibles = computed<ReservaVista[] | null>(() => {
     const res = this.resultado();
     if (res === null) return null;
+    const ocultos = this.idsOcultosPorValidacion();
     const hoy = hoyComoFechaInput();
-    return res.content.map((r) => aVista(r, hoy));
+    return res.content.filter((r) => !ocultos.has(r.id)).map((r) => aVista(r, hoy));
   });
 
   totalElementos = computed(() => this.resultado()?.totalElements ?? 0);
@@ -346,6 +347,7 @@ export class Boleteria implements OnInit {
     this.buscando.set(true);
     this.errorBusqueda.set(null);
     this.errorAccion.set(null);
+    this.limpiarOcultamientosPorValidacion();
 
     const tipo = this.tipoListado();
     this.boleteriaService
@@ -394,7 +396,10 @@ export class Boleteria implements OnInit {
     this.errorAccion.set(null);
 
     accion().subscribe({
-      next: (actualizada) => this.reemplazarEnResultado(actualizada),
+      next: (actualizada) => {
+        this.reemplazarEnResultado(actualizada);
+        if (actualizada.estado === 'USADO') this.iniciarOcultamientoPorValidacion(actualizada.id);
+      },
       error: (err) => {
         console.error('Error al validar el ingreso:', err);
         this.errorAccion.set(
@@ -417,6 +422,97 @@ export class Boleteria implements OnInit {
 
   procesando(reserva: Reserva): boolean {
     return this.procesandoId() === reserva.id;
+  }
+
+  // ---------- Fila recién validada: se pone roja, cuenta regresiva y desaparece sola ----------
+
+  /** Cuánto dura la ventana para arrepentirse antes de que la fila empiece a irse. */
+  readonly VENTANA_DESHACER_MS = 8000;
+  private static readonly DURACION_ANIMACION_SALIDA_MS = 350;
+
+  /** Ids validados en esta sesión de pantalla, todavía dentro de la ventana para deshacer. */
+  recienValidados = signal<ReadonlySet<number>>(new Set());
+  /** Ids a los que ya se les venció la ventana y están en pleno slide-out. */
+  saliendoIds = signal<ReadonlySet<number>>(new Set());
+  /** Ids que ya terminaron de irse: se excluyen de "visibles" aunque el backend los siga trayendo. */
+  private idsOcultosPorValidacion = signal<ReadonlySet<number>>(new Set());
+  private timersOcultamiento = new Map<number, ReturnType<typeof setTimeout>>();
+
+  deshaciendoId = signal<number | null>(null);
+
+  private iniciarOcultamientoPorValidacion(id: number): void {
+    this.cancelarOcultamientoPorValidacion(id);
+    this.recienValidados.update((s) => new Set(s).add(id));
+
+    const timerSalida = setTimeout(() => {
+      this.saliendoIds.update((s) => new Set(s).add(id));
+      const timerOcultar = setTimeout(() => {
+        this.idsOcultosPorValidacion.update((s) => new Set(s).add(id));
+        this.recienValidados.update((s) => {
+          const copia = new Set(s);
+          copia.delete(id);
+          return copia;
+        });
+        this.saliendoIds.update((s) => {
+          const copia = new Set(s);
+          copia.delete(id);
+          return copia;
+        });
+        this.timersOcultamiento.delete(id);
+      }, Boleteria.DURACION_ANIMACION_SALIDA_MS);
+      this.timersOcultamiento.set(id, timerOcultar);
+    }, this.VENTANA_DESHACER_MS);
+    this.timersOcultamiento.set(id, timerSalida);
+  }
+
+  /** Saca un id de todo el circuito de ocultamiento (se llama al deshacer o al empezar una búsqueda nueva). */
+  private cancelarOcultamientoPorValidacion(id: number): void {
+    const timer = this.timersOcultamiento.get(id);
+    if (timer) {
+      clearTimeout(timer);
+      this.timersOcultamiento.delete(id);
+    }
+    this.recienValidados.update((s) => {
+      if (!s.has(id)) return s;
+      const copia = new Set(s);
+      copia.delete(id);
+      return copia;
+    });
+    this.saliendoIds.update((s) => {
+      if (!s.has(id)) return s;
+      const copia = new Set(s);
+      copia.delete(id);
+      return copia;
+    });
+  }
+
+  /** Se llama al arrancar cada búsqueda nueva: el estado de "recién validado" sólo tiene sentido para la lista actual. */
+  private limpiarOcultamientosPorValidacion(): void {
+    this.timersOcultamiento.forEach((t) => clearTimeout(t));
+    this.timersOcultamiento.clear();
+    this.recienValidados.set(new Set());
+    this.saliendoIds.set(new Set());
+    this.idsOcultosPorValidacion.set(new Set());
+  }
+
+  /** Botón "Cancelar validación" dentro de la ventana: vuelve la compra a como estaba antes de validarla. */
+  deshacerValidacion(reserva: Reserva, event: MouseEvent): void {
+    event.stopPropagation();
+    this.cancelarOcultamientoPorValidacion(reserva.id);
+    this.deshaciendoId.set(reserva.id);
+    this.errorAccion.set(null);
+
+    this.boleteriaService.deshacerValidacion(reserva.id).subscribe({
+      next: (actualizada) => {
+        this.reemplazarEnResultado(actualizada);
+        this.deshaciendoId.set(null);
+      },
+      error: (err) => {
+        console.error('Error al deshacer la validación:', err);
+        this.errorAccion.set(typeof err?.error === 'string' ? err.error : 'No se pudo deshacer la validación.');
+        this.deshaciendoId.set(null);
+      },
+    });
   }
 
   // ---------- Menú de acciones (editar contacto / reenviar mail / reembolsar) ----------

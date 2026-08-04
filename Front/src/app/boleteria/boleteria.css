@@ -355,6 +355,23 @@
 .fila-reserva:hover { background-color: var(--color-bg-soft); }
 .fila-reserva.fila-usada { background-color: #fdf5f5; }
 
+/* Recién validada: roja mientras dura la ventana para deshacer, después se desliza y desaparece. */
+.fila-reserva.fila-validada-reciente {
+  background-color: var(--color-danger-light);
+  transition: background-color 0.3s ease;
+}
+
+.fila-reserva.fila-saliendo {
+  animation: fila-deslizar-y-desvanecer 350ms ease forwards;
+}
+
+@keyframes fila-deslizar-y-desvanecer {
+  to {
+    transform: translateX(60px);
+    opacity: 0;
+  }
+}
+
 .celda-titular {
   display: flex;
   flex-direction: column;
@@ -522,6 +539,62 @@
   font-size: 0.8rem;
   font-weight: 600;
   color: var(--color-danger-dark);
+}
+
+/* ---------- Cancelar validación (ventana de "arrepentirse") ---------- */
+.deshacer-validacion {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.barra-deshacer {
+  width: 100%;
+  height: 3px;
+  border-radius: 2px;
+  background-color: rgba(150, 17, 26, 0.15);
+  overflow: hidden;
+}
+
+.barra-deshacer-relleno {
+  height: 100%;
+  width: 100%;
+  background-color: var(--color-danger-dark);
+  transform-origin: left;
+  animation-name: barra-deshacer-encoger;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+@keyframes barra-deshacer-encoger {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+
+.btn-deshacer {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--color-danger-dark);
+  border-radius: var(--radius-sm);
+  background-color: #fff;
+  color: var(--color-danger-dark);
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.btn-deshacer:hover:not(:disabled) {
+  background-color: var(--color-danger-dark);
+  color: #fff;
+}
+
+.btn-deshacer:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .texto-aviso {

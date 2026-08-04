@@ -132,6 +132,11 @@ export class BoleteriaService {
     return this.http.post<Reserva>(`${this.internoUrl}/${compraId}/confirmar-pago-efectivo`, {});
   }
 
+  /** Deshace una validación reciente: vuelve a APROBADO o RESERVADO_EFECTIVO. Sólo funciona dentro de una ventana corta desde que se validó. */
+  deshacerValidacion(compraId: number): Observable<Reserva> {
+    return this.http.put<Reserva>(`${this.comprasUrl}/${compraId}/deshacer-validacion`, {});
+  }
+
   /** Corrige nombre/apellido del titular y su contacto. No toca fecha, entradas ni montos. */
   editarContacto(compraId: number, datos: EditarContactoRequest): Observable<Reserva> {
     return this.http.put<Reserva>(`${this.internoUrl}/${compraId}/contacto`, datos);

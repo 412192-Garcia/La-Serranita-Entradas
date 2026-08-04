@@ -26,28 +26,37 @@
       <div>
         <h2>Recaudación total</h2>
         <p class="kpi-numero">{{ r.recaudacionTotal | currency: 'ARS' : 'symbol' : '1.0-0' }}</p>
-        <p class="ayuda">{{ r.cantidadCompras }} compra{{ r.cantidadCompras === 1 ? '' : 's' }} facturada{{ r.cantidadCompras === 1 ? '' : 's' }} (aprobadas o ya validadas en boletería)</p>
+        <p class="ayuda">{{ r.cantidadCompras }} compra{{ r.cantidadCompras === 1 ? '' : 's' }} facturada{{ r.cantidadCompras === 1 ? '' : 's' }}</p>
       </div>
       <div>
-        <h2>Ticket promedio</h2>
-        @if (ticketPromedio(r); as promedio) {
-          <p class="kpi-numero kpi-numero-secundario">{{ promedio | currency: 'ARS' : 'symbol' : '1.0-0' }}</p>
+        <h2>Recaudación anticipada</h2>
+        @if (recaudacionPorOrigen(r, 'ANTICIPADA'); as monto) {
+          <p class="kpi-numero kpi-numero-secundario">{{ monto | currency: 'ARS' : 'symbol' : '1.0-0' }}</p>
         } @else {
           <p class="kpi-numero kpi-numero-secundario">—</p>
         }
-        <p class="ayuda">Recaudación total dividida por compras facturadas</p>
+        <p class="ayuda">Cobrado por reservas online</p>
+      </div>
+      <div>
+        <h2>Recaudación en puerta</h2>
+        @if (recaudacionPorOrigen(r, 'BOLETERIA'); as monto) {
+          <p class="kpi-numero kpi-numero-secundario">{{ monto | currency: 'ARS' : 'symbol' : '1.0-0' }}</p>
+        } @else {
+          <p class="kpi-numero kpi-numero-secundario">—</p>
+        }
+        <p class="ayuda">Entradas vendidas directamente en boletería</p>
       </div>
       <div>
         <h2>Personas que entraron</h2>
         <p class="kpi-numero kpi-numero-secundario">{{ r.personasIngresadas | number }}</p>
-        <p class="ayuda">Venta en puerta + reservas anticipadas ya validadas por DNI</p>
+        <p class="ayuda">Venta en puerta + anticipadas</p>
       </div>
     </div>
   }
 
   <div class="tarjeta tarjeta-ancha" [class.oculta]="!resumen()">
     <h2>Afluencia diaria</h2>
-    <p class="ayuda">Pases de ingreso vendidos por día vs. realmente validados por DNI en boletería.</p>
+    <p class="ayuda">Entradas anticipadas vendidas por día vs. personas que entraron.</p>
     <div class="grafico-contenedor grafico-contenedor-grande">
       <canvas #afluenciaCanvas></canvas>
     </div>
@@ -94,7 +103,7 @@
 
   <div class="tarjeta" [class.oculta]="!resumen()">
     <h2>Boletería vs. anticipada</h2>
-    <p class="ayuda">Cuánto se cobró en la puerta (POS) contra reservas hechas de antemano.</p>
+    <p class="ayuda">Cuánto se cobró en la puerta contra reservas hechas de antemano.</p>
     <div class="grafico-contenedor grafico-torta">
       <canvas #origenCanvas></canvas>
     </div>
@@ -103,7 +112,7 @@
   @if (resumen(); as r) {
     <div class="tarjeta">
       <h2>Cupones aplicados</h2>
-      <p class="ayuda">Descuento total otorgado por códigos de cupón en compras facturadas.</p>
+      <p class="ayuda">Descuento total otorgado por códigos de cupón en anticipadas.</p>
       <p class="kpi-numero kpi-numero-secundario">{{ r.totalDescuentos | currency: 'ARS' : 'symbol' : '1.0-0' }}</p>
       <p class="ayuda">{{ r.cantidadComprasConDescuento }} compra{{ r.cantidadComprasConDescuento === 1 ? '' : 's' }} con cupón aplicado</p>
     </div>
@@ -111,7 +120,7 @@
 
   <div class="tarjeta tarjeta-ancha" [class.oculta]="!resumen()">
     <h2>Extras vendidos</h2>
-    <p class="ayuda">Consumos adicionales a la entrada (ej. almuerzo), aprobados o ya validados. Sólo se venden en la compra anticipada: no se ofrecen en boletería.</p>
+    <p class="ayuda">Extras vendidos con las anticipadas.</p>
     <div class="grafico-contenedor">
       <canvas #extrasCanvas></canvas>
     </div>
@@ -137,7 +146,7 @@
 
   <div class="tarjeta tarjeta-ancha" [class.oculta]="!resumen()">
     <h2>Compras por hora del día</h2>
-    <p class="ayuda">A qué hora se hacen más compras (según el momento de la compra, no el de la visita).</p>
+    <p class="ayuda">A qué hora se hacen más compras.</p>
     <div class="grafico-contenedor">
       <canvas #horaCanvas></canvas>
     </div>
@@ -147,7 +156,7 @@
     <div class="tarjeta tarjeta-ancha">
       <h2>Cajas cerradas</h2>
       <p class="ayuda">
-        Filtradas por cuándo se cerraron (no por fecha de visita). Sirve para detectar faltantes o sobrantes por boletero.
+        Ordenadas por cuándo se cerraron. Sirve para detectar faltantes o sobrantes por boletero.
       </p>
 
       @if (boleterosDisponibles(r).length > 1) {

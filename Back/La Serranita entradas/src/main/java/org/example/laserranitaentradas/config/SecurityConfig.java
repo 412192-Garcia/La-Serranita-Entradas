@@ -65,6 +65,7 @@ public class SecurityConfig {
                 // ---------- Boletería (BOLETERO o ADMIN) ----------
                 .requestMatchers(HttpMethod.GET, "/api/compras/buscar").hasAnyRole("BOLETERO", "ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/api/compras/*/validar").hasAnyRole("BOLETERO", "ADMIN")
+                .requestMatchers(HttpMethod.PUT, "/api/compras/*/deshacer-validacion").hasAnyRole("BOLETERO", "ADMIN")
                 .requestMatchers("/api/interno/**").hasAnyRole("BOLETERO", "ADMIN")
 
                 // ---------- Configuración (solo ADMIN) ----------

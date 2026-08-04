@@ -307,6 +307,37 @@ public class CompraServiceImpl implements CompraService {
         return compraRepository.save(compra);
     }
 
+    /** Ventana de tiempo, más generosa que la del frontend, para poder deshacer una validación. */
+    private static final long VENTANA_DESHACER_VALIDACION_SEGUNDOS = 120;
+
+    @Transactional
+    @Override
+    public Compra deshacerValidacion(Long compraId) {
+        Compra compra = compraRepository.findById(compraId)
+                .orElseThrow(() -> new IllegalArgumentException("Compra no encontrada ID: " + compraId));
+
+        if (compra.getEstado() != EstadoCompra.USADO) {
+            throw new IllegalStateException(
+                    "Sólo se puede deshacer la validación de una compra recién marcada como usada (estado actual: " + compra.getEstado() + ")");
+        }
+        if (compra.getFechaValidacion() == null
+                || compra.getFechaValidacion().isBefore(LocalDateTime.now().minusSeconds(VENTANA_DESHACER_VALIDACION_SEGUNDOS))) {
+            throw new IllegalStateException("Ya pasó el tiempo para deshacer esta validación.");
+        }
+
+        // Vuelve al estado del que salió: RESERVADO_EFECTIVO si era una reserva a cobrar en
+        // caja, APROBADO si ya estaba paga online. Si había entrado a una caja (efectivo), se
+        // saca: el cierre de caja no debe seguir contándola.
+        compra.setEstado(compra.getFormaPago() == FormaPago.EFECTIVO_BOLETERIA
+                ? EstadoCompra.RESERVADO_EFECTIVO
+                : EstadoCompra.APROBADO);
+        compra.setUsuarioValidador(null);
+        compra.setFechaValidacion(null);
+        compra.setCaja(null);
+
+        return compraRepository.save(compra);
+    }
+
     @Transactional
     @Override
     public Compra confirmarPagoEfectivo(Long compraId, Long usuarioValidadorId) {
@@ -614,7 +645,13 @@ public class CompraServiceImpl implements CompraService {
                 throw new IllegalStateException("No se encontró en Mercado Pago el pago aprobado de la compra ID " + compraId);
             }
             new PaymentRefundClient().refund(pagoAprobado.getId());
-        } catch (MPException | MPApiException e) {
+        } catch (MPApiException e) {
+            // El mensaje de MPApiException no trae el detalle; hay que sacarlo de la
+            // respuesta cruda para no tener que reproducir el request a mano cada vez.
+            log.error("Error al reembolsar en Mercado Pago la compra ID {} (HTTP {}): {}",
+                    compraId, e.getStatusCode(), e.getApiResponse() != null ? e.getApiResponse().getContent() : "sin detalle", e);
+            throw new IllegalStateException("No se pudo procesar el reembolso en Mercado Pago. Reintentá en unos minutos.");
+        } catch (MPException e) {
             log.error("Error al reembolsar en Mercado Pago la compra ID {}", compraId, e);
             throw new IllegalStateException("No se pudo procesar el reembolso en Mercado Pago. Reintentá en unos minutos.");
         }

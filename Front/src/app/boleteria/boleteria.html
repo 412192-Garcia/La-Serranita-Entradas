@@ -164,7 +164,11 @@
         </div>
 
         @for (v of visibles(); track v.reserva.id) {
-          <div class="fila fila-reserva" [class.fila-usada]="v.reserva.estado === 'USADO'">
+          <div
+            class="fila fila-reserva"
+            [class.fila-usada]="v.reserva.estado === 'USADO'"
+            [class.fila-validada-reciente]="recienValidados().has(v.reserva.id)"
+            [class.fila-saliendo]="saliendoIds().has(v.reserva.id)">
 
             <div class="col-titular celda-titular">
               <!-- Las ventas de puerta son anónimas: no hay titular ni contacto que mostrar. -->
@@ -230,6 +234,20 @@
                       {{ v.reserva.fechaValidacion | date: 'dd/MM HH:mm' }}
                     }
                   </span>
+                  @if (recienValidados().has(v.reserva.id)) {
+                    <div class="deshacer-validacion">
+                      <div class="barra-deshacer">
+                        <div class="barra-deshacer-relleno" [style.animationDuration.ms]="VENTANA_DESHACER_MS"></div>
+                      </div>
+                      <button
+                        type="button"
+                        class="btn-deshacer"
+                        [disabled]="deshaciendoId() === v.reserva.id"
+                        (click)="deshacerValidacion(v.reserva, $event)">
+                        {{ deshaciendoId() === v.reserva.id ? 'Deshaciendo…' : 'Cancelar validación' }}
+                      </button>
+                    </div>
+                  }
                 }
                 @case ('VENDIDO_EN_PUERTA') {
                   <span class="texto-usado">

@@ -96,9 +96,9 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
     this.origenChart?.destroy();
   }
 
-  /** Recaudación total dividida entre las compras que la generaron; null si no hay ninguna. */
-  ticketPromedio(r: ReporteResumen): number | null {
-    return r.cantidadCompras > 0 ? r.recaudacionTotal / r.cantidadCompras : null;
+  /** Plata cobrada para el origen dado (BOLETERIA = venta en puerta, ANTICIPADA = reservas); null si no hay datos. */
+  recaudacionPorOrigen(r: ReporteResumen, origen: VentasPorOrigen['origen']): number | null {
+    return r.ventasPorOrigen.find((o) => o.origen === origen)?.monto ?? null;
   }
 
   etiquetaEstado(estado: ComprasPorEstado['estado']): string {

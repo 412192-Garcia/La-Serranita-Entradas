@@ -26,6 +26,14 @@ public interface CompraService {
     Compra create(CompraRequestDTO Compra);
     Compra marcarEntradasComoUsadas(Long compraId, Long usuarioValidadorId);
     Compra confirmarPagoEfectivo(Long compraId, Long usuarioValidadorId);
+
+    /**
+     * Deshace una validación reciente (ventana corta, ver implementación): vuelve la compra
+     * al estado previo (APROBADO o RESERVADO_EFECTIVO según la forma de pago) y limpia
+     * validador/fecha/caja. Pensado para el "cancelar validación" que ofrece boletería
+     * mientras la fila todavía no desapareció de la lista.
+     */
+    Compra deshacerValidacion(Long compraId);
     CotizacionResponseDTO cotizar(CotizacionRequestDTO cotizacionRequest);
     Optional<String> consultarEstadoCompra(Long id);
     Compra actualizarEstado(Long compraId, EstadoCompra nuevoEstado);
