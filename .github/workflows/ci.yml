@@ -49,3 +49,46 @@ jobs:
 
       - name: Build de producción
         run: npx ng build --configuration production
+
+  # Arma las 3 imágenes de docker-compose.yml y las sube a GitHub Container Registry.
+  # Así el despliegue (VPS, o paneles tipo "pegá la URL del compose") sólo necesita
+  # bajar imágenes ya construidas, no clonar el repo entero ni compilar nada ahí.
+  publish-images:
+    name: Publicar imágenes Docker
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login a GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build y push — backend
+        uses: docker/build-push-action@v6
+        with:
+          context: "./Back/La Serranita entradas"
+          push: true
+          tags: ghcr.io/412192-garcia/la-serranita-backend:latest
+
+      - name: Build y push — frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./Front
+          push: true
+          tags: ghcr.io/412192-garcia/la-serranita-frontend:latest
+
+      - name: Build y push — caddy
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile.caddy
+          push: true
+          tags: ghcr.io/412192-garcia/la-serranita-caddy:latest

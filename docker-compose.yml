@@ -2,9 +2,20 @@
 # probar el build de producción antes de deployar). Las variables se leen de un archivo
 # ".env" en esta misma carpeta — copiar .env.example, completar y no versionarlo.
 #
-# Uso:
+# Cada servicio con imagen propia tiene "image" Y "build": local, con el código fuente
+# al lado, "docker compose up -d --build" construye igual que siempre. En el VPS (o
+# cualquier lado sin el código fuente completo, sólo este archivo), "docker compose
+# pull && docker compose up -d" baja las imágenes ya armadas por GitHub Actions
+# (.github/workflows/ci.yml, job publish-images) en cada push a main — así el
+# despliegue no necesita clonar el repo ni compilar nada.
+#
+# Uso local:
 #   cp .env.example .env   # completar los valores
 #   docker compose up -d --build
+#
+# Uso en el VPS (con .env ya cargado ahí):
+#   docker compose pull
+#   docker compose up -d
 #
 # Primer arranque: no hay ningún usuario todavía (data.sql no corre en prod). Con
 # BOOTSTRAP_ADMIN_USERNAME/PASSWORD seteados en el .env, el backend crea el primer
@@ -27,6 +38,7 @@ services:
       retries: 10
 
   backend:
+    image: ghcr.io/412192-garcia/la-serranita-backend:latest
     build:
       context: ./Back/La Serranita entradas
     restart: unless-stopped
@@ -53,6 +65,7 @@ services:
       - "8080:8080"
 
   frontend:
+    image: ghcr.io/412192-garcia/la-serranita-frontend:latest
     build:
       context: ./Front
     restart: unless-stopped
@@ -65,6 +78,7 @@ services:
   # webhook en producción): con DOMAIN seteado en el .env, pide y renueva el
   # certificado de Let's Encrypt solo. Ver Caddyfile.
   caddy:
+    image: ghcr.io/412192-garcia/la-serranita-caddy:latest
     build:
       context: .
       dockerfile: Dockerfile.caddy
