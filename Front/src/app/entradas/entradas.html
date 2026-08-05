@@ -77,6 +77,24 @@
         </app-pago-exitoso>
       }
     </div>
+
+    @if (dniAConfirmar) {
+      <div class="modal-overlay" (click)="corregirDatosPorDni()">
+        <div class="modal-contenido" role="alertdialog" (click)="$event.stopPropagation()">
+          <h3>Confirmá que sos vos</h3>
+          <p>{{ dniAConfirmar }}</p>
+          <label class="check-actualizar-datos">
+            <input type="checkbox" [(ngModel)]="actualizarDatosCliente" name="actualizarDatosCliente">
+            Actualizar mis datos guardados con lo que acabo de escribir
+          </label>
+          <div class="modal-acciones">
+            <button type="button" class="btn-revisar-datos" (click)="corregirDatosPorDni()">Revisar datos</button>
+            <button type="button" class="btn-revisar-datos" (click)="noSoyYo()">No soy yo</button>
+            <button type="button" class="btn-confirmar-dni" (click)="confirmarDniYContinuar()">Sí, soy yo</button>
+          </div>
+        </div>
+      </div>
+    }
   }
   }
 </div>

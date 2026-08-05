@@ -5,6 +5,7 @@ import org.example.laserranitaentradas.repository.ClienteRepository;
 import org.example.laserranitaentradas.service.ClienteService;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -27,8 +28,8 @@ public class ClienteServiceImpl implements ClienteService {
     }
 
     @Override
-    public Optional<Cliente> findByDni(String dni) {
-        return clienteRepository.findByDni(dni);
+    public List<Cliente> findAllByDni(String dni) {
+        return clienteRepository.findAllByDni(dni);
     }
 }
 

@@ -158,18 +158,59 @@ public class CompraServiceImpl implements CompraService {
 
 
         Cliente cliente = null;
-        if (clienteDTO != null && clienteDTO.getDni() != null) {
-            String dniStr = String.valueOf(clienteDTO.getDni());
-            cliente = clienteService.findByDni(dniStr).orElse(null);
-            if (cliente == null) {
-                Cliente nuevo = Cliente.builder()
+        if (clienteDTO != null && !esBlanco(clienteDTO.getDni())) {
+            String dniStr = clienteDTO.getDni().trim();
+            String nombreTipeado = normalizarNombre(clienteDTO.getNombre(), clienteDTO.getApellido());
+
+            // Puede haber más de un cliente con este DNI (ver ClienteRepository): se busca,
+            // entre los que ya existen, el que tenga el nombre más parecido al recién tipeado.
+            Cliente mejorCandidato = null;
+            double mejorSimilitud = -1;
+            for (Cliente existente : clienteService.findAllByDni(dniStr)) {
+                double similitud = similitudNombres(normalizarNombre(existente.getNombre(), existente.getApellido()), nombreTipeado);
+                if (similitud > mejorSimilitud) {
+                    mejorSimilitud = similitud;
+                    mejorCandidato = existente;
+                }
+            }
+
+            boolean debeCrearClienteAparte = mejorCandidato == null
+                    || mejorSimilitud < UMBRAL_SIMILITUD_NOMBRES
+                    || (mejorSimilitud < 1.0 && Boolean.TRUE.equals(compraRequest.getEsOtraPersona()));
+
+            if (debeCrearClienteAparte) {
+                // Nadie con este DNI todavía, el nombre no se parece en nada al de quien ya
+                // lo tiene, o el usuario aclaró que no es la misma persona (nombre parecido
+                // por casualidad): en vez de pisar los datos de quien ya estaba registrado,
+                // se crea un cliente nuevo con el mismo DNI (no hace falta confirmar nada más).
+                cliente = clienteService.create(Cliente.builder()
                         .dni(dniStr)
                         .nombre(clienteDTO.getNombre())
                         .apellido(clienteDTO.getApellido())
                         .edad(clienteDTO.getEdad())
                         .localidad(clienteDTO.getLocalidad())
-                        .build();
-                cliente = clienteService.create(nuevo);
+                        .build());
+            } else if (mejorSimilitud >= 1.0 || Boolean.TRUE.equals(compraRequest.getConfirmarDniExistente())) {
+                // Nombre idéntico (se reutiliza sin preguntar nada), o ya confirmó que es la
+                // misma persona con un nombre parecido pero no idéntico (typo).
+                cliente = mejorCandidato;
+                if (Boolean.TRUE.equals(compraRequest.getActualizarDatosCliente())) {
+                    // Eligió actualizar sus datos: se pisan nombre/apellido/edad/localidad
+                    // con lo recién tipeado.
+                    cliente.setNombre(clienteDTO.getNombre());
+                    cliente.setApellido(clienteDTO.getApellido());
+                    cliente.setEdad(clienteDTO.getEdad());
+                    cliente.setLocalidad(clienteDTO.getLocalidad());
+                    cliente = clienteService.create(cliente);
+                }
+            } else {
+                // Nombre parecido pero no idéntico al de quien ya tiene este DNI: puede ser
+                // la misma persona con un typo, o puede ser otra — se le avisa al frontend
+                // para que confirme antes de asociar la compra a esa identidad.
+                throw new IllegalArgumentException("DNI_YA_REGISTRADO: Ya hay una reserva registrada con el DNI "
+                        + dniStr + " a nombre de \"" + mejorCandidato.getNombre()
+                        + (mejorCandidato.getApellido() != null ? " " + mejorCandidato.getApellido() : "")
+                        + "\". Si sos la misma persona, confirmá para continuar.");
             }
         }
 
@@ -393,6 +434,42 @@ public class CompraServiceImpl implements CompraService {
 
     private boolean esBlanco(String s) {
         return s == null || s.isBlank();
+    }
+
+    /** Minúsculas, sin acentos y sin espacios de más — para comparar nombres tolerando variaciones menores. */
+    private String normalizarNombre(String nombre, String apellido) {
+        String junto = (nombre == null ? "" : nombre) + " " + (apellido == null ? "" : apellido);
+        String sinAcentos = java.text.Normalizer.normalize(junto.trim().toLowerCase(), java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "");
+        return sinAcentos.replaceAll("\\s+", " ");
+    }
+
+    /**
+     * Por debajo de esto, dos nombres (ya normalizados con normalizarNombre) se consideran
+     * personas distintas: no se pregunta nada, se crea un cliente nuevo con el mismo DNI.
+     * Por encima (pero sin ser idénticos), se asume que puede ser la misma persona con un
+     * typo en el nombre y se pide confirmación antes de reutilizar/actualizar sus datos.
+     */
+    private static final double UMBRAL_SIMILITUD_NOMBRES = 0.6;
+
+    /** Similitud entre 0 (nada que ver) y 1 (idénticos), basada en distancia de Levenshtein. */
+    private double similitudNombres(String a, String b) {
+        int maxLen = Math.max(a.length(), b.length());
+        if (maxLen == 0) return 1.0;
+        return 1.0 - ((double) distanciaLevenshtein(a, b) / maxLen);
+    }
+
+    private int distanciaLevenshtein(String a, String b) {
+        int[][] dp = new int[a.length() + 1][b.length() + 1];
+        for (int i = 0; i <= a.length(); i++) dp[i][0] = i;
+        for (int j = 0; j <= b.length(); j++) dp[0][j] = j;
+        for (int i = 1; i <= a.length(); i++) {
+            for (int j = 1; j <= b.length(); j++) {
+                int costo = a.charAt(i - 1) == b.charAt(j - 1) ? 0 : 1;
+                dp[i][j] = Math.min(Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1), dp[i - 1][j - 1] + costo);
+            }
+        }
+        return dp[a.length()][b.length()];
     }
 
     /** Detalles ya validados junto con el monto que suman, para devolver ambos de una sola pasada. */

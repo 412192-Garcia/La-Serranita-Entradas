@@ -1,4 +1,5 @@
 import {ChangeDetectorRef, Component, NgZone, OnDestroy, OnInit} from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { Calendario } from '../calendario/calendario';
 import { SeleccionEntradas } from '../seleccion-entradas/seleccion-entradas';
 import { FormCliente } from '../form-cliente/form-cliente';
@@ -20,6 +21,7 @@ enum etapaCompra {
 @Component({
   selector: 'app-entradas',
   imports: [
+    FormsModule,
     Calendario,
     SeleccionEntradas,
     FormCliente,
@@ -90,6 +92,14 @@ export class Entradas implements OnInit, OnDestroy {
    * eran inconsistentes con el resto de la app, que muestra los errores inline.
    */
   aviso: string | null = null;
+  /**
+   * El DNI tipeado ya está registrado a nombre de otra persona (backend: mensaje con
+   * prefijo "DNI_YA_REGISTRADO:"). Se muestra en vez del resumen normal, con la opción
+   * de confirmar (reintenta con confirmarDniExistente=true) o volver a revisar los datos.
+   */
+  dniAConfirmar: string | null = null;
+  /** Checkbox del cartel de confirmación: si además de confirmar "soy yo" quiere pisar los datos viejos con los recién tipeados. */
+  actualizarDatosCliente = false;
 
   private suscripcionPago: Subscription | null = null;
   private ventanaPago: Window | null = null;
@@ -218,9 +228,15 @@ export class Entradas implements OnInit, OnDestroy {
     }
   }
 
-  iniciarPagoMercadoPago(): void {
+  iniciarPagoMercadoPago(confirmarDniExistente: boolean = false, esOtraPersona: boolean = false): void {
     this.procesandoPago = true;
     this.aviso = null;
+    this.dniAConfirmar = null;
+    // No se resetea en el reintento confirmado: ahí es cuando hace falta leer lo que
+    // el usuario tildó en el cartel (ver el checkbox más abajo en el HTML).
+    if (!confirmarDniExistente) {
+      this.actualizarDatosCliente = false;
+    }
 
     // 1. Convertimos la fecha al formato YYYY-MM-DD que espera Spring Boot
     let fechaFormateada = null;
@@ -254,6 +270,10 @@ export class Entradas implements OnInit, OnDestroy {
         dni: this.compraAcumulada.receptor.dni,
         telefono: this.compraAcumulada.receptor.telefono || null,
       } : null,
+      confirmarDniExistente,
+      // Sólo tiene efecto junto con confirmarDniExistente=true (ver checkbox del cartel).
+      actualizarDatosCliente: confirmarDniExistente ? this.actualizarDatosCliente : false,
+      esOtraPersona,
     };
 
     // 3. Invocamos al backend a través del CompraService
@@ -294,11 +314,35 @@ export class Entradas implements OnInit, OnDestroy {
       },
       error: (err) => {
         console.error('Error al procesar la reserva:', err);
-        this.finalizarConAviso(
-          typeof err?.error === 'string' ? err.error : 'Ocurrió un error al procesar la reserva.'
-        );
+        const mensaje = typeof err?.error === 'string' ? err.error : null;
+        const marcador = 'DNI_YA_REGISTRADO:';
+        if (mensaje?.startsWith(marcador)) {
+          this.ngZone.run(() => {
+            this.procesandoPago = false;
+            this.dniAConfirmar = mensaje.slice(marcador.length).trim();
+            this.cdr.detectChanges();
+          });
+          return;
+        }
+        this.finalizarConAviso(mensaje ?? 'Ocurrió un error al procesar la reserva.');
       }
     });
+  }
+
+  /** El usuario confirmó que sí es la misma persona del DNI ya registrado: reintenta el mismo pedido. */
+  confirmarDniYContinuar(): void {
+    this.iniciarPagoMercadoPago(true);
+  }
+
+  /** El usuario aclaró que NO es la misma persona: se crea un cliente aparte con el mismo DNI. */
+  noSoyYo(): void {
+    this.iniciarPagoMercadoPago(false, true);
+  }
+
+  /** El usuario prefiere revisar los datos en vez de confirmar — probablemente un DNI mal tipeado. */
+  corregirDatosPorDni(): void {
+    this.dniAConfirmar = null;
+    this.etapa = etapaCompra.DATOS;
   }
 
   /**
