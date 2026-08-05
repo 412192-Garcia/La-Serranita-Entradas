@@ -119,10 +119,18 @@ cp .env.example .env   # completar los valores (ver el archivo para el detalle d
 docker compose up -d --build
 ```
 
-Esto levanta `db` (Postgres), `backend` (puerto 8080) y `frontend` (nginx en el puerto 80, que sirve
-el build de Angular y reenvía `/api/*` al backend — por eso `environment.prod.ts` usa un `apiBase`
-relativo en vez de una URL absoluta). Los datos de Postgres quedan en un volumen (`db_data`) que
-sobrevive a `docker compose down` (usar `down -v` si realmente se quiere borrar todo).
+Esto levanta `db` (Postgres), `backend` (puerto 8080), `frontend` (nginx interno, que sirve el
+build de Angular y reenvía `/api/*` al backend — por eso `environment.prod.ts` usa un `apiBase`
+relativo en vez de una URL absoluta) y `caddy` (puertos 80/443, HTTPS delante de todo). Los datos
+de Postgres quedan en un volumen (`db_data`) que sobrevive a `docker compose down` (usar `down -v`
+si realmente se quiere borrar todo).
+
+**HTTPS (obligatorio para el webhook de Mercado Pago en producción):** con `DOMAIN` seteado en el
+`.env` a tu dominio real (y ese dominio ya apuntando por DNS a este servidor), Caddy pide y renueva
+el certificado de Let's Encrypt solo — no hay nada más que configurar. Sin `DOMAIN` (o en
+`localhost`), Caddy sirve igual pero con un certificado local, útil para probar el stack completo
+sin dominio todavía. El puerto 4200 (`frontend` directo, sin pasar por Caddy) sigue disponible para
+pruebas rápidas en HTTP plano.
 
 ### Variables de entorno de producción (además de las de dev)
 
@@ -133,6 +141,8 @@ sobrevive a `docker compose down` (usar `down -v` si realmente se quiere borrar 
 | `CORS_ALLOWED_ORIGINS` | Dominio(s) del frontend que puede llamar a la API, separados por coma |
 | `MP_WEBHOOK_SECRET` | Firma del webhook de Mercado Pago (Panel de MP → tu aplicación → Webhooks). **Obligatoria en producción**: sin ella el webhook acepta notificaciones sin validar quién las mandó |
 | `BOOTSTRAP_ADMIN_USERNAME` / `BOOTSTRAP_ADMIN_PASSWORD` | Ver arriba |
+| `DOMAIN` | Tu dominio real (ej. `parquelaserranita.com.ar`), apuntado por DNS a este servidor. Con esto, Caddy pide HTTPS solo |
+| `CADDY_EMAIL` | Opcional — Let's Encrypt lo usa sólo para avisar si un certificado está por vencer sin renovarse |
 
 ### Sin Docker
 

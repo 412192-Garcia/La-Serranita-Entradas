@@ -1,0 +1,19 @@
+# Termina HTTPS y reenvía todo al contenedor de nginx (frontend), que a su vez ya sabe
+# servir el build de Angular y reenviar /api al backend (ver Front/nginx.conf).
+#
+# DOMAIN se toma del .env: con un dominio real, Caddy pide y renueva el certificado de
+# Let's Encrypt solo, sin nada más que hacer. Si no se define (o queda "localhost"), sirve
+# en HTTP plano — pensado para levantar el stack en un VPS sin dominio todavía, o para
+# probarlo local sin pisar el puerto 4200 que ya usa "frontend" para pruebas directas.
+#
+# CADDY_EMAIL es opcional (Let's Encrypt sólo lo usa para avisar si un certificado está
+# por vencer sin renovarse); el valor de relleno si no se define vive en docker-compose.yml,
+# porque docker-compose siempre manda la variable al contenedor (vacía si no está seteada),
+# así que el ":default" de Caddy acá nunca llegaría a activarse.
+{
+	email {$CADDY_EMAIL}
+}
+
+{$DOMAIN:localhost} {
+	reverse_proxy frontend:80
+}
