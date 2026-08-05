@@ -1,0 +1,6 @@
+# Imagen de Caddy con el Caddyfile ya adentro, en vez de montado desde el host: algunos
+# paneles de deploy (ej. el Docker Manager de Hostinger, que sólo trae del repo lo que
+# hace falta para construir imágenes) no traen archivos sueltos como ./Caddyfile, así
+# que un bind mount se rompe ahí. Construyendo la imagen esto no depende de eso.
+FROM caddy:2-alpine
+COPY Caddyfile /etc/caddy/Caddyfile

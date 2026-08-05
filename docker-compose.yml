@@ -65,7 +65,9 @@ services:
   # webhook en producción): con DOMAIN seteado en el .env, pide y renueva el
   # certificado de Let's Encrypt solo. Ver Caddyfile.
   caddy:
-    image: caddy:2-alpine
+    build:
+      context: .
+      dockerfile: Dockerfile.caddy
     restart: unless-stopped
     depends_on:
       - frontend
@@ -79,7 +81,6 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
 
