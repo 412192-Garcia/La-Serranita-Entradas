@@ -12,14 +12,18 @@ import org.example.laserranitaentradas.model.entity.Caja;
 import org.example.laserranitaentradas.model.entity.Cliente;
 import org.example.laserranitaentradas.model.entity.Compra;
 import org.example.laserranitaentradas.model.entity.CompraDetalle;
+import org.example.laserranitaentradas.model.entity.ArticuloVario;
 import org.example.laserranitaentradas.model.entity.Cupon;
 import org.example.laserranitaentradas.model.entity.FormaPago;
+import org.example.laserranitaentradas.model.entity.Promocion;
 import org.example.laserranitaentradas.model.entity.Tipo;
 import org.example.laserranitaentradas.model.entity.TipoEntrada;
 import org.example.laserranitaentradas.model.entity.Usuario;
 import org.example.laserranitaentradas.model.entity.EstadoCompra;
+import org.example.laserranitaentradas.repository.ArticuloVarioRepository;
 import org.example.laserranitaentradas.repository.CompraRepository;
 import org.example.laserranitaentradas.repository.CompraSpecifications;
+import org.example.laserranitaentradas.repository.PromocionRepository;
 import org.example.laserranitaentradas.service.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -55,6 +59,8 @@ public class CompraServiceImpl implements CompraService {
     private final CalculoPrecioService calculoPrecioService;
     private final EmailService emailService;
     private final CajaService cajaService;
+    private final PromocionRepository promocionRepository;
+    private final ArticuloVarioRepository articuloVarioRepository;
     private final Map<FormaPago, PagoService> estrategiasPago;
 
     public CompraServiceImpl
@@ -67,6 +73,8 @@ public class CompraServiceImpl implements CompraService {
              CalculoPrecioService calculoPrecioService,
              EmailService emailService,
              CajaService cajaService,
+             PromocionRepository promocionRepository,
+             ArticuloVarioRepository articuloVarioRepository,
              List<PagoService> estrategiasDisponibles)
     {
         this.compraRepository = compraRepository;
@@ -78,8 +86,46 @@ public class CompraServiceImpl implements CompraService {
         this.calculoPrecioService = calculoPrecioService;
         this.emailService = emailService;
         this.cajaService = cajaService;
+        this.promocionRepository = promocionRepository;
+        this.articuloVarioRepository = articuloVarioRepository;
         this.estrategiasPago = estrategiasDisponibles.stream()
                 .collect(Collectors.toMap(PagoService::getFormaPago, estrategia -> estrategia));
+    }
+
+    /**
+     * Descuento de venta en puerta: catálogo de promos con nombre, o un descuento manual
+     * ad-hoc que el cajero tipea directo (% o $) — mutuamente excluyentes. A diferencia del
+     * cupón online, no queda un registro de "qué promo se usó" en la Compra: sólo se guarda
+     * el monto de descuento resultante, igual que ya hace el cupón online con montoTotal.
+     */
+    private BigDecimal calcularDescuentoPos(BigDecimal montoBruto, Long promocionId,
+                                             BigDecimal descuentoManualPorcentaje, BigDecimal descuentoManualMonto) {
+        int cantidadElegidas = (promocionId != null ? 1 : 0)
+                + (descuentoManualPorcentaje != null ? 1 : 0)
+                + (descuentoManualMonto != null ? 1 : 0);
+        if (cantidadElegidas > 1) {
+            throw new IllegalArgumentException("Elegí una promo o cargá un descuento manual, no ambos");
+        }
+
+        BigDecimal descuento = BigDecimal.ZERO;
+        if (promocionId != null) {
+            Promocion promo = promocionRepository.findById(promocionId)
+                    .orElseThrow(() -> new IllegalArgumentException("Promoción no encontrada para id: " + promocionId));
+            if (!Boolean.TRUE.equals(promo.getActivo())) {
+                throw new IllegalArgumentException("La promoción \"" + promo.getNombre() + "\" ya no está activa");
+            }
+            descuento = promo.getPorcentajeDescuento() != null
+                    ? montoBruto.multiply(promo.getPorcentajeDescuento()).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP)
+                    : promo.getMontoDescuento();
+        } else if (descuentoManualPorcentaje != null) {
+            descuento = montoBruto.multiply(descuentoManualPorcentaje).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+        } else if (descuentoManualMonto != null) {
+            descuento = descuentoManualMonto;
+        }
+
+        if (descuento.compareTo(BigDecimal.ZERO) < 0) descuento = BigDecimal.ZERO;
+        if (descuento.compareTo(montoBruto) > 0) descuento = montoBruto;
+        return descuento;
     }
 
     private PagoService resolverEstrategia(FormaPago formaPago) {
@@ -158,18 +204,59 @@ public class CompraServiceImpl implements CompraService {
 
 
         Cliente cliente = null;
-        if (clienteDTO != null && clienteDTO.getDni() != null) {
-            String dniStr = String.valueOf(clienteDTO.getDni());
-            cliente = clienteService.findByDni(dniStr).orElse(null);
-            if (cliente == null) {
-                Cliente nuevo = Cliente.builder()
+        if (clienteDTO != null && !esBlanco(clienteDTO.getDni())) {
+            String dniStr = clienteDTO.getDni().trim();
+            String nombreTipeado = normalizarNombre(clienteDTO.getNombre(), clienteDTO.getApellido());
+
+            // Puede haber más de un cliente con este DNI (ver ClienteRepository): se busca,
+            // entre los que ya existen, el que tenga el nombre más parecido al recién tipeado.
+            Cliente mejorCandidato = null;
+            double mejorSimilitud = -1;
+            for (Cliente existente : clienteService.findAllByDni(dniStr)) {
+                double similitud = similitudNombres(normalizarNombre(existente.getNombre(), existente.getApellido()), nombreTipeado);
+                if (similitud > mejorSimilitud) {
+                    mejorSimilitud = similitud;
+                    mejorCandidato = existente;
+                }
+            }
+
+            boolean debeCrearClienteAparte = mejorCandidato == null
+                    || mejorSimilitud < UMBRAL_SIMILITUD_NOMBRES
+                    || (mejorSimilitud < 1.0 && Boolean.TRUE.equals(compraRequest.getEsOtraPersona()));
+
+            if (debeCrearClienteAparte) {
+                // Nadie con este DNI todavía, el nombre no se parece en nada al de quien ya
+                // lo tiene, o el usuario aclaró que no es la misma persona (nombre parecido
+                // por casualidad): en vez de pisar los datos de quien ya estaba registrado,
+                // se crea un cliente nuevo con el mismo DNI (no hace falta confirmar nada más).
+                cliente = clienteService.create(Cliente.builder()
                         .dni(dniStr)
                         .nombre(clienteDTO.getNombre())
                         .apellido(clienteDTO.getApellido())
                         .edad(clienteDTO.getEdad())
                         .localidad(clienteDTO.getLocalidad())
-                        .build();
-                cliente = clienteService.create(nuevo);
+                        .build());
+            } else if (mejorSimilitud >= 1.0 || Boolean.TRUE.equals(compraRequest.getConfirmarDniExistente())) {
+                // Nombre idéntico (se reutiliza sin preguntar nada), o ya confirmó que es la
+                // misma persona con un nombre parecido pero no idéntico (typo).
+                cliente = mejorCandidato;
+                if (Boolean.TRUE.equals(compraRequest.getActualizarDatosCliente())) {
+                    // Eligió actualizar sus datos: se pisan nombre/apellido/edad/localidad
+                    // con lo recién tipeado.
+                    cliente.setNombre(clienteDTO.getNombre());
+                    cliente.setApellido(clienteDTO.getApellido());
+                    cliente.setEdad(clienteDTO.getEdad());
+                    cliente.setLocalidad(clienteDTO.getLocalidad());
+                    cliente = clienteService.create(cliente);
+                }
+            } else {
+                // Nombre parecido pero no idéntico al de quien ya tiene este DNI: puede ser
+                // la misma persona con un typo, o puede ser otra — se le avisa al frontend
+                // para que confirme antes de asociar la compra a esa identidad.
+                throw new IllegalArgumentException("DNI_YA_REGISTRADO: Ya hay una reserva registrada con el DNI "
+                        + dniStr + " a nombre de \"" + mejorCandidato.getNombre()
+                        + (mejorCandidato.getApellido() != null ? " " + mejorCandidato.getApellido() : "")
+                        + "\". Si sos la misma persona, confirmá para continuar.");
             }
         }
 
@@ -380,8 +467,20 @@ public class CompraServiceImpl implements CompraService {
             }
         }
 
+        if (cotizacionRequest.getArticulos() != null) {
+            for (LineaArticuloPosDTO a : cotizacionRequest.getArticulos()) {
+                if (a == null || a.getCantidad() == null || a.getPrecioUnitario() == null) continue;
+                subtotal = subtotal.add(a.getPrecioUnitario().multiply(BigDecimal.valueOf(a.getCantidad())));
+            }
+        }
+
+        // El descuento de promo/manual (sólo venta en puerta) reduce el subtotal a cobrar,
+        // pero no se mezcla con "ahorro": ahorro es específicamente el precio de grupo.
+        BigDecimal descuento = calcularDescuentoPos(subtotal, cotizacionRequest.getPromocionId(),
+                cotizacionRequest.getDescuentoManualPorcentaje(), cotizacionRequest.getDescuentoManualMonto());
+
         CotizacionResponseDTO dto = new CotizacionResponseDTO();
-        dto.setSubtotal(subtotal);
+        dto.setSubtotal(subtotal.subtract(descuento));
         dto.setAhorro(ahorro);
         return dto;
     }
@@ -393,6 +492,42 @@ public class CompraServiceImpl implements CompraService {
 
     private boolean esBlanco(String s) {
         return s == null || s.isBlank();
+    }
+
+    /** Minúsculas, sin acentos y sin espacios de más — para comparar nombres tolerando variaciones menores. */
+    private String normalizarNombre(String nombre, String apellido) {
+        String junto = (nombre == null ? "" : nombre) + " " + (apellido == null ? "" : apellido);
+        String sinAcentos = java.text.Normalizer.normalize(junto.trim().toLowerCase(), java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "");
+        return sinAcentos.replaceAll("\\s+", " ");
+    }
+
+    /**
+     * Por debajo de esto, dos nombres (ya normalizados con normalizarNombre) se consideran
+     * personas distintas: no se pregunta nada, se crea un cliente nuevo con el mismo DNI.
+     * Por encima (pero sin ser idénticos), se asume que puede ser la misma persona con un
+     * typo en el nombre y se pide confirmación antes de reutilizar/actualizar sus datos.
+     */
+    private static final double UMBRAL_SIMILITUD_NOMBRES = 0.6;
+
+    /** Similitud entre 0 (nada que ver) y 1 (idénticos), basada en distancia de Levenshtein. */
+    private double similitudNombres(String a, String b) {
+        int maxLen = Math.max(a.length(), b.length());
+        if (maxLen == 0) return 1.0;
+        return 1.0 - ((double) distanciaLevenshtein(a, b) / maxLen);
+    }
+
+    private int distanciaLevenshtein(String a, String b) {
+        int[][] dp = new int[a.length() + 1][b.length() + 1];
+        for (int i = 0; i <= a.length(); i++) dp[i][0] = i;
+        for (int j = 0; j <= b.length(); j++) dp[0][j] = j;
+        for (int i = 1; i <= a.length(); i++) {
+            for (int j = 1; j <= b.length(); j++) {
+                int costo = a.charAt(i - 1) == b.charAt(j - 1) ? 0 : 1;
+                dp[i][j] = Math.min(Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1), dp[i - 1][j - 1] + costo);
+            }
+        }
+        return dp[a.length()][b.length()];
     }
 
     /** Detalles ya validados junto con el monto que suman, para devolver ambos de una sola pasada. */
@@ -412,6 +547,8 @@ public class CompraServiceImpl implements CompraService {
             for (Compra otra : compraRepository.findAllByFechaVisitaOrderByCodigoReservaAsc(fechaVisita)) {
                 if (otra.getEstado() == EstadoCompra.CANCELADO || otra.getDetalles() == null) continue;
                 for (CompraDetalle det : otra.getDetalles()) {
+                    // Las líneas de artículo vario (venta en puerta) no tienen tipoEntrada: no cuentan para el cupo diario.
+                    if (det.getTipoEntrada() == null) continue;
                     cantidadVendidaPorTipo.merge(det.getTipoEntrada().getId(), det.getCantidad(), Integer::sum);
                 }
             }
@@ -449,12 +586,63 @@ public class CompraServiceImpl implements CompraService {
         return new DetallesCalculados(detalles, montoTotal);
     }
 
-    /** Si se compran entradas, tiene que haber al menos un pase de un tipo obligatorio (ej: un adulto responsable). */
+    /**
+     * Arma las líneas de artículo vario de una venta en puerta: de catálogo (articuloVarioId,
+     * el nombre y precio quedan resueltos desde ahí) o libres (sólo descripcionLibre, sin
+     * ningún catálogo detrás). A diferencia de las entradas, el precio SIEMPRE viene confiado
+     * del cajero (precioUnitario) — no hay un precio "oficial" que validar contra un artículo
+     * libre, y el catálogo mismo permite que el cajero lo ajuste al vender.
+     */
+    private DetallesCalculados construirLineasArticulos(List<LineaArticuloPosDTO> articulos) {
+        BigDecimal montoTotal = BigDecimal.ZERO;
+        List<CompraDetalle> detalles = new ArrayList<>();
+
+        if (articulos != null) {
+            for (LineaArticuloPosDTO a : articulos) {
+                if (a == null || a.getCantidad() == null || a.getPrecioUnitario() == null) continue;
+                if (a.getCantidad() < 1) {
+                    throw new IllegalArgumentException("La cantidad de un artículo tiene que ser al menos 1");
+                }
+                if (a.getPrecioUnitario().compareTo(BigDecimal.ZERO) < 0) {
+                    throw new IllegalArgumentException("El precio de un artículo no puede ser negativo");
+                }
+
+                boolean esDeCatalogo = a.getArticuloVarioId() != null;
+                boolean esLibre = a.getDescripcionLibre() != null && !a.getDescripcionLibre().isBlank();
+                if (esDeCatalogo == esLibre) {
+                    throw new IllegalArgumentException("Cada artículo tiene que ser del catálogo o tener una descripción libre (no ambos, no ninguno)");
+                }
+
+                CompraDetalle.CompraDetalleBuilder builder = CompraDetalle.builder()
+                        .cantidad(a.getCantidad())
+                        .precioUnitario(a.getPrecioUnitario());
+
+                if (esDeCatalogo) {
+                    ArticuloVario articulo = articuloVarioRepository.findById(a.getArticuloVarioId())
+                            .orElseThrow(() -> new IllegalArgumentException("Artículo no encontrado para id: " + a.getArticuloVarioId()));
+                    builder.articuloVario(articulo);
+                } else {
+                    builder.descripcionLibre(a.getDescripcionLibre().trim());
+                }
+
+                detalles.add(builder.build());
+                montoTotal = montoTotal.add(a.getPrecioUnitario().multiply(BigDecimal.valueOf(a.getCantidad())));
+            }
+        }
+
+        return new DetallesCalculados(detalles, montoTotal);
+    }
+
+    /**
+     * Si se compran entradas, tiene que haber al menos un pase de un tipo obligatorio (ej: un
+     * adulto responsable). Las líneas de artículo vario (tipoEntrada null) se ignoran acá: una
+     * venta de sólo artículos (sin entradas) no dispara esta exigencia.
+     */
     private void validarPaseObligatorio(List<CompraDetalle> detalles) {
         boolean hayEntradas = detalles.stream()
-                .anyMatch(d -> d.getTipoEntrada().getTipo() == Tipo.ENTRADA);
+                .anyMatch(d -> d.getTipoEntrada() != null && d.getTipoEntrada().getTipo() == Tipo.ENTRADA);
         boolean hayObligatorio = detalles.stream()
-                .anyMatch(d -> Boolean.TRUE.equals(d.getTipoEntrada().getObligatorio()) && d.getCantidad() > 0);
+                .anyMatch(d -> d.getTipoEntrada() != null && Boolean.TRUE.equals(d.getTipoEntrada().getObligatorio()) && d.getCantidad() > 0);
         if (hayEntradas && !hayObligatorio) {
             throw new IllegalArgumentException(
                     "La compra debe incluir al menos un pase de un tipo obligatorio (por ejemplo, un adulto responsable) para poder ingresar al parque."
@@ -481,8 +669,10 @@ public class CompraServiceImpl implements CompraService {
         if (request.getFormaPago() == null) {
             throw new IllegalArgumentException("Debe indicar la forma de pago del cobro");
         }
-        if (request.getEntradas() == null || request.getEntradas().isEmpty()) {
-            throw new IllegalArgumentException("La venta no tiene entradas cargadas");
+        boolean sinEntradas = request.getEntradas() == null || request.getEntradas().isEmpty();
+        boolean sinArticulos = request.getArticulos() == null || request.getArticulos().isEmpty();
+        if (sinEntradas && sinArticulos) {
+            throw new IllegalArgumentException("La venta no tiene entradas ni artículos cargados");
         }
 
         Usuario vendedor = usuarioService.obtenerUsuarioPorId(usuarioVendedorId)
@@ -497,11 +687,22 @@ public class CompraServiceImpl implements CompraService {
         // abierto: si hay alguien vendiendo en la boletería, el parque está abierto.
         LocalDate hoy = LocalDate.now();
 
-        DetallesCalculados calculo = construirDetalles(request.getEntradas(), request.getFormaPago(), hoy);
-        if (calculo.detalles().isEmpty()) {
-            throw new IllegalArgumentException("La venta no tiene entradas cargadas");
+        DetallesCalculados calculoEntradas = construirDetalles(request.getEntradas(), request.getFormaPago(), hoy);
+        DetallesCalculados calculoArticulos = construirLineasArticulos(request.getArticulos());
+
+        List<CompraDetalle> todosLosDetalles = new ArrayList<>(calculoEntradas.detalles());
+        todosLosDetalles.addAll(calculoArticulos.detalles());
+        if (todosLosDetalles.isEmpty()) {
+            throw new IllegalArgumentException("La venta no tiene entradas ni artículos cargados");
         }
-        validarPaseObligatorio(calculo.detalles());
+        // Sólo exige el pase obligatorio si hay líneas de entrada: una venta sólo de
+        // artículos (ej. un souvenir suelto) no tiene por qué incluir un pase de ingreso.
+        validarPaseObligatorio(todosLosDetalles);
+
+        BigDecimal montoBruto = calculoEntradas.montoTotal().add(calculoArticulos.montoTotal());
+        BigDecimal descuento = calcularDescuentoPos(montoBruto, request.getPromocionId(),
+                request.getDescuentoManualPorcentaje(), request.getDescuentoManualMonto());
+        BigDecimal montoFinal = montoBruto.subtract(descuento);
 
         // Venta anónima: no hay cliente ni contacto que cargar (ya están entrando, no hay
         // nada que validar después ni comprobante que mandar). Nace VENDIDO_EN_PUERTA porque
@@ -510,9 +711,9 @@ public class CompraServiceImpl implements CompraService {
                 .cliente(null)
                 .fechaVisita(hoy)
                 .codigoReserva(generarCodigoReserva(hoy))
-                .montoTotal(calculo.montoTotal())
-                .descuentoAplicado(BigDecimal.ZERO)
-                .detalles(calculo.detalles())
+                .montoTotal(montoFinal)
+                .descuentoAplicado(descuento)
+                .detalles(todosLosDetalles)
                 .estado(EstadoCompra.VENDIDO_EN_PUERTA)
                 .formaPago(request.getFormaPago())
                 .usuarioValidador(vendedor)
@@ -520,7 +721,7 @@ public class CompraServiceImpl implements CompraService {
                 .caja(caja)
                 .build();
 
-        for (CompraDetalle det : calculo.detalles()) {
+        for (CompraDetalle det : todosLosDetalles) {
             det.setCompra(venta);
         }
 

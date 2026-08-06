@@ -1,9 +1,9 @@
 import { Component, ElementRef, OnDestroy, OnInit, ViewChild, inject, signal } from '@angular/core';
-import { CurrencyPipe, DatePipe, DecimalPipe } from '@angular/common';
+import { CurrencyPipe, DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Chart, registerables } from 'chart.js';
 import { ReporteService } from '../../Services/reporte.service';
-import { CajaResumen, ComprasPorEstado, RecaudacionPorFormaPago, ReporteResumen, VentasPorOrigen } from '../../models/reporte';
+import { ComprasPorEstado, RecaudacionPorFormaPago, ReporteResumen, VentasPorOrigen } from '../../models/reporte';
 
 Chart.register(...registerables);
 
@@ -49,7 +49,7 @@ const COLOR_POR_ORIGEN: Record<VentasPorOrigen['origen'], string> = {
 
 @Component({
   selector: 'app-configuracion-reportes',
-  imports: [FormsModule, CurrencyPipe, DatePipe, DecimalPipe],
+  imports: [FormsModule, CurrencyPipe, DecimalPipe],
   templateUrl: './reportes.html',
   styleUrls: ['../configuracion-shared.css', './reportes.css'],
 })
@@ -79,9 +79,6 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
   error = signal<string | null>(null);
   resumen = signal<ReporteResumen | null>(null);
 
-  /** Vacío = todos los boleteros. */
-  filtroBoletero = signal<string>('');
-
   ngOnInit(): void {
     this.cargar();
   }
@@ -103,52 +100,6 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
 
   etiquetaEstado(estado: ComprasPorEstado['estado']): string {
     return ETIQUETA_POR_ESTADO[estado];
-  }
-
-  /** Para colorear la fila de la caja en la tabla: rojo si faltó plata, verde si sobró o cerró justo. */
-  claseDiferencia(caja: CajaResumen): string {
-    if (caja.diferencia < 0) return 'diferencia-faltante';
-    if (caja.diferencia > 0) return 'diferencia-sobrante';
-    return 'diferencia-exacta';
-  }
-
-  /** Nombres únicos de boleteros con al menos una caja cerrada en el rango, para el filtro. */
-  boleterosDisponibles(r: ReporteResumen): string[] {
-    return [...new Set(r.cajas.map((c) => c.usuarioNombre))].sort();
-  }
-
-  cajasFiltradas(r: ReporteResumen): CajaResumen[] {
-    const filtro = this.filtroBoletero();
-    return filtro ? r.cajas.filter((c) => c.usuarioNombre === filtro) : r.cajas;
-  }
-
-  /** Los KPI de retiros/faltantes/sobrantes se recalculan sobre el subconjunto filtrado, no sobre el total del backend. */
-  totalesCajasFiltradas(r: ReporteResumen): { retiros: number; faltantes: number; sobrantes: number } {
-    let retiros = 0;
-    let faltantes = 0;
-    let sobrantes = 0;
-    for (const c of this.cajasFiltradas(r)) {
-      retiros += c.totalRetiros;
-      if (c.diferencia < 0) faltantes += Math.abs(c.diferencia);
-      else sobrantes += c.diferencia;
-    }
-    return { retiros, faltantes, sobrantes };
-  }
-
-  /** Desempeño acumulado por boletero: turnos trabajados, efectivo vendido, retiros y diferencia total. */
-  rankingBoleteros(r: ReporteResumen): { nombre: string; turnos: number; efectivoVendido: number; retiros: number; diferencia: number }[] {
-    const porBoletero = new Map<string, { turnos: number; efectivoVendido: number; retiros: number; diferencia: number }>();
-    for (const c of r.cajas) {
-      const acumulado = porBoletero.get(c.usuarioNombre) ?? { turnos: 0, efectivoVendido: 0, retiros: 0, diferencia: 0 };
-      acumulado.turnos += 1;
-      acumulado.efectivoVendido += c.montoEsperado - c.montoInicial + c.totalRetiros;
-      acumulado.retiros += c.totalRetiros;
-      acumulado.diferencia += c.diferencia;
-      porBoletero.set(c.usuarioNombre, acumulado);
-    }
-    return [...porBoletero.entries()]
-      .map(([nombre, datos]) => ({ nombre, ...datos }))
-      .sort((a, b) => b.efectivoVendido - a.efectivoVendido);
   }
 
   cargar(): void {

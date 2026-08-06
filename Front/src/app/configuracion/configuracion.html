@@ -9,14 +9,17 @@
     <button type="button" class="tab" [class.activo]="tab() === 'dias'" (click)="tab.set('dias')">
       Días y Horarios
     </button>
-    <button type="button" class="tab" [class.activo]="tab() === 'cupones'" (click)="tab.set('cupones')">
-      Cupones
+    <button type="button" class="tab" [class.activo]="tab() === 'descuentos'" (click)="tab.set('descuentos')">
+      Descuentos
     </button>
-    <button type="button" class="tab" [class.activo]="tab() === 'tipos'" (click)="tab.set('tipos')">
-      Tipos de Entrada
+    <button type="button" class="tab" [class.activo]="tab() === 'catalogo'" (click)="tab.set('catalogo')">
+      Catálogo
     </button>
     <button type="button" class="tab" [class.activo]="tab() === 'reportes'" (click)="tab.set('reportes')">
       Reportes
+    </button>
+    <button type="button" class="tab" [class.activo]="tab() === 'cajas'" (click)="tab.set('cajas')">
+      Cajas
     </button>
     <button type="button" class="tab" [class.activo]="tab() === 'usuarios'" (click)="tab.set('usuarios')">
       Usuarios
@@ -25,12 +28,16 @@
 
   @if (tab() === 'dias') {
     <app-configuracion-dias-horarios />
-  } @else if (tab() === 'cupones') {
+  } @else if (tab() === 'descuentos') {
+    <app-configuracion-promociones />
     <app-configuracion-cupones />
-  } @else if (tab() === 'tipos') {
+  } @else if (tab() === 'catalogo') {
     <app-configuracion-tipos-entrada />
+    <app-configuracion-articulos />
   } @else if (tab() === 'reportes') {
     <app-configuracion-reportes />
+  } @else if (tab() === 'cajas') {
+    <app-configuracion-cajas />
   } @else if (tab() === 'usuarios') {
     <app-configuracion-usuarios />
   }

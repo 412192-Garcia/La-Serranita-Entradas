@@ -10,10 +10,41 @@ export interface RetiroCaja {
   fecha: string;
 }
 
+export interface ConteoDenominacion {
+  denominacion: number;
+  cantidad: number;
+}
+
+export type FormaPagoPosnet = 'TARJETA' | 'MERCADO_PAGO_QR';
+
+export interface CierrePosnet {
+  id: number;
+  formaPago: FormaPagoPosnet;
+  monto: number;
+  nota: string | null;
+  fecha: string;
+}
+
+export interface IngresoEntradas {
+  id: number;
+  cantidad: number;
+  fecha: string;
+}
+
+export interface OperacionCaja {
+  tipo: 'VENTA' | 'RETIRO' | 'INGRESO_ENTRADAS';
+  fecha: string;
+  /** Null en los ingresos de entradas físicas: no mueven plata. */
+  monto: number | null;
+  formaPago: string | null;
+  detalle: string;
+}
+
 /**
- * Mientras la caja está ABIERTA, el backend manda totalVentasEfectivo y efectivoEsperado
- * en null a propósito: si el boletero pudiera verlos antes de cerrar, el cierre dejaría
- * de ser un control real. Recién llegan completos en la respuesta del cierre.
+ * Mientras la caja está ABIERTA, el backend manda todos los totales "esperados" (efectivo,
+ * tarjeta, QR, entradas físicas) y el detalle de operaciones en null a propósito: si el
+ * boletero pudiera verlos antes de cerrar, el cierre dejaría de ser un control real. Recién
+ * llegan completos en la respuesta del cierre.
  */
 export interface Caja {
   id: number;
@@ -27,6 +58,31 @@ export interface Caja {
   montoContado: number | null;
   diferencia: number | null;
   retiros: RetiroCaja[];
+
+  conteoEfectivo: ConteoDenominacion[];
+
+  totalVentasTarjeta: number | null;
+  totalVentasQr: number | null;
+  totalCerradoTarjeta: number | null;
+  totalCerradoQr: number | null;
+  diferenciaTarjeta: number | null;
+  diferenciaQr: number | null;
+  cierresPosnet: CierrePosnet[];
+
+  entradasFisicasInicial: number | null;
+  entradasFisicasFinal: number | null;
+  entradasFisicasEsperadas: number | null;
+  diferenciaEntradas: number | null;
+  totalIngresosEntradas: number;
+  ingresosEntradas: IngresoEntradas[];
+
+  operaciones: OperacionCaja[] | null;
+}
+
+export interface CierrePosnetInput {
+  formaPago: FormaPagoPosnet;
+  monto: number;
+  nota?: string | null;
 }
 
 @Injectable({
@@ -41,15 +97,23 @@ export class CajaService {
     return this.http.get<Caja | null>(`${this.cajaUrl}/actual`);
   }
 
-  abrir(montoInicial: number): Observable<Caja> {
-    return this.http.post<Caja>(`${this.cajaUrl}/abrir`, { montoInicial });
+  abrir(montoInicial: number, entradasFisicasInicial: number): Observable<Caja> {
+    return this.http.post<Caja>(`${this.cajaUrl}/abrir`, { montoInicial, entradasFisicasInicial });
   }
 
   registrarRetiro(monto: number, motivo: string): Observable<Caja> {
     return this.http.post<Caja>(`${this.cajaUrl}/retiros`, { monto, motivo });
   }
 
-  cerrar(montoContado: number): Observable<Caja> {
-    return this.http.post<Caja>(`${this.cajaUrl}/cerrar`, { montoContado });
+  registrarIngresoEntradas(cantidad: number): Observable<Caja> {
+    return this.http.post<Caja>(`${this.cajaUrl}/ingresos-entradas`, { cantidad });
+  }
+
+  cerrar(
+    conteoEfectivo: ConteoDenominacion[],
+    cierresPosnet: CierrePosnetInput[],
+    entradasFisicasFinal: number
+  ): Observable<Caja> {
+    return this.http.post<Caja>(`${this.cajaUrl}/cerrar`, { conteoEfectivo, cierresPosnet, entradasFisicasFinal });
   }
 }

@@ -4,10 +4,11 @@ import { FormsModule } from '@angular/forms';
 import { ConfiguracionService, DescuentoEfectivo } from '../../Services/configuracion.service';
 import { TipoEntradaService } from '../../Services/tipo-entrada.service';
 import { TipoEntrada } from '../../models/tipo-entrada';
+import { MoneyInputDirective } from '../../shared/money-input/money-input.directive';
 
 @Component({
   selector: 'app-configuracion-tipos-entrada',
-  imports: [FormsModule, CurrencyPipe],
+  imports: [FormsModule, CurrencyPipe, MoneyInputDirective],
   templateUrl: './tipos-entrada.html',
   styleUrls: ['../configuracion-shared.css', './tipos-entrada.css'],
 })
@@ -25,6 +26,7 @@ export class ConfiguracionTiposEntrada implements OnInit {
   precioTipo = signal<number | null>(null);
   categoriaTipo = signal<'ENTRADA' | 'EXTRA'>('ENTRADA');
   obligatorioTipo = signal(false);
+  entregaEntradaTipo = signal(false);
   maximoPorDiaTipo = signal<number | null>(null);
   guardandoTipo = signal(false);
 
@@ -67,6 +69,7 @@ export class ConfiguracionTiposEntrada implements OnInit {
     this.precioTipo.set(t.precio);
     this.categoriaTipo.set(t.tipo);
     this.obligatorioTipo.set(t.obligatorio);
+    this.entregaEntradaTipo.set(t.entregaEntrada);
     this.maximoPorDiaTipo.set(t.maximoPorDia ?? null);
     this.errorTipos.set(null);
   }
@@ -78,6 +81,7 @@ export class ConfiguracionTiposEntrada implements OnInit {
     this.precioTipo.set(null);
     this.categoriaTipo.set('ENTRADA');
     this.obligatorioTipo.set(false);
+    this.entregaEntradaTipo.set(false);
     this.maximoPorDiaTipo.set(null);
     this.errorTipos.set(null);
   }
@@ -97,6 +101,7 @@ export class ConfiguracionTiposEntrada implements OnInit {
       precio: this.precioTipo()!,
       tipo: this.categoriaTipo(),
       obligatorio: this.categoriaTipo() === 'ENTRADA' ? this.obligatorioTipo() : false,
+      entregaEntrada: this.categoriaTipo() === 'ENTRADA' ? this.entregaEntradaTipo() : false,
       maximoPorDia: this.maximoPorDiaTipo(),
       activo: true,
     };

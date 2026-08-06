@@ -36,6 +36,15 @@
   width: 100%;
 }
 
+/* Agrupa la fila de DNI + confirmación con su texto de ayuda, para que éste quede
+   debajo de los DOS campos (no metido dentro de uno solo). */
+.grupo-dni {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
 .campo-grupo {
   display: flex;
   flex-direction: column;
@@ -83,6 +92,12 @@
   color: var(--color-danger);
   font-size: 0.8rem;
   font-weight: 500;
+  margin-top: 2px;
+}
+
+.ayuda-dni {
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
   margin-top: 2px;
 }
 

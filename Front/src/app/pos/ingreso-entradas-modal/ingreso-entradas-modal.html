@@ -1,0 +1,35 @@
+<div class="modal-overlay" (click)="cerrar.emit()">
+  <div class="panel-caja" (click)="$event.stopPropagation()">
+    <h3>Agregar entradas físicas</h3>
+    <p class="subtitulo-apertura">Para cuando se termina el talonario y traen más a mitad de turno.</p>
+
+    <label class="campo-apertura">
+      Cantidad
+      <input
+        type="number"
+        min="1"
+        inputmode="numeric"
+        placeholder="0"
+        [ngModel]="cantidad()"
+        (ngModelChange)="cantidad.set($event)" />
+    </label>
+
+    @if (error()) {
+      <p class="alerta-error">{{ error() }}</p>
+    }
+    <div class="acciones">
+      <button type="button" class="btn-limpiar" (click)="cerrar.emit()">Cancelar</button>
+      <button type="button" class="btn-cobrar" [disabled]="registrando()" (click)="confirmar()">
+        {{ registrando() ? 'Registrando…' : 'Confirmar ingreso' }}
+      </button>
+    </div>
+
+    @if (ingresos().length) {
+      <ul class="lista-ingresos">
+        @for (i of ingresos(); track i.id) {
+          <li><span>{{ i.fecha | date: 'HH:mm' }}</span><span>+{{ i.cantidad }}</span></li>
+        }
+      </ul>
+    }
+  </div>
+</div>

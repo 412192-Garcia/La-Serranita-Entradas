@@ -1,0 +1,75 @@
+@import '../pos-shared.css';
+
+.btn-buscar-reserva {
+  flex: 0 0 auto;
+  align-self: flex-end;
+}
+
+.sin-resultados-reserva {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--color-text-muted);
+}
+
+.lista-reservas-encontradas {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 1px solid var(--color-border);
+  padding-top: 10px;
+}
+
+.lista-reservas-encontradas li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.reserva-encontrada-datos {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.reserva-encontrada-datos strong {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.reserva-encontrada-datos span {
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+}
+
+.btn-accion-reserva {
+  flex-shrink: 0;
+  padding: 8px 14px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background-color: var(--color-primary);
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.btn-accion-reserva:hover:not(:disabled) { background-color: var(--color-primary-dark); }
+.btn-accion-reserva:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.btn-accion-reserva-cobrar { background-color: var(--color-accent-dark); }
+.btn-accion-reserva-cobrar:hover:not(:disabled) { background-color: #a35f1a; }
+
+.reserva-encontrada-estado {
+  flex-shrink: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}

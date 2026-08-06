@@ -1,6 +1,6 @@
 <div class="seccion seccion-cupones">
 
-  <div class="tarjeta">
+  <div class="tarjeta tarjeta-formulario">
     <h2>Nuevo cupón individual</h2>
     @if (errorCupon()) {
       <p class="alerta-error">{{ errorCupon() }}</p>
@@ -19,7 +19,12 @@
       </label>
       <label>
         Valor
-        <input type="number" min="0" [ngModel]="valorDescuentoCupon()" (ngModelChange)="valorDescuentoCupon.set($event)" />
+        <input
+          type="text"
+          inputmode="decimal"
+          [appMoneyInput]="tipoDescuentoCupon() === 'monto'"
+          [ngModel]="valorDescuentoCupon()"
+          (ngModelChange)="valorDescuentoCupon.set($event)" />
       </label>
       <label>
         Usos máximos
@@ -35,7 +40,7 @@
     </button>
   </div>
 
-  <div class="tarjeta">
+  <div class="tarjeta tarjeta-formulario">
     <h2>Generar lote de cupones</h2>
     @if (errorLote()) {
       <p class="alerta-error">{{ errorLote() }}</p>
@@ -66,7 +71,12 @@
       </label>
       <label>
         Valor
-        <input type="number" min="0" [ngModel]="valorDescuentoLote()" (ngModelChange)="valorDescuentoLote.set($event)" />
+        <input
+          type="text"
+          inputmode="decimal"
+          [appMoneyInput]="tipoDescuentoLote() === 'monto'"
+          [ngModel]="valorDescuentoLote()"
+          (ngModelChange)="valorDescuentoLote.set($event)" />
       </label>
       <label>
         Usos máximos por cupón

@@ -1,0 +1,81 @@
+<!-- ============ RESUMEN DE LA CAJA RECIÉN CERRADA ============ -->
+<div class="resumen-cierre">
+  <div class="comprobante comprobante-cierre">
+    <svg lucideLock class="comprobante-icono" [strokeWidth]="1.5"></svg>
+    <h2>Caja cerrada</h2>
+
+    <div class="grilla-resumen-cierre">
+      <div class="bloque-cierre">
+        <h3>Efectivo</h3>
+        <span>Esperado {{ caja().efectivoEsperado | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+        <span>Contado {{ caja().montoContado | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+        @if (caja().diferencia !== null) {
+          <span class="diferencia-bloque" [class.diferencia-negativa]="caja().diferencia! < 0">
+            {{ caja().diferencia! < 0 ? 'Faltante' : caja().diferencia! > 0 ? 'Sobrante' : 'Sin diferencia' }}
+            {{ caja().diferencia === 0 ? '' : ((caja().diferencia! < 0 ? -caja().diferencia! : caja().diferencia) | currency: 'ARS' : 'symbol' : '1.0-0') }}
+          </span>
+        }
+        <span class="ayuda-cierre">Inicial {{ caja().montoInicial | currency: 'ARS' : 'symbol' : '1.0-0' }} · Retiros {{ caja().totalRetiros | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+      </div>
+
+      <div class="bloque-cierre">
+        <h3>Tarjeta</h3>
+        <span>Esperado {{ caja().totalVentasTarjeta | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+        <span>Contado {{ caja().totalCerradoTarjeta | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+        @if (caja().diferenciaTarjeta !== null) {
+          <span class="diferencia-bloque" [class.diferencia-negativa]="caja().diferenciaTarjeta! < 0">
+            {{ caja().diferenciaTarjeta! < 0 ? 'Faltante' : caja().diferenciaTarjeta! > 0 ? 'Sobrante' : 'Sin diferencia' }}
+            {{ caja().diferenciaTarjeta === 0 ? '' : ((caja().diferenciaTarjeta! < 0 ? -caja().diferenciaTarjeta! : caja().diferenciaTarjeta) | currency: 'ARS' : 'symbol' : '1.0-0') }}
+          </span>
+        }
+      </div>
+
+      <div class="bloque-cierre">
+        <h3>QR</h3>
+        <span>Esperado {{ caja().totalVentasQr | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+        <span>Contado {{ caja().totalCerradoQr | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+        @if (caja().diferenciaQr !== null) {
+          <span class="diferencia-bloque" [class.diferencia-negativa]="caja().diferenciaQr! < 0">
+            {{ caja().diferenciaQr! < 0 ? 'Faltante' : caja().diferenciaQr! > 0 ? 'Sobrante' : 'Sin diferencia' }}
+            {{ caja().diferenciaQr === 0 ? '' : ((caja().diferenciaQr! < 0 ? -caja().diferenciaQr! : caja().diferenciaQr) | currency: 'ARS' : 'symbol' : '1.0-0') }}
+          </span>
+        }
+      </div>
+
+      <div class="bloque-cierre">
+        <h3>Entradas</h3>
+        <span>Inicial {{ caja().entradasFisicasInicial ?? '—' }} · Final {{ caja().entradasFisicasFinal ?? '—' }}</span>
+        @if (caja().entradasFisicasEsperadas !== null) {
+          <span>Esperadas {{ caja().entradasFisicasEsperadas }}</span>
+          <span class="diferencia-bloque" [class.diferencia-negativa]="(caja().diferenciaEntradas ?? 0) < 0">
+            {{ (caja().diferenciaEntradas ?? 0) < 0 ? 'Faltan' : (caja().diferenciaEntradas ?? 0) > 0 ? 'Sobran' : 'Sin diferencia' }}
+            {{ caja().diferenciaEntradas === 0 ? '' : (caja().diferenciaEntradas! < 0 ? -caja().diferenciaEntradas! : caja().diferenciaEntradas) }}
+          </span>
+        } @else {
+          <span class="ayuda-cierre">No disponible (sin cantidad inicial cargada)</span>
+        }
+      </div>
+    </div>
+
+    <button type="button" class="btn-nueva-venta" (click)="verReservas.emit()">Ver reservas</button>
+  </div>
+
+  @if (caja().operaciones && caja().operaciones!.length > 0) {
+    <!-- Columna aparte (no un desplegable adentro de la tarjeta): así puede ser más
+         larga sin apretar el resumen de arriba. -->
+    <div class="panel-detalle-caja">
+      <h3>Detalle de caja</h3>
+      <p class="subtitulo-apertura">Todas las ventas y retiros del turno, en orden.</p>
+      <div class="detalle-caja">
+        @for (op of caja().operaciones!; track $index) {
+          <div class="fila-operacion" [class.fila-retiro]="op.tipo === 'RETIRO'" [class.fila-ingreso]="op.tipo === 'INGRESO_ENTRADAS'">
+            <span class="operacion-hora">{{ op.fecha | date: 'HH:mm' }}</span>
+            <span class="operacion-tipo">{{ etiquetaTipoOperacion(op) }}</span>
+            <span class="operacion-detalle">{{ op.detalle }}</span>
+            <span class="operacion-monto">{{ op.monto !== null ? (op.monto | currency: 'ARS' : 'symbol' : '1.0-0') : '' }}</span>
+          </div>
+        }
+      </div>
+    </div>
+  }
+</div>

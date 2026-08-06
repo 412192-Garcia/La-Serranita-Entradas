@@ -67,6 +67,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.PUT, "/api/compras/*/validar").hasAnyRole("BOLETERO", "ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/api/compras/*/deshacer-validacion").hasAnyRole("BOLETERO", "ADMIN")
                 .requestMatchers("/api/interno/**").hasAnyRole("BOLETERO", "ADMIN")
+                .requestMatchers(HttpMethod.GET, "/api/promociones/**").hasAnyRole("BOLETERO", "ADMIN")
+                .requestMatchers(HttpMethod.GET, "/api/articulos-varios/**").hasAnyRole("BOLETERO", "ADMIN")
 
                 // ---------- Configuración (solo ADMIN) ----------
                 .requestMatchers("/api/dias-apertura/**").hasRole("ADMIN")
@@ -78,6 +80,12 @@ public class SecurityConfig {
                 .requestMatchers("/api/configuracion/**").hasRole("ADMIN")
                 .requestMatchers("/api/usuarios/**").hasRole("ADMIN")
                 .requestMatchers("/api/reportes/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.POST, "/api/promociones/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.PUT, "/api/promociones/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.DELETE, "/api/promociones/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.POST, "/api/articulos-varios/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.PUT, "/api/articulos-varios/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.DELETE, "/api/articulos-varios/**").hasRole("ADMIN")
 
                 .anyRequest().authenticated()
             )

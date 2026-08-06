@@ -4,6 +4,7 @@ import org.example.laserranitaentradas.config.UsuarioAutenticado;
 import org.example.laserranitaentradas.model.dto.AbrirCajaRequestDTO;
 import org.example.laserranitaentradas.model.dto.CajaResponseDTO;
 import org.example.laserranitaentradas.model.dto.CerrarCajaRequestDTO;
+import org.example.laserranitaentradas.model.dto.IngresoEntradasRequestDTO;
 import org.example.laserranitaentradas.model.dto.RetiroCajaRequestDTO;
 import org.example.laserranitaentradas.service.CajaService;
 import org.springframework.http.HttpStatus;
@@ -31,10 +32,11 @@ public class CajaController {
     }
 
     @PostMapping("/abrir")
-    @Operation(summary = "Abrir caja", description = "Declara el efectivo inicial y habilita a cobrar")
+    @Operation(summary = "Abrir caja", description = "Declara el efectivo inicial y con cuántas entradas físicas arranca, y habilita a cobrar")
     public ResponseEntity<CajaResponseDTO> abrir(@RequestBody AbrirCajaRequestDTO request,
                                                   @AuthenticationPrincipal UsuarioAutenticado operador) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(cajaService.abrir(operador.id(), request.getMontoInicial()));
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(cajaService.abrir(operador.id(), request.getMontoInicial(), request.getEntradasFisicasInicial()));
     }
 
     @PostMapping("/retiros")
@@ -44,10 +46,18 @@ public class CajaController {
         return ResponseEntity.ok(cajaService.registrarRetiro(operador.id(), request.getMonto(), request.getMotivo()));
     }
 
+    @PostMapping("/ingresos-entradas")
+    @Operation(summary = "Registrar un ingreso de entradas físicas a la caja abierta", description = "Para cuando el boletero se queda sin talonario y le traen más a mitad de turno")
+    public ResponseEntity<CajaResponseDTO> registrarIngresoEntradas(@RequestBody IngresoEntradasRequestDTO request,
+                                                                      @AuthenticationPrincipal UsuarioAutenticado operador) {
+        return ResponseEntity.ok(cajaService.registrarIngresoEntradas(operador.id(), request.getCantidad()));
+    }
+
     @PostMapping("/cerrar")
-    @Operation(summary = "Cerrar caja", description = "Compara el efectivo contado contra el esperado y cierra el turno")
+    @Operation(summary = "Cerrar caja", description = "Compara lo contado (efectivo por denominación, cierres de posnet, entradas físicas) contra lo esperado y cierra el turno")
     public ResponseEntity<CajaResponseDTO> cerrar(@RequestBody CerrarCajaRequestDTO request,
                                                    @AuthenticationPrincipal UsuarioAutenticado operador) {
-        return ResponseEntity.ok(cajaService.cerrar(operador.id(), request.getMontoContado()));
+        return ResponseEntity.ok(cajaService.cerrar(
+                operador.id(), request.getConteoEfectivo(), request.getCierresPosnet(), request.getEntradasFisicasFinal()));
     }
 }

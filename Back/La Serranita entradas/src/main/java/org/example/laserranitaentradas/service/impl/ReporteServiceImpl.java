@@ -132,7 +132,7 @@ public class ReporteServiceImpl implements ReporteService {
 
                 int hora = compra.getFechaCreacion().getHour();
                 long pasesEntradaCompra = compra.getDetalles().stream()
-                        .filter(d -> d.getTipoEntrada().getTipo() == Tipo.ENTRADA)
+                        .filter(d -> d.getTipoEntrada() != null && d.getTipoEntrada().getTipo() == Tipo.ENTRADA)
                         .mapToLong(CompraDetalle::getCantidad)
                         .sum();
                 if (esBoleteria) {
@@ -146,7 +146,7 @@ public class ReporteServiceImpl implements ReporteService {
 
             if (vendida) {
                 long pasesEntrada = compra.getDetalles().stream()
-                        .filter(d -> d.getTipoEntrada().getTipo() == Tipo.ENTRADA)
+                        .filter(d -> d.getTipoEntrada() != null && d.getTipoEntrada().getTipo() == Tipo.ENTRADA)
                         .mapToLong(CompraDetalle::getCantidad)
                         .sum();
                 if (esBoleteria) {
@@ -164,6 +164,9 @@ public class ReporteServiceImpl implements ReporteService {
 
             if (cobrada) {
                 for (CompraDetalle detalle : compra.getDetalles()) {
+                    // Las líneas de artículo vario (venta en puerta) no tienen tipoEntrada: no
+                    // entran en este desglose por tipo/extra (queda fuera de este reporte).
+                    if (detalle.getTipoEntrada() == null) continue;
                     TipoEntrada tipo = detalle.getTipoEntrada();
                     BigDecimal monto = tipo.getPrecio().multiply(BigDecimal.valueOf(detalle.getCantidad()));
                     if (tipo.getTipo() == Tipo.ENTRADA) {

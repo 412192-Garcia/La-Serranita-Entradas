@@ -1,0 +1,106 @@
+:host {
+  display: contents;
+}
+
+.selector-tipo {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 18px;
+  background-color: #fff;
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.selector-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.selector-nombre {
+  font-family: var(--font-heading);
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--color-text);
+}
+
+.selector-precio {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.selector-numeros {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(56px, 1fr));
+  gap: 8px;
+}
+
+.btn-numero {
+  min-height: 52px;
+  border: 2px solid var(--color-border);
+  background-color: #fff;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-heading);
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--color-text);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-numero:hover { border-color: var(--color-primary); }
+.btn-numero:active { transform: scale(0.96); }
+
+.btn-numero.activo {
+  border-color: var(--color-primary);
+  background-color: var(--color-primary);
+  color: #fff;
+}
+
+.btn-numero-mas {
+  font-size: 0.95rem;
+}
+
+.stepper-custom {
+  margin-top: 2px;
+  padding: 8px 4px;
+  border-top: 1px dashed var(--color-border);
+}
+
+/* Entradas sin cargo (ej. menores): no necesitan la grilla de números, alcanza un +/-. */
+.selector-simple .selector-header { margin-bottom: 2px; }
+
+.stepper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.stepper-cantidad {
+  min-width: 32px;
+  text-align: center;
+  font-family: var(--font-heading);
+  font-size: 1.2rem;
+  font-weight: 800;
+}
+
+.btn-cant {
+  width: 38px;
+  height: 38px;
+  border: 1.5px solid var(--color-border);
+  background-color: #fff;
+  border-radius: var(--radius-sm);
+  font-size: 1.2rem;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.btn-cant:hover { border-color: var(--color-primary); color: var(--color-primary-dark); }

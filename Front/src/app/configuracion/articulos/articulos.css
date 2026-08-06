@@ -1,0 +1,22 @@
+:host {
+  display: block;
+  width: 100%;
+}
+
+.fila-simple-articulos {
+  grid-template-columns: 1.6fr 1fr 0.8fr 1.6fr;
+}
+
+.acciones-tipo {
+  display: flex;
+  gap: 6px;
+}
+
+.acciones-tipo .btn-secundario {
+  padding: 6px 10px;
+  font-size: 0.78rem;
+}
+
+@media (max-width: 900px) {
+  .fila-simple-articulos { grid-template-columns: 1fr 1fr; }
+}

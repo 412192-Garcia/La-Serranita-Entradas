@@ -1,0 +1,223 @@
+/* Clases usadas por más de un componente del módulo POS (importar con @import). */
+
+.alerta-error {
+  background-color: var(--color-danger-light);
+  color: var(--color-danger-dark);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.acciones {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-limpiar {
+  padding: 14px 16px;
+  border: 1.5px solid var(--color-border);
+  background-color: #fff;
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.btn-limpiar:hover { border-color: var(--color-danger); color: var(--color-danger-dark); }
+
+.btn-cobrar {
+  flex: 1;
+  padding: 16px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background-color: var(--color-primary);
+  color: #fff;
+  font-family: var(--font-heading);
+  font-size: 1.15rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background-color 0.18s ease;
+}
+
+.btn-cobrar:hover:not(:disabled) { background-color: var(--color-primary-dark); }
+
+.btn-cobrar:disabled {
+  background-color: var(--color-border);
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.btn-secundario-caja {
+  padding: 10px 16px;
+  border: 1.5px solid var(--color-border);
+  background-color: #fff;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.btn-secundario-caja:hover { border-color: var(--color-primary); color: var(--color-primary-dark); }
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 16px;
+}
+
+.panel-caja {
+  background-color: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card-lg);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  max-width: 480px;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+.panel-caja h3 {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.fila-panel-caja {
+  display: flex;
+  gap: 12px;
+}
+
+.fila-panel-caja label {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+}
+
+.fila-panel-caja input,
+.campo-motivo input {
+  padding: 12px 14px;
+  font-size: 1rem;
+  font-family: inherit;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  outline: none;
+}
+
+.fila-panel-caja input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(57, 169, 53, 0.15);
+}
+
+.campo-motivo {
+  flex: 2;
+}
+
+.comprobante {
+  background-color: #fff;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card-lg);
+  padding: 40px 32px;
+  max-width: 460px;
+  margin: 20px auto 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 6px;
+}
+
+.comprobante-icono {
+  width: 52px;
+  height: 52px;
+  stroke-width: 1.5;
+  color: var(--color-primary);
+}
+
+.comprobante h2 {
+  font-family: var(--font-heading);
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 4px 0 0;
+}
+
+.btn-nueva-venta {
+  width: 100%;
+  margin-top: 22px;
+  padding: 16px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background-color: var(--color-primary);
+  color: #fff;
+  font-family: var(--font-heading);
+  font-size: 1.1rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.btn-nueva-venta:hover { background-color: var(--color-primary-dark); }
+
+.subtitulo-apertura {
+  margin: -6px 0 4px;
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+}
+
+.campo-apertura {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  text-align: left;
+}
+
+.campo-apertura input {
+  padding: 14px 16px;
+  font-size: 1.2rem;
+  font-family: inherit;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  outline: none;
+}
+
+.campo-apertura input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(57, 169, 53, 0.15);
+}
+
+.btn-quitar-cierre {
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  border: 1.5px solid var(--color-border);
+  background-color: #fff;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.btn-quitar-cierre:hover { border-color: var(--color-danger); color: var(--color-danger-dark); }

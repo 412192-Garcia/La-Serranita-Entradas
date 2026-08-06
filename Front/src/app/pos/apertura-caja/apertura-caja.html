@@ -1,0 +1,35 @@
+<div class="comprobante">
+  <svg lucideLockOpen class="comprobante-icono" [strokeWidth]="1.5"></svg>
+  <h2>Abrir caja</h2>
+  <p class="subtitulo-apertura">Cargá con cuánto efectivo arranca el turno.</p>
+
+  <label class="campo-apertura">
+    Efectivo inicial
+    <input
+      type="text"
+      inputmode="numeric"
+      placeholder="0"
+      appMoneyInput
+      [ngModel]="montoApertura()"
+      (ngModelChange)="montoApertura.set($event)" />
+  </label>
+
+  <label class="campo-apertura">
+    ¿Con cuántas entradas empieza?
+    <input
+      type="number"
+      min="0"
+      inputmode="numeric"
+      placeholder="0"
+      [ngModel]="entradasFisicasApertura()"
+      (ngModelChange)="entradasFisicasApertura.set($event)" />
+  </label>
+
+  @if (errorApertura()) {
+    <p class="alerta-error">{{ errorApertura() }}</p>
+  }
+
+  <button type="button" class="btn-nueva-venta" [disabled]="abriendoCaja()" (click)="abrirCaja()">
+    {{ abriendoCaja() ? 'Abriendo…' : 'Abrir caja' }}
+  </button>
+</div>

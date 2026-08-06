@@ -191,6 +191,20 @@ public class CompraController {
             t.setPrecio(d.getTipoEntrada().getPrecio());
             t.setTipo(d.getTipoEntrada().getTipo());
             dto.setTipoEntrada(t);
+            dto.setPrecioUnitario(d.getTipoEntrada().getPrecio());
+        }
+        if (d.getArticuloVario() != null) {
+            dto.setArticuloVario(org.example.laserranitaentradas.model.dto.ArticuloVarioResponseDTO.builder()
+                    .id(d.getArticuloVario().getId())
+                    .nombre(d.getArticuloVario().getNombre())
+                    .precioSugerido(d.getArticuloVario().getPrecioSugerido())
+                    .activo(d.getArticuloVario().getActivo())
+                    .build());
+            dto.setPrecioUnitario(d.getPrecioUnitario());
+        }
+        if (d.getDescripcionLibre() != null) {
+            dto.setDescripcionLibre(d.getDescripcionLibre());
+            dto.setPrecioUnitario(d.getPrecioUnitario());
         }
         dto.setCantidad(d.getCantidad());
         return dto;

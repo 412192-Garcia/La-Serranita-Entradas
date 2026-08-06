@@ -15,7 +15,7 @@
             type="text"
             id="nombre"
             name="fname"
-            autocomplete="section-persona given-name"
+            autocomplete="section-titular given-name"
             formControlName="nombre"
             [class.input-error]="f['nombre'].touched && f['nombre'].invalid">
           @if (f['nombre'].touched && f['nombre'].errors?.['required']) {
@@ -29,7 +29,7 @@
             type="text"
             id="apellido"
             name="lname"
-            autocomplete="section-persona family-name"
+            autocomplete="section-titular family-name"
             formControlName="apellido"
             [class.input-error]="f['apellido'].touched && f['apellido'].invalid">
           @if (f['apellido'].touched && f['apellido'].errors?.['required']) {
@@ -38,18 +38,40 @@
         </div>
       </div>
 
-      <div class="campo-grupo">
-        <label for="dni">DNI</label>
-        <input
-          type="text"
-          id="dni"
-          name="dni"
-          autocomplete="section-persona off"
-          formControlName="dni"
-          [class.input-error]="f['dni'].touched && f['dni'].invalid">
-        @if (f['dni'].touched && f['dni'].invalid) {
-          <small class="error-text">Ingresá un DNI válido (solo números de 7 u 8 dígitos).</small>
-        }
+      <div class="grupo-dni">
+        <div class="fila-campos">
+          <div class="campo-grupo">
+            <label for="dni">DNI</label>
+            <input
+              type="text"
+              id="dni"
+              name="dni"
+              autocomplete="section-titular off"
+              formControlName="dni"
+              [class.input-error]="f['dni'].touched && f['dni'].invalid">
+            @if (f['dni'].touched && f['dni'].invalid) {
+              <small class="error-text">Ingresá un documento válido: DNI o pasaporte/cédula extranjera.</small>
+            }
+          </div>
+
+          <div class="campo-grupo">
+            <label for="dniConfirmacion">Confirmá tu DNI</label>
+            <input
+              type="text"
+              id="dniConfirmacion"
+              name="dniConfirmacion"
+              autocomplete="off"
+              formControlName="dniConfirmacion"
+              [class.input-error]="f['dniConfirmacion'].touched && f['dniConfirmacion'].invalid">
+            @if (f['dniConfirmacion'].touched && f['dniConfirmacion'].errors?.['dniNoCoincide']) {
+              <small class="error-text">No coincide con el DNI de arriba.</small>
+            }
+            @if (f['dniConfirmacion'].touched && f['dniConfirmacion'].errors?.['required']) {
+              <small class="error-text">Volvé a escribir tu DNI para confirmarlo.</small>
+            }
+          </div>
+        </div>
+        <small class="ayuda-dni">Es importante que esté bien escrito: es lo que usamos para identificarte al entrar al parque.</small>
       </div>
 
       <div class="campo-grupo">
@@ -58,7 +80,7 @@
           type="email"
           id="email"
           name="email"
-          autocomplete="section-persona email"
+          autocomplete="section-titular email"
           formControlName="email"
           [class.input-error]="f['email'].touched && f['email'].invalid">
         @if (f['email'].touched && f['email'].invalid) {
@@ -72,11 +94,11 @@
           type="tel"
           id="telefono"
           name="phone"
-          autocomplete="section-persona tel"
+          autocomplete="section-titular tel"
           formControlName="telefono"
           [class.input-error]="f['telefono'].touched && f['telefono'].invalid">
         @if (f['telefono'].touched && f['telefono'].invalid) {
-          <small class="error-text">Ingresá un teléfono válido (Mínimo 10 dígitos sin espacios).</small>
+          <small class="error-text">Ingresá un teléfono válido (entre 8 y 15 dígitos; podés usar espacios, guiones o "+").</small>
         }
       </div>
 
@@ -102,7 +124,7 @@
             type="text"
             id="localidad"
             name="localidad"
-            autocomplete="section-persona address-level2"
+            autocomplete="section-titular address-level2"
             formControlName="localidad">
         </div>
       </div>
@@ -117,24 +139,50 @@
             <input
               type="text"
               id="receptorNombre"
+              name="receptor-name"
+              autocomplete="section-receptor name"
               formControlName="nombre"
               [class.input-error]="fReceptor['nombre'].touched && fReceptor['nombre'].invalid">
             @if (fReceptor['nombre'].touched && fReceptor['nombre'].errors?.['required']) {
               <small class="error-text">El nombre es obligatorio.</small>
             }
           </div>
+        </div>
 
-          <div class="campo-grupo">
-            <label for="receptorDni">DNI</label>
-            <input
-              type="text"
-              id="receptorDni"
-              formControlName="dni"
-              [class.input-error]="fReceptor['dni'].touched && fReceptor['dni'].invalid">
-            @if (fReceptor['dni'].touched && fReceptor['dni'].invalid) {
-              <small class="error-text">Ingresá un DNI válido (solo números de 7 u 8 dígitos).</small>
-            }
+        <div class="grupo-dni" formGroupName="receptor">
+          <div class="fila-campos">
+            <div class="campo-grupo">
+              <label for="receptorDni">DNI</label>
+              <input
+                type="text"
+                id="receptorDni"
+                name="receptor-dni"
+                autocomplete="section-receptor off"
+                formControlName="dni"
+                [class.input-error]="fReceptor['dni'].touched && fReceptor['dni'].invalid">
+              @if (fReceptor['dni'].touched && fReceptor['dni'].invalid) {
+                <small class="error-text">Ingresá un documento válido: DNI (7 u 8 dígitos, ej. 46.308.241) o pasaporte/cédula extranjera.</small>
+              }
+            </div>
+
+            <div class="campo-grupo">
+              <label for="receptorDniConfirmacion">Confirmá el DNI</label>
+              <input
+                type="text"
+                id="receptorDniConfirmacion"
+                name="receptor-dni-confirmacion"
+                autocomplete="off"
+                formControlName="dniConfirmacion"
+                [class.input-error]="fReceptor['dniConfirmacion'].touched && fReceptor['dniConfirmacion'].invalid">
+              @if (fReceptor['dniConfirmacion'].touched && fReceptor['dniConfirmacion'].errors?.['dniNoCoincide']) {
+                <small class="error-text">No coincide con el DNI de arriba.</small>
+              }
+              @if (fReceptor['dniConfirmacion'].touched && fReceptor['dniConfirmacion'].errors?.['required']) {
+                <small class="error-text">Volvé a escribir el DNI para confirmarlo.</small>
+              }
+            </div>
           </div>
+          <small class="ayuda-dni">Importante que esté bien escrito: es lo que va a presentar en la entrada.</small>
         </div>
 
         <div class="fila-campos" formGroupName="receptor">
@@ -143,6 +191,8 @@
             <input
               type="email"
               id="receptorEmail"
+              name="receptor-email"
+              autocomplete="section-receptor email"
               formControlName="email"
               [class.input-error]="fReceptor['email'].touched && fReceptor['email'].invalid">
             @if (fReceptor['email'].touched && fReceptor['email'].invalid) {
@@ -152,7 +202,12 @@
 
           <div class="campo-grupo">
             <label for="receptorTelefono">Teléfono <span class="label-opcional">(opcional)</span></label>
-            <input type="tel" id="receptorTelefono" formControlName="telefono">
+            <input
+              type="tel"
+              id="receptorTelefono"
+              name="receptor-tel"
+              autocomplete="section-receptor tel"
+              formControlName="telefono">
           </div>
         </div>
       }

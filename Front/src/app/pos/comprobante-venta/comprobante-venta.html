@@ -1,0 +1,26 @@
+<!-- ============ COMPROBANTE DE LA VENTA RECIÉN CERRADA ============ -->
+<div class="comprobante">
+  <svg lucideCircleCheck class="comprobante-icono" [strokeWidth]="1.5"></svg>
+  <h2>Venta registrada</h2>
+  <p class="comprobante-codigo">#{{ venta().codigoReserva }}</p>
+
+  <div class="comprobante-monto">
+    <span class="etiqueta">Cobrado</span>
+    <span class="valor">{{ venta().montoTotal | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+  </div>
+
+  @if (formaPago() === 'EFECTIVO_BOLETERIA' && vuelto() !== null) {
+    <div class="comprobante-vuelto">
+      <span class="etiqueta">Vuelto</span>
+      <span class="valor">{{ vuelto() | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+    </div>
+  }
+
+  <p class="comprobante-detalle">
+    @for (i of items(); track $index) {
+      <span>{{ i.cantidad }}× {{ i.nombre }}</span>
+    }
+  </p>
+
+  <button type="button" class="btn-nueva-venta" (click)="nuevaVenta.emit()">Nueva venta</button>
+</div>

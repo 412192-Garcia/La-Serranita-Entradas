@@ -8,6 +8,10 @@ import java.math.BigDecimal;
 public class CompraDetalleResponseDTO {
     private Long id;
     private TipoEntradaResponseDTO tipoEntrada;
+    private ArticuloVarioResponseDTO articuloVario;
+    private String descripcionLibre;
+    /** Siempre poblado: precio de lista para entradas (en vivo), el guardado para artículos. */
+    private BigDecimal precioUnitario;
     private Integer cantidad;
 }
 

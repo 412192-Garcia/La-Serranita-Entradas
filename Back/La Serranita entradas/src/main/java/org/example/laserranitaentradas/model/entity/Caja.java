@@ -10,6 +10,8 @@ import lombok.ToString;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Turno de caja de un boletero: arranca con un monto inicial declarado y, al cerrar,
@@ -55,4 +57,22 @@ public class Caja extends BaseEntity {
     /** montoContado − montoEsperado: positivo es sobrante, negativo es faltante. */
     @Column(name = "diferencia")
     private BigDecimal diferencia;
+
+    /**
+     * Con cuántas entradas físicas (talonario) arranca el boletero el turno. Null en
+     * cajas abiertas antes de agregar este campo: el cierre tolera esa ausencia y no
+     * calcula la diferencia de entradas en ese caso.
+     */
+    @Column(name = "entradas_fisicas_inicial")
+    private Integer entradasFisicasInicial;
+
+    /** Con cuántas entradas físicas termina el turno. Null hasta que cierra. */
+    @Column(name = "entradas_fisicas_final")
+    private Integer entradasFisicasFinal;
+
+    /** Cuántos billetes de cada denominación contó el boletero al cerrar. */
+    @ElementCollection
+    @CollectionTable(name = "caja_conteo_efectivo", joinColumns = @JoinColumn(name = "id_caja"))
+    @Builder.Default
+    private List<ConteoDenominacion> conteoEfectivo = new ArrayList<>();
 }
