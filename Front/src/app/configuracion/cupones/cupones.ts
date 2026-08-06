@@ -2,10 +2,11 @@ import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ConfiguracionService, Cupon, FamiliaCupon } from '../../Services/configuracion.service';
+import { MoneyInputDirective } from '../../shared/money-input/money-input.directive';
 
 @Component({
   selector: 'app-configuracion-cupones',
-  imports: [FormsModule, DatePipe],
+  imports: [FormsModule, DatePipe, MoneyInputDirective],
   templateUrl: './cupones.html',
   styleUrls: ['../configuracion-shared.css', './cupones.css'],
 })

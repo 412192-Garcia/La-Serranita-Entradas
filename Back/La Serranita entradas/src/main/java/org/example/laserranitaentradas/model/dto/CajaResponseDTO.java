@@ -25,4 +25,28 @@ public class CajaResponseDTO {
     private BigDecimal montoContado;
     private BigDecimal diferencia;
     private List<RetiroCajaResponseDTO> retiros;
+
+    /** Detalle del conteo de billetes cargado al cerrar. Vacío mientras la caja sigue abierta. */
+    private List<ConteoDenominacionDTO> conteoEfectivo;
+
+    /** Esperado (según lo vendido con TARJETA/QR en esta caja) — null mientras sigue ABIERTA. */
+    private BigDecimal totalVentasTarjeta;
+    private BigDecimal totalVentasQr;
+    /** Contado (suma de los cierresPosnet cargados) — null hasta el cierre. */
+    private BigDecimal totalCerradoTarjeta;
+    private BigDecimal totalCerradoQr;
+    private BigDecimal diferenciaTarjeta;
+    private BigDecimal diferenciaQr;
+    private List<CierrePosnetResponseDTO> cierresPosnet;
+
+    private Integer entradasFisicasInicial;
+    private Integer entradasFisicasFinal;
+    /** Null mientras sigue ABIERTA, y también en cajas viejas sin entradasFisicasInicial cargado. */
+    private Integer entradasFisicasEsperadas;
+    private Integer diferenciaEntradas;
+    private Integer totalIngresosEntradas;
+    private List<IngresoEntradasResponseDTO> ingresosEntradas;
+
+    /** Ventas + retiros en orden cronológico. Null mientras sigue ABIERTA (mismo motivo anti-trampa que los totales esperados). */
+    private List<OperacionCajaDTO> operaciones;
 }

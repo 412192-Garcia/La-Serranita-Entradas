@@ -1,0 +1,110 @@
+<div class="modal-overlay" (click)="cerrar.emit()">
+  <div class="panel-caja panel-caja-cierre" (click)="$event.stopPropagation()">
+    <h3>Cerrar caja</h3>
+
+    <div class="cuerpo-cierre">
+      <section class="seccion-cierre columna-efectivo">
+        <h4>Efectivo</h4>
+        <p class="subtitulo-apertura">Contá los billetes de la caja.</p>
+        <div class="lista-denominaciones">
+          @for (d of denominaciones; track d) {
+            <label class="fila-denominacion">
+              <span>{{ d | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+              <input
+                type="number"
+                min="0"
+                inputmode="numeric"
+                placeholder="0"
+                [ngModel]="conteoEfectivo()[d]"
+                (ngModelChange)="setConteoEfectivo(d, $event ?? 0)" />
+            </label>
+          }
+        </div>
+        <div class="total-efectivo-contado">
+          <span>Total contado</span>
+          <strong>{{ montoContadoCalculado() | currency: 'ARS' : 'symbol' : '1.0-0' }}</strong>
+        </div>
+      </section>
+
+      <div class="columna-resto">
+        <section class="seccion-cierre">
+          <h4>Posnet</h4>
+          <p class="subtitulo-apertura">Si el posnet se reinició a mitad de turno, agregá otro cierre en la misma columna.</p>
+          <div class="columnas-posnet">
+            <div class="columna-posnet">
+              <h5>Tarjeta</h5>
+              @for (fila of cierresTarjeta(); track $index) {
+                <div class="fila-cierre-posnet-columna">
+                  <input
+                    type="text"
+                    inputmode="numeric"
+                    placeholder="Monto"
+                    appMoneyInput
+                    [ngModel]="fila.monto"
+                    (ngModelChange)="actualizarCierre('TARJETA', $index, { monto: $event })" />
+                  <input
+                    type="text"
+                    placeholder="Nota (opcional)"
+                    [ngModel]="fila.nota"
+                    (ngModelChange)="actualizarCierre('TARJETA', $index, { nota: $event })" />
+                  @if (cierresTarjeta().length > 1) {
+                    <button type="button" class="btn-quitar-cierre" (click)="quitarCierre('TARJETA', $index)" aria-label="Quitar">✕</button>
+                  }
+                </div>
+              }
+              <button type="button" class="btn-secundario-caja" (click)="agregarCierre('TARJETA')">+ Agregar cierre</button>
+            </div>
+
+            <div class="columna-posnet">
+              <h5>QR</h5>
+              @for (fila of cierresQr(); track $index) {
+                <div class="fila-cierre-posnet-columna">
+                  <input
+                    type="text"
+                    inputmode="numeric"
+                    placeholder="Monto"
+                    appMoneyInput
+                    [ngModel]="fila.monto"
+                    (ngModelChange)="actualizarCierre('MERCADO_PAGO_QR', $index, { monto: $event })" />
+                  <input
+                    type="text"
+                    placeholder="Nota (opcional)"
+                    [ngModel]="fila.nota"
+                    (ngModelChange)="actualizarCierre('MERCADO_PAGO_QR', $index, { nota: $event })" />
+                  @if (cierresQr().length > 1) {
+                    <button type="button" class="btn-quitar-cierre" (click)="quitarCierre('MERCADO_PAGO_QR', $index)" aria-label="Quitar">✕</button>
+                  }
+                </div>
+              }
+              <button type="button" class="btn-secundario-caja" (click)="agregarCierre('MERCADO_PAGO_QR')">+ Agregar cierre</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="seccion-cierre">
+          <h4>Entradas</h4>
+          <label class="campo-apertura">
+            ¿Con cuántas entradas termina?
+            <input
+              type="number"
+              min="0"
+              inputmode="numeric"
+              placeholder="0"
+              [ngModel]="entradasFisicasFinal()"
+              (ngModelChange)="entradasFisicasFinal.set($event)" />
+          </label>
+        </section>
+      </div>
+    </div>
+
+    @if (errorCierre()) {
+      <p class="alerta-error">{{ errorCierre() }}</p>
+    }
+    <div class="acciones">
+      <button type="button" class="btn-limpiar" (click)="cerrar.emit()">Cancelar</button>
+      <button type="button" class="btn-cobrar" [disabled]="cerrandoCaja()" (click)="confirmarCierre()">
+        {{ cerrandoCaja() ? 'Cerrando…' : 'Confirmar cierre' }}
+      </button>
+    </div>
+  </div>
+</div>

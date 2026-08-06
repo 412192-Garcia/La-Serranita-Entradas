@@ -1,0 +1,49 @@
+@for (t of entradas(); track t.id) {
+  @if (t.obligatorio) {
+    <!-- Entrada paga: un toque elige la cantidad exacta; tocar la misma la vacía. -->
+    <div class="selector-tipo">
+      <div class="selector-header">
+        <span class="selector-nombre">{{ t.nombre }}</span>
+        <span class="selector-precio">{{ t.precio | currency: 'ARS' : 'symbol' : '1.0-0' }} c/u</span>
+      </div>
+      <div class="selector-numeros">
+        @for (n of numerosRapidos; track n) {
+          <button
+            type="button"
+            class="btn-numero"
+            [class.activo]="getCantidad(t.id) === n"
+            (click)="elegirCantidad(t.id, n)">
+            {{ n }}
+          </button>
+        }
+        <button
+          type="button"
+          class="btn-numero btn-numero-mas"
+          [class.activo]="mostrarCustom(t.id)"
+          (click)="toggleCustom(t.id)">
+          10+
+        </button>
+      </div>
+      @if (mostrarCustom(t.id)) {
+        <div class="stepper stepper-custom">
+          <button type="button" class="btn-cant" (click)="decrementarCustom(t.id)" aria-label="Restar uno">−</button>
+          <span class="stepper-cantidad">{{ getCantidad(t.id) }}</span>
+          <button type="button" class="btn-cant" (click)="incrementarCustom(t.id)" aria-label="Sumar uno">+</button>
+        </div>
+      }
+    </div>
+  } @else {
+    <!-- Entrada sin cargo (ej. menores): alcanza con un +/- simple. -->
+    <div class="selector-tipo selector-simple">
+      <div class="selector-header">
+        <span class="selector-nombre">{{ t.nombre }}</span>
+        <span class="selector-precio">{{ t.precio | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+      </div>
+      <div class="stepper">
+        <button type="button" class="btn-cant" (click)="cambiarCantidad(t.id, -1)" aria-label="Quitar uno">−</button>
+        <span class="stepper-cantidad">{{ getCantidad(t.id) }}</span>
+        <button type="button" class="btn-cant" (click)="cambiarCantidad(t.id, 1)" aria-label="Agregar uno">+</button>
+      </div>
+    </div>
+  }
+}

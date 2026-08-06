@@ -1,0 +1,75 @@
+<div class="seccion">
+
+  <div class="tarjeta tarjeta-formulario">
+    <h2>{{ editandoId() ? 'Editar promoción' : 'Nueva promoción' }}</h2>
+    @if (error()) {
+      <p class="alerta-error">{{ error() }}</p>
+    }
+    <div class="form-grid">
+      <label>
+        Nombre
+        <input type="text" [ngModel]="nombre()" (ngModelChange)="nombre.set($event)" placeholder="Ej: Folleto Verano 2026" />
+      </label>
+      <label>
+        Tipo de descuento
+        <select [ngModel]="tipoDescuento()" (ngModelChange)="tipoDescuento.set($event)">
+          <option value="porcentaje">Porcentaje (%)</option>
+          <option value="monto">Monto fijo ($)</option>
+        </select>
+      </label>
+      <label>
+        Valor
+        <input
+          type="text"
+          inputmode="decimal"
+          [appMoneyInput]="tipoDescuento() === 'monto'"
+          [ngModel]="valor()"
+          (ngModelChange)="valor.set($event)" />
+      </label>
+    </div>
+    <div class="fila-horario">
+      <button type="button" class="btn-primario" [disabled]="guardando()" (click)="guardar()">
+        {{ guardando() ? 'Guardando…' : (editandoId() ? 'Guardar cambios' : 'Crear promoción') }}
+      </button>
+      @if (editandoId()) {
+        <button type="button" class="btn-secundario" (click)="cancelarEdicion()">Cancelar</button>
+      }
+    </div>
+  </div>
+
+  <div class="tarjeta">
+    <h2>Promociones existentes</h2>
+    @if (cargando()) {
+      <div class="spinner-contenedor"><div class="spinner"></div></div>
+    } @else if (promociones().length === 0) {
+      <p class="ayuda">Todavía no hay promociones creadas.</p>
+    } @else {
+      <div class="tabla-simple">
+        <div class="fila-simple fila-simple-promos fila-simple-header">
+          <span>Nombre</span><span>Descuento</span><span>Estado</span><span>Acción</span>
+        </div>
+        @for (p of promociones(); track p.id) {
+          <div class="fila-simple fila-simple-promos">
+            <span>{{ p.nombre }}</span>
+            <span>
+              @if (p.montoDescuento !== null) {
+                {{ p.montoDescuento | currency: 'ARS' : 'symbol' : '1.0-0' }}
+              } @else {
+                {{ p.porcentajeDescuento }}%
+              }
+            </span>
+            <span class="badge" [class.badge-activo]="p.activo" [class.badge-inactivo]="!p.activo">
+              {{ p.activo ? 'Activa' : 'Inactiva' }}
+            </span>
+            <span class="acciones-tipo">
+              <button type="button" class="btn-secundario" (click)="editar(p)">Editar</button>
+              <button type="button" class="btn-secundario" (click)="toggleActivo(p)">
+                {{ p.activo ? 'Desactivar' : 'Activar' }}
+              </button>
+            </span>
+          </div>
+        }
+      </div>
+    }
+  </div>
+</div>

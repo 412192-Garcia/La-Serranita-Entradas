@@ -3,6 +3,7 @@ package org.example.laserranitaentradas.model.dto;
 import lombok.Data;
 import org.example.laserranitaentradas.model.entity.FormaPago;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 /**
@@ -14,4 +15,12 @@ public class VentaPosRequestDTO {
     /** Cómo cobró el boletero. Define además si corresponde el precio promocional por grupo. */
     FormaPago formaPago;
     List<DetalleCompraDTO> entradas;
+    /** Artículos varios (souvenirs, etc.), de catálogo o libres. */
+    List<LineaArticuloPosDTO> articulos;
+    /** Descuento por promo con nombre. Excluyente con descuentoManualPorcentaje/Monto. */
+    Long promocionId;
+    /** Descuento manual ad-hoc que tipea el cajero. Excluyente con promocionId y con descuentoManualMonto. */
+    BigDecimal descuentoManualPorcentaje;
+    /** Excluyente con promocionId y con descuentoManualPorcentaje. */
+    BigDecimal descuentoManualMonto;
 }

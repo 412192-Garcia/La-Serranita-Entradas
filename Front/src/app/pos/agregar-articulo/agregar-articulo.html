@@ -1,0 +1,50 @@
+<div class="bloque-agregar-articulo">
+  <button type="button" class="btn-secundario-caja" (click)="toggle()">
+    {{ mostrarPanel() ? 'Cancelar' : '+ Agregar artículo' }}
+  </button>
+
+  @if (mostrarPanel()) {
+    <div class="panel-agregar-articulo">
+      <select [ngModel]="seleccion()" (ngModelChange)="elegirOpcion($event)">
+        <option [ngValue]="null">Elegí un artículo…</option>
+        @for (a of catalogoActivo(); track a.id) {
+          <option [ngValue]="a.id">{{ a.nombre }}</option>
+        }
+        <option [ngValue]="'libre'">Otro (especificar)…</option>
+      </select>
+
+      @if (seleccion() === 'libre') {
+        <label>
+          Descripción
+          <input type="text" placeholder="Ej: Cuadrito souvenir" [ngModel]="libreDescripcion()" (ngModelChange)="libreDescripcion.set($event)" />
+        </label>
+        <label>
+          Precio
+          <input
+            type="text"
+            inputmode="numeric"
+            appMoneyInput
+            [ngModel]="librePrecio()"
+            (ngModelChange)="librePrecio.set($event)" />
+        </label>
+      } @else if (seleccion() !== null) {
+        <label>
+          Precio
+          <input
+            type="text"
+            inputmode="numeric"
+            appMoneyInput
+            [ngModel]="catalogoPrecio()"
+            (ngModelChange)="catalogoPrecio.set($event)" />
+        </label>
+      }
+
+      <label>
+        Cantidad
+        <input type="number" min="1" [ngModel]="cantidad()" (ngModelChange)="cantidad.set($event)" />
+      </label>
+
+      <button type="button" class="btn-cobrar" (click)="confirmar()">Agregar al carrito</button>
+    </div>
+  }
+</div>

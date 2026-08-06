@@ -1,0 +1,42 @@
+<div class="modal-overlay" (click)="cerrar.emit()">
+  <div class="panel-caja" (click)="$event.stopPropagation()">
+    <h3>Retirar efectivo</h3>
+    <div class="fila-panel-caja">
+      <label>
+        Monto
+        <input
+          type="text"
+          inputmode="numeric"
+          placeholder="0"
+          appMoneyInput
+          [ngModel]="monto()"
+          (ngModelChange)="monto.set($event)" />
+      </label>
+      <label class="campo-motivo">
+        Motivo
+        <input
+          type="text"
+          placeholder="Ej: resguardo en caja fuerte"
+          [ngModel]="motivo()"
+          (ngModelChange)="motivo.set($event)" />
+      </label>
+    </div>
+    @if (error()) {
+      <p class="alerta-error">{{ error() }}</p>
+    }
+    <div class="acciones">
+      <button type="button" class="btn-limpiar" (click)="cerrar.emit()">Cancelar</button>
+      <button type="button" class="btn-cobrar" [disabled]="registrando()" (click)="confirmar()">
+        {{ registrando() ? 'Registrando…' : 'Confirmar retiro' }}
+      </button>
+    </div>
+
+    @if (retiros().length) {
+      <ul class="lista-retiros">
+        @for (r of retiros(); track r.id) {
+          <li><span>{{ r.motivo }}</span><span>{{ r.monto | currency: 'ARS' : 'symbol' : '1.0-0' }}</span></li>
+        }
+      </ul>
+    }
+  </div>
+</div>

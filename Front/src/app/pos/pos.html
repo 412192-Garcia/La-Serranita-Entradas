@@ -6,378 +6,84 @@
     [enlace]="enlaceBoleteria" />
 
   @if (cajaCerrada(); as cerrada) {
-    <!-- ============ RESUMEN DE LA CAJA RECIÉN CERRADA ============ -->
-    <div class="comprobante">
-      <svg lucideLock class="comprobante-icono" [strokeWidth]="1.5"></svg>
-      <h2>Caja cerrada</h2>
-
-      <div class="comprobante-monto">
-        <span class="etiqueta">Efectivo esperado</span>
-        <span class="valor">{{ cerrada.efectivoEsperado | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
-      </div>
-      <div class="comprobante-monto">
-        <span class="etiqueta">Efectivo contado</span>
-        <span class="valor">{{ cerrada.montoContado | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
-      </div>
-
-      @if (cerrada.diferencia !== null) {
-        <div class="comprobante-vuelto" [class.diferencia-negativa]="cerrada.diferencia < 0">
-          <span class="etiqueta">{{ cerrada.diferencia < 0 ? 'Faltante' : cerrada.diferencia > 0 ? 'Sobrante' : 'Sin diferencia' }}</span>
-          <span class="valor">{{ (cerrada.diferencia < 0 ? -cerrada.diferencia : cerrada.diferencia) | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
-        </div>
-      }
-
-      <p class="comprobante-detalle">
-        <span>Inicial {{ cerrada.montoInicial | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
-        <span>Ventas en efectivo {{ cerrada.totalVentasEfectivo | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
-        <span>Retiros {{ cerrada.totalRetiros | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
-      </p>
-
-      <button type="button" class="btn-nueva-venta" (click)="iniciarNuevaCaja()">Iniciar nueva caja</button>
-    </div>
+    <app-resumen-cierre [caja]="cerrada" (verReservas)="irAReservas()" />
   } @else if (cargandoCaja()) {
     <div class="spinner-contenedor"><div class="spinner"></div></div>
   } @else if (caja() === null) {
-    <!-- ============ APERTURA DE CAJA ============ -->
-    <div class="comprobante">
-      <svg lucideLockOpen class="comprobante-icono" [strokeWidth]="1.5"></svg>
-      <h2>Abrir caja</h2>
-      <p class="subtitulo-apertura">Cargá con cuánto efectivo arranca el turno.</p>
-
-      <label class="campo-apertura">
-        Efectivo inicial
-        <input
-          type="number"
-          min="0"
-          inputmode="numeric"
-          placeholder="0"
-          [ngModel]="montoApertura()"
-          (ngModelChange)="montoApertura.set($event)" />
-      </label>
-
-      @if (errorApertura()) {
-        <p class="alerta-error">{{ errorApertura() }}</p>
-      }
-
-      <button type="button" class="btn-nueva-venta" [disabled]="abriendoCaja()" (click)="abrirCaja()">
-        {{ abriendoCaja() ? 'Abriendo…' : 'Abrir caja' }}
-      </button>
-    </div>
+    <app-apertura-caja (cajaAbierta)="caja.set($event)" />
   } @else {
 
-    <!-- ============ BARRA DE CAJA (abierta) ============ -->
-    <!-- No se muestra el efectivo esperado ni lo vendido en efectivo hasta el cierre:
-         es justamente lo que el boletero tiene que contar a ciegas. -->
-    <div class="barra-caja">
-      <div class="barra-caja-datos">
-        <span class="barra-caja-item"><strong>Caja abierta</strong></span>
-        <span class="barra-caja-item muted">Inicial {{ caja()!.montoInicial | currency: 'ARS' : 'symbol' : '1.0-0' }} · Retiros {{ caja()!.totalRetiros | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
-      </div>
-      <div class="barra-caja-acciones">
-        <button type="button" class="btn-secundario-caja" (click)="toggleBusquedaReserva()">Validar reserva</button>
-        <button type="button" class="btn-secundario-caja" (click)="toggleRetiro()">Retirar efectivo</button>
-        <button type="button" class="btn-secundario-caja" (click)="toggleCierre()">Cerrar caja</button>
-      </div>
-    </div>
+    <app-barra-caja
+      [caja]="caja()!"
+      (validarReserva)="mostrarBusquedaReserva.set(true)"
+      (retirarEfectivo)="mostrarRetiro.set(true)"
+      (agregarEntradas)="mostrarIngresoEntradas.set(true)"
+      (cerrarCaja)="mostrarCierre.set(true)" />
 
     <!-- Los tres son modales: no empujan el mostrador de venta, y al taparlo de paso
          evitan seguir cobrando hacia una caja que se está por cerrar o retirar. -->
     @if (mostrarBusquedaReserva()) {
-      <div class="modal-overlay" (click)="toggleBusquedaReserva()">
-        <div class="panel-caja" (click)="$event.stopPropagation()">
-          <h3>Validar reserva anticipada</h3>
-          <div class="fila-panel-caja">
-            <label class="campo-motivo">
-              DNI, nombre, email o código de reserva
-              <input
-                type="text"
-                placeholder="Ej: 35123456 o 260725-1"
-                [ngModel]="textoBusquedaReserva()"
-                (ngModelChange)="textoBusquedaReserva.set($event)"
-                (keyup.enter)="buscarReserva()" />
-            </label>
-            <button type="button" class="btn-cobrar btn-buscar-reserva" [disabled]="!textoBusquedaReserva().trim() || buscandoReserva()" (click)="buscarReserva()">
-              {{ buscandoReserva() ? 'Buscando…' : 'Buscar' }}
-            </button>
-          </div>
-
-          @if (errorBusquedaReserva()) {
-            <p class="alerta-error">{{ errorBusquedaReserva() }}</p>
-          }
-
-          @if (resultadosReserva(); as resultados) {
-            @if (resultados.length === 0) {
-              <p class="sin-resultados-reserva">No se encontraron reservas anticipadas con ese dato.</p>
-            } @else {
-              <ul class="lista-reservas-encontradas">
-                @for (r of resultados; track r.id) {
-                  <li>
-                    <div class="reserva-encontrada-datos">
-                      <strong>{{ r.cliente?.nombre }} {{ r.cliente?.apellido }}</strong>
-                      <span>DNI {{ r.cliente?.dni }} · #{{ r.codigoReserva }}</span>
-                    </div>
-                    @if (r.estado === 'APROBADO') {
-                      <button type="button" class="btn-accion-reserva" [disabled]="procesandoReserva(r)" (click)="validarReserva(r)">
-                        {{ procesandoReserva(r) ? 'Validando…' : 'Validar Ingreso' }}
-                      </button>
-                    } @else if (r.estado === 'RESERVADO_EFECTIVO') {
-                      <button type="button" class="btn-accion-reserva btn-accion-reserva-cobrar" [disabled]="procesandoReserva(r)" (click)="cobrarReserva(r)">
-                        {{ procesandoReserva(r) ? 'Registrando…' : 'Cobrar (' + (r.montoTotal | currency: 'ARS' : 'symbol' : '1.0-0') + ')' }}
-                      </button>
-                    } @else {
-                      <span class="reserva-encontrada-estado">{{ r.estado }}</span>
-                    }
-                  </li>
-                }
-              </ul>
-            }
-          }
-        </div>
-      </div>
+      <app-validar-reserva-modal (cerrar)="mostrarBusquedaReserva.set(false)" />
     }
 
     @if (mostrarRetiro()) {
-      <div class="modal-overlay" (click)="toggleRetiro()">
-        <div class="panel-caja" (click)="$event.stopPropagation()">
-          <h3>Retirar efectivo</h3>
-          <div class="fila-panel-caja">
-            <label>
-              Monto
-              <input
-                type="number"
-                min="0"
-                inputmode="numeric"
-                placeholder="0"
-                [ngModel]="retiroMonto()"
-                (ngModelChange)="retiroMonto.set($event)" />
-            </label>
-            <label class="campo-motivo">
-              Motivo
-              <input
-                type="text"
-                placeholder="Ej: resguardo en caja fuerte"
-                [ngModel]="retiroMotivo()"
-                (ngModelChange)="retiroMotivo.set($event)" />
-            </label>
-          </div>
-          @if (errorRetiro()) {
-            <p class="alerta-error">{{ errorRetiro() }}</p>
-          }
-          <div class="acciones">
-            <button type="button" class="btn-limpiar" (click)="toggleRetiro()">Cancelar</button>
-            <button type="button" class="btn-cobrar" [disabled]="registrandoRetiro()" (click)="confirmarRetiro()">
-              {{ registrandoRetiro() ? 'Registrando…' : 'Confirmar retiro' }}
-            </button>
-          </div>
+      <app-retiro-efectivo-modal
+        [retiros]="caja()!.retiros"
+        (retiroRegistrado)="onRetiroRegistrado($event)"
+        (cerrar)="mostrarRetiro.set(false)" />
+    }
 
-          @if (caja()!.retiros.length) {
-            <ul class="lista-retiros">
-              @for (r of caja()!.retiros; track r.id) {
-                <li><span>{{ r.motivo }}</span><span>{{ r.monto | currency: 'ARS' : 'symbol' : '1.0-0' }}</span></li>
-              }
-            </ul>
-          }
-        </div>
-      </div>
+    @if (mostrarIngresoEntradas()) {
+      <app-ingreso-entradas-modal
+        [ingresos]="caja()!.ingresosEntradas"
+        (ingresoRegistrado)="onIngresoEntradasRegistrado($event)"
+        (cerrar)="mostrarIngresoEntradas.set(false)" />
     }
 
     @if (mostrarCierre()) {
-      <div class="modal-overlay" (click)="toggleCierre()">
-        <div class="panel-caja" (click)="$event.stopPropagation()">
-          <h3>Cerrar caja</h3>
-          <p class="subtitulo-apertura">Contá todo el efectivo físico de la caja y cargá el total.</p>
-          <label class="campo-apertura">
-            Efectivo contado
-            <input
-              type="number"
-              min="0"
-              inputmode="numeric"
-              placeholder="0"
-              [ngModel]="montoContado()"
-              (ngModelChange)="montoContado.set($event)" />
-          </label>
-          @if (errorCierre()) {
-            <p class="alerta-error">{{ errorCierre() }}</p>
-          }
-          <div class="acciones">
-            <button type="button" class="btn-limpiar" (click)="toggleCierre()">Cancelar</button>
-            <button type="button" class="btn-cobrar" [disabled]="cerrandoCaja()" (click)="confirmarCierre()">
-              {{ cerrandoCaja() ? 'Cerrando…' : 'Confirmar cierre' }}
-            </button>
-          </div>
-        </div>
-      </div>
+      <app-cierre-caja-modal (cajaCerrada)="onCajaCerrada($event)" (cerrar)="mostrarCierre.set(false)" />
     }
 
     @if (ultimaVenta(); as venta) {
-    <!-- ============ COMPROBANTE DE LA VENTA RECIÉN CERRADA ============ -->
-    <div class="comprobante">
-      <svg lucideCircleCheck class="comprobante-icono" [strokeWidth]="1.5"></svg>
-      <h2>Venta registrada</h2>
-      <p class="comprobante-codigo">#{{ venta.codigoReserva }}</p>
+      <app-comprobante-venta
+        [venta]="venta.venta"
+        [formaPago]="venta.formaPago"
+        [vuelto]="venta.vuelto"
+        [items]="venta.items"
+        (nuevaVenta)="nuevaVenta()" />
+    } @else {
 
-      <div class="comprobante-monto">
-        <span class="etiqueta">Cobrado</span>
-        <span class="valor">{{ venta.montoTotal | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
-      </div>
-
-      @if (formaPago() === 'EFECTIVO_BOLETERIA' && vuelto() !== null) {
-        <div class="comprobante-vuelto">
-          <span class="etiqueta">Vuelto</span>
-          <span class="valor">{{ vuelto() | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
-        </div>
+      @if (errorCarga()) {
+        <p class="alerta-error">{{ errorCarga() }}</p>
       }
 
-      <p class="comprobante-detalle">
-        @for (l of lineas(); track l.tipo.id) {
-          <span>{{ l.cantidad }}× {{ l.tipo.nombre }}</span>
-        }
-      </p>
+      @if (cargando()) {
+        <div class="spinner-contenedor"><div class="spinner"></div></div>
+      } @else {
+        <div class="pos-layout">
 
-      <button type="button" class="btn-nueva-venta" (click)="nuevaVenta()">Nueva venta</button>
-    </div>
-  } @else {
+          <!-- ============ CATÁLOGO ============ -->
+          <section class="catalogo">
+            <app-catalogo-entradas
+              [entradas]="tiposEntrada()"
+              [cantidades]="cantidades()"
+              (cantidadesChange)="cantidades.set($event)" />
 
-    @if (error()) {
-      <p class="alerta-error">{{ error() }}</p>
+            <app-agregar-articulo [catalogo]="articulosCatalogo()" (articuloAgregado)="onArticuloAgregado($event)" />
+          </section>
+
+          <!-- ============ CARRITO Y COBRO ============ -->
+          <app-carrito-venta
+            [tiposEntrada]="tiposEntrada()"
+            [cantidades]="cantidades()"
+            [articulosCarrito]="articulosCarrito()"
+            [promociones]="promociones()"
+            (quitarArticulo)="onQuitarArticulo($event)"
+            (limpiar)="onLimpiar()"
+            (ventaRegistrada)="onVentaRegistrada($event)" />
+
+        </div>
+      }
     }
-
-    @if (cargando()) {
-      <div class="spinner-contenedor"><div class="spinner"></div></div>
-    } @else {
-      <div class="pos-layout">
-
-        <!-- ============ CATÁLOGO ============ -->
-        <section class="catalogo">
-          @for (t of entradas(); track t.id) {
-            @if (t.obligatorio) {
-              <!-- Entrada paga: un toque elige la cantidad exacta; tocar la misma la vacía. -->
-              <div class="selector-tipo">
-                <div class="selector-header">
-                  <span class="selector-nombre">{{ t.nombre }}</span>
-                  <span class="selector-precio">{{ t.precio | currency: 'ARS' : 'symbol' : '1.0-0' }} c/u</span>
-                </div>
-                <div class="selector-numeros">
-                  @for (n of numerosRapidos; track n) {
-                    <button
-                      type="button"
-                      class="btn-numero"
-                      [class.activo]="getCantidad(t.id) === n"
-                      (click)="elegirCantidad(t.id, n)">
-                      {{ n }}
-                    </button>
-                  }
-                  <button
-                    type="button"
-                    class="btn-numero btn-numero-mas"
-                    [class.activo]="mostrarCustom(t.id)"
-                    (click)="toggleCustom(t.id)">
-                    10+
-                  </button>
-                </div>
-                @if (mostrarCustom(t.id)) {
-                  <div class="stepper stepper-custom">
-                    <button type="button" class="btn-cant" (click)="decrementarCustom(t.id)" aria-label="Restar uno">−</button>
-                    <span class="stepper-cantidad">{{ getCantidad(t.id) }}</span>
-                    <button type="button" class="btn-cant" (click)="incrementarCustom(t.id)" aria-label="Sumar uno">+</button>
-                  </div>
-                }
-              </div>
-            } @else {
-              <!-- Entrada sin cargo (ej. menores): alcanza con un +/- simple. -->
-              <div class="selector-tipo selector-simple">
-                <div class="selector-header">
-                  <span class="selector-nombre">{{ t.nombre }}</span>
-                  <span class="selector-precio">{{ t.precio | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
-                </div>
-                <div class="stepper">
-                  <button type="button" class="btn-cant" (click)="cambiarCantidad(t.id, -1)" aria-label="Quitar uno">−</button>
-                  <span class="stepper-cantidad">{{ getCantidad(t.id) }}</span>
-                  <button type="button" class="btn-cant" (click)="cambiarCantidad(t.id, 1)" aria-label="Agregar uno">+</button>
-                </div>
-              </div>
-            }
-          }
-        </section>
-
-        <!-- ============ CARRITO Y COBRO ============ -->
-        <aside class="carrito">
-          <div class="carrito-lineas">
-            @if (!hayItems()) {
-              <p class="carrito-vacio">Tocá una entrada para empezar la venta.</p>
-            } @else {
-              @for (l of lineas(); track l.tipo.id) {
-                <!-- Sólo detalle: la cantidad se elige en el catálogo, acá no se modifica. -->
-                <div class="linea">
-                  <span class="linea-nombre">{{ l.cantidad }}× {{ l.tipo.nombre }}</span>
-                  <span class="linea-subtotal">{{ l.tipo.precio * l.cantidad | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
-                </div>
-              }
-            }
-          </div>
-
-          <div class="carrito-cobro">
-            <div class="formas-pago">
-              @for (f of formasPago; track f.valor) {
-                <button
-                  type="button"
-                  class="btn-forma-pago"
-                  [class.activo]="formaPago() === f.valor"
-                  (click)="formaPago.set(f.valor)">
-                  {{ f.etiqueta }}
-                </button>
-              }
-            </div>
-
-            @if (ahorro() > 0) {
-              <p class="aviso-promo">
-                Precio promocional por grupo aplicado — ahorra {{ ahorro() | currency: 'ARS' : 'symbol' : '1.0-0' }}
-              </p>
-            }
-
-            <div class="fila-total">
-              <span class="etiqueta-total">TOTAL</span>
-              <span class="valor-total">{{ total() | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
-            </div>
-
-            @if (formaPago() === 'EFECTIVO_BOLETERIA' && hayItems()) {
-              <div class="bloque-vuelto">
-                <label>
-                  Paga con
-                  <input
-                    type="number"
-                    min="0"
-                    inputmode="numeric"
-                    placeholder="Opcional"
-                    [ngModel]="pagaCon()"
-                    (ngModelChange)="pagaCon.set($event)" />
-                </label>
-                @if (vuelto() !== null) {
-                  <div class="vuelto-resultado">
-                    <span>Vuelto</span>
-                    <strong>{{ vuelto() | currency: 'ARS' : 'symbol' : '1.0-0' }}</strong>
-                  </div>
-                }
-              </div>
-            }
-
-            @if (motivoBloqueo(); as motivo) {
-              <p class="motivo-bloqueo">{{ motivo }}</p>
-            }
-
-            <div class="acciones">
-              @if (hayItems()) {
-                <button type="button" class="btn-limpiar" (click)="limpiar()">Limpiar</button>
-              }
-              <button type="button" class="btn-cobrar" [disabled]="!puedeCobrar()" (click)="cobrar()">
-                {{ cobrando() ? 'Registrando…' : 'Cobrar' }}
-              </button>
-            </div>
-          </div>
-        </aside>
-
-      </div>
-    }
-  }
   }
 </div>

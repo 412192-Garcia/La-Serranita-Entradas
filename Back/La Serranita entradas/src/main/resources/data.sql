@@ -22,12 +22,12 @@ INSERT INTO usuarios (
 -- EXTRA: Almuerzo / Combo Gastronómico
 -- -----------------------------------------------------------------------------
 INSERT INTO tipos_entrada (
-    id, nombre, descripcion, precio, tipo, activo, obligatorio,
+    id, nombre, descripcion, precio, tipo, activo, obligatorio, entrega_entrada,
     fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion
 ) VALUES
-      (1, 'Pase General', 'Acceso ilimitado a todos los juegos del parque (a partir de 4 años).', 34300.00, 'ENTRADA', true, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'admin', 'admin'),
-      (2, 'Pase Menor (0 a 3 años)', 'Ingreso gratuito para niños de 0 a 3 años cumplidos (presentando DNI).', 0.00, 'ENTRADA', true, false, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'admin', 'admin'),
-      (3, 'Menú Almuerzo Parque', 'Incluye una Hamburguesa con Jamon y Queso + Papas fritas + Bebida 500ml. Para canjear en la Cantina del Parque.', 12500.00, 'EXTRA', true, false, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'admin', 'admin');
+      (1, 'Pase General', 'Acceso ilimitado a todos los juegos del parque (a partir de 4 años).', 34300.00, 'ENTRADA', true, true, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'admin', 'admin'),
+      (2, 'Pase Menor (0 a 3 años)', 'Ingreso gratuito para niños de 0 a 3 años cumplidos (presentando DNI).', 0.00, 'ENTRADA', true, false, false, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'admin', 'admin'),
+      (3, 'Menú Almuerzo Parque', 'Incluye una Hamburguesa con Jamon y Queso + Papas fritas + Bebida 500ml. Para canjear en la Cantina del Parque.', 12500.00, 'EXTRA', true, false, false, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'admin', 'admin');
 
 -- IDs insertados a mano: hay que correr la identidad para que el próximo INSERT
 -- generado por la app (POST /api/tipos-entrada) no choque con el id=3 ya usado.

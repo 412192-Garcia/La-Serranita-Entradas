@@ -59,63 +59,10 @@
   grid-template-columns: 2fr 1fr 1fr;
 }
 
-.kpi-numero-negativo {
-  color: var(--color-danger-dark);
-}
-
-.fila-simple-cajas {
-  grid-template-columns: 1.3fr 1fr 1fr 0.9fr 0.9fr 0.9fr 0.9fr 0.9fr;
-  font-size: 0.85rem;
-}
-
-.fila-simple-ranking {
-  grid-template-columns: 1.6fr 1fr 1fr 1fr 1fr;
-  font-size: 0.9rem;
-}
-
-.filtro-boleteros {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 16px;
-}
-
-.chip-filtro {
-  border: 1px solid var(--color-border);
-  background: var(--color-bg-soft);
-  color: var(--color-text);
-  border-radius: 999px;
-  padding: 6px 14px;
-  font-size: 0.85rem;
-  cursor: pointer;
-}
-
-.chip-filtro.activo {
-  background: var(--color-primary);
-  border-color: var(--color-primary);
-  color: #fff;
-}
-
-.diferencia-faltante {
-  color: var(--color-danger-dark);
-  font-weight: 700;
-}
-
-.diferencia-sobrante {
-  color: var(--color-primary-dark);
-  font-weight: 700;
-}
-
-.diferencia-exacta {
-  color: var(--color-text-secondary);
-}
-
 /* ---------- Responsive ---------- */
 @media (max-width: 900px) {
   .seccion-reportes, .tarjeta-kpis { grid-template-columns: 1fr; }
   .fila-simple-desglose { grid-template-columns: 1fr; font-size: 0.8rem; }
   .fila-simple-desglose-simple { grid-template-columns: 1fr 1fr 1fr; }
-  .fila-simple-cajas { grid-template-columns: 1fr; font-size: 0.8rem; }
-  .fila-simple-ranking { grid-template-columns: 1fr; font-size: 0.8rem; }
   .grafico-contenedor-grande { height: 320px; }
 }

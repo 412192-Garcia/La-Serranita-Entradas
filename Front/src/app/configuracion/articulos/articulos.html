@@ -1,0 +1,62 @@
+<div class="seccion">
+
+  <div class="tarjeta tarjeta-formulario">
+    <h2>{{ editandoId() ? 'Editar artículo' : 'Nuevo artículo' }}</h2>
+    @if (error()) {
+      <p class="alerta-error">{{ error() }}</p>
+    }
+    <div class="form-grid">
+      <label>
+        Nombre
+        <input type="text" [ngModel]="nombre()" (ngModelChange)="nombre.set($event)" placeholder="Ej: Cuadrito souvenir" />
+      </label>
+      <label>
+        <span class="etiqueta-campo">Precio sugerido <span class="opcional">(opcional)</span></span>
+        <input
+          type="text"
+          inputmode="numeric"
+          appMoneyInput
+          [ngModel]="precioSugerido()"
+          (ngModelChange)="precioSugerido.set($event)" />
+      </label>
+    </div>
+    <div class="fila-horario">
+      <button type="button" class="btn-primario" [disabled]="guardando()" (click)="guardar()">
+        {{ guardando() ? 'Guardando…' : (editandoId() ? 'Guardar cambios' : 'Crear artículo') }}
+      </button>
+      @if (editandoId()) {
+        <button type="button" class="btn-secundario" (click)="cancelarEdicion()">Cancelar</button>
+      }
+    </div>
+  </div>
+
+  <div class="tarjeta">
+    <h2>Artículos existentes</h2>
+    @if (cargando()) {
+      <div class="spinner-contenedor"><div class="spinner"></div></div>
+    } @else if (articulos().length === 0) {
+      <p class="ayuda">Todavía no hay artículos creados.</p>
+    } @else {
+      <div class="tabla-simple">
+        <div class="fila-simple fila-simple-articulos fila-simple-header">
+          <span>Nombre</span><span>Precio sugerido</span><span>Estado</span><span>Acción</span>
+        </div>
+        @for (a of articulos(); track a.id) {
+          <div class="fila-simple fila-simple-articulos">
+            <span>{{ a.nombre }}</span>
+            <span>{{ a.precioSugerido !== null ? (a.precioSugerido | currency: 'ARS' : 'symbol' : '1.0-0') : '—' }}</span>
+            <span class="badge" [class.badge-activo]="a.activo" [class.badge-inactivo]="!a.activo">
+              {{ a.activo ? 'Activo' : 'Inactivo' }}
+            </span>
+            <span class="acciones-tipo">
+              <button type="button" class="btn-secundario" (click)="editar(a)">Editar</button>
+              <button type="button" class="btn-secundario" (click)="toggleActivo(a)">
+                {{ a.activo ? 'Desactivar' : 'Activar' }}
+              </button>
+            </span>
+          </div>
+        }
+      </div>
+    }
+  </div>
+</div>

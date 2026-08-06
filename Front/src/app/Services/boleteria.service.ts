@@ -82,9 +82,25 @@ export interface LineaVentaPos {
   cantidad: number;
 }
 
-export interface VentaPosRequest {
+/** Un artículo vario del carrito: de catálogo (articuloVarioId) o libre (descripcionLibre), no ambos. */
+export interface LineaArticuloPos {
+  articuloVarioId?: number | null;
+  descripcionLibre?: string | null;
+  precioUnitario: number;
+  cantidad: number;
+}
+
+/** Promo con nombre o descuento manual ad-hoc — mutuamente excluyentes, ambos opcionales. */
+export interface DescuentoPos {
+  promocionId?: number | null;
+  descuentoManualPorcentaje?: number | null;
+  descuentoManualMonto?: number | null;
+}
+
+export interface VentaPosRequest extends DescuentoPos {
   formaPago: FormaPagoPos;
   entradas: LineaVentaPos[];
+  articulos?: LineaArticuloPos[];
 }
 
 export interface CotizacionResponse {
@@ -160,8 +176,13 @@ export class BoleteriaService {
    * el precio promocional por grupo sólo existe pagando en efectivo: el total cambia
    * según qué botón de cobro elija el boletero.
    */
-  cotizar(formaPago: FormaPagoPos, entradas: LineaVentaPos[]): Observable<CotizacionResponse> {
-    return this.http.post<CotizacionResponse>(`${this.comprasUrl}/cotizar`, { formaPago, entradas });
+  cotizar(
+    formaPago: FormaPagoPos,
+    entradas: LineaVentaPos[],
+    descuento?: DescuentoPos,
+    articulos?: LineaArticuloPos[]
+  ): Observable<CotizacionResponse> {
+    return this.http.post<CotizacionResponse>(`${this.comprasUrl}/cotizar`, { formaPago, entradas, articulos, ...descuento });
   }
 
   /** Venta presencial: cobra y habilita el ingreso en un solo paso (queda USADO). */

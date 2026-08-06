@@ -1,0 +1,53 @@
+@import '../pos-shared.css';
+
+.comprobante-codigo {
+  font-family: monospace;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  margin: 0 0 12px;
+}
+
+.comprobante-monto,
+.comprobante-vuelto {
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 14px;
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+}
+
+.comprobante-monto {
+  background-color: var(--color-primary-light);
+  color: var(--color-primary-dark);
+}
+
+.comprobante-vuelto {
+  background-color: var(--color-accent-light);
+  color: var(--color-accent-dark);
+}
+
+.comprobante-monto .etiqueta,
+.comprobante-vuelto .etiqueta {
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.comprobante-monto .valor,
+.comprobante-vuelto .valor {
+  font-family: var(--font-heading);
+  font-size: 1.6rem;
+  font-weight: 800;
+}
+
+.comprobante-detalle {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 14px 0 0;
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+}

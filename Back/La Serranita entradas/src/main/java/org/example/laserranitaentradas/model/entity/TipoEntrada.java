@@ -48,6 +48,16 @@ public class TipoEntrada extends BaseEntity {
     @Column(name = "maximo_por_dia")
     private Integer maximoPorDia;
 
+    /**
+     * Si es true, vender este tipo consume talonario físico (ej: Pase General adulto); los
+     * tipos de menores no entregan entrada física. Sin nullable=false a propósito: agregar
+     * una columna NOT NULL con Hibernate ddl-auto=update falla contra una tabla que ya tiene
+     * filas (Postgres no puede completar el default solo). Se trata como false si es null.
+     */
+    @Column(name = "entrega_entrada")
+    @Builder.Default
+    private Boolean entregaEntrada = false;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 50)
     private Tipo tipo;

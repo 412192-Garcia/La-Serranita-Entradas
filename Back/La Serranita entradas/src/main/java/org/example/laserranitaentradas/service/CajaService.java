@@ -1,9 +1,12 @@
 package org.example.laserranitaentradas.service;
 
+import org.example.laserranitaentradas.model.dto.CierrePosnetRequestDTO;
 import org.example.laserranitaentradas.model.dto.CajaResponseDTO;
+import org.example.laserranitaentradas.model.dto.ConteoDenominacionDTO;
 import org.example.laserranitaentradas.model.entity.Caja;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 public interface CajaService {
 
@@ -13,9 +16,13 @@ public interface CajaService {
     /** Devuelve la caja abierta de ese usuario o lanza si no tiene ninguna: la usan las ventas para bloquearse sin caja. */
     Caja getAbiertaOrThrow(Long usuarioId);
 
-    CajaResponseDTO abrir(Long usuarioId, BigDecimal montoInicial);
+    CajaResponseDTO abrir(Long usuarioId, BigDecimal montoInicial, Integer entradasFisicasInicial);
 
     CajaResponseDTO registrarRetiro(Long usuarioId, BigDecimal monto, String motivo);
 
-    CajaResponseDTO cerrar(Long usuarioId, BigDecimal montoContado);
+    /** Suma entradas físicas al talonario de la caja abierta, ej. cuando el boletero se quedó sin y le traen más. */
+    CajaResponseDTO registrarIngresoEntradas(Long usuarioId, Integer cantidad);
+
+    CajaResponseDTO cerrar(Long usuarioId, List<ConteoDenominacionDTO> conteoEfectivo,
+                            List<CierrePosnetRequestDTO> cierresPosnet, Integer entradasFisicasFinal);
 }

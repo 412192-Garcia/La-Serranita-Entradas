@@ -1,0 +1,51 @@
+<div class="modal-overlay" (click)="cerrar.emit()">
+  <div class="panel-caja" (click)="$event.stopPropagation()">
+    <h3>Validar reserva anticipada</h3>
+    <div class="fila-panel-caja">
+      <label class="campo-motivo">
+        DNI, nombre, email o código de reserva
+        <input
+          type="text"
+          placeholder="Ej: 35123456 o 260725-1"
+          [ngModel]="textoBusqueda()"
+          (ngModelChange)="textoBusqueda.set($event)"
+          (keyup.enter)="buscar()" />
+      </label>
+      <button type="button" class="btn-cobrar btn-buscar-reserva" [disabled]="!textoBusqueda().trim() || buscando()" (click)="buscar()">
+        {{ buscando() ? 'Buscando…' : 'Buscar' }}
+      </button>
+    </div>
+
+    @if (error()) {
+      <p class="alerta-error">{{ error() }}</p>
+    }
+
+    @if (resultados(); as resultados) {
+      @if (resultados.length === 0) {
+        <p class="sin-resultados-reserva">No se encontraron reservas anticipadas con ese dato.</p>
+      } @else {
+        <ul class="lista-reservas-encontradas">
+          @for (r of resultados; track r.id) {
+            <li>
+              <div class="reserva-encontrada-datos">
+                <strong>{{ r.cliente?.nombre }} {{ r.cliente?.apellido }}</strong>
+                <span>DNI {{ r.cliente?.dni }} · #{{ r.codigoReserva }}</span>
+              </div>
+              @if (r.estado === 'APROBADO') {
+                <button type="button" class="btn-accion-reserva" [disabled]="procesando(r)" (click)="validarReserva(r)">
+                  {{ procesando(r) ? 'Validando…' : 'Validar Ingreso' }}
+                </button>
+              } @else if (r.estado === 'RESERVADO_EFECTIVO') {
+                <button type="button" class="btn-accion-reserva btn-accion-reserva-cobrar" [disabled]="procesando(r)" (click)="cobrarReserva(r)">
+                  {{ procesando(r) ? 'Registrando…' : 'Cobrar (' + (r.montoTotal | currency: 'ARS' : 'symbol' : '1.0-0') + ')' }}
+                </button>
+              } @else {
+                <span class="reserva-encontrada-estado">{{ r.estado }}</span>
+              }
+            </li>
+          }
+        </ul>
+      }
+    }
+  </div>
+</div>

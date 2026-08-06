@@ -1,6 +1,6 @@
 <div class="seccion seccion-tipos">
 
-  <div class="tarjeta">
+  <div class="tarjeta tarjeta-formulario">
     <h2>{{ tipoEditandoId() ? 'Editar tipo de entrada' : 'Nuevo tipo de entrada' }}</h2>
     @if (errorTipos()) {
       <p class="alerta-error">{{ errorTipos() }}</p>
@@ -23,7 +23,7 @@
       </label>
       <label>
         Precio
-        <input type="number" min="0" [ngModel]="precioTipo()" (ngModelChange)="precioTipo.set($event)" />
+        <input type="text" inputmode="numeric" appMoneyInput [ngModel]="precioTipo()" (ngModelChange)="precioTipo.set($event)" />
       </label>
       <label>
         <span class="etiqueta-campo">Máximo por día <span class="opcional">(opcional)</span></span>
@@ -36,6 +36,13 @@
         <span>
           Obligatorio: toda compra con entradas debe incluir al menos un pase de este tipo
           <span class="opcional">(ej: marcá esto en "Pase General" para exigir un adulto responsable y evitar que menores entren solos)</span>
+        </span>
+      </label>
+      <label class="fila-checkbox">
+        <input type="checkbox" [ngModel]="entregaEntradaTipo()" (ngModelChange)="entregaEntradaTipo.set($event)" />
+        <span>
+          Entrega entrada física: al vender este tipo se consume talonario
+          <span class="opcional">(ej: marcá esto en "Pase General"; los pases de menores no suelen entregar entrada física)</span>
         </span>
       </label>
     }
@@ -88,7 +95,7 @@
     }
   </div>
 
-  <div class="tarjeta tarjeta-ancha">
+  <div class="tarjeta tarjeta-ancha tarjeta-formulario">
     <h2>{{ descuentoEditandoId() ? 'Editar precio de grupo' : 'Nuevo precio de grupo (efectivo)' }}</h2>
     <p class="ayuda">Precio total promocional para una cantidad puntual de pases, aplicado solo al pagar en efectivo en boletería.</p>
     @if (errorDescuentos()) {
@@ -110,7 +117,7 @@
       </label>
       <label>
         Precio total promocional
-        <input type="number" min="0" [ngModel]="precioTotalDescuento()" (ngModelChange)="precioTotalDescuento.set($event)" />
+        <input type="text" inputmode="numeric" appMoneyInput [ngModel]="precioTotalDescuento()" (ngModelChange)="precioTotalDescuento.set($event)" />
       </label>
     </div>
     <div class="fila-horario">

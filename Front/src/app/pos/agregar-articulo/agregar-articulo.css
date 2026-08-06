@@ -1,0 +1,39 @@
+@import '../pos-shared.css';
+
+.bloque-agregar-articulo {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.panel-agregar-articulo {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  background-color: #fff;
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.panel-agregar-articulo select,
+.panel-agregar-articulo input {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  outline: none;
+  box-sizing: border-box;
+}
+
+.panel-agregar-articulo label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+}

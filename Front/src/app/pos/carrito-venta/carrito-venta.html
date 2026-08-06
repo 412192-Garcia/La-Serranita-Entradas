@@ -1,0 +1,133 @@
+<aside class="carrito">
+  <div class="carrito-lineas">
+    @if (!hayItems()) {
+      <p class="carrito-vacio">Tocá una entrada para empezar la venta.</p>
+    } @else {
+      @for (l of lineas(); track l.tipo.id) {
+        <!-- Sólo detalle: la cantidad se elige en el catálogo, acá no se modifica. -->
+        <div class="linea">
+          <span class="linea-nombre">{{ l.cantidad }}× {{ l.tipo.nombre }}</span>
+          <span class="linea-subtotal">{{ l.tipo.precio * l.cantidad | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+        </div>
+      }
+      @for (a of articulosCarrito(); track $index) {
+        <div class="linea">
+          <span class="linea-nombre">{{ a.cantidad }}× {{ a.nombre }}</span>
+          <span class="linea-subtotal">
+            {{ a.precioUnitario * a.cantidad | currency: 'ARS' : 'symbol' : '1.0-0' }}
+            <button type="button" class="btn-quitar-cierre" (click)="onQuitarArticulo($index)" aria-label="Quitar">✕</button>
+          </span>
+        </div>
+      }
+    }
+  </div>
+
+  <div class="carrito-cobro">
+    <div class="formas-pago">
+      @for (f of formasPago; track f.valor) {
+        <button
+          type="button"
+          class="btn-forma-pago"
+          [class.activo]="formaPago() === f.valor"
+          (click)="formaPago.set(f.valor)">
+          {{ f.etiqueta }}
+        </button>
+      }
+    </div>
+
+    @if (ahorro() > 0) {
+      <p class="aviso-promo">
+        Precio promocional por grupo aplicado — ahorra {{ ahorro() | currency: 'ARS' : 'symbol' : '1.0-0' }}
+      </p>
+    }
+
+    @if (hayItems()) {
+      <div class="bloque-descuento">
+        <div class="modo-descuento">
+          <button type="button" class="btn-modo-descuento" [class.activo]="modoDescuento() === 'ninguno'" (click)="cambiarModoDescuento('ninguno')">Sin descuento</button>
+          <button type="button" class="btn-modo-descuento" [class.activo]="modoDescuento() === 'promo'" (click)="cambiarModoDescuento('promo')">Promo</button>
+          <button type="button" class="btn-modo-descuento" [class.activo]="modoDescuento() === 'manual'" (click)="cambiarModoDescuento('manual')">Manual</button>
+        </div>
+
+        @if (modoDescuento() === 'promo') {
+          <select [ngModel]="promocionSeleccionadaId()" (ngModelChange)="promocionSeleccionadaId.set($event)">
+            <option [ngValue]="null">Elegí una promo…</option>
+            @for (p of promocionesActivas(); track p.id) {
+              <option [ngValue]="p.id">
+                {{ p.nombre }} ({{ p.montoDescuento !== null ? (p.montoDescuento | currency: 'ARS' : 'symbol' : '1.0-0') : p.porcentajeDescuento + '%' }})
+              </option>
+            }
+          </select>
+        }
+
+        @if (modoDescuento() === 'manual') {
+          <div class="fila-descuento-manual">
+            <label>
+              %
+              <input
+                type="number"
+                min="0"
+                max="100"
+                placeholder="0"
+                [ngModel]="descuentoManualPorcentaje()"
+                (ngModelChange)="setDescuentoManualPorcentaje($event)" />
+            </label>
+            <label>
+              $
+              <input
+                type="text"
+                inputmode="numeric"
+                placeholder="0"
+                appMoneyInput
+                [ngModel]="descuentoManualMonto()"
+                (ngModelChange)="setDescuentoManualMonto($event)" />
+            </label>
+          </div>
+        }
+      </div>
+    }
+
+    <div class="fila-total">
+      <span class="etiqueta-total">TOTAL</span>
+      <span class="valor-total">{{ total() | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+    </div>
+
+    @if (formaPago() === 'EFECTIVO_BOLETERIA' && hayItems()) {
+      <div class="bloque-vuelto">
+        <label>
+          Paga con
+          <input
+            type="text"
+            inputmode="numeric"
+            placeholder="Opcional"
+            appMoneyInput
+            [ngModel]="pagaCon()"
+            (ngModelChange)="pagaCon.set($event)" />
+        </label>
+        @if (vuelto() !== null) {
+          <div class="vuelto-resultado">
+            <span>Vuelto</span>
+            <strong>{{ vuelto() | currency: 'ARS' : 'symbol' : '1.0-0' }}</strong>
+          </div>
+        }
+      </div>
+    }
+
+    @if (motivoBloqueo(); as motivo) {
+      <p class="motivo-bloqueo">{{ motivo }}</p>
+    }
+
+    @if (error()) {
+      <p class="alerta-error">{{ error() }}</p>
+    }
+
+    <div class="acciones">
+      @if (hayItems()) {
+        <button type="button" class="btn-limpiar" (click)="onLimpiar()">Limpiar</button>
+      }
+      <button type="button" class="btn-cobrar" [disabled]="!puedeCobrar()" (click)="cobrar()">
+        {{ cobrando() ? 'Registrando…' : 'Cobrar' }}
+      </button>
+    </div>
+  </div>
+</aside>

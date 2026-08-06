@@ -15,6 +15,29 @@
   padding: 20px 24px;
 }
 
+/* Cada pestaña mezcla tarjetas de "cargar algo" con tarjetas de "ver lo que ya existe", y a
+   simple vista se parecen demasiado (mismo fondo blanco, mismo título). El borde de color
+   marca de un vistazo cuáles son formularios; las de solo lectura quedan sin él. */
+.tarjeta-formulario {
+  border-left: 4px solid var(--color-primary);
+  padding-left: 20px;
+}
+
+.tarjeta-formulario h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tarjeta-formulario h2::before {
+  content: '';
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--color-primary);
+}
+
 .tarjeta h2 {
   font-family: var(--font-heading);
   font-size: 1.05rem;
