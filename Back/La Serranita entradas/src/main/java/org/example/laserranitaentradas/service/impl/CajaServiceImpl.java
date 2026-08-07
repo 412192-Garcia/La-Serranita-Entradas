@@ -333,13 +333,26 @@ public class CajaServiceImpl implements CajaService {
                 .toList();
     }
 
+    /** Nombre a mostrar para una línea de compra: entrada, artículo de catálogo, o descripción libre. */
+    private String nombreDetalle(CompraDetalle d) {
+        String nombre;
+        if (d.getTipoEntrada() != null) {
+            nombre = d.getTipoEntrada().getNombre();
+        } else if (d.getArticuloVario() != null) {
+            nombre = d.getArticuloVario().getNombre();
+        } else {
+            nombre = d.getDescripcionLibre() != null ? d.getDescripcionLibre() : "?";
+        }
+        return d.getCantidad() + "x " + nombre;
+    }
+
     private List<OperacionCajaDTO> construirOperaciones(Long cajaId) {
         List<OperacionCajaDTO> operaciones = new ArrayList<>();
 
         for (Compra compra : compraRepository.findAllByCajaId(cajaId)) {
             if (compra.getEstado() == EstadoCompra.CANCELADO) continue;
             String detalle = compra.getDetalles().stream()
-                    .map(d -> d.getCantidad() + "x " + (d.getTipoEntrada() != null ? d.getTipoEntrada().getNombre() : "?"))
+                    .map(this::nombreDetalle)
                     .collect(Collectors.joining(", "));
             operaciones.add(OperacionCajaDTO.builder()
                     .tipo("VENTA")

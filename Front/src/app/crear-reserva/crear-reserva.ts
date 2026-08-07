@@ -5,7 +5,7 @@ import { Calendario } from '../calendario/calendario';
 import { SeleccionEntradas } from '../seleccion-entradas/seleccion-entradas';
 import { FormCliente } from '../form-cliente/form-cliente';
 import { CompraService, CompraResponseDTO } from '../Services/compra.service';
-import { CabeceraInterna, EnlaceCabecera } from '../shared/cabecera-interna/cabecera-interna';
+import { CabeceraInterna } from '../shared/cabecera-interna/cabecera-interna';
 
 enum EtapaReserva {
   SELECCION,
@@ -47,7 +47,6 @@ export class CrearReserva {
     this.compraService = compraService;
   }
 
-  readonly enlaceBoleteria: EnlaceCabecera = { texto: 'Volver a Boletería', ruta: '/boleteria' };
   readonly etapaReserva = EtapaReserva;
 
   etapa = signal(EtapaReserva.SELECCION);

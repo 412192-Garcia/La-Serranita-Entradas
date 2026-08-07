@@ -2,8 +2,7 @@
 
   <app-cabecera-interna
     titulo="Generar reserva"
-    descripcion="Una entrada normal, con su fecha, sólo que no se cobra por acá (invitados, ventas por agencia, etc)."
-    [enlace]="enlaceBoleteria" />
+    descripcion="Una entrada normal, con su fecha, sólo que no se cobra por acá (invitados, ventas por agencia, etc)." />
 
   @if (resultado(); as r) {
     <div class="tarjeta tarjeta-resultado">
@@ -40,10 +39,10 @@
                 <p>{{ datos.fechaVisita | date: 'EEEE d/MM/yyyy' }}</p>
                 <ul class="lista-entradas-resumen">
                   @for (e of datos.entradas; track e.id) {
-                    <li>{{ e.cantidad }}× {{ e.nombre }} <span class="precio-tachado">{{ e.subtotal | currency: 'ARS' : 'symbol' : '1.0-0' }}</span></li>
+                    <li>{{ e.cantidad }}× {{ e.nombre }} <span>{{ e.subtotal | currency: 'ARS' : 'symbol' : '1.0-0' }}</span></li>
                   }
                 </ul>
-                <p class="total-resumen">Total $0 — sin cobro por acá</p>
+                <p class="total-resumen">Total {{ datos.subtotal | currency: 'ARS' : 'symbol' : '1.0-0' }}</p>
               </div>
 
               @if (error()) {

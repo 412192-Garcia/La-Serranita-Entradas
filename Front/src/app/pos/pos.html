@@ -2,8 +2,7 @@
 
   <app-cabecera-interna
     titulo="Venta en Boletería"
-    descripcion="Cobrá y registra la compra."
-    [enlace]="enlaceBoleteria" />
+    descripcion="Cobrá y registra la compra." />
 
   @if (cajaCerrada(); as cerrada) {
     <app-resumen-cierre [caja]="cerrada" (verReservas)="irAReservas()" (corregir)="mostrarCierre.set(true)" />

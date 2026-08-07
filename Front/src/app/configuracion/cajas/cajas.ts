@@ -5,6 +5,7 @@ import { ReporteService } from '../../Services/reporte.service';
 import { CajaResumen, ReporteResumen } from '../../models/reporte';
 import { CajaService, Caja, OperacionCaja } from '../../Services/caja.service';
 import { etiquetaFormaPago } from '../../pos/formas-pago-pos';
+import { CabeceraInterna } from '../../shared/cabecera-interna/cabecera-interna';
 
 function aFechaISO(d: Date): string {
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -13,7 +14,7 @@ function aFechaISO(d: Date): string {
 
 @Component({
   selector: 'app-configuracion-cajas',
-  imports: [FormsModule, CurrencyPipe, DatePipe],
+  imports: [FormsModule, CurrencyPipe, DatePipe, CabeceraInterna],
   templateUrl: './cajas.html',
   styleUrls: ['../configuracion-shared.css', './cajas.css'],
 })

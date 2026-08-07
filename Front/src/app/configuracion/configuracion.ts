@@ -4,10 +4,8 @@ import { ConfiguracionCupones } from './cupones/cupones';
 import { ConfiguracionTiposEntrada } from './tipos-entrada/tipos-entrada';
 import { ConfiguracionPromociones } from './promociones/promociones';
 import { ConfiguracionArticulos } from './articulos/articulos';
-import { ConfiguracionReportes } from './reportes/reportes';
-import { ConfiguracionCajas } from './cajas/cajas';
 import { ConfiguracionUsuarios } from './usuarios/usuarios';
-import { CabeceraInterna, EnlaceCabecera } from '../shared/cabecera-interna/cabecera-interna';
+import { CabeceraInterna } from '../shared/cabecera-interna/cabecera-interna';
 
 @Component({
   selector: 'app-configuracion',
@@ -17,8 +15,6 @@ import { CabeceraInterna, EnlaceCabecera } from '../shared/cabecera-interna/cabe
     ConfiguracionTiposEntrada,
     ConfiguracionPromociones,
     ConfiguracionArticulos,
-    ConfiguracionReportes,
-    ConfiguracionCajas,
     ConfiguracionUsuarios,
     CabeceraInterna,
   ],
@@ -26,7 +22,5 @@ import { CabeceraInterna, EnlaceCabecera } from '../shared/cabecera-interna/cabe
   styleUrl: './configuracion.css',
 })
 export class Configuracion {
-  tab = signal<'dias' | 'descuentos' | 'catalogo' | 'reportes' | 'cajas' | 'usuarios'>('dias');
-
-  readonly enlaceBoleteria: EnlaceCabecera = { texto: 'Volver a Boletería', ruta: '/boleteria' };
+  tab = signal<'dias' | 'descuentos' | 'catalogo' | 'usuarios'>('dias');
 }

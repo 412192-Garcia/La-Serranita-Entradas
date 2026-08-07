@@ -3,8 +3,7 @@ import { CurrencyPipe, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { BoleteriaService, CampoOrdenCompras, EstadoCompra, Pagina, Reserva, TipoListadoCompra } from '../Services/boleteria.service';
 import { FormaPagoType } from '../models/compra';
-import { SesionService } from '../Services/sesion.service';
-import { CabeceraInterna, EnlaceCabecera } from '../shared/cabecera-interna/cabecera-interna';
+import { CabeceraInterna } from '../shared/cabecera-interna/cabecera-interna';
 import { LucideSearchX, LucideEllipsisVertical, LucideArrowUp, LucideArrowDown, LucideChevronsUpDown } from '@lucide/angular';
 
 function hoyComoFechaInput(): string {
@@ -146,7 +145,6 @@ const TAMANIO_PAGINA = 50;
 })
 export class Boleteria implements OnInit {
   private boleteriaService = inject(BoleteriaService);
-  private sesion = inject(SesionService);
 
   texto = signal('');
   fecha = signal(hoyComoFechaInput());
@@ -251,25 +249,6 @@ export class Boleteria implements OnInit {
     this.pagina.update((p) => p + 1);
     this.ejecutarBusqueda();
   }
-
-  private readonly enlacePos: EnlaceCabecera = {
-    texto: 'Vender entradas',
-    ruta: '/pos',
-  };
-  private readonly enlaceConfiguracion: EnlaceCabecera = {
-    texto: 'Configuración',
-    ruta: '/configuracion',
-  };
-  private readonly enlaceCrearReserva: EnlaceCabecera = {
-    texto: 'Generar reserva',
-    ruta: '/crear-reserva',
-  };
-  /** La venta presencial la usa todo el staff; crear reserva a mano y Configuración sólo los ADMIN. */
-  readonly enlacesCabecera = computed<EnlaceCabecera[]>(() =>
-    this.sesion.rol() === 'ADMIN'
-      ? [this.enlacePos, this.enlaceCrearReserva, this.enlaceConfiguracion]
-      : [this.enlacePos]
-  );
 
   /** Acumula las teclas de un posible escaneo cuando el foco no está en un campo de texto. */
   private bufferEscaneo = '';

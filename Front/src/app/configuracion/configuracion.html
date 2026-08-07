@@ -2,8 +2,7 @@
 
   <app-cabecera-interna
     titulo="Configuración del Parque"
-    descripcion="Días abiertos, horarios y cupones de descuento."
-    [enlace]="enlaceBoleteria" />
+    descripcion="Días abiertos, horarios y cupones de descuento." />
 
   <nav class="tabs">
     <button type="button" class="tab" [class.activo]="tab() === 'dias'" (click)="tab.set('dias')">
@@ -14,12 +13,6 @@
     </button>
     <button type="button" class="tab" [class.activo]="tab() === 'catalogo'" (click)="tab.set('catalogo')">
       Catálogo
-    </button>
-    <button type="button" class="tab" [class.activo]="tab() === 'reportes'" (click)="tab.set('reportes')">
-      Reportes
-    </button>
-    <button type="button" class="tab" [class.activo]="tab() === 'cajas'" (click)="tab.set('cajas')">
-      Cajas
     </button>
     <button type="button" class="tab" [class.activo]="tab() === 'usuarios'" (click)="tab.set('usuarios')">
       Usuarios
@@ -34,10 +27,6 @@
   } @else if (tab() === 'catalogo') {
     <app-configuracion-tipos-entrada />
     <app-configuracion-articulos />
-  } @else if (tab() === 'reportes') {
-    <app-configuracion-reportes />
-  } @else if (tab() === 'cajas') {
-    <app-configuracion-cajas />
   } @else if (tab() === 'usuarios') {
     <app-configuracion-usuarios />
   }

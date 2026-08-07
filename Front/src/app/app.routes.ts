@@ -40,4 +40,14 @@ export const routes: Routes = [
     loadComponent: () => import('./configuracion/configuracion').then((m) => m.Configuracion),
     canActivate: [rolGuard(['ADMIN'])],
   },
+  {
+    path: 'reportes',
+    loadComponent: () => import('./configuracion/reportes/reportes').then((m) => m.ConfiguracionReportes),
+    canActivate: [rolGuard(['ADMIN'])],
+  },
+  {
+    path: 'cajas',
+    loadComponent: () => import('./configuracion/cajas/cajas').then((m) => m.ConfiguracionCajas),
+    canActivate: [rolGuard(['ADMIN'])],
+  },
 ];
