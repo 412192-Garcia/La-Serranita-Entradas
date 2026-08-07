@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Chart, registerables } from 'chart.js';
 import { ReporteService } from '../../Services/reporte.service';
 import { ComprasPorEstado, RecaudacionPorFormaPago, ReporteResumen, VentasPorOrigen } from '../../models/reporte';
+import { CabeceraInterna } from '../../shared/cabecera-interna/cabecera-interna';
 
 Chart.register(...registerables);
 
@@ -50,7 +51,7 @@ const COLOR_POR_ORIGEN: Record<VentasPorOrigen['origen'], string> = {
 
 @Component({
   selector: 'app-configuracion-reportes',
-  imports: [FormsModule, CurrencyPipe, DecimalPipe],
+  imports: [FormsModule, CurrencyPipe, DecimalPipe, CabeceraInterna],
   templateUrl: './reportes.html',
   styleUrls: ['../configuracion-shared.css', './reportes.css'],
 })

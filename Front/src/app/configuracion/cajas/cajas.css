@@ -1,6 +1,21 @@
 :host {
   display: block;
   width: 100%;
+  min-height: 100vh;
+  background-color: var(--color-bg-page);
+  font-family: var(--font-body);
+  color: var(--color-text);
+}
+
+.panel {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 28px 36px 48px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
 .tarjeta-kpis-cajas {
@@ -197,4 +212,8 @@
   .tarjeta-kpis-detalle { grid-template-columns: 1fr; }
   .fila-simple-formaspago { grid-template-columns: 1fr; font-size: 0.8rem; }
   .fila-simple-operaciones { grid-template-columns: 1fr; font-size: 0.78rem; }
+}
+
+@media (max-width: 600px) {
+  .panel { padding: 20px 16px 32px; }
 }

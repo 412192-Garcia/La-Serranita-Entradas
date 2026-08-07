@@ -15,6 +15,8 @@ const TODOS_LOS_ENLACES: EnlaceCabecera[] = [
   { texto: 'Vender entradas', ruta: '/pos' },
   { texto: 'Generar reserva', ruta: '/crear-reserva', soloAdmin: true },
   { texto: 'Configuración', ruta: '/configuracion', soloAdmin: true },
+  { texto: 'Reportes', ruta: '/reportes', soloAdmin: true },
+  { texto: 'Cajas', ruta: '/cajas', soloAdmin: true },
 ];
 
 /**

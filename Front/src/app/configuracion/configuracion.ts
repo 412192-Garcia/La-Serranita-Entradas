@@ -4,8 +4,6 @@ import { ConfiguracionCupones } from './cupones/cupones';
 import { ConfiguracionTiposEntrada } from './tipos-entrada/tipos-entrada';
 import { ConfiguracionPromociones } from './promociones/promociones';
 import { ConfiguracionArticulos } from './articulos/articulos';
-import { ConfiguracionReportes } from './reportes/reportes';
-import { ConfiguracionCajas } from './cajas/cajas';
 import { ConfiguracionUsuarios } from './usuarios/usuarios';
 import { CabeceraInterna } from '../shared/cabecera-interna/cabecera-interna';
 
@@ -17,8 +15,6 @@ import { CabeceraInterna } from '../shared/cabecera-interna/cabecera-interna';
     ConfiguracionTiposEntrada,
     ConfiguracionPromociones,
     ConfiguracionArticulos,
-    ConfiguracionReportes,
-    ConfiguracionCajas,
     ConfiguracionUsuarios,
     CabeceraInterna,
   ],
@@ -26,5 +22,5 @@ import { CabeceraInterna } from '../shared/cabecera-interna/cabecera-interna';
   styleUrl: './configuracion.css',
 })
 export class Configuracion {
-  tab = signal<'dias' | 'descuentos' | 'catalogo' | 'reportes' | 'cajas' | 'usuarios'>('dias');
+  tab = signal<'dias' | 'descuentos' | 'catalogo' | 'usuarios'>('dias');
 }
