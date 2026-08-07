@@ -87,11 +87,6 @@
   margin-top: 4px !important;
 }
 
-.precio-tachado {
-  text-decoration: line-through;
-  color: var(--color-text-muted);
-}
-
 .acciones {
   display: flex;
   gap: 10px;

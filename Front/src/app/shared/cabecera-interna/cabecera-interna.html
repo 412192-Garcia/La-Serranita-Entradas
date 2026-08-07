@@ -6,27 +6,38 @@
     }
   </div>
 
-  <div class="cabecera-menu">
-    <button type="button" class="btn-hamburguesa" (click)="toggleMenu()" [attr.aria-expanded]="menuAbierto()" aria-label="Abrir menú">
-      <svg lucideMenu [strokeWidth]="2"></svg>
-      @if (operador(); as usuario) {
-        <span class="operador">{{ usuario.nombre }}</span>
-      }
-    </button>
-
-    @if (menuAbierto()) {
-      <div class="menu-overlay" (click)="cerrarMenu()"></div>
-      <div class="menu-desplegable">
-        @for (e of enlacesVisibles; track e.ruta) {
-          <a class="menu-item" [routerLink]="e.ruta" (click)="cerrarMenu()">{{ e.texto }}</a>
-        }
-        @if (operador()) {
-          <button type="button" class="menu-item menu-item-salir" (click)="cerrarSesion()">
-            <svg lucideLogOut [strokeWidth]="2"></svg>
-            Cerrar sesión
-          </button>
-        }
-      </div>
+  <button type="button" class="btn-hamburguesa" (click)="toggleMenu()" [attr.aria-expanded]="menuAbierto()" aria-label="Abrir menú">
+    <svg lucideMenu [strokeWidth]="2"></svg>
+    @if (operador(); as usuario) {
+      <span class="operador">{{ usuario.nombre }}</span>
     }
-  </div>
+  </button>
 </header>
+
+@if (menuAbierto()) {
+  <div class="menu-overlay" (click)="cerrarMenu()"></div>
+}
+
+<aside class="menu-slider" [class.abierto]="menuAbierto()">
+  <div class="menu-slider-cabecera">
+    @if (operador(); as usuario) {
+      <span class="operador-slider">{{ usuario.nombre }}</span>
+    }
+    <button type="button" class="btn-cerrar-slider" (click)="cerrarMenu()" aria-label="Cerrar menú">
+      <svg lucideX [strokeWidth]="2"></svg>
+    </button>
+  </div>
+
+  <nav class="menu-slider-nav">
+    @for (e of enlacesVisibles(); track e.ruta) {
+      <a class="menu-slider-item" [routerLink]="e.ruta" (click)="cerrarMenu()">{{ e.texto }}</a>
+    }
+  </nav>
+
+  @if (operador()) {
+    <button type="button" class="menu-slider-item menu-slider-salir" (click)="cerrarSesion()">
+      <svg lucideLogOut [strokeWidth]="2"></svg>
+      Cerrar sesión
+    </button>
+  }
+</aside>

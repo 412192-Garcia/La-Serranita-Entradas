@@ -7,7 +7,7 @@ import { ConfiguracionArticulos } from './articulos/articulos';
 import { ConfiguracionReportes } from './reportes/reportes';
 import { ConfiguracionCajas } from './cajas/cajas';
 import { ConfiguracionUsuarios } from './usuarios/usuarios';
-import { CabeceraInterna, EnlaceCabecera } from '../shared/cabecera-interna/cabecera-interna';
+import { CabeceraInterna } from '../shared/cabecera-interna/cabecera-interna';
 
 @Component({
   selector: 'app-configuracion',
@@ -27,6 +27,4 @@ import { CabeceraInterna, EnlaceCabecera } from '../shared/cabecera-interna/cabe
 })
 export class Configuracion {
   tab = signal<'dias' | 'descuentos' | 'catalogo' | 'reportes' | 'cajas' | 'usuarios'>('dias');
-
-  readonly enlaceBoleteria: EnlaceCabecera = { texto: 'Volver a Boletería', ruta: '/boleteria' };
 }

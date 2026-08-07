@@ -9,7 +9,7 @@ import { TipoEntrada } from '../models/tipo-entrada';
 import { Promocion } from '../models/promocion';
 import { ArticuloVario } from '../models/articulo-vario';
 import { FilaArticuloCarrito } from '../models/venta-pos';
-import { CabeceraInterna, EnlaceCabecera } from '../shared/cabecera-interna/cabecera-interna';
+import { CabeceraInterna } from '../shared/cabecera-interna/cabecera-interna';
 import { AperturaCaja } from './apertura-caja/apertura-caja';
 import { BarraCaja } from './barra-caja/barra-caja';
 import { ValidarReservaModal } from './validar-reserva-modal/validar-reserva-modal';
@@ -48,8 +48,6 @@ export class Pos implements OnInit {
   private promocionService = inject(PromocionService);
   private articuloVarioService = inject(ArticuloVarioService);
   private router = inject(Router);
-
-  readonly enlaceBoleteria: EnlaceCabecera = { texto: 'Ver reservas', ruta: '/boleteria' };
 
   // ---------- Caja: sin una abierta no se puede vender ----------
   cargandoCaja = signal(true);

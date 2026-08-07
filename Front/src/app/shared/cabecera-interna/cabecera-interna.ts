@@ -1,26 +1,34 @@
-import { Component, Input, inject, signal } from '@angular/core';
+import { Component, Input, computed, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
-import { LucideMenu, LucideLogOut } from '@lucide/angular';
+import { LucideMenu, LucideX, LucideLogOut } from '@lucide/angular';
 import { SesionService } from '../../Services/sesion.service';
 
-/** Enlace opcional que cada pantalla agrega a su cabecera (ir a la otra sección). */
-export interface EnlaceCabecera {
+interface EnlaceCabecera {
   texto: string;
   ruta: string;
+  soloAdmin?: boolean;
 }
 
+/** Todos los destinos del módulo interno: cada pantalla se saca a sí misma de su propio menú, el resto se filtra sólo por rol. */
+const TODOS_LOS_ENLACES: EnlaceCabecera[] = [
+  { texto: 'Control de accesos', ruta: '/boleteria' },
+  { texto: 'Vender entradas', ruta: '/pos' },
+  { texto: 'Generar reserva', ruta: '/crear-reserva', soloAdmin: true },
+  { texto: 'Configuración', ruta: '/configuracion', soloAdmin: true },
+];
+
 /**
- * Cabecera común de las pantallas del módulo interno (Boletería y Configuración):
- * título, bajada, enlace a la otra sección, nombre del operador y cierre de sesión.
+ * Cabecera común de las pantallas del módulo interno (Boletería, POS, Generar
+ * reserva y Configuración): título, bajada, menú deslizable con todos los
+ * destinos disponibles, nombre del operador y cierre de sesión.
  *
- * Antes cada pantalla tenía su propia copia del mismo HTML, CSS y método
- * cerrarSesion(); las copias ya habían empezado a divergir (a Boletería le
- * faltaban cursor/font-family en el botón, así que se veía distinto al de
- * Configuración). Tenerlo en un solo lugar evita que vuelva a pasar.
+ * El menú siempre muestra los mismos destinos en cualquier pantalla — sólo se
+ * ocultan por rol (Generar reserva/Configuración son sólo ADMIN) y la pantalla
+ * en la que ya estás parado, nunca por "no aplica acá".
  */
 @Component({
   selector: 'app-cabecera-interna',
-  imports: [RouterLink, LucideMenu, LucideLogOut],
+  imports: [RouterLink, LucideMenu, LucideX, LucideLogOut],
   templateUrl: './cabecera-interna.html',
   styleUrl: './cabecera-interna.css',
 })
@@ -30,17 +38,14 @@ export class CabeceraInterna {
 
   @Input({ required: true }) titulo = '';
   @Input() descripcion = '';
-  /** Un solo enlace (atajo para el caso más común); null lo oculta. */
-  @Input() enlace: EnlaceCabecera | null = null;
-  /** Varios enlaces, cuando una pantalla lleva a más de una sección. */
-  @Input() enlaces: EnlaceCabecera[] = [];
-
-  /** Unifica ambas entradas para que la plantilla recorra una sola lista. */
-  get enlacesVisibles(): EnlaceCabecera[] {
-    return this.enlace ? [this.enlace, ...this.enlaces] : this.enlaces;
-  }
 
   readonly operador = this.sesion.usuario;
+
+  readonly enlacesVisibles = computed(() => {
+    const esAdmin = this.sesion.rol() === 'ADMIN';
+    const rutaActual = this.router.url;
+    return TODOS_LOS_ENLACES.filter((e) => (esAdmin || !e.soloAdmin) && !rutaActual.startsWith(e.ruta));
+  });
 
   menuAbierto = signal(false);
 
