@@ -3,6 +3,7 @@
   <div class="comprobante comprobante-cierre">
     <svg lucideLock class="comprobante-icono" [strokeWidth]="1.5"></svg>
     <h2>Caja cerrada</h2>
+    <p class="total-vendido">Total vendido <strong>{{ totalVendido() | currency: 'ARS' : 'symbol' : '1.0-0' }}</strong></p>
 
     <div class="grilla-resumen-cierre">
       <div class="bloque-cierre">
@@ -16,6 +17,22 @@
           </span>
         }
         <span class="ayuda-cierre">Inicial {{ caja().montoInicial | currency: 'ARS' : 'symbol' : '1.0-0' }} · Retiros {{ caja().totalRetiros | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+
+        <button type="button" class="btn-desglose" (click)="mostrarDesglose.set(!mostrarDesglose())">
+          {{ mostrarDesglose() ? 'Ocultar billetes' : 'Ver billetes' }}
+        </button>
+        @if (mostrarDesglose()) {
+          <ul class="lista-desglose">
+            @for (c of caja().conteoEfectivo; track c.denominacion) {
+              @if (c.cantidad > 0) {
+                <li><span>{{ c.cantidad }} × {{ c.denominacion | currency: 'ARS' : 'symbol' : '1.0-0' }}</span><span>{{ c.cantidad * c.denominacion | currency: 'ARS' : 'symbol' : '1.0-0' }}</span></li>
+              }
+            }
+            @if ((caja().cambioContado ?? 0) > 0) {
+              <li><span>Cambio</span><span>{{ caja().cambioContado | currency: 'ARS' : 'symbol' : '1.0-0' }}</span></li>
+            }
+          </ul>
+        }
       </div>
 
       <div class="bloque-cierre">
@@ -55,9 +72,26 @@
           <span class="ayuda-cierre">No disponible (sin cantidad inicial cargada)</span>
         }
       </div>
+
+      <div class="bloque-cierre bloque-entradas-vendidas">
+        <h3>Entradas vendidas</h3>
+        <span>{{ caja().totalEntradasVendidas ?? 0 }} en total</span>
+        @if (caja().entradasVendidasPorTipo && caja().entradasVendidasPorTipo!.length > 0) {
+          <ul class="lista-desglose">
+            @for (t of caja().entradasVendidasPorTipo!; track t.nombreTipo) {
+              <li><span>{{ t.nombreTipo }}</span><span>{{ t.cantidad }}</span></li>
+            }
+          </ul>
+        }
+      </div>
     </div>
 
-    <button type="button" class="btn-nueva-venta" (click)="verReservas.emit()">Ver reservas</button>
+    @if (mostrarAcciones()) {
+      <div class="acciones-cierre">
+        <button type="button" class="btn-corregir-cierre" (click)="corregir.emit()">Corregir cierre</button>
+        <button type="button" class="btn-nueva-venta" (click)="verReservas.emit()">Ver reservas</button>
+      </div>
+    }
   </div>
 
   @if (caja().operaciones && caja().operaciones!.length > 0) {
@@ -69,10 +103,12 @@
       <div class="detalle-caja">
         @for (op of caja().operaciones!; track $index) {
           <div class="fila-operacion" [class.fila-retiro]="op.tipo === 'RETIRO'" [class.fila-ingreso]="op.tipo === 'INGRESO_ENTRADAS'">
-            <span class="operacion-hora">{{ op.fecha | date: 'HH:mm' }}</span>
-            <span class="operacion-tipo">{{ etiquetaTipoOperacion(op) }}</span>
+            <div class="fila-operacion-cabecera">
+              <span class="operacion-hora">{{ op.fecha | date: 'HH:mm' }}</span>
+              <span class="operacion-tipo">{{ etiquetaTipoOperacion(op) }}</span>
+              <span class="operacion-monto">{{ op.monto !== null ? (op.monto | currency: 'ARS' : 'symbol' : '1.0-0') : '' }}</span>
+            </div>
             <span class="operacion-detalle">{{ op.detalle }}</span>
-            <span class="operacion-monto">{{ op.monto !== null ? (op.monto | currency: 'ARS' : 'symbol' : '1.0-0') : '' }}</span>
           </div>
         }
       </div>

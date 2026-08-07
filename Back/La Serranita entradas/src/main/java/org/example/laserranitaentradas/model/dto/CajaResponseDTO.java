@@ -24,6 +24,8 @@ public class CajaResponseDTO {
     private BigDecimal efectivoEsperado;
     private BigDecimal montoContado;
     private BigDecimal diferencia;
+    /** Total en billetes chicos cargado de una vez; ya está incluido en montoContado. Null hasta el cierre. */
+    private BigDecimal cambioContado;
     private List<RetiroCajaResponseDTO> retiros;
 
     /** Detalle del conteo de billetes cargado al cerrar. Vacío mientras la caja sigue abierta. */
@@ -49,4 +51,8 @@ public class CajaResponseDTO {
 
     /** Ventas + retiros en orden cronológico. Null mientras sigue ABIERTA (mismo motivo anti-trampa que los totales esperados). */
     private List<OperacionCajaDTO> operaciones;
+
+    /** Unidades de entrada vendidas (no extras ni artículos), sin importar la forma de pago. Null mientras sigue ABIERTA. */
+    private Integer totalEntradasVendidas;
+    private List<EntradasPorTipoDTO> entradasVendidasPorTipo;
 }

@@ -47,6 +47,7 @@ const FORMAS_PAGO_FILTRABLES: { valor: FormaPagoType; etiqueta: string }[] = [
   { valor: 'EFECTIVO_BOLETERIA', etiqueta: 'Efectivo' },
   { valor: 'TARJETA', etiqueta: 'Tarjeta' },
   { valor: 'MERCADO_PAGO_QR', etiqueta: 'QR' },
+  { valor: 'RESERVA_ADMIN', etiqueta: 'Generada (admin)' },
 ];
 
 /**
@@ -259,9 +260,15 @@ export class Boleteria implements OnInit {
     texto: 'Configuración',
     ruta: '/configuracion',
   };
-  /** La venta presencial la usa todo el staff; Configuración sólo los ADMIN. */
+  private readonly enlaceCrearReserva: EnlaceCabecera = {
+    texto: 'Generar reserva',
+    ruta: '/crear-reserva',
+  };
+  /** La venta presencial la usa todo el staff; crear reserva a mano y Configuración sólo los ADMIN. */
   readonly enlacesCabecera = computed<EnlaceCabecera[]>(() =>
-    this.sesion.rol() === 'ADMIN' ? [this.enlacePos, this.enlaceConfiguracion] : [this.enlacePos]
+    this.sesion.rol() === 'ADMIN'
+      ? [this.enlacePos, this.enlaceCrearReserva, this.enlaceConfiguracion]
+      : [this.enlacePos]
   );
 
   /** Acumula las teclas de un posible escaneo cuando el foco no está en un campo de texto. */

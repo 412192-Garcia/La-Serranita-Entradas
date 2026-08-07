@@ -9,4 +9,7 @@ import java.util.List;
 @Repository
 public interface CierrePosnetRepository extends JpaRepository<CierrePosnet, Long> {
     List<CierrePosnet> findAllByCajaIdOrderByIdAsc(Long cajaId);
+
+    /** Usado al corregir un cierre ya hecho: se borran los cierres viejos y se cargan los nuevos de cero. */
+    void deleteAllByCajaId(Long cajaId);
 }

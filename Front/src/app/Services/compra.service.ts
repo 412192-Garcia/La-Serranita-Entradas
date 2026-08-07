@@ -39,6 +39,15 @@ export class CompraService {
   }
 
   /**
+   * Sólo ADMIN: genera una reserva sin cobrar nada por acá (invitados, ventas por agencia con
+   * el cobro resuelto por fuera, etc). La forma de pago del cuerpo se ignora en el backend,
+   * siempre queda como RESERVA_ADMIN — no hace falta mandarla acá.
+   */
+  generarReserva(compraRequest: any): Observable<CompraResponseDTO> {
+    return this.http.post<CompraResponseDTO>(`${environment.apiBase}/interno/compras/generar-reserva`, compraRequest);
+  }
+
+  /**
    * Consulta en el backend el estado actual de la compra guardada en DB.
    */
   obtenerEstadoCompra(compraId: number): Observable<EstadoCompraResponse> {

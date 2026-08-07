@@ -49,6 +49,7 @@ class CompraServiceImplTest {
     @Mock private ArticuloVarioRepository articuloVarioRepository;
     @Mock private PagoService mercadoPagoEstrategia;
     @Mock private PagoService efectivoEstrategia;
+    @Mock private PagoService reservaAdminEstrategia;
 
     private CompraServiceImpl service;
 
@@ -56,10 +57,41 @@ class CompraServiceImplTest {
     void setUp() {
         lenient().when(mercadoPagoEstrategia.getFormaPago()).thenReturn(FormaPago.MERCADO_PAGO);
         lenient().when(efectivoEstrategia.getFormaPago()).thenReturn(FormaPago.EFECTIVO_BOLETERIA);
+        lenient().when(reservaAdminEstrategia.getFormaPago()).thenReturn(FormaPago.RESERVA_ADMIN);
+        lenient().when(reservaAdminEstrategia.getEstadoInicial()).thenReturn(EstadoCompra.APROBADO);
 
         service = new CompraServiceImpl(compraRepository, tipoEntradaService, cuponService, diaAperturaService,
                 clienteService, usuarioService, calculoPrecioService, emailService, cajaService, promocionRepository,
-                articuloVarioRepository, List.of(mercadoPagoEstrategia, efectivoEstrategia));
+                articuloVarioRepository, List.of(mercadoPagoEstrategia, efectivoEstrategia, reservaAdminEstrategia));
+    }
+
+    // ---------- RESERVA_ADMIN: no cobra nada por acá, sin importar el precio de lista ----------
+
+    @Test
+    void create_conFormaPagoReservaAdmin_montoTotalQuedaEnCeroAunqueLaEntradaTengaPrecio() {
+        org.example.laserranitaentradas.model.entity.TipoEntrada general = org.example.laserranitaentradas.model.entity.TipoEntrada.builder()
+                .id(1L).nombre("General").tipo(org.example.laserranitaentradas.model.entity.Tipo.ENTRADA)
+                .obligatorio(true).precio(new java.math.BigDecimal("111")).build();
+        when(tipoEntradaService.findById(1L)).thenReturn(Optional.of(general));
+        when(diaAperturaService.getAbiertoByDate(any())).thenReturn(true);
+        when(compraRepository.findAllByFechaVisitaOrderByCodigoReservaAsc(any())).thenReturn(List.of());
+        when(compraRepository.save(any(Compra.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        org.example.laserranitaentradas.model.dto.DetalleCompraDTO detalle = new org.example.laserranitaentradas.model.dto.DetalleCompraDTO();
+        detalle.setTipoEntradaId(1L);
+        detalle.setCantidad(2);
+
+        CompraRequestDTO request = new CompraRequestDTO();
+        request.setFecha(LocalDate.now().plusDays(1));
+        request.setFormaPago(FormaPago.RESERVA_ADMIN);
+        request.setEntradas(List.of(detalle));
+
+        Compra resultado = service.create(request);
+
+        assertThat(resultado.getMontoTotal()).isEqualByComparingTo("0");
+        assertThat(resultado.getEstado()).isEqualTo(EstadoCompra.APROBADO);
+        // No se le pide precio a calculoPrecioService para nada: es gratis, no hay "precio de grupo" que calcular.
+        verify(calculoPrecioService, never()).calcularTotal(any(), org.mockito.ArgumentMatchers.anyInt(), any());
     }
 
     // ---------- Regalo no puede reservarse en efectivo ----------

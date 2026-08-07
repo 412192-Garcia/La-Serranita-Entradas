@@ -6,13 +6,27 @@
     }
   </div>
 
-  <div class="cabecera-acciones">
-    @for (e of enlacesVisibles; track e.ruta) {
-      <a class="btn-secundario" [routerLink]="e.ruta">{{ e.texto }}</a>
-    }
-    @if (operador(); as usuario) {
-      <span class="operador">{{ usuario.nombre }}</span>
-      <button type="button" class="btn-secundario" (click)="cerrarSesion()">Cerrar sesión</button>
+  <div class="cabecera-menu">
+    <button type="button" class="btn-hamburguesa" (click)="toggleMenu()" [attr.aria-expanded]="menuAbierto()" aria-label="Abrir menú">
+      <svg lucideMenu [strokeWidth]="2"></svg>
+      @if (operador(); as usuario) {
+        <span class="operador">{{ usuario.nombre }}</span>
+      }
+    </button>
+
+    @if (menuAbierto()) {
+      <div class="menu-overlay" (click)="cerrarMenu()"></div>
+      <div class="menu-desplegable">
+        @for (e of enlacesVisibles; track e.ruta) {
+          <a class="menu-item" [routerLink]="e.ruta" (click)="cerrarMenu()">{{ e.texto }}</a>
+        }
+        @if (operador()) {
+          <button type="button" class="menu-item menu-item-salir" (click)="cerrarSesion()">
+            <svg lucideLogOut [strokeWidth]="2"></svg>
+            Cerrar sesión
+          </button>
+        }
+      </div>
     }
   </div>
 </header>

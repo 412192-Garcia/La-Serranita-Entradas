@@ -51,6 +51,14 @@
   box-shadow: 0 0 0 3px rgba(57, 169, 53, 0.15);
 }
 
+/* No es un billete real, es la suma de los chicos: se separa un poco del resto de la lista. */
+.fila-cambio {
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--color-border);
+  font-style: italic;
+}
+
 .total-efectivo-contado {
   display: flex;
   flex-direction: column;

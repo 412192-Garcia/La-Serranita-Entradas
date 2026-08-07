@@ -29,6 +29,7 @@ const COLOR_POR_FORMA_PAGO: Record<RecaudacionPorFormaPago['formaPago'], string>
   EFECTIVO_BOLETERIA: '#e0a72e',
   TARJETA: '#4a7fc9',
   MERCADO_PAGO_QR: '#7a5bc9',
+  RESERVA_ADMIN: '#c96bb0',
 };
 
 const ETIQUETA_POR_ESTADO: Record<ComprasPorEstado['estado'], string> = {

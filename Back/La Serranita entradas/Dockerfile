@@ -23,5 +23,8 @@ USER app
 
 EXPOSE 8080
 ENV SPRING_PROFILES_ACTIVE=prod
+# Sin esto el JVM arranca en UTC (default del contenedor) y todos los LocalDateTime.now()
+# quedan 3 horas adelantados respecto de la hora real en el parque.
+ENV TZ=America/Argentina/Buenos_Aires
 
 ENTRYPOINT ["java", "-jar", "app.jar"]

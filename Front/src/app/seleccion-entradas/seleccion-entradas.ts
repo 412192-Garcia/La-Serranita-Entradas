@@ -25,6 +25,7 @@ export class SeleccionEntradas implements OnInit {
   @Input() fechaSeleccionada: Date | null = null;
   @Input() esRegalo: boolean = false;
   @Input() entradasPrevias: any[] | null = null;
+  @Input() mostrarOpcionRegalo: boolean = true;
 
   @Output() pasoSiguiente = new EventEmitter<any>();
 
@@ -98,7 +99,9 @@ export class SeleccionEntradas implements OnInit {
   get motivoBloqueoSiguiente(): string | null {
     if (this.esPasoValido) return null;
     if (!this.esRegalo && this.fechaSeleccionada === null) {
-      return 'Elegí una fecha de visita, o marcá "Comprar como Regalo".';
+      return this.mostrarOpcionRegalo
+        ? 'Elegí una fecha de visita, o marcá "Comprar como Regalo".'
+        : 'Elegí una fecha de visita.';
     }
     if (this.cantidadEntradasSeleccionadas === 0) {
       return 'Seleccioná al menos un pase de ingreso.';

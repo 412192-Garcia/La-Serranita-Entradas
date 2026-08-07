@@ -1,10 +1,12 @@
 package org.example.laserranitaentradas.controller;
 
 import org.example.laserranitaentradas.config.UsuarioAutenticado;
+import org.example.laserranitaentradas.model.dto.CompraRequestDTO;
 import org.example.laserranitaentradas.model.dto.CompraResponseDTO;
 import org.example.laserranitaentradas.model.dto.EditarContactoRequest;
 import org.example.laserranitaentradas.model.dto.VentaPosRequestDTO;
 import org.example.laserranitaentradas.model.entity.Compra;
+import org.example.laserranitaentradas.model.entity.FormaPago;
 import org.example.laserranitaentradas.service.CompraService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -45,6 +47,15 @@ public class CompraInternoController {
         // Quién vendió sale del token, no del cuerpo del request.
         Compra venta = compraService.registrarVentaPos(request, operador.id());
         return ResponseEntity.status(HttpStatus.CREATED).body(CompraController.entityToDto(venta));
+    }
+
+    @PostMapping("/generar-reserva")
+    @Operation(summary = "Generar una reserva a mano, sin cobrar nada por acá", description = "Sólo ADMIN: para invitados o ventas por agencia (el cobro real, si lo hay, se resolvió por fuera). La forma de pago del cuerpo se ignora, siempre queda como RESERVA_ADMIN.")
+    public ResponseEntity<CompraResponseDTO> generarReserva(@RequestBody @Parameter(description = "Datos de la reserva") CompraRequestDTO request) throws Exception {
+        // Se pisa acá, no en el body: así ningún cliente puede pedirlo mandando "RESERVA_ADMIN" a mano.
+        request.setFormaPago(FormaPago.RESERVA_ADMIN);
+        CompraResponseDTO response = compraService.iniciarCompraConPago(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @PutMapping("/{id}/contacto")

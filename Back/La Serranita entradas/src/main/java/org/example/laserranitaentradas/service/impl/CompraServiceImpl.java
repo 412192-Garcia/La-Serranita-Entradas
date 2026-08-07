@@ -574,7 +574,11 @@ public class CompraServiceImpl implements CompraService {
                     }
                 }
 
-                montoTotal = montoTotal.add(calculoPrecioService.calcularTotal(tipoEntrada, d.getCantidad(), formaPago));
+                // RESERVA_ADMIN no cobra nada por acá: no tiene sentido pedirle un precio a
+                // calculoPrecioService (que sólo sabe de precio de lista/grupo para las formas de pago reales).
+                if (formaPago != FormaPago.RESERVA_ADMIN) {
+                    montoTotal = montoTotal.add(calculoPrecioService.calcularTotal(tipoEntrada, d.getCantidad(), formaPago));
+                }
 
                 detalles.add(CompraDetalle.builder()
                         .tipoEntrada(tipoEntrada)

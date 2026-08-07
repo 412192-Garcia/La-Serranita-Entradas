@@ -1,0 +1,84 @@
+<div class="panel">
+
+  <app-cabecera-interna
+    titulo="Generar reserva"
+    descripcion="Una entrada normal, con su fecha, sólo que no se cobra por acá (invitados, ventas por agencia, etc)."
+    [enlace]="enlaceBoleteria" />
+
+  @if (resultado(); as r) {
+    <div class="tarjeta tarjeta-resultado">
+      <h2>Reserva generada</h2>
+      <p class="codigo-reserva">#{{ r.codigoReserva }}</p>
+      <p class="mensaje-resultado">Ya está aprobada, sin cobro por acá. Sólo tiene que mostrar el DNI en boletería.</p>
+      <button type="button" class="btn-primario" (click)="nuevaReserva()">Generar otra reserva</button>
+    </div>
+  } @else {
+    <div class="layout-crear-reserva">
+      <app-calendario [mostrarOpcionRegalo]="false" (fechaSeleccionadaChange)="onFecha($event)" />
+
+      <div class="panel-paso">
+        @switch (etapa()) {
+          @case (etapaReserva.SELECCION) {
+            <app-seleccion-entradas
+              [fechaSeleccionada]="datos.fechaVisita"
+              [entradasPrevias]="datos.entradas"
+              [mostrarOpcionRegalo]="false"
+              (pasoSiguiente)="onPasoSeleccion($event)" />
+          }
+          @case (etapaReserva.DATOS) {
+            <app-form-cliente
+              [datosPrevios]="datos.cliente"
+              (siguiente)="onPasoDatos($event)"
+              (atras)="volver()" />
+          }
+          @case (etapaReserva.CONFIRMAR) {
+            <div class="tarjeta tarjeta-confirmar">
+              <h2>Confirmar reserva</h2>
+
+              <div class="resumen-reserva">
+                <p><strong>{{ datos.cliente?.nombre }} {{ datos.cliente?.apellido }}</strong> · DNI {{ datos.cliente?.dni }}</p>
+                <p>{{ datos.fechaVisita | date: 'EEEE d/MM/yyyy' }}</p>
+                <ul class="lista-entradas-resumen">
+                  @for (e of datos.entradas; track e.id) {
+                    <li>{{ e.cantidad }}× {{ e.nombre }} <span class="precio-tachado">{{ e.subtotal | currency: 'ARS' : 'symbol' : '1.0-0' }}</span></li>
+                  }
+                </ul>
+                <p class="total-resumen">Total $0 — sin cobro por acá</p>
+              </div>
+
+              @if (error()) {
+                <p class="alerta-error">{{ error() }}</p>
+              }
+
+              <div class="acciones">
+                <button type="button" class="btn-secundario" (click)="volver()">Atrás</button>
+                <button type="button" class="btn-primario" [disabled]="creando()" (click)="confirmar()">
+                  {{ creando() ? 'Generando…' : 'Generar reserva' }}
+                </button>
+              </div>
+            </div>
+          }
+        }
+      </div>
+    </div>
+  }
+
+  @if (dniAConfirmar(); as mensaje) {
+    <div class="modal-overlay" (click)="corregirDatosPorDni()">
+      <div class="tarjeta modal-contenido" (click)="$event.stopPropagation()">
+        <h3>Confirmá que es la misma persona</h3>
+        <p>{{ mensaje }}</p>
+        <label class="check-actualizar-datos">
+          <input type="checkbox" [ngModel]="actualizarDatosCliente()" (ngModelChange)="actualizarDatosCliente.set($event)" />
+          Actualizar los datos guardados con lo que acabás de escribir
+        </label>
+        <div class="acciones">
+          <button type="button" class="btn-secundario" (click)="corregirDatosPorDni()">Revisar datos</button>
+          <button type="button" class="btn-secundario" (click)="noSoyYo()">No es la misma persona</button>
+          <button type="button" class="btn-primario" (click)="confirmarDniYContinuar()">Sí, es la misma</button>
+        </div>
+      </div>
+    </div>
+  }
+
+</div>

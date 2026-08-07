@@ -58,6 +58,10 @@ public class Caja extends BaseEntity {
     @Column(name = "diferencia")
     private BigDecimal diferencia;
 
+    /** Total en billetes chicos (50, 20, etc.) que el boletero carga de una sola vez en vez de contarlos uno por uno. Ya está incluido en montoContado. */
+    @Column(name = "cambio_contado")
+    private BigDecimal cambioContado;
+
     /**
      * Con cuántas entradas físicas (talonario) arranca el boletero el turno. Null en
      * cajas abiertas antes de agregar este campo: el cierre tolera esa ausencia y no

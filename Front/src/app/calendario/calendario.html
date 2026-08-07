@@ -33,25 +33,27 @@
   </div>
     </div>
   </div>
-  <div class="footer-regalo" [class.modo-activo]="esRegalo">
-    <label class="checkbox-regalo-label">
-      <input
-        type="checkbox"
-        class="checkbox-regalo-input"
-        [(ngModel)]="esRegalo"
-        (ngModelChange)="onCambioRegalo($event)"
-      >
-      <div class="info-regalo">
-        <span class="titulo-regalo">Comprar como Regalo</span>
-        <span class="desc-regalo">Sin fecha</span>
-      </div>
-    </label>
-  </div>
-
-  @if (esRegalo) {
-    <div class="feedback-regalo-activo">
-      Quien lo reciba va a poder usarlo el día que prefiera, dentro de los 90 días desde la compra.
+  @if (mostrarOpcionRegalo) {
+    <div class="footer-regalo" [class.modo-activo]="esRegalo">
+      <label class="checkbox-regalo-label">
+        <input
+          type="checkbox"
+          class="checkbox-regalo-input"
+          [(ngModel)]="esRegalo"
+          (ngModelChange)="onCambioRegalo($event)"
+        >
+        <div class="info-regalo">
+          <span class="titulo-regalo">Comprar como Regalo</span>
+          <span class="desc-regalo">Sin fecha</span>
+        </div>
+      </label>
     </div>
+
+    @if (esRegalo) {
+      <div class="feedback-regalo-activo">
+        Quien lo reciba va a poder usarlo el día que prefiera, dentro de los 90 días desde la compra.
+      </div>
+    }
   }
 
 </div>

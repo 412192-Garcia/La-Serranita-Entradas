@@ -57,7 +57,22 @@ public class CajaController {
     @Operation(summary = "Cerrar caja", description = "Compara lo contado (efectivo por denominación, cierres de posnet, entradas físicas) contra lo esperado y cierra el turno")
     public ResponseEntity<CajaResponseDTO> cerrar(@RequestBody CerrarCajaRequestDTO request,
                                                    @AuthenticationPrincipal UsuarioAutenticado operador) {
-        return ResponseEntity.ok(cajaService.cerrar(
-                operador.id(), request.getConteoEfectivo(), request.getCierresPosnet(), request.getEntradasFisicasFinal()));
+        return ResponseEntity.ok(cajaService.cerrar(operador.id(), request.getConteoEfectivo(), request.getCierresPosnet(),
+                request.getEntradasFisicasFinal(), request.getCambioContado()));
+    }
+
+    @GetMapping("/{id}/detalle")
+    @Operation(summary = "Detalle completo de una caja (ADMIN)", description = "Para que el admin revise cualquier caja cerrada, sin importar quién la abrió")
+    public ResponseEntity<CajaResponseDTO> getDetalle(@PathVariable Long id) {
+        return ResponseEntity.ok(cajaService.getDetalle(id));
+    }
+
+    @PutMapping("/{id}/cierre")
+    @Operation(summary = "Corregir un cierre ya hecho", description = "Para arreglar un error de tipeo en el conteo sin tener que meter la mano en la base. Sólo el boletero dueño de esa caja puede corregirla.")
+    public ResponseEntity<CajaResponseDTO> corregirCierre(@PathVariable Long id,
+                                                           @RequestBody CerrarCajaRequestDTO request,
+                                                           @AuthenticationPrincipal UsuarioAutenticado operador) {
+        return ResponseEntity.ok(cajaService.corregirCierre(operador.id(), id, request.getConteoEfectivo(),
+                request.getCierresPosnet(), request.getEntradasFisicasFinal(), request.getCambioContado()));
     }
 }
