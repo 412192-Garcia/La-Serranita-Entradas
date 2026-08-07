@@ -1,6 +1,6 @@
 <div class="modal-overlay" (click)="cerrar.emit()">
   <div class="panel-caja panel-caja-cierre" (click)="$event.stopPropagation()">
-    <h3>Cerrar caja</h3>
+    <h3>{{ cajaParaCorregir() ? 'Corregir cierre' : 'Cerrar caja' }}</h3>
 
     <div class="cuerpo-cierre">
       <section class="seccion-cierre columna-efectivo">
@@ -19,6 +19,16 @@
                 (ngModelChange)="setConteoEfectivo(d, $event ?? 0)" />
             </label>
           }
+          <label class="fila-denominacion fila-cambio">
+            <span>Cambio</span>
+            <input
+              type="text"
+              inputmode="numeric"
+              placeholder="0"
+              appMoneyInput
+              [ngModel]="cambioContado()"
+              (ngModelChange)="cambioContado.set($event)" />
+          </label>
         </div>
         <div class="total-efectivo-contado">
           <span>Total contado</span>
@@ -29,7 +39,7 @@
       <div class="columna-resto">
         <section class="seccion-cierre">
           <h4>Posnet</h4>
-          <p class="subtitulo-apertura">Si el posnet se reinició a mitad de turno, agregá otro cierre en la misma columna.</p>
+          <p class="subtitulo-apertura">Ingresa los datos del cierre del posnet.</p>
           <div class="columnas-posnet">
             <div class="columna-posnet">
               <h5>Tarjeta</h5>
@@ -103,7 +113,11 @@
     <div class="acciones">
       <button type="button" class="btn-limpiar" (click)="cerrar.emit()">Cancelar</button>
       <button type="button" class="btn-cobrar" [disabled]="cerrandoCaja()" (click)="confirmarCierre()">
-        {{ cerrandoCaja() ? 'Cerrando…' : 'Confirmar cierre' }}
+        @if (cerrandoCaja()) {
+          {{ cajaParaCorregir() ? 'Guardando…' : 'Cerrando…' }}
+        } @else {
+          {{ cajaParaCorregir() ? 'Guardar corrección' : 'Confirmar cierre' }}
+        }
       </button>
     </div>
   </div>

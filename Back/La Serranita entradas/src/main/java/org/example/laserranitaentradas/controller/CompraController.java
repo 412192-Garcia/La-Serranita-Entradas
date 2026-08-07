@@ -42,8 +42,21 @@ public class CompraController {
     @PostMapping("/iniciar-pago")
     @Operation(summary = "Iniciar compra con pago online", description = "Crea la compra en estado PENDIENTE y genera la preferencia de Mercado Pago")
     public ResponseEntity<CompraResponseDTO> iniciarPago(@RequestBody @Parameter(description = "Datos de la compra") CompraRequestDTO compraRequest) throws Exception {
+        rechazarFormaPagoReservaAdmin(compraRequest);
         CompraResponseDTO response = compraService.iniciarCompraConPago(compraRequest);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    /**
+     * RESERVA_ADMIN sólo se puede crear desde /api/interno/compras/generar-reserva (ADMIN
+     * autenticado, ver CompraInternoController): este endpoint es público, así que si
+     * dejáramos pasar esa forma de pago cualquier visitante del storefront podría pedir
+     * entradas sin que el sistema les cobre nada.
+     */
+    private static void rechazarFormaPagoReservaAdmin(CompraRequestDTO compraRequest) {
+        if (compraRequest.getFormaPago() == FormaPago.RESERVA_ADMIN) {
+            throw new IllegalArgumentException("Forma de pago no válida.");
+        }
     }
 
     @PostMapping("/cotizar")
@@ -124,6 +137,7 @@ public class CompraController {
             @ApiResponse(responseCode = "400", description = "Solicitud inválida")
     })
     public ResponseEntity<CompraResponseDTO> crearCompra(@RequestBody @Parameter(description = "Datos de la compra") CompraRequestDTO compraRequest) {
+        rechazarFormaPagoReservaAdmin(compraRequest);
         Compra creada = compraService.create(compraRequest);
         return ResponseEntity.status(HttpStatus.CREATED).body(entityToDto(creada));
     }

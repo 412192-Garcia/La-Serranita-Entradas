@@ -35,13 +35,14 @@ export class ConfiguracionTiposEntrada implements OnInit {
   errorDescuentos = signal<string | null>(null);
 
   descuentoEditandoId = signal<number | null>(null);
-  tipoEntradaIdDescuento = signal<number | null>(null);
   cantidadPasesDescuento = signal<number | null>(null);
   precioTotalDescuento = signal<number | null>(null);
   guardandoDescuento = signal(false);
 
-  /** Entradas (no extras) disponibles para configurarles un precio de grupo. */
-  entradasParaDescuento = computed(() => this.tiposEntrada().filter((t) => t.tipo === 'ENTRADA'));
+  /** Precios de grupo del tipo de entrada que se está editando ahora mismo (se gestionan dentro de su propio formulario). */
+  descuentosDelTipoActual = computed(() =>
+    this.descuentosGrupo().filter((d) => d.tipoEntradaId === this.tipoEditandoId())
+  );
 
   ngOnInit(): void {
     this.cargarTipos();
@@ -72,6 +73,7 @@ export class ConfiguracionTiposEntrada implements OnInit {
     this.entregaEntradaTipo.set(t.entregaEntrada);
     this.maximoPorDiaTipo.set(t.maximoPorDia ?? null);
     this.errorTipos.set(null);
+    this.cancelarEdicionDescuento();
   }
 
   cancelarEdicionTipo(): void {
@@ -84,6 +86,7 @@ export class ConfiguracionTiposEntrada implements OnInit {
     this.entregaEntradaTipo.set(false);
     this.maximoPorDiaTipo.set(null);
     this.errorTipos.set(null);
+    this.cancelarEdicionDescuento();
   }
 
   guardarTipo(): void {
@@ -117,8 +120,14 @@ export class ConfiguracionTiposEntrada implements OnInit {
           const existe = ts.some((t) => t.id === guardado.id);
           return existe ? ts.map((t) => (t.id === guardado.id ? guardado : t)) : [guardado, ...ts];
         });
-        this.cancelarEdicionTipo();
         this.guardandoTipo.set(false);
+        // Las entradas (no los extras) admiten precios de grupo: se queda en modo edición
+        // para que el admin pueda cargarlos sin tener que volver a buscar el tipo recién creado.
+        if (guardado.tipo === 'ENTRADA') {
+          this.editarTipo(guardado);
+        } else {
+          this.cancelarEdicionTipo();
+        }
       },
       error: (err) => {
         console.error('Error al guardar el tipo de entrada:', err);
@@ -174,7 +183,6 @@ export class ConfiguracionTiposEntrada implements OnInit {
 
   editarDescuento(d: DescuentoEfectivo): void {
     this.descuentoEditandoId.set(d.id);
-    this.tipoEntradaIdDescuento.set(d.tipoEntradaId);
     this.cantidadPasesDescuento.set(d.cantidadPases);
     this.precioTotalDescuento.set(d.precioPromocionalTotal);
     this.errorDescuentos.set(null);
@@ -182,7 +190,6 @@ export class ConfiguracionTiposEntrada implements OnInit {
 
   cancelarEdicionDescuento(): void {
     this.descuentoEditandoId.set(null);
-    this.tipoEntradaIdDescuento.set(null);
     this.cantidadPasesDescuento.set(null);
     this.precioTotalDescuento.set(null);
     this.errorDescuentos.set(null);
@@ -190,15 +197,16 @@ export class ConfiguracionTiposEntrada implements OnInit {
 
   guardarDescuento(): void {
     if (this.guardandoDescuento()) return;
-    if (!this.tipoEntradaIdDescuento() || !this.cantidadPasesDescuento() || this.precioTotalDescuento() === null) {
-      this.errorDescuentos.set('Completá tipo de entrada, cantidad de pases y precio total.');
+    const tipoEntradaId = this.tipoEditandoId();
+    if (!tipoEntradaId || !this.cantidadPasesDescuento() || this.precioTotalDescuento() === null) {
+      this.errorDescuentos.set('Completá cantidad de pases y precio total.');
       return;
     }
     this.guardandoDescuento.set(true);
     this.errorDescuentos.set(null);
 
     const payload = {
-      tipoEntradaId: this.tipoEntradaIdDescuento()!,
+      tipoEntradaId,
       cantidadPases: this.cantidadPasesDescuento()!,
       precioPromocionalTotal: this.precioTotalDescuento()!,
     };

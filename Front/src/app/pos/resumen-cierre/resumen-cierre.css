@@ -17,6 +17,19 @@
   margin: 0;
 }
 
+.total-vendido {
+  margin: 6px 0 0;
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+}
+
+.total-vendido strong {
+  margin-left: 4px;
+  font-family: var(--font-heading);
+  font-size: 1.3rem;
+  color: var(--color-primary-dark);
+}
+
 .grilla-resumen-cierre {
   width: 100%;
   display: grid;
@@ -45,6 +58,10 @@
   color: var(--color-text);
 }
 
+.bloque-entradas-vendidas {
+  grid-column: 1 / -1;
+}
+
 .diferencia-bloque {
   font-weight: 700;
   color: var(--color-text);
@@ -52,6 +69,66 @@
 
 .diferencia-bloque.diferencia-negativa {
   color: var(--color-danger-dark);
+}
+
+.btn-desglose {
+  align-self: flex-start;
+  margin-top: 2px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--color-primary-dark);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.lista-desglose {
+  list-style: none;
+  margin: 2px 0 0;
+  padding: 6px 0 0;
+  border-top: 1px dashed var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.lista-desglose li {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.78rem;
+}
+
+.acciones-cierre {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  margin-top: 22px;
+}
+
+.acciones-cierre .btn-nueva-venta {
+  margin-top: 0;
+}
+
+.btn-corregir-cierre {
+  flex: 0 0 auto;
+  padding: 16px;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: #fff;
+  color: var(--color-text-secondary);
+  font-family: var(--font-heading);
+  font-size: 1rem;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.btn-corregir-cierre:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary-dark);
 }
 
 /* ---------- Detalle de caja: columna propia, no un desplegable apretado ---------- */
@@ -89,10 +166,9 @@
 }
 
 .fila-operacion {
-  display: grid;
-  grid-template-columns: 52px 70px 1fr auto;
-  gap: 8px;
-  align-items: baseline;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   padding: 6px 8px;
   border-radius: var(--radius-sm);
   font-size: 0.8rem;
@@ -109,6 +185,13 @@
   color: var(--color-primary-dark);
 }
 
+.fila-operacion-cabecera {
+  display: grid;
+  grid-template-columns: 44px 1fr auto;
+  gap: 8px;
+  align-items: baseline;
+}
+
 .operacion-hora {
   color: var(--color-text-muted);
   font-variant-numeric: tabular-nums;
@@ -123,9 +206,8 @@
 
 .operacion-detalle {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: break-word;
 }
 
 .operacion-monto {

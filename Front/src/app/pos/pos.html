@@ -6,7 +6,7 @@
     [enlace]="enlaceBoleteria" />
 
   @if (cajaCerrada(); as cerrada) {
-    <app-resumen-cierre [caja]="cerrada" (verReservas)="irAReservas()" />
+    <app-resumen-cierre [caja]="cerrada" (verReservas)="irAReservas()" (corregir)="mostrarCierre.set(true)" />
   } @else if (cargandoCaja()) {
     <div class="spinner-contenedor"><div class="spinner"></div></div>
   } @else if (caja() === null) {
@@ -38,10 +38,6 @@
         [ingresos]="caja()!.ingresosEntradas"
         (ingresoRegistrado)="onIngresoEntradasRegistrado($event)"
         (cerrar)="mostrarIngresoEntradas.set(false)" />
-    }
-
-    @if (mostrarCierre()) {
-      <app-cierre-caja-modal (cajaCerrada)="onCajaCerrada($event)" (cerrar)="mostrarCierre.set(false)" />
     }
 
     @if (ultimaVenta(); as venta) {
@@ -85,5 +81,15 @@
         </div>
       }
     }
+  }
+
+  <!-- Fuera de la cadena de arriba: hace falta tanto para cerrar la caja abierta como para
+       corregir el cierre de la que ya está cerrada (el botón "Corregir cierre" vive en la
+       otra rama). [cajaParaCorregir] viene null en el primer caso y con datos en el segundo. -->
+  @if (mostrarCierre()) {
+    <app-cierre-caja-modal
+      [cajaParaCorregir]="cajaCerrada()"
+      (cajaCerrada)="onCajaCerrada($event)"
+      (cerrar)="mostrarCierre.set(false)" />
   }
 </div>

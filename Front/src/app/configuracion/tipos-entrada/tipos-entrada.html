@@ -2,6 +2,9 @@
 
   <div class="tarjeta tarjeta-formulario">
     <h2>{{ tipoEditandoId() ? 'Editar tipo de entrada' : 'Nuevo tipo de entrada' }}</h2>
+    @if (!tipoEditandoId() && categoriaTipo() === 'ENTRADA') {
+      <p class="ayuda">Después de crearlo vas a poder cargarle acá mismo sus precios por grupo.</p>
+    }
     @if (errorTipos()) {
       <p class="alerta-error">{{ errorTipos() }}</p>
     }
@@ -42,7 +45,7 @@
         <input type="checkbox" [ngModel]="entregaEntradaTipo()" (ngModelChange)="entregaEntradaTipo.set($event)" />
         <span>
           Entrega entrada física: al vender este tipo se consume talonario
-          <span class="opcional">(ej: marcá esto en "Pase General"; los pases de menores no suelen entregar entrada física)</span>
+          <span class="opcional">(ej: marcá esto en "Pase General"</span>
         </span>
       </label>
     }
@@ -54,6 +57,53 @@
         <button type="button" class="btn-secundario" (click)="cancelarEdicionTipo()">Cancelar</button>
       }
     </div>
+
+    @if (tipoEditandoId() && categoriaTipo() === 'ENTRADA') {
+      <div class="bloque-precios-grupo">
+        <h3>Precios por grupo</h3>
+        <p class="ayuda">Precio total promocional para una cantidad puntual de pases de este tipo, aplicado solo al pagar en efectivo en boletería.</p>
+        @if (errorDescuentos()) {
+          <p class="alerta-error">{{ errorDescuentos() }}</p>
+        }
+        @if (descuentosDelTipoActual().length > 0) {
+          <div class="tabla-simple">
+            <div class="fila-simple fila-simple-descuentos fila-simple-header">
+              <span>Cantidad</span><span>Precio total</span><span>Precio por persona</span><span>Ahorro</span><span>Acción</span>
+            </div>
+            @for (d of descuentosDelTipoActual(); track d.id) {
+              <div class="fila-simple fila-simple-descuentos">
+                <span>{{ d.cantidadPases }}</span>
+                <span>{{ d.precioPromocionalTotal | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+                <span>{{ precioPorPersona(d) | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+                <span>{{ ahorroDescuento(d) | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+                <span class="acciones-tipo">
+                  <button type="button" class="btn-secundario" (click)="editarDescuento(d)">Editar</button>
+                  <button type="button" class="btn-secundario" (click)="eliminarDescuento(d)">Eliminar</button>
+                </span>
+              </div>
+            }
+          </div>
+        }
+        <div class="form-grid">
+          <label>
+            Cantidad de pases
+            <input type="number" min="2" [ngModel]="cantidadPasesDescuento()" (ngModelChange)="cantidadPasesDescuento.set($event)" />
+          </label>
+          <label>
+            Precio total promocional
+            <input type="text" inputmode="numeric" appMoneyInput [ngModel]="precioTotalDescuento()" (ngModelChange)="precioTotalDescuento.set($event)" />
+          </label>
+        </div>
+        <div class="fila-horario">
+          <button type="button" class="btn-secundario" [disabled]="guardandoDescuento()" (click)="guardarDescuento()">
+            {{ guardandoDescuento() ? 'Guardando…' : (descuentoEditandoId() ? 'Guardar cambios' : '+ Agregar precio de grupo') }}
+          </button>
+          @if (descuentoEditandoId()) {
+            <button type="button" class="btn-secundario" (click)="cancelarEdicionDescuento()">Cancelar</button>
+          }
+        </div>
+      </div>
+    }
   </div>
 
   <div class="tarjeta">
@@ -88,69 +138,6 @@
               <button type="button" class="btn-secundario" (click)="toggleActivoTipo(t)">
                 {{ t.activo ? 'Desactivar' : 'Activar' }}
               </button>
-            </span>
-          </div>
-        }
-      </div>
-    }
-  </div>
-
-  <div class="tarjeta tarjeta-ancha tarjeta-formulario">
-    <h2>{{ descuentoEditandoId() ? 'Editar precio de grupo' : 'Nuevo precio de grupo (efectivo)' }}</h2>
-    <p class="ayuda">Precio total promocional para una cantidad puntual de pases, aplicado solo al pagar en efectivo en boletería.</p>
-    @if (errorDescuentos()) {
-      <p class="alerta-error">{{ errorDescuentos() }}</p>
-    }
-    <div class="form-grid">
-      <label>
-        Tipo de entrada
-        <select [ngModel]="tipoEntradaIdDescuento()" (ngModelChange)="tipoEntradaIdDescuento.set($event)">
-          <option [ngValue]="null">Elegí un tipo…</option>
-          @for (t of entradasParaDescuento(); track t.id) {
-            <option [ngValue]="t.id">{{ t.nombre }}</option>
-          }
-        </select>
-      </label>
-      <label>
-        Cantidad de pases
-        <input type="number" min="2" [ngModel]="cantidadPasesDescuento()" (ngModelChange)="cantidadPasesDescuento.set($event)" />
-      </label>
-      <label>
-        Precio total promocional
-        <input type="text" inputmode="numeric" appMoneyInput [ngModel]="precioTotalDescuento()" (ngModelChange)="precioTotalDescuento.set($event)" />
-      </label>
-    </div>
-    <div class="fila-horario">
-      <button type="button" class="btn-primario" [disabled]="guardandoDescuento()" (click)="guardarDescuento()">
-        {{ guardandoDescuento() ? 'Guardando…' : (descuentoEditandoId() ? 'Guardar cambios' : 'Crear precio de grupo') }}
-      </button>
-      @if (descuentoEditandoId()) {
-        <button type="button" class="btn-secundario" (click)="cancelarEdicionDescuento()">Cancelar</button>
-      }
-    </div>
-  </div>
-
-  <div class="tarjeta tarjeta-ancha">
-    <h2>Precios por grupo existentes</h2>
-    @if (cargandoDescuentos()) {
-      <div class="spinner-contenedor"><div class="spinner"></div></div>
-    } @else if (descuentosGrupo().length === 0) {
-      <p class="ayuda">Todavía no hay precios de grupo configurados.</p>
-    } @else {
-      <div class="tabla-simple">
-        <div class="fila-simple fila-simple-descuentos fila-simple-header">
-          <span>Tipo de entrada</span><span>Cantidad</span><span>Precio total</span><span>Precio por persona</span><span>Ahorro</span><span>Acción</span>
-        </div>
-        @for (d of descuentosGrupo(); track d.id) {
-          <div class="fila-simple fila-simple-descuentos">
-            <span>{{ d.tipoEntradaNombre }}</span>
-            <span>{{ d.cantidadPases }}</span>
-            <span>{{ d.precioPromocionalTotal | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
-            <span>{{ precioPorPersona(d) | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
-            <span>{{ ahorroDescuento(d) | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
-            <span class="acciones-tipo">
-              <button type="button" class="btn-secundario" (click)="editarDescuento(d)">Editar</button>
-              <button type="button" class="btn-secundario" (click)="eliminarDescuento(d)">Eliminar</button>
             </span>
           </div>
         }

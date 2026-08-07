@@ -1,4 +1,4 @@
-import { Component, computed, inject, output, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, input, output, signal } from '@angular/core';
 import { CurrencyPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CajaService, Caja, CierrePosnetInput, FormaPagoPosnet } from '../../Services/caja.service';
@@ -19,8 +19,11 @@ interface FilaMontoNota {
   templateUrl: './cierre-caja-modal.html',
   styleUrl: './cierre-caja-modal.css',
 })
-export class CierreCajaModal {
+export class CierreCajaModal implements OnInit {
   private cajaService = inject(CajaService);
+
+  /** Si viene seteada, el modal arranca precargado con sus datos y "Confirmar" corrige esa caja ya cerrada en vez de cerrar la abierta. */
+  cajaParaCorregir = input<Caja | null>(null);
 
   cajaCerrada = output<Caja>();
   cerrar = output<void>();
@@ -28,6 +31,8 @@ export class CierreCajaModal {
   readonly denominaciones = DENOMINACIONES;
   /** Cuántos billetes de cada denominación contó el boletero al cerrar. */
   conteoEfectivo = signal<Record<number, number>>({});
+  /** Total en billetes chicos (50, 20, etc.), cargado de una vez en vez de billete por billete. */
+  cambioContado = signal<number | null>(null);
   /** Arrancan con una fila vacía cada una: lo normal es tener al menos un cierre de cada posnet. */
   cierresTarjeta = signal<FilaMontoNota[]>([{ monto: null, nota: '' }]);
   cierresQr = signal<FilaMontoNota[]>([{ monto: null, nota: '' }]);
@@ -35,10 +40,27 @@ export class CierreCajaModal {
   cerrandoCaja = signal(false);
   errorCierre = signal<string | null>(null);
 
-  /** Total contado en efectivo, calculado en vivo a partir del conteo por denominación. */
+  /** Total contado en efectivo, calculado en vivo a partir del conteo por denominación más el cambio. */
   montoContadoCalculado = computed(() =>
-    this.denominaciones.reduce((acc, d) => acc + d * (this.conteoEfectivo()[d] ?? 0), 0)
+    this.denominaciones.reduce((acc, d) => acc + d * (this.conteoEfectivo()[d] ?? 0), 0) + (this.cambioContado() ?? 0)
   );
+
+  ngOnInit(): void {
+    const caja = this.cajaParaCorregir();
+    if (!caja) return;
+
+    const conteo: Record<number, number> = {};
+    for (const c of caja.conteoEfectivo) conteo[c.denominacion] = c.cantidad;
+    this.conteoEfectivo.set(conteo);
+    this.cambioContado.set(caja.cambioContado);
+
+    const tarjeta = caja.cierresPosnet.filter((c) => c.formaPago === 'TARJETA').map((c) => ({ monto: c.monto, nota: c.nota ?? '' }));
+    const qr = caja.cierresPosnet.filter((c) => c.formaPago === 'MERCADO_PAGO_QR').map((c) => ({ monto: c.monto, nota: c.nota ?? '' }));
+    this.cierresTarjeta.set(tarjeta.length ? tarjeta : [{ monto: null, nota: '' }]);
+    this.cierresQr.set(qr.length ? qr : [{ monto: null, nota: '' }]);
+
+    this.entradasFisicasFinal.set(caja.entradasFisicasFinal);
+  }
 
   setConteoEfectivo(denominacion: number, cantidad: number): void {
     const valor = Math.max(0, Math.floor(cantidad) || 0);
@@ -85,13 +107,19 @@ export class CierreCajaModal {
 
     this.cerrandoCaja.set(true);
     this.errorCierre.set(null);
-    this.cajaService.cerrar(conteo, cierres, entradasFisicasFinal).subscribe({
+
+    const cajaParaCorregir = this.cajaParaCorregir();
+    const request = cajaParaCorregir
+      ? this.cajaService.corregirCierre(cajaParaCorregir.id, conteo, cierres, entradasFisicasFinal, this.cambioContado())
+      : this.cajaService.cerrar(conteo, cierres, entradasFisicasFinal, this.cambioContado());
+
+    request.subscribe({
       next: (c) => {
         this.cerrandoCaja.set(false);
         this.cajaCerrada.emit(c);
       },
       error: (err) => {
-        this.errorCierre.set(typeof err?.error === 'string' ? err.error : 'No se pudo cerrar la caja. Reintentá.');
+        this.errorCierre.set(typeof err?.error === 'string' ? err.error : 'No se pudo guardar el cierre. Reintentá.');
         this.cerrandoCaja.set(false);
       },
     });

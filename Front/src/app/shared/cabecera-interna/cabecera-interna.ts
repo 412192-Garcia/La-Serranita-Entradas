@@ -1,5 +1,6 @@
-import { Component, Input, inject } from '@angular/core';
+import { Component, Input, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
+import { LucideMenu, LucideLogOut } from '@lucide/angular';
 import { SesionService } from '../../Services/sesion.service';
 
 /** Enlace opcional que cada pantalla agrega a su cabecera (ir a la otra sección). */
@@ -19,7 +20,7 @@ export interface EnlaceCabecera {
  */
 @Component({
   selector: 'app-cabecera-interna',
-  imports: [RouterLink],
+  imports: [RouterLink, LucideMenu, LucideLogOut],
   templateUrl: './cabecera-interna.html',
   styleUrl: './cabecera-interna.css',
 })
@@ -40,6 +41,16 @@ export class CabeceraInterna {
   }
 
   readonly operador = this.sesion.usuario;
+
+  menuAbierto = signal(false);
+
+  toggleMenu(): void {
+    this.menuAbierto.update((v) => !v);
+  }
+
+  cerrarMenu(): void {
+    this.menuAbierto.set(false);
+  }
 
   cerrarSesion(): void {
     this.sesion.cerrarSesion();

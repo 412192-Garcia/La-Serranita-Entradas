@@ -62,6 +62,12 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/pagos/webhook").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/ping").permitAll()
 
+                // ---------- Sólo ADMIN, dentro del módulo interno ----------
+                // Va antes que la regla general de /api/interno/** (más abajo): Spring Security
+                // usa la primera regla que matchea, así que el orden acá importa.
+                .requestMatchers(HttpMethod.POST, "/api/interno/compras/generar-reserva").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.GET, "/api/interno/caja/*/detalle").hasRole("ADMIN")
+
                 // ---------- Boletería (BOLETERO o ADMIN) ----------
                 .requestMatchers(HttpMethod.GET, "/api/compras/buscar").hasAnyRole("BOLETERO", "ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/api/compras/*/validar").hasAnyRole("BOLETERO", "ADMIN")

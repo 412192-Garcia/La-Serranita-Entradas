@@ -57,6 +57,8 @@ export interface Caja {
   efectivoEsperado: number | null;
   montoContado: number | null;
   diferencia: number | null;
+  /** Total en billetes chicos cargado de una vez; ya está incluido en montoContado. Null hasta el cierre. */
+  cambioContado: number | null;
   retiros: RetiroCaja[];
 
   conteoEfectivo: ConteoDenominacion[];
@@ -77,6 +79,15 @@ export interface Caja {
   ingresosEntradas: IngresoEntradas[];
 
   operaciones: OperacionCaja[] | null;
+
+  /** Unidades de entrada vendidas (no extras ni artículos), sin importar la forma de pago. Null hasta el cierre. */
+  totalEntradasVendidas: number | null;
+  entradasVendidasPorTipo: EntradasPorTipo[] | null;
+}
+
+export interface EntradasPorTipo {
+  nombreTipo: string;
+  cantidad: number;
 }
 
 export interface CierrePosnetInput {
@@ -112,8 +123,25 @@ export class CajaService {
   cerrar(
     conteoEfectivo: ConteoDenominacion[],
     cierresPosnet: CierrePosnetInput[],
-    entradasFisicasFinal: number
+    entradasFisicasFinal: number,
+    cambioContado: number | null
   ): Observable<Caja> {
-    return this.http.post<Caja>(`${this.cajaUrl}/cerrar`, { conteoEfectivo, cierresPosnet, entradasFisicasFinal });
+    return this.http.post<Caja>(`${this.cajaUrl}/cerrar`, { conteoEfectivo, cierresPosnet, entradasFisicasFinal, cambioContado });
+  }
+
+  /** Detalle completo de cualquier caja (ADMIN), sin importar quién la abrió. */
+  obtenerDetalle(cajaId: number): Observable<Caja> {
+    return this.http.get<Caja>(`${this.cajaUrl}/${cajaId}/detalle`);
+  }
+
+  /** Corrige un cierre ya hecho (ej. un billete mal contado). Sólo el boletero dueño de esa caja puede corregirla. */
+  corregirCierre(
+    cajaId: number,
+    conteoEfectivo: ConteoDenominacion[],
+    cierresPosnet: CierrePosnetInput[],
+    entradasFisicasFinal: number,
+    cambioContado: number | null
+  ): Observable<Caja> {
+    return this.http.put<Caja>(`${this.cajaUrl}/${cajaId}/cierre`, { conteoEfectivo, cierresPosnet, entradasFisicasFinal, cambioContado });
   }
 }

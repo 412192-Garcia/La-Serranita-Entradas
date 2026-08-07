@@ -1,4 +1,4 @@
-import {Component, OnInit, OnDestroy, ChangeDetectorRef, Output, EventEmitter} from '@angular/core';
+import {Component, Input, OnInit, OnDestroy, ChangeDetectorRef, Output, EventEmitter} from '@angular/core';
 import { Semana } from './semana/semana';
 import { DiaCalendario } from './calendario-models';
 import { DatePipe } from '@angular/common';
@@ -22,6 +22,9 @@ export class Calendario implements OnInit, OnDestroy {
   cargando: boolean = false;
 
   esRegalo: boolean = false;
+
+  /** Falso en pantallas donde una entrada "sin fecha fija" no tiene sentido (ej. crear-reserva del admin: siempre es una entrada normal con día, sólo que gratis). */
+  @Input() mostrarOpcionRegalo: boolean = true;
 
   nombreMes: string = MESES_LETRAS[new Date().getMonth()];
   anioActual: number = new Date().getFullYear();

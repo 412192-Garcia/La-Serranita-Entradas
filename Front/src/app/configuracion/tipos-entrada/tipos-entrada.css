@@ -12,8 +12,22 @@
 }
 
 .fila-simple-descuentos {
-  grid-template-columns: 1.3fr 0.7fr 0.9fr 0.9fr 0.9fr 1.4fr;
+  grid-template-columns: 0.7fr 0.9fr 0.9fr 0.9fr 1.4fr;
   font-size: 0.9rem;
+}
+
+.bloque-precios-grupo {
+  border-top: 1.5px dashed var(--color-border);
+  margin-top: 20px;
+  padding-top: 16px;
+}
+
+.bloque-precios-grupo h3 {
+  font-family: var(--font-heading);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0 0 4px;
 }
 
 .fila-checkbox {
