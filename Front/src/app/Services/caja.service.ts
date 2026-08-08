@@ -96,6 +96,17 @@ export interface CierrePosnetInput {
   nota?: string | null;
 }
 
+/** Una caja abierta ahora mismo, para el dashboard de hoy del admin. */
+export interface CajaAbierta {
+  id: number;
+  usuarioNombre: string;
+  fechaApertura: string;
+  montoInicial: number;
+  /** Vendido hasta el momento (efectivo + tarjeta + QR), en vivo. */
+  totalVendido: number;
+  totalEntradasVendidas: number;
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -132,6 +143,11 @@ export class CajaService {
   /** Detalle completo de cualquier caja (ADMIN), sin importar quién la abrió. */
   obtenerDetalle(cajaId: number): Observable<Caja> {
     return this.http.get<Caja>(`${this.cajaUrl}/${cajaId}/detalle`);
+  }
+
+  /** Todas las cajas abiertas ahora mismo (ADMIN), para el dashboard de hoy. */
+  obtenerCajasAbiertas(): Observable<CajaAbierta[]> {
+    return this.http.get<CajaAbierta[]>(`${this.cajaUrl}/abiertas`);
   }
 
   /** Corrige un cierre ya hecho (ej. un billete mal contado). Sólo el boletero dueño de esa caja puede corregirla. */

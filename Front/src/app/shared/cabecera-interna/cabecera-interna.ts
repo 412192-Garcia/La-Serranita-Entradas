@@ -1,6 +1,6 @@
-import { Component, Input, computed, inject, signal } from '@angular/core';
+import { Component, HostListener, Input, computed, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
-import { LucideMenu, LucideX, LucideLogOut } from '@lucide/angular';
+import { LucideMenu, LucideX, LucideLogOut, LucideWifiOff } from '@lucide/angular';
 import { SesionService } from '../../Services/sesion.service';
 
 interface EnlaceCabecera {
@@ -13,6 +13,7 @@ interface EnlaceCabecera {
 const TODOS_LOS_ENLACES: EnlaceCabecera[] = [
   { texto: 'Control de accesos', ruta: '/boleteria' },
   { texto: 'Vender entradas', ruta: '/pos' },
+  { texto: 'Hoy', ruta: '/hoy', soloAdmin: true },
   { texto: 'Generar reserva', ruta: '/crear-reserva', soloAdmin: true },
   { texto: 'Configuración', ruta: '/configuracion', soloAdmin: true },
   { texto: 'Reportes', ruta: '/reportes', soloAdmin: true },
@@ -30,7 +31,7 @@ const TODOS_LOS_ENLACES: EnlaceCabecera[] = [
  */
 @Component({
   selector: 'app-cabecera-interna',
-  imports: [RouterLink, LucideMenu, LucideX, LucideLogOut],
+  imports: [RouterLink, LucideMenu, LucideX, LucideLogOut, LucideWifiOff],
   templateUrl: './cabecera-interna.html',
   styleUrl: './cabecera-interna.css',
 })
@@ -42,6 +43,19 @@ export class CabeceraInterna {
   @Input() descripcion = '';
 
   readonly operador = this.sesion.usuario;
+
+  /** navigator.onLine no es 100% preciso (sólo mira la interfaz de red, no si internet realmente responde), pero alcanza para un aviso visual simple. */
+  enLinea = signal(navigator.onLine);
+
+  @HostListener('window:online')
+  onOnline(): void {
+    this.enLinea.set(true);
+  }
+
+  @HostListener('window:offline')
+  onOffline(): void {
+    this.enLinea.set(false);
+  }
 
   readonly enlacesVisibles = computed(() => {
     const esAdmin = this.sesion.rol() === 'ADMIN';

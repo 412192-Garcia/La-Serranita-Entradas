@@ -435,6 +435,52 @@ class CajaServiceImplTest {
         assertThat(respuesta.getEstado()).isEqualTo("CERRADA");
     }
 
+    @Test
+    void getCajasAbiertas_devuelveSoloLasQueSiguenAbiertas_deCualquierUsuario() {
+        Usuario usuario1 = new Usuario();
+        usuario1.setNombre("Marta");
+        usuario1.setApellido("Gómez");
+        Caja abierta1 = cajaAbierta(7L, "5000", 10);
+        abierta1.setUsuario(usuario1);
+
+        Usuario usuario2 = new Usuario();
+        usuario2.setNombre("Juan");
+        usuario2.setApellido("Pérez");
+        Caja abierta2 = cajaAbierta(8L, "3000", 20);
+        abierta2.setUsuario(usuario2);
+
+        when(cajaRepository.findAllByFechaCierreIsNullOrderByFechaAperturaAsc()).thenReturn(List.of(abierta1, abierta2));
+
+        TipoEntrada general = new TipoEntrada();
+        general.setNombre("General");
+        general.setTipo(org.example.laserranitaentradas.model.entity.Tipo.ENTRADA);
+        CompraDetalle detalle = new CompraDetalle();
+        detalle.setTipoEntrada(general);
+        detalle.setCantidad(4);
+
+        Compra ventaEfectivo = compraConMontoFormaEstado("40000", FormaPago.EFECTIVO_BOLETERIA, EstadoCompra.VENDIDO_EN_PUERTA);
+        ventaEfectivo.setDetalles(List.of(detalle));
+        Compra ventaTarjeta = compraConMontoFormaEstado("15000", FormaPago.TARJETA, EstadoCompra.VENDIDO_EN_PUERTA);
+        ventaTarjeta.setDetalles(List.of());
+        when(compraRepository.findAllByCajaId(7L)).thenReturn(List.of(ventaEfectivo, ventaTarjeta));
+        when(compraRepository.findAllByCajaId(8L)).thenReturn(List.of());
+
+        var respuesta = service.getCajasAbiertas();
+
+        assertThat(respuesta).hasSize(2);
+        assertThat(respuesta).anySatisfy(c -> {
+            assertThat(c.getUsuarioNombre()).isEqualTo("Marta Gómez");
+            assertThat(c.getMontoInicial()).isEqualByComparingTo("5000");
+            assertThat(c.getTotalVendido()).isEqualByComparingTo("55000");
+            assertThat(c.getTotalEntradasVendidas()).isEqualTo(4);
+        });
+        assertThat(respuesta).anySatisfy(c -> {
+            assertThat(c.getUsuarioNombre()).isEqualTo("Juan Pérez");
+            assertThat(c.getTotalVendido()).isEqualByComparingTo("0");
+            assertThat(c.getTotalEntradasVendidas()).isEqualTo(0);
+        });
+    }
+
     private Usuario usuarioConId(Long id) {
         Usuario usuario = new Usuario();
         usuario.setId(id);

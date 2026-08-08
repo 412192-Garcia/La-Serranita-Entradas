@@ -1,0 +1,55 @@
+:host {
+  display: block;
+  width: 100%;
+  min-height: 100vh;
+  background-color: var(--color-bg-page);
+  font-family: var(--font-body);
+  color: var(--color-text);
+}
+
+.panel {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 28px 36px 48px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.tarjeta-kpis-hoy {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+.kpi-numero {
+  font-family: var(--font-heading);
+  font-size: 2.4rem;
+  font-weight: 800;
+  color: var(--color-primary-dark);
+  margin: 4px 0;
+}
+
+.kpi-numero-secundario {
+  color: var(--color-text);
+}
+
+.fila-simple-desglose-hoy {
+  grid-template-columns: 1.4fr 1fr 1fr 1fr;
+}
+
+.fila-simple-cajas-abiertas {
+  grid-template-columns: 1.4fr 0.8fr 1fr 1.2fr 0.9fr;
+}
+
+@media (max-width: 900px) {
+  .tarjeta-kpis-hoy { grid-template-columns: 1fr; }
+  .fila-simple-desglose-hoy { grid-template-columns: 1fr; font-size: 0.8rem; }
+  .fila-simple-cajas-abiertas { grid-template-columns: 1fr; font-size: 0.8rem; }
+}
+
+@media (max-width: 600px) {
+  .panel { padding: 20px 16px 32px; }
+}

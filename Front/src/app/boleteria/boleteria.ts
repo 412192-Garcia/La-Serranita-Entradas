@@ -4,6 +4,8 @@ import { FormsModule } from '@angular/forms';
 import { BoleteriaService, CampoOrdenCompras, EstadoCompra, Pagina, Reserva, TipoListadoCompra } from '../Services/boleteria.service';
 import { FormaPagoType } from '../models/compra';
 import { CabeceraInterna } from '../shared/cabecera-interna/cabecera-interna';
+import { CajaService, Caja } from '../Services/caja.service';
+import { AperturaCaja } from '../pos/apertura-caja/apertura-caja';
 import { LucideSearchX, LucideEllipsisVertical, LucideArrowUp, LucideArrowDown, LucideChevronsUpDown } from '@lucide/angular';
 
 function hoyComoFechaInput(): string {
@@ -139,12 +141,23 @@ const TAMANIO_PAGINA = 50;
 
 @Component({
   selector: 'app-boleteria',
-  imports: [CurrencyPipe, DatePipe, FormsModule, CabeceraInterna, LucideSearchX, LucideEllipsisVertical, LucideArrowUp, LucideArrowDown, LucideChevronsUpDown],
+  imports: [CurrencyPipe, DatePipe, FormsModule, CabeceraInterna, AperturaCaja, LucideSearchX, LucideEllipsisVertical, LucideArrowUp, LucideArrowDown, LucideChevronsUpDown],
   templateUrl: './boleteria.html',
   styleUrl: './boleteria.css',
 })
 export class Boleteria implements OnInit {
   private boleteriaService = inject(BoleteriaService);
+  private cajaService = inject(CajaService);
+
+  /** undefined = todavía no llegó la respuesta; null = no tiene ninguna caja abierta. */
+  cajaActual = signal<Caja | null | undefined>(undefined);
+  mostrarAperturaCaja = signal(false);
+
+  /** El propio indicador de "caja cerrada" duplica como botón para abrirla, sin tener que ir a Vender entradas. */
+  onCajaAbierta(caja: Caja): void {
+    this.cajaActual.set(caja);
+    this.mostrarAperturaCaja.set(false);
+  }
 
   texto = signal('');
   fecha = signal(hoyComoFechaInput());
@@ -260,6 +273,16 @@ export class Boleteria implements OnInit {
     // Al entrar, mostramos directamente lo accionable de hoy: es lo que un boletero
     // necesita ver primero, sin tener que buscar nada.
     this.ejecutarBusqueda();
+
+    // Acá no se abre/cierra caja (eso es en Vender entradas), pero conviene saber de
+    // un vistazo si ya la abriste antes de mandarte a buscar una reserva para cobrar.
+    this.cajaService.getActual().subscribe({
+      next: (caja) => this.cajaActual.set(caja),
+      error: (err) => {
+        console.error('Error al consultar la caja actual:', err);
+        this.cajaActual.set(null);
+      },
+    });
   }
 
   @HostListener('window:keydown', ['$event'])

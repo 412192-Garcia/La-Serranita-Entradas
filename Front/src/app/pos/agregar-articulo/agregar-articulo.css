@@ -37,3 +37,14 @@
   font-weight: 700;
   color: var(--color-text-secondary);
 }
+
+.precio-catalogo-fijo {
+  padding: 10px 12px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  font-family: inherit;
+  background-color: var(--color-bg-soft);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+}

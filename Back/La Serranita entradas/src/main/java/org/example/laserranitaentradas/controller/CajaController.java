@@ -2,6 +2,7 @@ package org.example.laserranitaentradas.controller;
 
 import org.example.laserranitaentradas.config.UsuarioAutenticado;
 import org.example.laserranitaentradas.model.dto.AbrirCajaRequestDTO;
+import org.example.laserranitaentradas.model.dto.CajaAbiertaDTO;
 import org.example.laserranitaentradas.model.dto.CajaResponseDTO;
 import org.example.laserranitaentradas.model.dto.CerrarCajaRequestDTO;
 import org.example.laserranitaentradas.model.dto.IngresoEntradasRequestDTO;
@@ -13,6 +14,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/interno/caja")
@@ -59,6 +62,12 @@ public class CajaController {
                                                    @AuthenticationPrincipal UsuarioAutenticado operador) {
         return ResponseEntity.ok(cajaService.cerrar(operador.id(), request.getConteoEfectivo(), request.getCierresPosnet(),
                 request.getEntradasFisicasFinal(), request.getCambioContado()));
+    }
+
+    @GetMapping("/abiertas")
+    @Operation(summary = "Cajas abiertas ahora mismo (ADMIN)", description = "Todas las cajas en curso, sin importar de qué boletero — para el dashboard de hoy")
+    public ResponseEntity<List<CajaAbiertaDTO>> getCajasAbiertas() {
+        return ResponseEntity.ok(cajaService.getCajasAbiertas());
     }
 
     @GetMapping("/{id}/detalle")
