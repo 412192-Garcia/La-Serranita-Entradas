@@ -54,7 +54,7 @@
                     (ngModelChange)="actualizarCierre('TARJETA', $index, { monto: $event })" />
                   <input
                     type="text"
-                    placeholder="Nota (opcional)"
+                    placeholder="Nota"
                     [ngModel]="fila.nota"
                     (ngModelChange)="actualizarCierre('TARJETA', $index, { nota: $event })" />
                   @if (cierresTarjeta().length > 1) {
@@ -78,7 +78,7 @@
                     (ngModelChange)="actualizarCierre('MERCADO_PAGO_QR', $index, { monto: $event })" />
                   <input
                     type="text"
-                    placeholder="Nota (opcional)"
+                    placeholder="Nota"
                     [ngModel]="fila.nota"
                     (ngModelChange)="actualizarCierre('MERCADO_PAGO_QR', $index, { nota: $event })" />
                   @if (cierresQr().length > 1) {

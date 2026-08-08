@@ -1,5 +1,6 @@
 package org.example.laserranitaentradas.service;
 
+import org.example.laserranitaentradas.model.dto.CajaAbiertaDTO;
 import org.example.laserranitaentradas.model.dto.CierrePosnetRequestDTO;
 import org.example.laserranitaentradas.model.dto.CajaResponseDTO;
 import org.example.laserranitaentradas.model.dto.ConteoDenominacionDTO;
@@ -37,4 +38,7 @@ public interface CajaService {
 
     /** Detalle completo de cualquier caja (para que el admin la revise sin importar quién la abrió). */
     CajaResponseDTO getDetalle(Long cajaId);
+
+    /** Todas las cajas abiertas ahora mismo, sin importar de qué boletero — para el dashboard del admin. */
+    List<CajaAbiertaDTO> getCajasAbiertas();
 }

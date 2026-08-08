@@ -6,12 +6,21 @@
     }
   </div>
 
-  <button type="button" class="btn-hamburguesa" (click)="toggleMenu()" [attr.aria-expanded]="menuAbierto()" aria-label="Abrir menú">
-    <svg lucideMenu [strokeWidth]="2"></svg>
-    @if (operador(); as usuario) {
-      <span class="operador">{{ usuario.nombre }}</span>
+  <div class="cabecera-acciones">
+    @if (!enLinea()) {
+      <span class="indicador-offline" title="Sin conexión a internet">
+        <svg lucideWifiOff [strokeWidth]="2"></svg>
+        Sin conexión
+      </span>
     }
-  </button>
+
+    <button type="button" class="btn-hamburguesa" (click)="toggleMenu()" [attr.aria-expanded]="menuAbierto()" aria-label="Abrir menú">
+      <svg lucideMenu [strokeWidth]="2"></svg>
+      @if (operador(); as usuario) {
+        <span class="operador">{{ usuario.nombre }}</span>
+      }
+    </button>
+  </div>
 </header>
 
 @if (menuAbierto()) {

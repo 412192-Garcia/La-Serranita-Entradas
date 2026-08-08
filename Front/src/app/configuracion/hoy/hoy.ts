@@ -1,0 +1,69 @@
+import { Component, OnInit, inject, signal } from '@angular/core';
+import { CurrencyPipe, DatePipe } from '@angular/common';
+import { ReporteService } from '../../Services/reporte.service';
+import { CajaService, CajaAbierta } from '../../Services/caja.service';
+import { ReporteResumen } from '../../models/reporte';
+import { CabeceraInterna } from '../../shared/cabecera-interna/cabecera-interna';
+
+function hoyISO(): string {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+@Component({
+  selector: 'app-dashboard-hoy',
+  imports: [CurrencyPipe, DatePipe, CabeceraInterna],
+  templateUrl: './hoy.html',
+  styleUrls: ['../configuracion-shared.css', './hoy.css'],
+})
+export class DashboardHoy implements OnInit {
+  private reporteService = inject(ReporteService);
+  private cajaService = inject(CajaService);
+
+  cargando = signal(false);
+  error = signal<string | null>(null);
+  resumen = signal<ReporteResumen | null>(null);
+
+  cargandoCajas = signal(false);
+  cajasAbiertas = signal<CajaAbierta[]>([]);
+
+  ngOnInit(): void {
+    this.cargar();
+  }
+
+  cargar(): void {
+    const hoy = hoyISO();
+
+    this.cargando.set(true);
+    this.error.set(null);
+    this.reporteService.getResumen(hoy, hoy).subscribe({
+      next: (r) => {
+        this.resumen.set(r);
+        this.cargando.set(false);
+      },
+      error: (err) => {
+        console.error('Error al cargar el resumen de hoy:', err);
+        this.error.set('No se pudo cargar el resumen de hoy.');
+        this.cargando.set(false);
+      },
+    });
+
+    this.cargandoCajas.set(true);
+    this.cajaService.obtenerCajasAbiertas().subscribe({
+      next: (cs) => {
+        this.cajasAbiertas.set(cs);
+        this.cargandoCajas.set(false);
+      },
+      error: (err) => {
+        console.error('Error al cargar las cajas abiertas:', err);
+        this.cargandoCajas.set(false);
+      },
+    });
+  }
+
+  /** Entradas (no extras) vendidas hoy, sumando anticipada + venta en puerta. */
+  totalEntradasHoy(r: ReporteResumen): number {
+    return r.desglosePorTipo.reduce((acc, t) => acc + t.cantidadAnticipada + t.cantidadBoleteria, 0);
+  }
+}

@@ -67,6 +67,7 @@ public class SecurityConfig {
                 // usa la primera regla que matchea, así que el orden acá importa.
                 .requestMatchers(HttpMethod.POST, "/api/interno/compras/generar-reserva").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.GET, "/api/interno/caja/*/detalle").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.GET, "/api/interno/caja/abiertas").hasRole("ADMIN")
 
                 // ---------- Boletería (BOLETERO o ADMIN) ----------
                 .requestMatchers(HttpMethod.GET, "/api/compras/buscar").hasAnyRole("BOLETERO", "ADMIN")

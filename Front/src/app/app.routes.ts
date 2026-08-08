@@ -41,6 +41,11 @@ export const routes: Routes = [
     canActivate: [rolGuard(['ADMIN'])],
   },
   {
+    path: 'hoy',
+    loadComponent: () => import('./configuracion/hoy/hoy').then((m) => m.DashboardHoy),
+    canActivate: [rolGuard(['ADMIN'])],
+  },
+  {
     path: 'reportes',
     loadComponent: () => import('./configuracion/reportes/reportes').then((m) => m.ConfiguracionReportes),
     canActivate: [rolGuard(['ADMIN'])],

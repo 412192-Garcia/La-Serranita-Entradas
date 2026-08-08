@@ -30,12 +30,17 @@
       } @else if (seleccion() !== null) {
         <label>
           Precio
-          <input
-            type="text"
-            inputmode="numeric"
-            appMoneyInput
-            [ngModel]="catalogoPrecio()"
-            (ngModelChange)="catalogoPrecio.set($event)" />
+          @if (precioBloqueado()) {
+            <span class="precio-catalogo-fijo">{{ catalogoPrecio() | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+          } @else {
+            <input
+              type="text"
+              inputmode="numeric"
+              appMoneyInput
+              placeholder="Este artículo todavía no tiene precio cargado"
+              [ngModel]="catalogoPrecio()"
+              (ngModelChange)="catalogoPrecio.set($event)" />
+          }
         </label>
       }
 

@@ -1,6 +1,7 @@
 package org.example.laserranitaentradas.service.impl;
 
 import jakarta.transaction.Transactional;
+import org.example.laserranitaentradas.model.dto.CajaAbiertaDTO;
 import org.example.laserranitaentradas.model.dto.CajaResponseDTO;
 import org.example.laserranitaentradas.model.dto.CierrePosnetRequestDTO;
 import org.example.laserranitaentradas.model.dto.CierrePosnetResponseDTO;
@@ -228,6 +229,31 @@ public class CajaServiceImpl implements CajaService {
         Caja caja = cajaRepository.findById(cajaId)
                 .orElseThrow(() -> new IllegalArgumentException("Caja no encontrada para id: " + cajaId));
         return toDto(caja);
+    }
+
+    @Override
+    public List<CajaAbiertaDTO> getCajasAbiertas() {
+        return cajaRepository.findAllByFechaCierreIsNullOrderByFechaAperturaAsc().stream()
+                .map(caja -> {
+                    // Acá sí se expone lo vendido hasta el momento: a diferencia de getActual (que lo
+                    // esconde para que el propio boletero no pueda "calcar" el cierre), esto lo ve el
+                    // admin en el dashboard de Hoy, no el dueño de la caja.
+                    BigDecimal totalVendido = sumVentasPorFormaPago(caja.getId(), FormaPago.EFECTIVO_BOLETERIA)
+                            .add(sumVentasPorFormaPago(caja.getId(), FormaPago.TARJETA))
+                            .add(sumVentasPorFormaPago(caja.getId(), FormaPago.MERCADO_PAGO_QR));
+                    int totalEntradas = contarEntradasPorTipo(caja.getId()).stream()
+                            .mapToInt(EntradasPorTipoDTO::getCantidad)
+                            .sum();
+                    return CajaAbiertaDTO.builder()
+                            .id(caja.getId())
+                            .usuarioNombre(caja.getUsuario().getNombre() + " " + caja.getUsuario().getApellido())
+                            .fechaApertura(caja.getFechaApertura())
+                            .montoInicial(caja.getMontoInicial())
+                            .totalVendido(totalVendido)
+                            .totalEntradasVendidas(totalEntradas)
+                            .build();
+                })
+                .toList();
     }
 
     private List<CierrePosnetRequestDTO> validarCierresPosnet(List<CierrePosnetRequestDTO> cierresPosnet) {
