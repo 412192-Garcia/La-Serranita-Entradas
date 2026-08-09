@@ -131,8 +131,9 @@
           Personalizado <span class="opcional">(a tu propio riesgo: algún contraste puede no quedar perfecto)</span>
           <input
             type="color"
-            [ngModel]="colorTemaParaPicker()"
-            (ngModelChange)="onPrimarioLibre($event)" />
+            [value]="colorTemaParaPicker()"
+            (input)="previsualizarPrimario($any($event.target).value)"
+            (change)="onPrimarioLibre($any($event.target).value)" />
         </label>
       </div>
 
@@ -160,8 +161,9 @@
           Personalizado <span class="opcional">(a tu propio riesgo: algún contraste puede no quedar perfecto)</span>
           <input
             type="color"
-            [ngModel]="colorFondoParaPicker()"
-            (ngModelChange)="onFondoLibre($event)" />
+            [value]="colorFondoParaPicker()"
+            (input)="previsualizarFondo($any($event.target).value)"
+            (change)="onFondoLibre($any($event.target).value)" />
         </label>
       </div>
 
@@ -189,8 +191,9 @@
           Personalizado <span class="opcional">(a tu propio riesgo: algún contraste puede no quedar perfecto)</span>
           <input
             type="color"
-            [ngModel]="colorTarjetaParaPicker()"
-            (ngModelChange)="onTarjetaLibre($event)" />
+            [value]="colorTarjetaParaPicker()"
+            (input)="previsualizarTarjeta($any($event.target).value)"
+            (change)="onTarjetaLibre($any($event.target).value)" />
         </label>
       </div>
 
@@ -219,8 +222,9 @@
           Personalizado <span class="opcional">(a tu propio riesgo: algún contraste puede no quedar perfecto)</span>
           <input
             type="color"
-            [ngModel]="colorBordeParaPicker()"
-            (ngModelChange)="onBordeLibre($event)" />
+            [value]="colorBordeParaPicker()"
+            (input)="previsualizarBorde($any($event.target).value)"
+            (change)="onBordeLibre($any($event.target).value)" />
         </label>
       </div>
 
