@@ -3,7 +3,7 @@
 .carrito {
   position: sticky;
   top: 20px;
-  background-color: #fff;
+  background-color: var(--color-card-bg);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card-lg);
   display: flex;
@@ -71,10 +71,44 @@
   gap: 8px;
 }
 
+.check-dolares {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-direction: row !important;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.check-dolares input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--color-primary);
+}
+
+.equivale-dolares {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background-color: var(--color-bg-soft);
+  color: var(--color-text-secondary);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.equivale-dolares strong {
+  font-family: var(--font-heading);
+  font-size: 1.1rem;
+  color: var(--color-text);
+}
+
 .btn-forma-pago {
   padding: 12px 6px;
   border: 2px solid var(--color-border);
-  background-color: #fff;
+  background-color: var(--color-card-bg);
   border-radius: var(--radius-sm);
   font-size: 0.9rem;
   font-weight: 700;
@@ -117,7 +151,7 @@
 .btn-modo-descuento {
   padding: 8px 6px;
   border: 1.5px solid var(--color-border);
-  background-color: #fff;
+  background-color: var(--color-card-bg);
   border-radius: var(--radius-sm);
   font-size: 0.8rem;
   font-weight: 700;
@@ -166,6 +200,8 @@
   border: 1.5px solid var(--color-border);
   border-radius: var(--radius-sm);
   outline: none;
+  background-color: var(--color-input-bg);
+  color: var(--color-text);
 }
 
 .fila-total {
@@ -210,7 +246,8 @@
   border: 1.5px solid var(--color-border);
   border-radius: var(--radius-sm);
   outline: none;
-  background-color: #fff;
+  background-color: var(--color-card-bg);
+  color: var(--color-text);
 }
 
 .bloque-vuelto input:focus {
@@ -245,7 +282,7 @@
   padding: 8px 12px;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 640px) {
   .carrito {
     position: static;
   }

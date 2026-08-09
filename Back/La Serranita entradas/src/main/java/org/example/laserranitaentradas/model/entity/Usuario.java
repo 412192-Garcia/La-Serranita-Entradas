@@ -46,5 +46,25 @@ public class Usuario extends BaseEntity {
     @Builder.Default
     private Boolean activo = true;
 
+    /** Color principal elegido por el usuario para personalizar la interfaz (hex, ej "#39a935"). Null = tema por defecto. */
+    @Column(name = "color_tema")
+    private String colorTema;
+
+    /** Color de fondo de página elegido por el usuario (hex). Null = fondo por defecto. */
+    @Column(name = "color_fondo")
+    private String colorFondo;
+
+    /** Color de fondo de las tarjetas elegido por el usuario (hex). Null = blanco por defecto. */
+    @Column(name = "color_tarjeta")
+    private String colorTarjeta;
+
+    /** Color de bordes/divisores elegido por el usuario (hex). Null = gris por defecto. */
+    @Column(name = "color_borde")
+    private String colorBorde;
+
+    /** Foto de perfil del usuario, como data URI base64 (ya redimensionada y comprimida del lado del cliente). Null = sin foto. */
+    @Column(name = "foto_perfil", columnDefinition = "TEXT")
+    private String fotoPerfil;
+
 }
 

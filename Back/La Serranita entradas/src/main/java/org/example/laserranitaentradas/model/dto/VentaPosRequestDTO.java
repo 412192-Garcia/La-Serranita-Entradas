@@ -23,4 +23,8 @@ public class VentaPosRequestDTO {
     BigDecimal descuentoManualPorcentaje;
     /** Excluyente con promocionId y con descuentoManualPorcentaje. */
     BigDecimal descuentoManualMonto;
+    /** Cotización usada (ARS por USD). Presente sólo si el boletero cobró en dólares (sigue siendo EFECTIVO_BOLETERIA). */
+    BigDecimal cotizacionDolar;
+    /** Dólares que entregó el cliente. Obligatorio si se manda cotizacionDolar. */
+    BigDecimal dolaresRecibidos;
 }

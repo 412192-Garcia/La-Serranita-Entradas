@@ -141,6 +141,13 @@ export class Pos implements OnInit {
 
   onVentaRegistrada(venta: VentaPosConfirmada): void {
     this.ultimaVenta.set(venta);
+    // huboVentaDolares es lo único de la caja que el modal de cierre necesita en vivo (para
+    // decidir si mostrar el campo de dólares contados): al ser un booleano, no un monto, es
+    // seguro parchearlo localmente sin pisar el resto de los totales (que siguen ocultos
+    // mientras la caja sigue abierta, por diseño anti-trampa).
+    if (venta.pagoEnDolares) {
+      this.caja.update((c) => (c ? { ...c, huboVentaDolares: true } : c));
+    }
   }
 
   /** Cierra el comprobante y deja la pantalla lista para el próximo cliente. */

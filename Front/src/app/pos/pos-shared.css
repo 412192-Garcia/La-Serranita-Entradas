@@ -17,7 +17,7 @@
 .btn-limpiar {
   padding: 14px 16px;
   border: 1.5px solid var(--color-border);
-  background-color: #fff;
+  background-color: var(--color-card-bg);
   border-radius: var(--radius-sm);
   font-size: 0.9rem;
   font-weight: 700;
@@ -54,7 +54,7 @@
 .btn-secundario-caja {
   padding: 10px 16px;
   border: 1.5px solid var(--color-border);
-  background-color: #fff;
+  background-color: var(--color-card-bg);
   border-radius: var(--radius-sm);
   font-size: 0.85rem;
   font-weight: 700;
@@ -78,7 +78,7 @@
 }
 
 .panel-caja {
-  background-color: #fff;
+  background-color: var(--color-card-bg);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card-lg);
@@ -122,6 +122,8 @@
   border: 1.5px solid var(--color-border);
   border-radius: var(--radius-sm);
   outline: none;
+  background-color: var(--color-input-bg);
+  color: var(--color-text);
 }
 
 .fila-panel-caja input:focus {
@@ -134,7 +136,7 @@
 }
 
 .comprobante {
-  background-color: #fff;
+  background-color: var(--color-card-bg);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card-lg);
   padding: 40px 32px;
@@ -201,6 +203,8 @@
   border: 1.5px solid var(--color-border);
   border-radius: var(--radius-sm);
   outline: none;
+  background-color: var(--color-input-bg);
+  color: var(--color-text);
 }
 
 .campo-apertura input:focus {
@@ -213,7 +217,7 @@
   width: 36px;
   height: 36px;
   border: 1.5px solid var(--color-border);
-  background-color: #fff;
+  background-color: var(--color-card-bg);
   border-radius: var(--radius-sm);
   color: var(--color-text-muted);
   cursor: pointer;

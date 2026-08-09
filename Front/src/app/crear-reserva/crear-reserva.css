@@ -30,7 +30,7 @@
 }
 
 .tarjeta {
-  background-color: #fff;
+  background-color: var(--color-card-bg);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card);
   padding: 24px 28px;
@@ -112,7 +112,7 @@
 
 .btn-secundario {
   border: 1.5px solid var(--color-border);
-  background-color: #fff;
+  background-color: var(--color-card-bg);
   color: var(--color-text-secondary);
   padding: 13px 18px;
   border-radius: var(--radius-sm);

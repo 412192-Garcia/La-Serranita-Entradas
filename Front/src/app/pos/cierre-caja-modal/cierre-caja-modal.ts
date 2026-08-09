@@ -24,9 +24,14 @@ export class CierreCajaModal implements OnInit {
 
   /** Si viene seteada, el modal arranca precargado con sus datos y "Confirmar" corrige esa caja ya cerrada en vez de cerrar la abierta. */
   cajaParaCorregir = input<Caja | null>(null);
+  /** La caja abierta que se está por cerrar (null cuando se está corrigiendo un cierre ya hecho). Sólo se usa para saber si hubo ventas en dólares. */
+  cajaAbierta = input<Caja | null>(null);
 
   cajaCerrada = output<Caja>();
   cerrar = output<void>();
+
+  /** Sea que se esté cerrando o corrigiendo, de cuál de las dos cajas sacamos el dato. */
+  huboVentaDolares = computed(() => this.cajaParaCorregir()?.huboVentaDolares ?? this.cajaAbierta()?.huboVentaDolares ?? false);
 
   readonly denominaciones = DENOMINACIONES;
   /** Cuántos billetes de cada denominación contó el boletero al cerrar. */
@@ -37,6 +42,8 @@ export class CierreCajaModal implements OnInit {
   cierresTarjeta = signal<FilaMontoNota[]>([{ monto: null, nota: '' }]);
   cierresQr = signal<FilaMontoNota[]>([{ monto: null, nota: '' }]);
   entradasFisicasFinal = signal<number | null>(null);
+  /** Dólares que el boletero contó al cerrar. Sólo se pide si huboVentaDolares(). */
+  dolaresContado = signal<number | null>(null);
   cerrandoCaja = signal(false);
   errorCierre = signal<string | null>(null);
 
@@ -60,6 +67,7 @@ export class CierreCajaModal implements OnInit {
     this.cierresQr.set(qr.length ? qr : [{ monto: null, nota: '' }]);
 
     this.entradasFisicasFinal.set(caja.entradasFisicasFinal);
+    this.dolaresContado.set(caja.dolaresContado);
   }
 
   setConteoEfectivo(denominacion: number, cantidad: number): void {
@@ -90,6 +98,12 @@ export class CierreCajaModal implements OnInit {
       return;
     }
 
+    const dolaresContado = this.dolaresContado();
+    if (this.huboVentaDolares() && (dolaresContado === null || dolaresContado < 0)) {
+      this.errorCierre.set('Esta caja tuvo ventas en dólares: indicá cuántos dólares contaste.');
+      return;
+    }
+
     const conteo = this.denominaciones
       .map((denominacion) => ({ denominacion, cantidad: this.conteoEfectivo()[denominacion] ?? 0 }))
       .filter((c) => c.cantidad > 0);
@@ -108,10 +122,18 @@ export class CierreCajaModal implements OnInit {
     this.cerrandoCaja.set(true);
     this.errorCierre.set(null);
 
+    const dolaresContadoEnviado = this.huboVentaDolares() ? dolaresContado : null;
     const cajaParaCorregir = this.cajaParaCorregir();
     const request = cajaParaCorregir
-      ? this.cajaService.corregirCierre(cajaParaCorregir.id, conteo, cierres, entradasFisicasFinal, this.cambioContado())
-      : this.cajaService.cerrar(conteo, cierres, entradasFisicasFinal, this.cambioContado());
+      ? this.cajaService.corregirCierre(
+          cajaParaCorregir.id,
+          conteo,
+          cierres,
+          entradasFisicasFinal,
+          this.cambioContado(),
+          dolaresContadoEnviado
+        )
+      : this.cajaService.cerrar(conteo, cierres, entradasFisicasFinal, this.cambioContado(), dolaresContadoEnviado);
 
     request.subscribe({
       next: (c) => {

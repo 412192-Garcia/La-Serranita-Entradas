@@ -26,7 +26,7 @@ public interface CajaService {
 
     CajaResponseDTO cerrar(Long usuarioId, List<ConteoDenominacionDTO> conteoEfectivo,
                             List<CierrePosnetRequestDTO> cierresPosnet, Integer entradasFisicasFinal,
-                            BigDecimal cambioContado);
+                            BigDecimal cambioContado, BigDecimal dolaresContado);
 
     /**
      * Corrige los datos de un cierre ya hecho (ej. un billete mal contado). Sólo el boletero
@@ -34,7 +34,7 @@ public interface CajaService {
      */
     CajaResponseDTO corregirCierre(Long usuarioId, Long cajaId, List<ConteoDenominacionDTO> conteoEfectivo,
                                     List<CierrePosnetRequestDTO> cierresPosnet, Integer entradasFisicasFinal,
-                                    BigDecimal cambioContado);
+                                    BigDecimal cambioContado, BigDecimal dolaresContado);
 
     /** Detalle completo de cualquier caja (para que el admin la revise sin importar quién la abrió). */
     CajaResponseDTO getDetalle(Long cajaId);

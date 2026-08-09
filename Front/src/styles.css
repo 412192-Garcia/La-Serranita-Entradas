@@ -6,10 +6,14 @@ html, body {
 }
 
 :root {
-  /* Paleta — tomada de parquelaserranita.com.ar (sitio real donde se embebe el módulo) */
+  /* Paleta — tomada de parquelaserranita.com.ar (sitio real donde se embebe el módulo).
+     --color-primary es lo único que ThemeService pisa (inline en :root) cuando el usuario
+     personaliza el color desde "Mi cuenta": -dark y -light se derivan de él con color-mix,
+     así el hover y los fondos tenues quedan siempre coherentes con cualquier color elegido
+     sin tener que definir una paleta completa a mano por cada opción. */
   --color-primary: #39a935;
-  --color-primary-dark: #2e8a2a;
-  --color-primary-light: #e8f5e5;
+  --color-primary-dark: color-mix(in srgb, var(--color-primary) 82%, black);
+  --color-primary-light: color-mix(in srgb, var(--color-primary) 12%, white);
 
   /* Verde usado puntualmente en el calendario del sitio real (más "menta" que el primary) */
   --color-calendar-border: #39b56a;
@@ -25,13 +29,35 @@ html, body {
   --color-danger-dark: #96111a;
   --color-danger-light: #fdecee;
 
+  /* Texto DENTRO de las tarjetas. ThemeService pisa los tres juntos (a tonos claros) cuando
+     el usuario elige un color de tarjeta oscuro — ver aplicarTarjeta(). */
   --color-text: #111827;
   --color-text-secondary: #374151;
   --color-text-muted: #6b7280;
 
   --color-border: #e5e7eb;
+  /* Zonas tenues DENTRO de una tarjeta (el bloque de cobro, encabezados de tabla, el pill de
+     "caja cerrada", etc.), siempre pareada con --color-text/-secondary/-muted en esos mismos
+     lugares. Por eso aplicarTarjeta() también la pisa: si sólo aclarara el texto y dejara
+     esto fijo en su gris casi blanco de siempre, el texto quedaría lavado contra un fondo
+     que no lo acompañó. */
   --color-bg-soft: #f9fafb;
   --color-bg-page: #f4f5f7;
+
+  /* Fondo de las tarjetas/paneles y de los inputs que viven adentro (mismo valor que hoy, sin
+     look "hundido": ya se distinguen por el borde, no por una sombra de color distinta). Se
+     pisan juntas para que un input nunca quede en un tono distinto de la tarjeta que lo
+     contiene. ThemeService.aplicarTarjeta() las pisa cuando el usuario elige "color de
+     tarjeta" en Mi cuenta. */
+  --color-card-bg: #ffffff;
+  --color-input-bg: var(--color-card-bg);
+
+  /* Texto que se apoya directo sobre --color-bg-page (hoy, sólo la bajada de la cabecera de
+     cada pantalla — el resto vive dentro de tarjetas, que tienen su propio texto arriba y no
+     necesitan esto). Valor fijo a propósito, NO ligado a --color-text-muted: ese ahora es
+     "texto de tarjeta" y lo pisa aplicarTarjeta(); esto lo pisa aplicarFondo() en base al
+     fondo de PÁGINA, que es un color distinto y puede cambiar de forma independiente. */
+  --color-heading-desc: #6b7280;
 
   --radius-sm: 8px;
   --radius-md: 12px;
@@ -50,4 +76,14 @@ body {
   font-family: var(--font-body);
   color: var(--color-text);
   -webkit-font-smoothing: antialiased;
+}
+
+/* A diferencia de casi cualquier otro elemento, los controles de formulario NO heredan
+   --color en el user-agent stylesheet de los navegadores (Chrome les aplica un negro fijo
+   por default). Sin esto, cualquier input/select al que sólo se le haya pisado el FONDO para
+   seguir el tema (tarjeta oscura, por ejemplo) se queda con texto negro sobre ese fondo
+   oscuro — pase lo que pase con --color-text. Una regla más específica siempre puede pisar
+   esto si hace falta un color fijo puntual. */
+input, select, textarea {
+  color: inherit;
 }

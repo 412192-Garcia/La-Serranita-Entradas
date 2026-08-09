@@ -121,7 +121,7 @@ class CajaServiceImplTest {
         Caja cajaAbierta = cajaAbierta(7L, "5000", 50);
         when(cajaRepository.findByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(Optional.of(cajaAbierta));
 
-        assertThatThrownBy(() -> service.cerrar(USUARIO_ID, List.of(conteo(300, 2)), List.of(), 50, null))
+        assertThatThrownBy(() -> service.cerrar(USUARIO_ID, List.of(conteo(300, 2)), List.of(), 50, null, null))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
@@ -130,7 +130,7 @@ class CajaServiceImplTest {
         Caja cajaAbierta = cajaAbierta(7L, "5000", 50);
         when(cajaRepository.findByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(Optional.of(cajaAbierta));
 
-        assertThatThrownBy(() -> service.cerrar(USUARIO_ID, List.of(conteo(1000, 5)), List.of(), null, null))
+        assertThatThrownBy(() -> service.cerrar(USUARIO_ID, List.of(conteo(1000, 5)), List.of(), null, null, null))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
@@ -143,7 +143,7 @@ class CajaServiceImplTest {
         cierreInvalido.setFormaPago(FormaPago.EFECTIVO_BOLETERIA);
         cierreInvalido.setMonto(new BigDecimal("1000"));
 
-        assertThatThrownBy(() -> service.cerrar(USUARIO_ID, List.of(), List.of(cierreInvalido), 50, null))
+        assertThatThrownBy(() -> service.cerrar(USUARIO_ID, List.of(), List.of(cierreInvalido), 50, null, null))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
@@ -160,7 +160,7 @@ class CajaServiceImplTest {
         when(cajaRepository.save(any(Caja.class))).thenAnswer(inv -> inv.getArgument(0));
 
         // 736 billetes de 100 = 73600
-        service.cerrar(USUARIO_ID, List.of(conteo(100, 736)), List.of(), 50, null);
+        service.cerrar(USUARIO_ID, List.of(conteo(100, 736)), List.of(), 50, null, null);
 
         // esperado = 5000 (inicial) + 68600 (única venta efectivo no cancelada) - 0 (retiros) = 73600
         assertThat(cajaAbierta.getMontoEsperado()).isEqualByComparingTo("73600");
@@ -179,7 +179,7 @@ class CajaServiceImplTest {
         when(cajaRepository.save(any(Caja.class))).thenAnswer(inv -> inv.getArgument(0));
 
         // 10 billetes de 1000 = 10000, más 1500 de cambio = 11500
-        var respuesta = service.cerrar(USUARIO_ID, List.of(conteo(1000, 10)), List.of(), 50, new BigDecimal("1500"));
+        var respuesta = service.cerrar(USUARIO_ID, List.of(conteo(1000, 10)), List.of(), 50, new BigDecimal("1500"), null);
 
         assertThat(respuesta.getMontoContado()).isEqualByComparingTo("11500");
         assertThat(respuesta.getCambioContado()).isEqualByComparingTo("1500");
@@ -198,7 +198,7 @@ class CajaServiceImplTest {
         when(cajaRepository.save(any(Caja.class))).thenAnswer(inv -> inv.getArgument(0));
 
         // 600 billetes de 100 = 60000
-        service.cerrar(USUARIO_ID, List.of(conteo(100, 600)), List.of(), 50, null);
+        service.cerrar(USUARIO_ID, List.of(conteo(100, 600)), List.of(), 50, null, null);
 
         // esperado = 5000 + 68600 - 10000 = 63600; diferencia = 60000 - 63600 = -3600 (faltante)
         assertThat(cajaAbierta.getMontoEsperado()).isEqualByComparingTo("63600");
@@ -225,7 +225,7 @@ class CajaServiceImplTest {
         CierrePosnetRequestDTO reqMitad2 = cierreRequest(FormaPago.TARJETA, "16000");
         CierrePosnetRequestDTO reqQr = cierreRequest(FormaPago.MERCADO_PAGO_QR, "15000");
 
-        var respuesta = service.cerrar(USUARIO_ID, List.of(), List.of(reqMitad1, reqMitad2, reqQr), 50, null);
+        var respuesta = service.cerrar(USUARIO_ID, List.of(), List.of(reqMitad1, reqMitad2, reqQr), 50, null, null);
 
         assertThat(respuesta.getTotalVentasTarjeta()).isEqualByComparingTo("40000");
         assertThat(respuesta.getTotalCerradoTarjeta()).isEqualByComparingTo("41000");
@@ -259,7 +259,7 @@ class CajaServiceImplTest {
         when(cierrePosnetRepository.findAllByCajaIdOrderByIdAsc(7L)).thenReturn(List.of());
         when(cajaRepository.save(any(Caja.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        var respuesta = service.cerrar(USUARIO_ID, List.of(conteo(1000, 55)), List.of(), 70, null);
+        var respuesta = service.cerrar(USUARIO_ID, List.of(conteo(1000, 55)), List.of(), 70, null, null);
 
         // esperadas = 100 (inicial) - 25 (sólo el tipo que entrega entrada; el menor no cuenta) = 75
         assertThat(respuesta.getEntradasFisicasEsperadas()).isEqualTo(75);
@@ -293,7 +293,7 @@ class CajaServiceImplTest {
 
         when(cajaRepository.save(any(Caja.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        var respuesta = service.cerrar(USUARIO_ID, List.of(conteo(1000, 60)), List.of(), 60, null);
+        var respuesta = service.cerrar(USUARIO_ID, List.of(conteo(1000, 60)), List.of(), 60, null, null);
 
         // esperadas = 100 (inicial) + 80 (ingresos) - 120 (vendidas) = 60
         assertThat(respuesta.getEntradasFisicasEsperadas()).isEqualTo(60);
@@ -311,7 +311,7 @@ class CajaServiceImplTest {
         when(cierrePosnetRepository.findAllByCajaIdOrderByIdAsc(7L)).thenReturn(List.of());
         when(cajaRepository.save(any(Caja.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        var respuesta = service.cerrar(USUARIO_ID, List.of(), List.of(), 30, null);
+        var respuesta = service.cerrar(USUARIO_ID, List.of(), List.of(), 30, null, null);
 
         assertThat(respuesta.getEntradasFisicasEsperadas()).isNull();
         assertThat(respuesta.getDiferenciaEntradas()).isNull();
@@ -356,7 +356,7 @@ class CajaServiceImplTest {
         when(cierrePosnetRepository.findAllByCajaIdOrderByIdAsc(7L)).thenReturn(List.of());
         when(cajaRepository.save(any(Caja.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        var respuesta = service.cerrar(USUARIO_ID, List.of(conteo(1000, 50)), List.of(), 50, null);
+        var respuesta = service.cerrar(USUARIO_ID, List.of(conteo(1000, 50)), List.of(), 50, null, null);
 
         assertThat(respuesta.getTotalEntradasVendidas()).isEqualTo(5);
         assertThat(respuesta.getEntradasVendidasPorTipo()).hasSize(2);
@@ -368,11 +368,104 @@ class CajaServiceImplTest {
     }
 
     @Test
+    void getActual_conVentaEnDolares_exponeHuboVentaDolaresAunqueLaCajaSigaAbierta() {
+        // Es sólo un booleano (no un monto): a diferencia de los totales esperados, esto se
+        // ve incluso con la caja ABIERTA, porque el frontend lo necesita para saber si
+        // mostrar el campo de dólares contados al cerrar.
+        Caja cajaAbierta = cajaAbierta(7L, "5000", 50);
+        when(cajaRepository.findByUsuarioIdAndFechaCierreIsNull(2L)).thenReturn(Optional.of(cajaAbierta));
+        when(compraRepository.findAllByCajaId(7L)).thenReturn(List.of(
+                compraDolares("50000", "1200", "50", EstadoCompra.VENDIDO_EN_PUERTA)));
+        when(retiroCajaRepository.findAllByCajaIdOrderByFechaAsc(7L)).thenReturn(List.of());
+        when(ingresoEntradasRepository.findAllByCajaIdOrderByFechaAsc(7L)).thenReturn(List.of());
+
+        var respuesta = service.getActual(2L);
+
+        assertThat(respuesta.getHuboVentaDolares()).isTrue();
+        // Sigue ABIERTA: los montos esperados siguen ocultos, dólares esperado incluido.
+        assertThat(respuesta.getDolaresEsperado()).isNull();
+    }
+
+    @Test
+    void getActual_sinVentaEnDolares_huboVentaDolaresEsFalse() {
+        Caja cajaAbierta = cajaAbierta(7L, "5000", 50);
+        when(cajaRepository.findByUsuarioIdAndFechaCierreIsNull(2L)).thenReturn(Optional.of(cajaAbierta));
+        when(compraRepository.findAllByCajaId(7L)).thenReturn(List.of(
+                compraConMontoFormaEstado("50000", FormaPago.EFECTIVO_BOLETERIA, EstadoCompra.VENDIDO_EN_PUERTA)));
+        when(retiroCajaRepository.findAllByCajaIdOrderByFechaAsc(7L)).thenReturn(List.of());
+        when(ingresoEntradasRepository.findAllByCajaIdOrderByFechaAsc(7L)).thenReturn(List.of());
+
+        var respuesta = service.getActual(2L);
+
+        assertThat(respuesta.getHuboVentaDolares()).isFalse();
+    }
+
+    @Test
+    void cerrar_conVentaEnDolares_sinDolaresContado_rechaza() {
+        Caja cajaAbierta = cajaAbierta(7L, "5000", 50);
+        when(cajaRepository.findByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(Optional.of(cajaAbierta));
+        when(compraRepository.findAllByCajaId(7L)).thenReturn(List.of(
+                compraDolares("50000", "1200", "60", EstadoCompra.VENDIDO_EN_PUERTA)));
+
+        assertThatThrownBy(() -> service.cerrar(USUARIO_ID, List.of(), List.of(), 50, null, null))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void cerrar_conVentasEnDolares_sumaLosDolaresRecibidosYRestaElVueltoDelEfectivoEsperado() {
+        // El pago en dólares sigue siendo EFECTIVO_BOLETERIA, pero no entra nada en pesos al
+        // cajón (entran dólares, contados aparte): lo único que sale del cajón en pesos es el
+        // vuelto. totalVentasEfectivo (revenue) sí suma el precio de lista igual que cualquier
+        // venta; efectivoEsperado (lo que tiene que haber físicamente) no.
+        Caja cajaAbierta = cajaAbierta(7L, "5000", 50);
+        when(cajaRepository.findByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(Optional.of(cajaAbierta));
+
+        // Venta en pesos: entran 3000 pesos limpios.
+        Compra ventaPesos = compraConMontoFormaEstado("3000", FormaPago.EFECTIVO_BOLETERIA, EstadoCompra.VENDIDO_EN_PUERTA);
+        // Venta en dólares: total 1000, cliente entrega 2 dólares a 1000 cada uno = 2000,
+        // vuelto = 2000 - 1000 = 1000 pesos que salen del cajón.
+        Compra ventaDolares = compraDolares("1000", "1000", "2", EstadoCompra.VENDIDO_EN_PUERTA);
+        // Cancelada: no debe contar ni para el esperado en pesos ni en dólares.
+        Compra ventaCancelada = compraDolares("5000", "1000", "10", EstadoCompra.CANCELADO);
+
+        when(compraRepository.findAllByCajaId(7L)).thenReturn(List.of(ventaPesos, ventaDolares, ventaCancelada));
+        when(retiroCajaRepository.findAllByCajaIdOrderByFechaAsc(7L)).thenReturn(List.of());
+        when(cierrePosnetRepository.findAllByCajaIdOrderByIdAsc(7L)).thenReturn(List.of());
+        when(cajaRepository.save(any(Caja.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        // El boletero contó 3 dólares físicos (1 de más).
+        var respuesta = service.cerrar(USUARIO_ID, List.of(), List.of(), 50, null, new BigDecimal("3"));
+
+        assertThat(respuesta.getTotalVentasEfectivo()).isEqualByComparingTo("4000"); // 3000 + 1000, revenue de lista
+        assertThat(respuesta.getEfectivoEsperado()).isEqualByComparingTo("7000"); // 5000 + 3000 (pesos) - 1000 (vuelto)
+        assertThat(respuesta.getDolaresEsperado()).isEqualByComparingTo("2");
+        assertThat(respuesta.getDolaresContado()).isEqualByComparingTo("3");
+        assertThat(respuesta.getDiferenciaDolares()).isEqualByComparingTo("1");
+    }
+
+    @Test
+    void cerrar_cajaSinVentasEnDolares_noExigeNiExponeDolaresContado() {
+        Caja cajaAbierta = cajaAbierta(7L, "5000", 50);
+        when(cajaRepository.findByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(Optional.of(cajaAbierta));
+        when(compraRepository.findAllByCajaId(7L)).thenReturn(List.of());
+        when(retiroCajaRepository.findAllByCajaIdOrderByFechaAsc(7L)).thenReturn(List.of());
+        when(cierrePosnetRepository.findAllByCajaIdOrderByIdAsc(7L)).thenReturn(List.of());
+        when(cajaRepository.save(any(Caja.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        var respuesta = service.cerrar(USUARIO_ID, List.of(), List.of(), 50, null, null);
+
+        assertThat(respuesta.getHuboVentaDolares()).isFalse();
+        assertThat(respuesta.getDolaresContado()).isNull();
+        assertThat(respuesta.getDolaresEsperado()).isNull();
+        assertThat(respuesta.getDiferenciaDolares()).isNull();
+    }
+
+    @Test
     void corregirCierre_deOtroUsuario_rechaza() {
         Caja cajaCerrada = cajaCerradaDeUsuario(7L, 99L);
         when(cajaRepository.findById(7L)).thenReturn(Optional.of(cajaCerrada));
 
-        assertThatThrownBy(() -> service.corregirCierre(USUARIO_ID, 7L, List.of(conteo(100, 1)), List.of(), 50, null))
+        assertThatThrownBy(() -> service.corregirCierre(USUARIO_ID, 7L, List.of(conteo(100, 1)), List.of(), 50, null, null))
                 .isInstanceOf(IllegalStateException.class);
     }
 
@@ -382,7 +475,7 @@ class CajaServiceImplTest {
         cajaAbierta.setUsuario(usuarioConId(USUARIO_ID));
         when(cajaRepository.findById(7L)).thenReturn(Optional.of(cajaAbierta));
 
-        assertThatThrownBy(() -> service.corregirCierre(USUARIO_ID, 7L, List.of(conteo(100, 1)), List.of(), 50, null))
+        assertThatThrownBy(() -> service.corregirCierre(USUARIO_ID, 7L, List.of(conteo(100, 1)), List.of(), 50, null, null))
                 .isInstanceOf(IllegalStateException.class);
     }
 
@@ -390,7 +483,7 @@ class CajaServiceImplTest {
     void corregirCierre_deCajaInexistente_rechaza() {
         when(cajaRepository.findById(7L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.corregirCierre(USUARIO_ID, 7L, List.of(), List.of(), 50, null))
+        assertThatThrownBy(() -> service.corregirCierre(USUARIO_ID, 7L, List.of(), List.of(), 50, null, null))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
@@ -405,7 +498,7 @@ class CajaServiceImplTest {
         when(cajaRepository.save(any(Caja.class))).thenAnswer(inv -> inv.getArgument(0));
 
         // Corrección: eran 500 billetes de 100 (no 999 como había quedado mal cargado antes).
-        var respuesta = service.corregirCierre(USUARIO_ID, 7L, List.of(conteo(100, 500)), List.of(), 40, null);
+        var respuesta = service.corregirCierre(USUARIO_ID, 7L, List.of(conteo(100, 500)), List.of(), 40, null, null);
 
         assertThat(respuesta.getMontoContado()).isEqualByComparingTo("50000");
         verify(cierrePosnetRepository).deleteAllByCajaId(7L);
@@ -527,6 +620,14 @@ class CajaServiceImplTest {
         compra.setEstado(estado);
         compra.setDetalles(List.of());
         compra.setFechaCreacion(java.time.LocalDateTime.now());
+        return compra;
+    }
+
+    /** Venta en efectivo pagada en dólares: sigue siendo EFECTIVO_BOLETERIA, sólo cambia la moneda física. */
+    private Compra compraDolares(String monto, String cotizacion, String dolaresRecibidos, EstadoCompra estado) {
+        Compra compra = compraConMontoFormaEstado(monto, FormaPago.EFECTIVO_BOLETERIA, estado);
+        compra.setCotizacionDolar(new BigDecimal(cotizacion));
+        compra.setDolaresRecibidos(new BigDecimal(dolaresRecibidos));
         return compra;
     }
 }

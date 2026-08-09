@@ -29,7 +29,7 @@
           type="button"
           class="btn-forma-pago"
           [class.activo]="formaPago() === f.valor"
-          (click)="formaPago.set(f.valor)">
+          (click)="setFormaPago(f.valor)">
           {{ f.etiqueta }}
         </button>
       }
@@ -94,21 +94,67 @@
 
     @if (formaPago() === 'EFECTIVO_BOLETERIA' && hayItems()) {
       <div class="bloque-vuelto">
-        <label>
-          Paga con
+        <label class="check-dolares">
           <input
-            type="text"
-            inputmode="numeric"
-            placeholder="Opcional"
-            appMoneyInput
-            [ngModel]="pagaCon()"
-            (ngModelChange)="pagaCon.set($event)" />
+            type="checkbox"
+            [ngModel]="pagoEnDolares()"
+            (ngModelChange)="setPagoEnDolares($event)" />
+          Pagó en dólares
         </label>
-        @if (vuelto() !== null) {
-          <div class="vuelto-resultado">
-            <span>Vuelto</span>
-            <strong>{{ vuelto() | currency: 'ARS' : 'symbol' : '1.0-0' }}</strong>
-          </div>
+
+        @if (pagoEnDolares()) {
+          <label>
+            Cotización del dólar
+            <input
+              type="text"
+              inputmode="numeric"
+              placeholder="Ej: 1200"
+              appMoneyInput
+              [ngModel]="cotizacionDolar()"
+              (ngModelChange)="cotizacionDolar.set($event)" />
+          </label>
+
+          @if (montoEnDolares(); as monto) {
+            <div class="equivale-dolares">
+              <span>Equivale a</span>
+              <strong>US$ {{ monto | number: '1.2-2' }}</strong>
+            </div>
+
+            <label>
+              Paga con (dólares)
+              <input
+                type="text"
+                inputmode="numeric"
+                placeholder="Ej: 50"
+                appMoneyInput
+                [ngModel]="pagaConDolares()"
+                (ngModelChange)="pagaConDolares.set($event)" />
+            </label>
+
+            @if (vueltoEnPesosPorDolares(); as vueltoDolares) {
+              <div class="vuelto-resultado">
+                <span>Vuelto en pesos</span>
+                <strong>{{ vueltoDolares | currency: 'ARS' : 'symbol' : '1.0-0' }}</strong>
+              </div>
+            }
+          }
+        } @else {
+          <label>
+            Paga con
+            <input
+              type="text"
+              inputmode="numeric"
+              placeholder="Opcional"
+              appMoneyInput
+              [ngModel]="pagaCon()"
+              (ngModelChange)="pagaCon.set($event)" />
+          </label>
+          @if (vuelto() !== null) {
+            <div class="vuelto-resultado">
+              <span>Vuelto</span>
+              <strong>{{ vuelto() | currency: 'ARS' : 'symbol' : '1.0-0' }}</strong>
+            </div>
+          }
         }
       </div>
     }

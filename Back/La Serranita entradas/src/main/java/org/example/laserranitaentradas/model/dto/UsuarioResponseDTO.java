@@ -18,4 +18,9 @@ public class UsuarioResponseDTO {
     private String apellido;
     private RolUsuario rol;
     private Boolean activo;
+    private String colorTema;
+    private String colorFondo;
+    private String colorTarjeta;
+    private String colorBorde;
+    private String fotoPerfil;
 }

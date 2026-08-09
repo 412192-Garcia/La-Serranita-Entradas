@@ -11,4 +11,9 @@ public class LoginResponseDTO {
     private String apellido;
     private RolUsuario rol;
     private String token;
+    private String colorTema;
+    private String colorFondo;
+    private String colorTarjeta;
+    private String colorBorde;
+    private String fotoPerfil;
 }

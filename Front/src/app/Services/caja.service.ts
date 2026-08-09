@@ -83,6 +83,18 @@ export interface Caja {
   /** Unidades de entrada vendidas (no extras ni artículos), sin importar la forma de pago. Null hasta el cierre. */
   totalEntradasVendidas: number | null;
   entradasVendidasPorTipo: EntradasPorTipo[] | null;
+
+  /**
+   * Si hubo o no alguna venta pagada en dólares (sigue siendo un cobro en efectivo, sólo
+   * cambia la moneda física). A diferencia de los totales, esto se expone aunque la caja
+   * siga ABIERTA (es sólo un booleano, no un monto).
+   */
+  huboVentaDolares: boolean;
+  /** Dólares esperados según lo que entró de cada venta en dólares. Null hasta el cierre. */
+  dolaresEsperado: number | null;
+  /** Dólares que el boletero contó al cerrar. Null si esta caja no tuvo ventas en dólares. */
+  dolaresContado: number | null;
+  diferenciaDolares: number | null;
 }
 
 export interface EntradasPorTipo {
@@ -135,9 +147,16 @@ export class CajaService {
     conteoEfectivo: ConteoDenominacion[],
     cierresPosnet: CierrePosnetInput[],
     entradasFisicasFinal: number,
-    cambioContado: number | null
+    cambioContado: number | null,
+    dolaresContado: number | null
   ): Observable<Caja> {
-    return this.http.post<Caja>(`${this.cajaUrl}/cerrar`, { conteoEfectivo, cierresPosnet, entradasFisicasFinal, cambioContado });
+    return this.http.post<Caja>(`${this.cajaUrl}/cerrar`, {
+      conteoEfectivo,
+      cierresPosnet,
+      entradasFisicasFinal,
+      cambioContado,
+      dolaresContado,
+    });
   }
 
   /** Detalle completo de cualquier caja (ADMIN), sin importar quién la abrió. */
@@ -156,8 +175,15 @@ export class CajaService {
     conteoEfectivo: ConteoDenominacion[],
     cierresPosnet: CierrePosnetInput[],
     entradasFisicasFinal: number,
-    cambioContado: number | null
+    cambioContado: number | null,
+    dolaresContado: number | null
   ): Observable<Caja> {
-    return this.http.put<Caja>(`${this.cajaUrl}/${cajaId}/cierre`, { conteoEfectivo, cierresPosnet, entradasFisicasFinal, cambioContado });
+    return this.http.put<Caja>(`${this.cajaUrl}/${cajaId}/cierre`, {
+      conteoEfectivo,
+      cierresPosnet,
+      entradasFisicasFinal,
+      cambioContado,
+      dolaresContado,
+    });
   }
 }

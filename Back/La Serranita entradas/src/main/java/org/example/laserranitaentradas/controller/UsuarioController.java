@@ -1,6 +1,10 @@
 package org.example.laserranitaentradas.controller;
 
 import org.example.laserranitaentradas.config.JwtService;
+import org.example.laserranitaentradas.config.UsuarioAutenticado;
+import org.example.laserranitaentradas.model.dto.ActualizarFotoRequestDTO;
+import org.example.laserranitaentradas.model.dto.ActualizarTemaRequestDTO;
+import org.example.laserranitaentradas.model.dto.CambiarPasswordRequestDTO;
 import org.example.laserranitaentradas.model.dto.LoginRequest;
 import org.example.laserranitaentradas.model.dto.LoginResponseDTO;
 import org.example.laserranitaentradas.model.dto.UsuarioResponseDTO;
@@ -8,6 +12,7 @@ import org.example.laserranitaentradas.model.entity.Usuario;
 import org.example.laserranitaentradas.service.UsuarioService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -46,6 +51,42 @@ public class UsuarioController {
         LoginResponseDTO dto = entityToLoginDto(autenticado.get());
         dto.setToken(jwtService.generarToken(autenticado.get()));
         return ResponseEntity.ok(dto);
+    }
+
+    @PutMapping("/me/password")
+    @Operation(summary = "Cambiar mi propia contraseña", description = "Cualquier usuario logueado puede cambiar su propia contraseña, verificando la actual antes de pisarla")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "204", description = "Contraseña cambiada"),
+            @ApiResponse(responseCode = "400", description = "Contraseña actual incorrecta o la nueva no cumple el mínimo")
+    })
+    public ResponseEntity<Void> cambiarMiPassword(@RequestBody CambiarPasswordRequestDTO request,
+                                                   @AuthenticationPrincipal UsuarioAutenticado operador) {
+        usuarioService.cambiarPassword(operador.id(), request.getPasswordActual(), request.getPasswordNueva());
+        return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/me/tema")
+    @Operation(summary = "Cambiar mi color de tema", description = "Cualquier usuario logueado puede personalizar el color principal de la interfaz. Mandar colorTema en null vuelve al tema por defecto.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Color actualizado"),
+            @ApiResponse(responseCode = "400", description = "El color no es un hex válido")
+    })
+    public ResponseEntity<UsuarioResponseDTO> cambiarMiTema(@RequestBody ActualizarTemaRequestDTO request,
+                                                             @AuthenticationPrincipal UsuarioAutenticado operador) {
+        Usuario actualizado = usuarioService.actualizarColorTema(operador.id(), request.getColorTema(), request.getColorFondo(), request.getColorTarjeta(), request.getColorBorde());
+        return ResponseEntity.ok(entityToDto(actualizado));
+    }
+
+    @PutMapping("/me/foto")
+    @Operation(summary = "Cambiar mi foto de perfil", description = "Cualquier usuario logueado puede subir o sacar su propia foto de perfil. Mandar fotoPerfil en null la saca.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Foto actualizada"),
+            @ApiResponse(responseCode = "400", description = "La foto no es una imagen válida o es demasiado grande")
+    })
+    public ResponseEntity<UsuarioResponseDTO> cambiarMiFoto(@RequestBody ActualizarFotoRequestDTO request,
+                                                             @AuthenticationPrincipal UsuarioAutenticado operador) {
+        Usuario actualizado = usuarioService.actualizarFotoPerfil(operador.id(), request.getFotoPerfil());
+        return ResponseEntity.ok(entityToDto(actualizado));
     }
 
     @PostMapping
@@ -126,6 +167,11 @@ public class UsuarioController {
         dto.setApellido(u.getApellido());
         dto.setRol(u.getRol());
         dto.setActivo(u.getActivo());
+        dto.setColorTema(u.getColorTema());
+        dto.setColorFondo(u.getColorFondo());
+        dto.setColorTarjeta(u.getColorTarjeta());
+        dto.setColorBorde(u.getColorBorde());
+        dto.setFotoPerfil(u.getFotoPerfil());
         return dto;
     }
 
@@ -136,6 +182,11 @@ public class UsuarioController {
         dto.setNombre(u.getNombre());
         dto.setApellido(u.getApellido());
         dto.setRol(u.getRol());
+        dto.setColorTema(u.getColorTema());
+        dto.setColorFondo(u.getColorFondo());
+        dto.setColorTarjeta(u.getColorTarjeta());
+        dto.setColorBorde(u.getColorBorde());
+        dto.setFotoPerfil(u.getFotoPerfil());
         return dto;
     }
 }

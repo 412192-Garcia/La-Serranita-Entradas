@@ -86,7 +86,8 @@
   font-family: inherit;
   border: 1.5px solid var(--color-border);
   border-radius: var(--radius-sm);
-  background-color: #fff;
+  background-color: var(--color-card-bg);
+  color: var(--color-text);
   outline: none;
   transition: all 0.2s ease;
   min-width: 0;
@@ -126,7 +127,7 @@
 
 .btn-limpiar {
   border: 1px solid #d1d5db;
-  background-color: #fff;
+  background-color: var(--color-card-bg);
   color: var(--color-text-secondary);
 }
 
@@ -145,7 +146,7 @@
   font-family: inherit;
   border: 1.5px solid var(--color-border);
   border-radius: var(--radius-sm);
-  background-color: #fff;
+  background-color: var(--color-card-bg);
   outline: none;
   color: var(--color-text);
 }
@@ -160,7 +161,7 @@
   padding: 9px 16px;
   border: 1.5px solid var(--color-border);
   border-radius: var(--radius-sm);
-  background-color: #fff;
+  background-color: var(--color-card-bg);
   color: var(--color-text-secondary);
   font-size: 0.85rem;
   font-weight: 700;
@@ -204,7 +205,7 @@
   flex-wrap: wrap;
   align-items: flex-start;
   gap: 12px 28px;
-  background-color: #fff;
+  background-color: var(--color-card-bg);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   padding: 14px 18px;
@@ -235,7 +236,7 @@
   align-self: center;
   padding: 8px 14px;
   border: 1.5px solid var(--color-border);
-  background-color: #fff;
+  background-color: var(--color-card-bg);
   border-radius: var(--radius-sm);
   font-size: 0.8rem;
   font-weight: 700;
@@ -251,7 +252,7 @@
   padding: 6px 12px;
   border: 1.5px solid var(--color-border);
   border-radius: 999px;
-  background-color: #fff;
+  background-color: var(--color-card-bg);
   color: var(--color-text-secondary);
   font-size: 0.78rem;
   font-weight: 700;
@@ -273,7 +274,7 @@
   padding: 6px 10px;
   border: 1.5px solid var(--color-border);
   border-radius: var(--radius-sm);
-  background-color: #fff;
+  background-color: var(--color-card-bg);
   color: var(--color-text);
   font-size: 0.82rem;
   font-weight: 600;
@@ -307,7 +308,7 @@
 }
 
 .sin-resultados {
-  background-color: #fff;
+  background-color: var(--color-card-bg);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card);
   padding: 40px 24px;
@@ -334,7 +335,7 @@
    TABLA DE RESERVAS (horizontal — pensada para pantalla completa)
    ========================================================================== */
 .tabla-reservas {
-  background-color: #fff;
+  background-color: var(--color-card-bg);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card);
 }
@@ -621,7 +622,7 @@
   padding: 6px 10px;
   border: 1px solid var(--color-danger-dark);
   border-radius: var(--radius-sm);
-  background-color: #fff;
+  background-color: var(--color-card-bg);
   color: var(--color-danger-dark);
   font-size: 0.75rem;
   font-weight: 700;
@@ -680,7 +681,7 @@
   top: 36px;
   right: 0;
   z-index: 10;
-  background-color: #fff;
+  background-color: var(--color-card-bg);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow-card-lg);
@@ -735,7 +736,7 @@
 }
 
 .modal-contenido {
-  background-color: #fff;
+  background-color: var(--color-card-bg);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card-lg);
   padding: 28px;
@@ -769,6 +770,8 @@
   border: 1.5px solid var(--color-border);
   border-radius: var(--radius-sm);
   outline: none;
+  background-color: var(--color-input-bg);
+  color: var(--color-text);
 }
 
 .modal-contenido input:focus {

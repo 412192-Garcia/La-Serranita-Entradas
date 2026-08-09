@@ -9,7 +9,7 @@
 }
 
 .tarjeta {
-  background-color: #fff;
+  background-color: var(--color-card-bg);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card);
   padding: 20px 24px;
@@ -97,7 +97,7 @@ input, select {
   font-family: inherit;
   border: 1.5px solid var(--color-border);
   border-radius: var(--radius-sm);
-  background-color: #fff;
+  background-color: var(--color-card-bg);
   outline: none;
   color: var(--color-text);
 }
@@ -133,7 +133,7 @@ input:focus, select:focus {
 
 .btn-secundario {
   border: 1.5px solid var(--color-border);
-  background-color: #fff;
+  background-color: var(--color-card-bg);
   color: var(--color-text-secondary);
   padding: 9px 16px;
   border-radius: var(--radius-sm);

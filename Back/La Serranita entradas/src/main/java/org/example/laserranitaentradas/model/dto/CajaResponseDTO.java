@@ -41,6 +41,20 @@ public class CajaResponseDTO {
     private BigDecimal diferenciaQr;
     private List<CierrePosnetResponseDTO> cierresPosnet;
 
+    /**
+     * Si hubo o no alguna venta pagada en dólares en esta caja (sigue siendo un cobro en
+     * EFECTIVO_BOLETERIA, sólo cambia la moneda física). A diferencia de los totales, esto se
+     * expone SIEMPRE (aunque la caja siga ABIERTA): es sólo un booleano, no un monto, así que
+     * no le sirve al boletero para "calcar" el cierre — pero el frontend lo necesita para saber
+     * si mostrar el campo de dólares contados al cerrar.
+     */
+    private Boolean huboVentaDolares;
+    /** Dólares esperados (según lo que entró de cada venta en dólares) — null hasta el cierre. */
+    private BigDecimal dolaresEsperado;
+    /** Dólares que el boletero contó al cerrar — null si esta caja no tuvo ventas en dólares. */
+    private BigDecimal dolaresContado;
+    private BigDecimal diferenciaDolares;
+
     private Integer entradasFisicasInicial;
     private Integer entradasFisicasFinal;
     /** Null mientras sigue ABIERTA, y también en cajas viejas sin entradasFisicasInicial cargado. */

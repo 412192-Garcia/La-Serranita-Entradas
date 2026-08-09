@@ -59,11 +59,22 @@
 @keyframes girar { to { transform: rotate(360deg); } }
 
 /* ---------- Responsive ---------- */
-@media (max-width: 900px) {
+/* Entre 640 y 1000px (tablets chicas en horizontal, ej. 7") el catálogo+carrito
+   siguen lado a lado — es donde más hace falta cobrar sin perder de vista el
+   total — pero repartidos más parejo: el carrito fijo de 380px no entra cómodo
+   en esos anchos. */
+@media (max-width: 1000px) {
   .panel-pos { padding: 20px 16px 32px; }
 
-  /* En tablet/celular el carrito va abajo y deja de ser pegajoso: con el teclado
-     abierto una columna fija se comería toda la pantalla. */
+  .pos-layout {
+    grid-template-columns: 1.15fr 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  /* Recién acá, celular o tablet realmente angosta, el carrito va abajo y deja
+     de ser pegajoso: con el teclado abierto una columna fija se comería toda
+     la pantalla. */
   .pos-layout {
     grid-template-columns: 1fr;
   }

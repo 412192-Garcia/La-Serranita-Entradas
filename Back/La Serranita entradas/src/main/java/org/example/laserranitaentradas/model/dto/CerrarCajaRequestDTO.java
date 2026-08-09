@@ -14,4 +14,6 @@ public class CerrarCajaRequestDTO {
     private Integer entradasFisicasFinal;
     /** Total en billetes chicos (50, 20, etc.), cargado de una vez en vez de billete por billete. Opcional, default cero. */
     private BigDecimal cambioContado;
+    /** Dólares contados. Sólo se exige si la caja tuvo alguna venta en dólares. */
+    private BigDecimal dolaresContado;
 }

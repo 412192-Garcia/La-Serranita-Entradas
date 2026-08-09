@@ -117,7 +117,7 @@
   padding: 16px;
   border: 1.5px solid var(--color-border);
   border-radius: var(--radius-sm);
-  background-color: #fff;
+  background-color: var(--color-card-bg);
   color: var(--color-text-secondary);
   font-family: var(--font-heading);
   font-size: 1rem;
@@ -133,7 +133,7 @@
 
 /* ---------- Detalle de caja: columna propia, no un desplegable apretado ---------- */
 .panel-detalle-caja {
-  background-color: #fff;
+  background-color: var(--color-card-bg);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card-lg);
   padding: 28px 24px;
