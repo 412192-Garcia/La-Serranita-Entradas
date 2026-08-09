@@ -104,6 +104,23 @@
               (ngModelChange)="entradasFisicasFinal.set($event)" />
           </label>
         </section>
+
+        @if (huboVentaDolares()) {
+          <section class="seccion-cierre">
+            <h4>Dólares</h4>
+            <p class="subtitulo-apertura">Esta caja tuvo ventas en dólares: contalos y cargá cuántos hay.</p>
+            <label class="campo-apertura">
+              ¿Cuántos dólares contaste?
+              <input
+                type="text"
+                inputmode="numeric"
+                placeholder="0"
+                appMoneyInput
+                [ngModel]="dolaresContado()"
+                (ngModelChange)="dolaresContado.set($event)" />
+            </label>
+          </section>
+        }
       </div>
     </div>
 

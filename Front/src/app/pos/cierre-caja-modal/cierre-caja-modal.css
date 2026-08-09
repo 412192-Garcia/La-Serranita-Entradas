@@ -44,6 +44,8 @@
   border: 1.5px solid var(--color-border);
   border-radius: var(--radius-sm);
   outline: none;
+  background-color: var(--color-input-bg);
+  color: var(--color-text);
 }
 
 .fila-denominacion input:focus {
@@ -143,6 +145,8 @@
   border: 1.5px solid var(--color-border);
   border-radius: var(--radius-sm);
   outline: none;
+  background-color: var(--color-input-bg);
+  color: var(--color-text);
 }
 
 .ayuda-cierre {

@@ -315,6 +315,79 @@ class CompraServiceImplTest {
         assertThat(resultado.getMontoTotal()).isEqualByComparingTo("200");
     }
 
+    // ---------- Cobro en dólares: sigue siendo EFECTIVO_BOLETERIA, sólo cambia la moneda física ----------
+
+    @Test
+    void registrarVentaPos_conCotizacionDolar_enFormaDePagoQueNoEsEfectivo_rechaza() {
+        mockearVentaPosBasica();
+        var request = ventaPosBasica();
+        request.setFormaPago(FormaPago.TARJETA);
+        request.setCotizacionDolar(new java.math.BigDecimal("1200"));
+        request.setDolaresRecibidos(new java.math.BigDecimal("1"));
+
+        assertThatThrownBy(() -> service.registrarVentaPos(request, 9L))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void registrarVentaPos_conCotizacionNegativaOCero_rechaza() {
+        mockearVentaPosBasica();
+        var request = ventaPosBasica();
+        request.setCotizacionDolar(java.math.BigDecimal.ZERO);
+        request.setDolaresRecibidos(new java.math.BigDecimal("1"));
+
+        assertThatThrownBy(() -> service.registrarVentaPos(request, 9L))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void registrarVentaPos_conCotizacionSinDolaresRecibidos_rechaza() {
+        mockearVentaPosBasica();
+        var request = ventaPosBasica();
+        request.setCotizacionDolar(new java.math.BigDecimal("1200"));
+
+        assertThatThrownBy(() -> service.registrarVentaPos(request, 9L))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void registrarVentaPos_conDolaresRecibidosQueNoAlcanzanParaCubrirElTotal_rechaza() {
+        mockearVentaPosBasica();
+        var request = ventaPosBasica();
+        request.setCotizacionDolar(new java.math.BigDecimal("1200"));
+        // Total 200 (ver mockearVentaPosBasica); a 1200 hacen falta ~0.167 dólares, 0.1 no alcanza.
+        request.setDolaresRecibidos(new java.math.BigDecimal("0.1"));
+
+        assertThatThrownBy(() -> service.registrarVentaPos(request, 9L))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void registrarVentaPos_conDolares_guardaCotizacionYDolaresRecibidos_yQuedaComoEfectivo() {
+        mockearVentaPosBasica();
+        var request = ventaPosBasica();
+        request.setCotizacionDolar(new java.math.BigDecimal("1200"));
+        request.setDolaresRecibidos(new java.math.BigDecimal("1"));
+
+        Compra resultado = service.registrarVentaPos(request, 9L);
+
+        // Sigue siendo EFECTIVO_BOLETERIA: no es una forma de pago aparte.
+        assertThat(resultado.getFormaPago()).isEqualTo(FormaPago.EFECTIVO_BOLETERIA);
+        assertThat(resultado.getCotizacionDolar()).isEqualByComparingTo("1200");
+        assertThat(resultado.getDolaresRecibidos()).isEqualByComparingTo("1");
+    }
+
+    @Test
+    void registrarVentaPos_sinCotizacion_noGuardaNadaDeDolares() {
+        mockearVentaPosBasica();
+        var request = ventaPosBasica();
+
+        Compra resultado = service.registrarVentaPos(request, 9L);
+
+        assertThat(resultado.getCotizacionDolar()).isNull();
+        assertThat(resultado.getDolaresRecibidos()).isNull();
+    }
+
     // ---------- Artículos varios: catálogo o libres, no exigen pase obligatorio por sí solos ----------
 
     private org.example.laserranitaentradas.model.dto.LineaArticuloPosDTO articuloLibre(String descripcion, String precio, int cantidad) {

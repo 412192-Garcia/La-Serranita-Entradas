@@ -79,4 +79,12 @@ public class Caja extends BaseEntity {
     @CollectionTable(name = "caja_conteo_efectivo", joinColumns = @JoinColumn(name = "id_caja"))
     @Builder.Default
     private List<ConteoDenominacion> conteoEfectivo = new ArrayList<>();
+
+    /**
+     * Dólares que el boletero contó al cerrar. Null mientras la caja sigue abierta, y
+     * también en cajas cerradas que no tuvieron ninguna venta en dólares (no hay nada
+     * que contar).
+     */
+    @Column(name = "dolares_contado")
+    private BigDecimal dolaresContado;
 }

@@ -151,7 +151,7 @@ public class CajaServiceImpl implements CajaService {
     @Override
     public CajaResponseDTO cerrar(Long usuarioId, List<ConteoDenominacionDTO> conteoEfectivo,
                                    List<CierrePosnetRequestDTO> cierresPosnet, Integer entradasFisicasFinal,
-                                   BigDecimal cambioContado) {
+                                   BigDecimal cambioContado, BigDecimal dolaresContado) {
         Caja caja = getAbiertaOrThrow(usuarioId);
 
         List<ConteoDenominacion> conteo = validarYMapearConteo(conteoEfectivo);
@@ -160,10 +160,11 @@ public class CajaServiceImpl implements CajaService {
             throw new IllegalArgumentException("Indicá con cuántas entradas físicas termina el turno");
         }
         BigDecimal montoContado = calcularMontoContado(conteo, cambioContado);
+        BigDecimal dolaresContadoValidado = validarDolaresContado(caja.getId(), dolaresContado);
 
-        BigDecimal totalVentasEfectivo = sumVentasPorFormaPago(caja.getId(), FormaPago.EFECTIVO_BOLETERIA);
+        BigDecimal impactoEfectivoArs = sumImpactoEfectivoArs(caja.getId());
         BigDecimal totalRetiros = sumRetiros(caja.getId());
-        BigDecimal montoEsperado = caja.getMontoInicial().add(totalVentasEfectivo).subtract(totalRetiros);
+        BigDecimal montoEsperado = caja.getMontoInicial().add(impactoEfectivoArs).subtract(totalRetiros);
 
         LocalDateTime ahora = LocalDateTime.now();
         caja.setFechaCierre(ahora);
@@ -174,6 +175,7 @@ public class CajaServiceImpl implements CajaService {
         caja.getConteoEfectivo().clear();
         caja.getConteoEfectivo().addAll(conteo);
         caja.setEntradasFisicasFinal(entradasFisicasFinal);
+        caja.setDolaresContado(dolaresContadoValidado);
 
         Caja guardada = cajaRepository.save(caja);
         guardarCierresPosnet(guardada, cierres, ahora);
@@ -185,7 +187,7 @@ public class CajaServiceImpl implements CajaService {
     @Override
     public CajaResponseDTO corregirCierre(Long usuarioId, Long cajaId, List<ConteoDenominacionDTO> conteoEfectivo,
                                            List<CierrePosnetRequestDTO> cierresPosnet, Integer entradasFisicasFinal,
-                                           BigDecimal cambioContado) {
+                                           BigDecimal cambioContado, BigDecimal dolaresContado) {
         Caja caja = cajaRepository.findById(cajaId)
                 .orElseThrow(() -> new IllegalArgumentException("Caja no encontrada para id: " + cajaId));
         if (!caja.getUsuario().getId().equals(usuarioId)) {
@@ -201,13 +203,14 @@ public class CajaServiceImpl implements CajaService {
             throw new IllegalArgumentException("Indicá con cuántas entradas físicas termina el turno");
         }
         BigDecimal montoContado = calcularMontoContado(conteo, cambioContado);
+        BigDecimal dolaresContadoValidado = validarDolaresContado(caja.getId(), dolaresContado);
 
         // El esperado se recalcula igual que al cerrar (no debería haber cambiado, pero
         // recalcularlo en vez de reusar el guardado evita que quede desactualizado si algo
         // sí cambió entre medio).
-        BigDecimal totalVentasEfectivo = sumVentasPorFormaPago(caja.getId(), FormaPago.EFECTIVO_BOLETERIA);
+        BigDecimal impactoEfectivoArs = sumImpactoEfectivoArs(caja.getId());
         BigDecimal totalRetiros = sumRetiros(caja.getId());
-        BigDecimal montoEsperado = caja.getMontoInicial().add(totalVentasEfectivo).subtract(totalRetiros);
+        BigDecimal montoEsperado = caja.getMontoInicial().add(impactoEfectivoArs).subtract(totalRetiros);
 
         caja.setMontoContado(montoContado);
         caja.setMontoEsperado(montoEsperado);
@@ -216,6 +219,7 @@ public class CajaServiceImpl implements CajaService {
         caja.getConteoEfectivo().clear();
         caja.getConteoEfectivo().addAll(conteo);
         caja.setEntradasFisicasFinal(entradasFisicasFinal);
+        caja.setDolaresContado(dolaresContadoValidado);
 
         Caja guardada = cajaRepository.save(caja);
         cierrePosnetRepository.deleteAllByCajaId(caja.getId());
@@ -238,6 +242,8 @@ public class CajaServiceImpl implements CajaService {
                     // Acá sí se expone lo vendido hasta el momento: a diferencia de getActual (que lo
                     // esconde para que el propio boletero no pueda "calcar" el cierre), esto lo ve el
                     // admin en el dashboard de Hoy, no el dueño de la caja.
+                    // El pago en dólares sigue siendo EFECTIVO_BOLETERIA (misma forma de pago,
+                    // sólo cambia la moneda física), así que ya está incluido acá.
                     BigDecimal totalVendido = sumVentasPorFormaPago(caja.getId(), FormaPago.EFECTIVO_BOLETERIA)
                             .add(sumVentasPorFormaPago(caja.getId(), FormaPago.TARJETA))
                             .add(sumVentasPorFormaPago(caja.getId(), FormaPago.MERCADO_PAGO_QR));
@@ -309,6 +315,56 @@ public class CajaServiceImpl implements CajaService {
                 .filter(c -> c.getFormaPago() == formaPago && c.getEstado() != EstadoCompra.CANCELADO)
                 .map(Compra::getMontoTotal)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    /** Ventas en efectivo pagadas en dólares (formaPago sigue siendo EFECTIVO_BOLETERIA), no canceladas. */
+    private List<Compra> ventasEnDolares(Long cajaId) {
+        return compraRepository.findAllByCajaId(cajaId).stream()
+                .filter(c -> c.getCotizacionDolar() != null && c.getEstado() != EstadoCompra.CANCELADO)
+                .toList();
+    }
+
+    private boolean huboVentaDolares(Long cajaId) {
+        return !ventasEnDolares(cajaId).isEmpty();
+    }
+
+    private BigDecimal sumDolaresEsperados(Long cajaId) {
+        return ventasEnDolares(cajaId).stream()
+                .map(Compra::getDolaresRecibidos)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    /** Vuelto en pesos que hubo que darle al cliente en una venta puntual pagada en dólares. */
+    private BigDecimal vueltoPesos(Compra compra) {
+        return compra.getDolaresRecibidos().multiply(compra.getCotizacionDolar()).subtract(compra.getMontoTotal());
+    }
+
+    /**
+     * Impacto real en el cajón de PESOS de una venta en efectivo: si se pagó en pesos, entra
+     * el total de la venta; si se pagó en dólares, no entra nada en pesos (entraron dólares,
+     * contados aparte) pero SÍ sale el vuelto en pesos que se le dio al cliente — por eso acá
+     * se resta en vez de sumar. Sin esto, efectivoEsperado quedaría de más por cada venta en
+     * dólares (contaría el precio en pesos que en realidad nunca entró al cajón).
+     */
+    private BigDecimal impactoEfectivoArs(Compra compra) {
+        if (compra.getCotizacionDolar() == null) return compra.getMontoTotal();
+        return vueltoPesos(compra).negate();
+    }
+
+    private BigDecimal sumImpactoEfectivoArs(Long cajaId) {
+        return compraRepository.findAllByCajaId(cajaId).stream()
+                .filter(c -> c.getFormaPago() == FormaPago.EFECTIVO_BOLETERIA && c.getEstado() != EstadoCompra.CANCELADO)
+                .map(this::impactoEfectivoArs)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    /** Null si esta caja no tuvo ninguna venta en dólares (no hay nada que contar); si tuvo, exige el conteo. */
+    private BigDecimal validarDolaresContado(Long cajaId, BigDecimal dolaresContado) {
+        if (!huboVentaDolares(cajaId)) return null;
+        if (dolaresContado == null || dolaresContado.compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("Esta caja tuvo ventas en dólares: indicá cuántos dólares contaste");
+        }
+        return dolaresContado;
     }
 
     private BigDecimal sumRetiros(Long cajaId) {
@@ -432,10 +488,22 @@ public class CajaServiceImpl implements CajaService {
         List<OperacionCajaDTO> operaciones = null;
         Integer totalEntradasVendidas = null;
         List<EntradasPorTipoDTO> entradasVendidasPorTipo = null;
+        BigDecimal dolaresEsperado = null;
+        BigDecimal diferenciaDolares = null;
+
+        // Booleano, no un monto: seguro de exponer aunque la caja siga ABIERTA (ver el
+        // comentario en CajaResponseDTO.huboVentaDolares).
+        boolean huboVentaDolares = huboVentaDolares(caja.getId());
 
         if (cerrada) {
+            // totalVentasEfectivo es la revenue "de lista" (precio de venta, sea cual sea la
+            // moneda física con la que se pagó); efectivoEsperado es lo que tiene que haber
+            // físicamente en pesos en el cajón — para eso usa sumImpactoEfectivoArs, que resta
+            // el vuelto en pesos de las ventas en dólares en vez de sumar su precio (ver el
+            // comentario de impactoEfectivoArs). Los dos números divergen a propósito cuando
+            // hubo ventas en dólares.
             totalVentasEfectivo = sumVentasPorFormaPago(caja.getId(), FormaPago.EFECTIVO_BOLETERIA);
-            efectivoEsperado = caja.getMontoInicial().add(totalVentasEfectivo).subtract(totalRetiros);
+            efectivoEsperado = caja.getMontoInicial().add(sumImpactoEfectivoArs(caja.getId())).subtract(totalRetiros);
 
             totalVentasTarjeta = sumVentasPorFormaPago(caja.getId(), FormaPago.TARJETA);
             totalVentasQr = sumVentasPorFormaPago(caja.getId(), FormaPago.MERCADO_PAGO_QR);
@@ -464,6 +532,13 @@ public class CajaServiceImpl implements CajaService {
 
             entradasVendidasPorTipo = contarEntradasPorTipo(caja.getId());
             totalEntradasVendidas = entradasVendidasPorTipo.stream().mapToInt(EntradasPorTipoDTO::getCantidad).sum();
+
+            if (huboVentaDolares) {
+                dolaresEsperado = sumDolaresEsperados(caja.getId());
+                if (caja.getDolaresContado() != null) {
+                    diferenciaDolares = caja.getDolaresContado().subtract(dolaresEsperado);
+                }
+            }
         }
 
         List<RetiroCajaResponseDTO> retiros = retiroCajaRepository.findAllByCajaIdOrderByFechaAsc(caja.getId()).stream()
@@ -523,6 +598,10 @@ public class CajaServiceImpl implements CajaService {
                 .operaciones(operaciones)
                 .totalEntradasVendidas(totalEntradasVendidas)
                 .entradasVendidasPorTipo(entradasVendidasPorTipo)
+                .huboVentaDolares(huboVentaDolares)
+                .dolaresEsperado(dolaresEsperado)
+                .dolaresContado(caja.getDolaresContado())
+                .diferenciaDolares(diferenciaDolares)
                 .build();
     }
 }

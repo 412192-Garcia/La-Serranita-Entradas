@@ -91,7 +91,7 @@
   gap: 2px;
   border: 1.5px solid var(--color-border);
   border-radius: var(--radius-sm);
-  background-color: #fff;
+  background-color: var(--color-card-bg);
   cursor: pointer;
   font-family: inherit;
   transition: all 0.15s ease;
@@ -106,7 +106,7 @@
 }
 
 .celda-dia.abierto {
-  border-color: var(--color-calendar-border);
+  border-color: var(--color-primary);
   background-color: var(--color-primary-light);
 }
 

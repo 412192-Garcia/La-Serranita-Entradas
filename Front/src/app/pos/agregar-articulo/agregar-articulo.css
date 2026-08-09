@@ -11,7 +11,7 @@
   flex-direction: column;
   gap: 10px;
   padding: 14px 16px;
-  background-color: #fff;
+  background-color: var(--color-card-bg);
   border: 2px solid var(--color-border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card);
@@ -27,6 +27,8 @@
   border-radius: var(--radius-sm);
   outline: none;
   box-sizing: border-box;
+  background-color: var(--color-input-bg);
+  color: var(--color-text);
 }
 
 .panel-agregar-articulo label {

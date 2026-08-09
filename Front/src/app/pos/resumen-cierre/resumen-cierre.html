@@ -59,6 +59,20 @@
         }
       </div>
 
+      @if (caja().huboVentaDolares) {
+        <div class="bloque-cierre">
+          <h3>Dólares</h3>
+          <span>Esperado U$S {{ caja().dolaresEsperado | number: '1.2-2' }}</span>
+          <span>Contado U$S {{ caja().dolaresContado | number: '1.2-2' }}</span>
+          @if (caja().diferenciaDolares !== null) {
+            <span class="diferencia-bloque" [class.diferencia-negativa]="caja().diferenciaDolares! < 0">
+              {{ caja().diferenciaDolares! < 0 ? 'Faltante' : caja().diferenciaDolares! > 0 ? 'Sobrante' : 'Sin diferencia' }}
+              {{ caja().diferenciaDolares === 0 ? '' : 'U$S ' + ((caja().diferenciaDolares! < 0 ? -caja().diferenciaDolares! : caja().diferenciaDolares) | number: '1.2-2') }}
+            </span>
+          }
+        </div>
+      }
+
       <div class="bloque-cierre">
         <h3>Entradas</h3>
         <span>Inicial {{ caja().entradasFisicasInicial ?? '—' }} · Final {{ caja().entradasFisicasFinal ?? '—' }}</span>

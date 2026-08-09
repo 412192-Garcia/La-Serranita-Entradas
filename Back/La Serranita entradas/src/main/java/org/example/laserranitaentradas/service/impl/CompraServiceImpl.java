@@ -708,6 +708,29 @@ public class CompraServiceImpl implements CompraService {
                 request.getDescuentoManualPorcentaje(), request.getDescuentoManualMonto());
         BigDecimal montoFinal = montoBruto.subtract(descuento);
 
+        // Pagar en dólares sigue siendo un cobro en EFECTIVO_BOLETERIA (misma forma de pago,
+        // sólo cambia la moneda física): sólo se activa si el request manda cotización. El
+        // boletero entra cuántos dólares recibió (no el vuelto: el vuelto en pesos se deriva
+        // de dolaresRecibidos × cotización − montoFinal), así se sabe cuántos dólares tienen
+        // que contar al cerrar la caja.
+        BigDecimal cotizacionDolar = request.getCotizacionDolar();
+        BigDecimal dolaresRecibidos = null;
+        if (cotizacionDolar != null) {
+            if (request.getFormaPago() != FormaPago.EFECTIVO_BOLETERIA) {
+                throw new IllegalArgumentException("El pago en dólares sólo está disponible cobrando en efectivo");
+            }
+            if (cotizacionDolar.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalArgumentException("La cotización del dólar tiene que ser mayor a cero");
+            }
+            dolaresRecibidos = request.getDolaresRecibidos();
+            if (dolaresRecibidos == null || dolaresRecibidos.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalArgumentException("Indicá cuántos dólares entregó el cliente");
+            }
+            if (dolaresRecibidos.multiply(cotizacionDolar).compareTo(montoFinal) < 0) {
+                throw new IllegalArgumentException("Los dólares recibidos no alcanzan para cubrir el total");
+            }
+        }
+
         // Venta anónima: no hay cliente ni contacto que cargar (ya están entrando, no hay
         // nada que validar después ni comprobante que mandar). Nace VENDIDO_EN_PUERTA porque
         // el cobro y el ingreso pasan en el mismo acto y nunca fue una reserva anticipada.
@@ -723,6 +746,8 @@ public class CompraServiceImpl implements CompraService {
                 .usuarioValidador(vendedor)
                 .fechaValidacion(LocalDateTime.now())
                 .caja(caja)
+                .cotizacionDolar(cotizacionDolar)
+                .dolaresRecibidos(dolaresRecibidos)
                 .build();
 
         for (CompraDetalle det : todosLosDetalles) {

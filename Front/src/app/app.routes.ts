@@ -31,6 +31,11 @@ export const routes: Routes = [
     canActivate: [rolGuard(['BOLETERO', 'ADMIN'])],
   },
   {
+    path: 'mi-cuenta',
+    loadComponent: () => import('./mi-cuenta/mi-cuenta').then((m) => m.MiCuenta),
+    canActivate: [rolGuard(['BOLETERO', 'ADMIN'])],
+  },
+  {
     path: 'crear-reserva',
     loadComponent: () => import('./crear-reserva/crear-reserva').then((m) => m.CrearReserva),
     canActivate: [rolGuard(['ADMIN'])],

@@ -1,0 +1,215 @@
+:host {
+  display: block;
+  width: 100%;
+  min-height: 100vh;
+  background-color: var(--color-bg-page);
+  font-family: var(--font-body);
+  color: var(--color-text);
+}
+
+.panel-mi-cuenta {
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 28px 36px 48px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.tarjeta-mi-cuenta form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 340px;
+}
+
+.tarjeta-mi-cuenta .btn-primario {
+  align-self: flex-start;
+}
+
+/* ---------- Apariencia ---------- */
+.subtitulo-apariencia {
+  font-family: var(--font-heading);
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 20px 0 4px;
+}
+
+.subtitulo-apariencia:first-of-type {
+  margin-top: 4px;
+}
+
+.ayuda-fondo {
+  margin-top: 0;
+}
+
+.grilla-paletas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 4px 0 18px;
+}
+
+/* Los tonos claros de fondo (blanco, gris claro) necesitan un borde más marcado para no
+   desaparecer contra la tarjeta blanca en la que viven. */
+.swatch-fondo {
+  border-color: var(--color-border);
+  border-width: 2px;
+}
+
+.swatch-fondo:not(.swatch-oscuro) .swatch-check {
+  color: var(--color-text);
+  text-shadow: none;
+}
+
+.swatch-color {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid var(--color-border);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: transform 0.12s ease, border-color 0.12s ease;
+}
+
+.swatch-color:hover {
+  transform: scale(1.08);
+}
+
+.swatch-activo {
+  border-color: var(--color-text);
+  box-shadow: 0 0 0 2px var(--color-card-bg), 0 0 0 4px var(--color-text);
+}
+
+.swatch-check {
+  color: #fff;
+  font-weight: 800;
+  font-size: 1rem;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+.bloque-color-libre {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.etiqueta-color-libre {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.etiqueta-color-libre input[type='color'] {
+  width: 56px;
+  height: 36px;
+  padding: 2px;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  background-color: var(--color-card-bg);
+}
+
+.btn-restablecer-todo {
+  margin-top: 22px;
+}
+
+.grilla-disenios {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 4px 0 18px;
+}
+
+.swatch-disenio {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px 6px 6px;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-card-bg);
+  cursor: pointer;
+  transition: transform 0.12s ease, border-color 0.12s ease;
+}
+
+.swatch-disenio:hover {
+  transform: scale(1.03);
+  border-color: var(--color-text-muted);
+}
+
+.swatch-disenio-muestra {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex: none;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+.swatch-disenio-cuarto {
+  display: block;
+}
+
+.swatch-disenio-nombre {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+/* ---------- Foto de perfil ---------- */
+.bloque-foto-perfil {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.avatar-perfil {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  flex: none;
+  overflow: hidden;
+  background-color: var(--color-bg-soft);
+  border: 1.5px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatar-perfil img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar-perfil svg {
+  width: 38px;
+  height: 38px;
+  color: var(--color-text-muted);
+}
+
+.acciones-foto-perfil {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.btn-elegir-foto {
+  display: inline-block;
+}

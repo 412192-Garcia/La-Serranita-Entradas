@@ -98,4 +98,17 @@ public class Compra extends BaseEntity {
     @JoinColumn(name = "id_caja")
     private Caja caja;
 
+    /**
+     * Pago en efectivo hecho en dólares (sigue siendo EFECTIVO_BOLETERIA: es la misma forma
+     * de pago, sólo cambia la moneda física con la que se cobra). Null en pesos.
+     * Cotización usada para este cobro (ARS por USD).
+     */
+    @Column(name = "cotizacion_dolar")
+    private BigDecimal cotizacionDolar;
+
+    /** Dólares que entregó el cliente. Junto con cotizacionDolar y montoTotal permite
+     * reconstruir el vuelto en pesos que hubo que darle. Null si no pagó en dólares. */
+    @Column(name = "dolares_recibidos")
+    private BigDecimal dolaresRecibidos;
+
 }

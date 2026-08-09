@@ -15,9 +15,15 @@
     }
 
     <button type="button" class="btn-hamburguesa" (click)="toggleMenu()" [attr.aria-expanded]="menuAbierto()" aria-label="Abrir menú">
-      <svg lucideMenu [strokeWidth]="2"></svg>
       @if (operador(); as usuario) {
+        @if (usuario.fotoPerfil) {
+          <img class="avatar-operador" [src]="usuario.fotoPerfil" alt="" />
+        } @else {
+          <svg lucideMenu [strokeWidth]="2"></svg>
+        }
         <span class="operador">{{ usuario.nombre }}</span>
+      } @else {
+        <svg lucideMenu [strokeWidth]="2"></svg>
       }
     </button>
   </div>
@@ -30,7 +36,12 @@
 <aside class="menu-slider" [class.abierto]="menuAbierto()">
   <div class="menu-slider-cabecera">
     @if (operador(); as usuario) {
-      <span class="operador-slider">{{ usuario.nombre }}</span>
+      <div class="identidad-slider">
+        @if (usuario.fotoPerfil) {
+          <img class="avatar-operador-slider" [src]="usuario.fotoPerfil" alt="" />
+        }
+        <span class="operador-slider">{{ usuario.nombre }}</span>
+      </div>
     }
     <button type="button" class="btn-cerrar-slider" (click)="cerrarMenu()" aria-label="Cerrar menú">
       <svg lucideX [strokeWidth]="2"></svg>

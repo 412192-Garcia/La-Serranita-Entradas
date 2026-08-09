@@ -70,6 +70,11 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/interno/caja/abiertas").hasRole("ADMIN")
 
                 // ---------- Boletería (BOLETERO o ADMIN) ----------
+                // Antes que la regla general de /api/usuarios/** (ADMIN-only, más abajo): cualquier
+                // usuario logueado puede cambiar su propia contraseña o su tema, no sólo el admin.
+                .requestMatchers(HttpMethod.PUT, "/api/usuarios/me/password").hasAnyRole("BOLETERO", "ADMIN")
+                .requestMatchers(HttpMethod.PUT, "/api/usuarios/me/tema").hasAnyRole("BOLETERO", "ADMIN")
+                .requestMatchers(HttpMethod.PUT, "/api/usuarios/me/foto").hasAnyRole("BOLETERO", "ADMIN")
                 .requestMatchers(HttpMethod.GET, "/api/compras/buscar").hasAnyRole("BOLETERO", "ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/api/compras/*/validar").hasAnyRole("BOLETERO", "ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/api/compras/*/deshacer-validacion").hasAnyRole("BOLETERO", "ADMIN")

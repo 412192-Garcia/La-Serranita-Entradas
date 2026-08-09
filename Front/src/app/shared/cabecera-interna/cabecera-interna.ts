@@ -18,6 +18,7 @@ const TODOS_LOS_ENLACES: EnlaceCabecera[] = [
   { texto: 'Configuración', ruta: '/configuracion', soloAdmin: true },
   { texto: 'Reportes', ruta: '/reportes', soloAdmin: true },
   { texto: 'Cajas', ruta: '/cajas', soloAdmin: true },
+  { texto: 'Mi cuenta', ruta: '/mi-cuenta' },
 ];
 
 /**

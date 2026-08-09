@@ -101,6 +101,10 @@ export interface VentaPosRequest extends DescuentoPos {
   formaPago: FormaPagoPos;
   entradas: LineaVentaPos[];
   articulos?: LineaArticuloPos[];
+  /** Cotización usada (ARS por USD). Sólo si el boletero cobró en dólares (sigue siendo EFECTIVO_BOLETERIA). */
+  cotizacionDolar?: number | null;
+  /** Dólares que entregó el cliente. Obligatorio si se manda cotizacionDolar. */
+  dolaresRecibidos?: number | null;
 }
 
 export interface CotizacionResponse {

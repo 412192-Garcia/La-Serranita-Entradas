@@ -1,0 +1,232 @@
+<div class="panel-mi-cuenta">
+
+  <app-cabecera-interna
+    titulo="Mi cuenta"
+    descripcion="Configuración personal." />
+
+  <div class="seccion">
+    <div class="tarjeta tarjeta-formulario tarjeta-mi-cuenta">
+      <h2>Foto de perfil</h2>
+
+      @if (errorFoto()) {
+        <p class="alerta-error">{{ errorFoto() }}</p>
+      }
+
+      <div class="bloque-foto-perfil">
+        <div class="avatar-perfil">
+          @if (fotoPerfil(); as foto) {
+            <img [src]="foto" alt="Foto de perfil" />
+          } @else {
+            <svg lucideUser [strokeWidth]="1.5"></svg>
+          }
+        </div>
+        <div class="acciones-foto-perfil">
+          <label class="btn-secundario btn-elegir-foto">
+            {{ guardandoFoto() ? 'Guardando…' : fotoPerfil() ? 'Cambiar foto' : 'Elegir foto' }}
+            <input type="file" accept="image/*" (change)="onSeleccionarFoto($event)" [disabled]="guardandoFoto()" hidden />
+          </label>
+          @if (fotoPerfil()) {
+            <button type="button" class="btn-secundario btn-quitar-foto" (click)="quitarFoto()" [disabled]="guardandoFoto()">Quitar foto</button>
+          }
+        </div>
+      </div>
+    </div>
+
+    <div class="tarjeta tarjeta-formulario tarjeta-mi-cuenta">
+      <h2>Cambiar contraseña</h2>
+      @if (operador(); as u) {
+        <p class="ayuda">Conectado como {{ u.nombre }} ({{ u.username }}).</p>
+      }
+
+      @if (error()) {
+        <p class="alerta-error">{{ error() }}</p>
+      }
+      @if (mensaje()) {
+        <p class="mensaje">{{ mensaje() }}</p>
+      }
+
+      <form (ngSubmit)="cambiarPassword()">
+        <label>
+          Contraseña actual
+          <input
+            type="password"
+            autocomplete="current-password"
+            [ngModel]="passwordActual()"
+            (ngModelChange)="passwordActual.set($event)"
+            name="passwordActual" />
+        </label>
+        <label>
+          Contraseña nueva
+          <input
+            type="password"
+            autocomplete="new-password"
+            [ngModel]="passwordNueva()"
+            (ngModelChange)="passwordNueva.set($event)"
+            name="passwordNueva" />
+        </label>
+        <label>
+          Confirmar contraseña nueva
+          <input
+            type="password"
+            autocomplete="new-password"
+            [ngModel]="passwordConfirmar()"
+            (ngModelChange)="passwordConfirmar.set($event)"
+            name="passwordConfirmar" />
+        </label>
+
+        <button type="submit" class="btn-primario" [disabled]="guardando()">
+          {{ guardando() ? 'Guardando…' : 'Cambiar contraseña' }}
+        </button>
+      </form>
+    </div>
+
+    <div class="tarjeta tarjeta-formulario tarjeta-mi-cuenta">
+      <h2>Apariencia</h2>
+      <p class="ayuda">Elegí los colores de la interfaz. Se guardan en tu usuario.</p>
+
+      @if (errorTema()) {
+        <p class="alerta-error">{{ errorTema() }}</p>
+      }
+
+      <h3 class="subtitulo-apariencia">Diseños prearmados</h3>
+      <p class="ayuda ayuda-fondo">Aplican una combinación coordinada a los 4 colores de una sola vez.</p>
+      <div class="grilla-disenios">
+        @for (d of disenios; track d.nombre) {
+          <button
+            type="button"
+            class="swatch-disenio"
+            [title]="d.nombre"
+            (click)="elegirDisenio(d)">
+            <span class="swatch-disenio-muestra">
+              <span class="swatch-disenio-cuarto" [style.background-color]="d.colorFondo"></span>
+              <span class="swatch-disenio-cuarto" [style.background-color]="d.colorTarjeta"></span>
+              <span class="swatch-disenio-cuarto" [style.background-color]="d.colorPrimario"></span>
+              <span class="swatch-disenio-cuarto" [style.background-color]="d.colorBorde"></span>
+            </span>
+            <span class="swatch-disenio-nombre">{{ d.nombre }}</span>
+          </button>
+        }
+      </div>
+
+      <h3 class="subtitulo-apariencia">Color principal</h3>
+      <div class="grilla-paletas">
+        @for (p of paletasPrimario; track p.color) {
+          <button
+            type="button"
+            class="swatch-color"
+            [class.swatch-activo]="colorTema() === p.color"
+            [style.background-color]="p.color"
+            [title]="p.nombre"
+            [attr.aria-label]="p.nombre"
+            (click)="elegirPrimario(p.color)">
+            @if (colorTema() === p.color) {
+              <span class="swatch-check">✓</span>
+            }
+          </button>
+        }
+      </div>
+
+      <div class="bloque-color-libre">
+        <label class="etiqueta-color-libre">
+          Personalizado <span class="opcional">(a tu propio riesgo: algún contraste puede no quedar perfecto)</span>
+          <input
+            type="color"
+            [ngModel]="colorTemaParaPicker()"
+            (ngModelChange)="onPrimarioLibre($event)" />
+        </label>
+      </div>
+
+      <h3 class="subtitulo-apariencia">Fondo de página</h3>
+      <div class="grilla-paletas">
+        @for (p of paletasFondo; track p.color) {
+          <button
+            type="button"
+            class="swatch-color swatch-fondo"
+            [class.swatch-activo]="colorFondo() === p.color"
+            [class.swatch-oscuro]="p.oscuro"
+            [style.background-color]="p.color"
+            [title]="p.nombre"
+            [attr.aria-label]="p.nombre"
+            (click)="elegirFondo(p.color)">
+            @if (colorFondo() === p.color) {
+              <span class="swatch-check">✓</span>
+            }
+          </button>
+        }
+      </div>
+
+      <div class="bloque-color-libre">
+        <label class="etiqueta-color-libre">
+          Personalizado <span class="opcional">(a tu propio riesgo: algún contraste puede no quedar perfecto)</span>
+          <input
+            type="color"
+            [ngModel]="colorFondoParaPicker()"
+            (ngModelChange)="onFondoLibre($event)" />
+        </label>
+      </div>
+
+      <h3 class="subtitulo-apariencia">Color de tarjetas</h3>
+      <div class="grilla-paletas">
+        @for (p of paletasTarjeta; track p.color) {
+          <button
+            type="button"
+            class="swatch-color swatch-fondo"
+            [class.swatch-activo]="colorTarjeta() === p.color"
+            [class.swatch-oscuro]="p.oscuro"
+            [style.background-color]="p.color"
+            [title]="p.nombre"
+            [attr.aria-label]="p.nombre"
+            (click)="elegirTarjeta(p.color)">
+            @if (colorTarjeta() === p.color) {
+              <span class="swatch-check">✓</span>
+            }
+          </button>
+        }
+      </div>
+
+      <div class="bloque-color-libre">
+        <label class="etiqueta-color-libre">
+          Personalizado <span class="opcional">(a tu propio riesgo: algún contraste puede no quedar perfecto)</span>
+          <input
+            type="color"
+            [ngModel]="colorTarjetaParaPicker()"
+            (ngModelChange)="onTarjetaLibre($event)" />
+        </label>
+      </div>
+
+      <h3 class="subtitulo-apariencia">Color de bordes</h3>
+      <p class="ayuda ayuda-fondo">Se usa en los bordes de botones, inputs y divisores.</p>
+      <div class="grilla-paletas">
+        @for (p of paletasBorde; track p.color) {
+          <button
+            type="button"
+            class="swatch-color swatch-fondo"
+            [class.swatch-activo]="colorBorde() === p.color"
+            [class.swatch-oscuro]="p.oscuro"
+            [style.background-color]="p.color"
+            [title]="p.nombre"
+            [attr.aria-label]="p.nombre"
+            (click)="elegirBorde(p.color)">
+            @if (colorBorde() === p.color) {
+              <span class="swatch-check">✓</span>
+            }
+          </button>
+        }
+      </div>
+
+      <div class="bloque-color-libre">
+        <label class="etiqueta-color-libre">
+          Personalizado <span class="opcional">(a tu propio riesgo: algún contraste puede no quedar perfecto)</span>
+          <input
+            type="color"
+            [ngModel]="colorBordeParaPicker()"
+            (ngModelChange)="onBordeLibre($event)" />
+        </label>
+      </div>
+
+      @if (hayPersonalizacion()) {
+        <button type="button" class="btn-secundario btn-restablecer-todo" (click)="restablecerTodo()">Restablecer los colores a por defecto</button>
+      }
+    </div>
+  </div>
+</div>

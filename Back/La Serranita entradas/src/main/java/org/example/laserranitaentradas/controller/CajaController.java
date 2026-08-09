@@ -61,7 +61,7 @@ public class CajaController {
     public ResponseEntity<CajaResponseDTO> cerrar(@RequestBody CerrarCajaRequestDTO request,
                                                    @AuthenticationPrincipal UsuarioAutenticado operador) {
         return ResponseEntity.ok(cajaService.cerrar(operador.id(), request.getConteoEfectivo(), request.getCierresPosnet(),
-                request.getEntradasFisicasFinal(), request.getCambioContado()));
+                request.getEntradasFisicasFinal(), request.getCambioContado(), request.getDolaresContado()));
     }
 
     @GetMapping("/abiertas")
@@ -82,6 +82,6 @@ public class CajaController {
                                                            @RequestBody CerrarCajaRequestDTO request,
                                                            @AuthenticationPrincipal UsuarioAutenticado operador) {
         return ResponseEntity.ok(cajaService.corregirCierre(operador.id(), id, request.getConteoEfectivo(),
-                request.getCierresPosnet(), request.getEntradasFisicasFinal(), request.getCambioContado()));
+                request.getCierresPosnet(), request.getEntradasFisicasFinal(), request.getCambioContado(), request.getDolaresContado()));
     }
 }
