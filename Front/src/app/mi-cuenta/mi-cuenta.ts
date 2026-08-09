@@ -193,12 +193,21 @@ export class MiCuenta {
     this.guardarColores(color, this.colorFondo(), this.colorTarjeta(), this.colorBorde());
   }
 
+  /** El picker nativo tira un evento "input" por cada frame de arrastre: sólo se previsualiza acá, no se guarda (eso es onPrimarioLibre, en el evento "change" al soltar). */
+  previsualizarPrimario(color: string): void {
+    this.theme.aplicarPrimario(color);
+  }
+
   elegirFondo(color: string | null): void {
     this.guardarColores(this.colorTema(), color, this.colorTarjeta(), this.colorBorde());
   }
 
   onFondoLibre(color: string): void {
     this.guardarColores(this.colorTema(), color, this.colorTarjeta(), this.colorBorde());
+  }
+
+  previsualizarFondo(color: string): void {
+    this.theme.aplicarFondo(color);
   }
 
   elegirTarjeta(color: string | null): void {
@@ -209,12 +218,20 @@ export class MiCuenta {
     this.guardarColores(this.colorTema(), this.colorFondo(), color, this.colorBorde());
   }
 
+  previsualizarTarjeta(color: string): void {
+    this.theme.aplicarTarjeta(color);
+  }
+
   elegirBorde(color: string | null): void {
     this.guardarColores(this.colorTema(), this.colorFondo(), this.colorTarjeta(), color);
   }
 
   onBordeLibre(color: string): void {
     this.guardarColores(this.colorTema(), this.colorFondo(), this.colorTarjeta(), color);
+  }
+
+  previsualizarBorde(color: string): void {
+    this.theme.aplicarBorde(color);
   }
 
   /** Diseño prearmado: pisa los 4 colores de una vez con una combinación ya coordinada. */
