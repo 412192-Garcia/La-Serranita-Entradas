@@ -1,5 +1,54 @@
 /* Clases usadas por más de un componente del módulo POS (importar con @import). */
 
+/* Toggle chico de dos o tres opciones (separado/juntos, retiro/aporte): mismo patrón visual
+   que .btn-forma-pago en carrito-venta, pero pensado para una elección secundaria dentro de
+   un modal, no la elección principal de forma de pago. */
+.grupo-toggle-pill {
+  display: flex;
+  gap: 6px;
+}
+
+.btn-toggle-pill {
+  padding: 6px 12px;
+  border: 2px solid var(--color-border);
+  background-color: var(--color-card-bg);
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s ease;
+}
+
+.btn-toggle-pill:hover {
+  border-color: var(--color-primary);
+}
+
+.btn-toggle-pill.activo {
+  border-color: var(--color-primary);
+  background-color: var(--color-primary);
+  color: #fff;
+}
+
+.lista-retiros {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-top: 1px solid var(--color-border);
+  padding-top: 10px;
+}
+
+.lista-retiros li {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+}
+
 .alerta-error {
   background-color: var(--color-danger-light);
   color: var(--color-danger-dark);

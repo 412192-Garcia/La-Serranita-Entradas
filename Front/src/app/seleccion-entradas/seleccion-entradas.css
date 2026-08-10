@@ -2,7 +2,7 @@
    1. PANEL PRINCIPAL Y ESTRUCTURA GENERAL
    ========================================================================== */
 .panel-seleccion {
-  background-color: #ffffff;
+  background-color: var(--color-card-bg);
   padding: 32px;
   width: 100%;
   box-sizing: border-box;
@@ -61,7 +61,7 @@
 
 .descripcion-entrada {
   font-size: 0.85rem;
-  color: #666666;
+  color: var(--color-text-muted);
   margin-top: 4px;
   line-height: 1.3;
 }

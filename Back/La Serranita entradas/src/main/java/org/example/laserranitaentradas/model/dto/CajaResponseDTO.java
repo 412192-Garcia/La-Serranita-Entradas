@@ -39,6 +39,10 @@ public class CajaResponseDTO {
     private BigDecimal totalCerradoQr;
     private BigDecimal diferenciaTarjeta;
     private BigDecimal diferenciaQr;
+    /** Si el cierre se cargó combinado (Tarjeta+QR juntos, sin distinguir), estos tres reemplazan a los de arriba; si no, quedan null. */
+    private BigDecimal totalVentasPosnet;
+    private BigDecimal totalCerradoPosnet;
+    private BigDecimal diferenciaPosnet;
     private List<CierrePosnetResponseDTO> cierresPosnet;
 
     /**
@@ -56,8 +60,8 @@ public class CajaResponseDTO {
     private BigDecimal diferenciaDolares;
 
     private Integer entradasFisicasInicial;
-    private Integer entradasFisicasFinal;
-    /** Null mientras sigue ABIERTA, y también en cajas viejas sin entradasFisicasInicial cargado. */
+    private Integer entradasFisicasCortadas;
+    /** Null mientras sigue ABIERTA. */
     private Integer entradasFisicasEsperadas;
     private Integer diferenciaEntradas;
     private Integer totalIngresosEntradas;

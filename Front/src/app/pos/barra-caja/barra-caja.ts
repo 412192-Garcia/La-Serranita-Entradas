@@ -14,5 +14,4 @@ export class BarraCaja {
   validarReserva = output<void>();
   retirarEfectivo = output<void>();
   agregarEntradas = output<void>();
-  cerrarCaja = output<void>();
 }

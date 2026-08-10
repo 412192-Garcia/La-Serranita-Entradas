@@ -4,9 +4,7 @@
     titulo="Venta en Boletería"
     descripcion="Cobrá y registra la compra." />
 
-  @if (cajaCerrada(); as cerrada) {
-    <app-resumen-cierre [caja]="cerrada" (verReservas)="irAReservas()" (corregir)="mostrarCierre.set(true)" />
-  } @else if (cargandoCaja()) {
+  @if (cargandoCaja()) {
     <div class="spinner-contenedor"><div class="spinner"></div></div>
   } @else if (caja() === null) {
     <app-apertura-caja (cajaAbierta)="caja.set($event)" />
@@ -16,11 +14,10 @@
       [caja]="caja()!"
       (validarReserva)="mostrarBusquedaReserva.set(true)"
       (retirarEfectivo)="mostrarRetiro.set(true)"
-      (agregarEntradas)="mostrarIngresoEntradas.set(true)"
-      (cerrarCaja)="mostrarCierre.set(true)" />
+      (agregarEntradas)="mostrarIngresoEntradas.set(true)" />
 
     <!-- Los tres son modales: no empujan el mostrador de venta, y al taparlo de paso
-         evitan seguir cobrando hacia una caja que se está por cerrar o retirar. -->
+         evitan seguir cobrando hacia una caja que se está por retirar. -->
     @if (mostrarBusquedaReserva()) {
       <app-validar-reserva-modal (cerrar)="mostrarBusquedaReserva.set(false)" />
     }
@@ -80,16 +77,5 @@
         </div>
       }
     }
-  }
-
-  <!-- Fuera de la cadena de arriba: hace falta tanto para cerrar la caja abierta como para
-       corregir el cierre de la que ya está cerrada (el botón "Corregir cierre" vive en la
-       otra rama). [cajaParaCorregir] viene null en el primer caso y con datos en el segundo. -->
-  @if (mostrarCierre()) {
-    <app-cierre-caja-modal
-      [cajaParaCorregir]="cajaCerrada()"
-      [cajaAbierta]="caja()"
-      (cajaCerrada)="onCajaCerrada($event)"
-      (cerrar)="mostrarCierre.set(false)" />
   }
 </div>

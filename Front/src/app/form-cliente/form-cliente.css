@@ -1,5 +1,5 @@
 .panel-cliente {
-  background-color: #ffffff;
+  background-color: var(--color-card-bg);
   padding: 32px;
   width: 100%;
   box-sizing: border-box;
@@ -68,7 +68,7 @@
   width: 100%;
   padding: 12px 14px;
   font-size: 1rem;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--color-border);
   border-radius: 6px;
   box-sizing: border-box;
   outline: none;
@@ -79,13 +79,13 @@
 .campo-grupo input:focus {
   border-color: var(--color-primary); /* Borde verde parque al escribir */
   box-shadow: 0 0 0 3px rgba(0, 150, 57, 0.15);
-  background-color: #ffffff;
+  background-color: var(--color-input-bg);
 }
 
 /* 🚨 ESTADOS DE ERROR VISUAL */
 .campo-grupo input.input-error {
   border-color: var(--color-danger) !important;
-  background-color: #fef2f2;
+  background-color: var(--color-danger-light);
 }
 
 .error-text {

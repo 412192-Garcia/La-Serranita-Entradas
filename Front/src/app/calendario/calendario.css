@@ -17,7 +17,7 @@
   container: calendario / inline-size;
   width: 100%;
   max-width: 480px;
-  background-color: #ffffff;
+  background-color: var(--color-card-bg);
   border: 3px solid var(--color-calendar-border);
   border-radius: var(--radius-xl);
   overflow: hidden;
@@ -118,7 +118,7 @@
 
 .footer-regalo.modo-activo {
   border-top: none;
-  background-color: #ffffff;
+  background-color: var(--color-card-bg);
   padding: 25px 20px 10px 20px;
 }
 
@@ -129,7 +129,7 @@
   font-size: 0.9rem;
   font-weight: 600;
   line-height: 1.4;
-  background-color: #ffffff;
+  background-color: var(--color-card-bg);
 }
 
 .checkbox-regalo-label {
@@ -162,7 +162,7 @@
 
 .desc-regalo {
   font-size: 0.8rem;
-  color: #666666;
+  color: var(--color-text-muted);
   margin-top: 2px;
 }
 

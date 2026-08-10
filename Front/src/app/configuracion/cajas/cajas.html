@@ -7,6 +7,32 @@
   <div class="seccion">
 
   <div class="tarjeta">
+    <h2>Cajas abiertas ahora</h2>
+    <p class="ayuda">Cerrar caja es una función de ADMIN: los boleteros ya no pueden hacerlo desde el POS.</p>
+    @if (cargandoCajasAbiertas()) {
+      <div class="spinner-contenedor"><div class="spinner"></div></div>
+    } @else if (cajasAbiertas().length === 0) {
+      <p class="ayuda">No hay ninguna caja abierta en este momento.</p>
+    } @else {
+      <div class="tabla-simple">
+        <div class="fila-simple fila-simple-cajas-abiertas fila-simple-header">
+          <span>Boletero</span><span>Abrió</span><span>Inicial</span><span>Vendido hasta ahora</span><span>Entradas</span><span></span>
+        </div>
+        @for (c of cajasAbiertas(); track c.id) {
+          <div class="fila-simple fila-simple-cajas-abiertas">
+            <span>{{ c.usuarioNombre }}</span>
+            <span>{{ c.fechaApertura | date: 'dd/MM HH:mm' }}</span>
+            <span>{{ c.montoInicial | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+            <span>{{ c.totalVendido | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+            <span>{{ c.totalEntradasVendidas }}</span>
+            <button type="button" class="btn-secundario" (click)="iniciarCierre(c.id)">Cerrar caja</button>
+          </div>
+        }
+      </div>
+    }
+  </div>
+
+  <div class="tarjeta">
     <h2>Rango de fechas</h2>
     <p class="ayuda">Filtra por fecha de cierre de la caja. Por defecto muestra los últimos 30 días.</p>
     @if (error()) {
@@ -86,98 +112,13 @@
               <span [class]="claseDiferencia(c)">{{ c.diferencia | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
             </div>
             @if (filaExpandidaId() === c.id) {
-              <div class="fila-detalle-expandida">
+              <div class="fila-detalle-expandida" (click)="$event.stopPropagation()">
                 @if (cargandoDetalle()) {
                   <div class="spinner-contenedor"><div class="spinner"></div></div>
                 } @else if (errorDetalle()) {
                   <p class="alerta-error">{{ errorDetalle() }}</p>
                 } @else if (cajaDetalle(); as det) {
-                  <div class="tarjeta-kpis tarjeta-kpis-detalle">
-                    <div>
-                      <h2>Total vendido</h2>
-                      <p class="kpi-numero">{{ totalVendidoDetalle(det) | currency: 'ARS' : 'symbol' : '1.0-0' }}</p>
-                    </div>
-                    <div>
-                      <h2>Entradas vendidas</h2>
-                      <p class="kpi-numero kpi-numero-secundario">{{ det.totalEntradasVendidas ?? 0 }}</p>
-                    </div>
-                  </div>
-
-                  @if (det.entradasVendidasPorTipo && det.entradasVendidasPorTipo.length > 0) {
-                    <div class="chips-entradas-tipo">
-                      @for (t of det.entradasVendidasPorTipo; track t.nombreTipo) {
-                        <span class="chip-entrada-tipo">{{ t.nombreTipo }} <strong>{{ t.cantidad }}</strong></span>
-                      }
-                    </div>
-                  }
-
-                  <div class="tabla-simple tabla-detalle-formaspago">
-                    <div class="fila-simple fila-simple-formaspago fila-simple-header">
-                      <span>Forma de pago</span><span>Esperado</span><span>Contado</span><span>Diferencia</span>
-                    </div>
-                    <div class="fila-simple fila-simple-formaspago">
-                      <span>Efectivo</span>
-                      <span>{{ det.efectivoEsperado | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
-                      <span>{{ det.montoContado | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
-                      <span [class]="claseDiferenciaValor(det.diferencia)">{{ det.diferencia | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
-                    </div>
-                    <div class="fila-simple fila-simple-formaspago">
-                      <span>Tarjeta</span>
-                      <span>{{ det.totalVentasTarjeta | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
-                      <span>{{ det.totalCerradoTarjeta | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
-                      <span [class]="claseDiferenciaValor(det.diferenciaTarjeta)">{{ det.diferenciaTarjeta | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
-                    </div>
-                    <div class="fila-simple fila-simple-formaspago">
-                      <span>QR</span>
-                      <span>{{ det.totalVentasQr | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
-                      <span>{{ det.totalCerradoQr | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
-                      <span [class]="claseDiferenciaValor(det.diferenciaQr)">{{ det.diferenciaQr | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
-                    </div>
-                  </div>
-
-                  @if (det.conteoEfectivo.length > 0) {
-                    <button type="button" class="btn-desglose-detalle" (click)="mostrarBilletesDetalle.set(!mostrarBilletesDetalle())">
-                      {{ mostrarBilletesDetalle() ? 'Ocultar billetes' : 'Ver billetes' }}
-                    </button>
-                    @if (mostrarBilletesDetalle()) {
-                      <ul class="lista-desglose-detalle">
-                        @for (c2 of det.conteoEfectivo; track c2.denominacion) {
-                          @if (c2.cantidad > 0) {
-                            <li><span>{{ c2.cantidad }} × {{ c2.denominacion | currency: 'ARS' : 'symbol' : '1.0-0' }}</span><span>{{ c2.cantidad * c2.denominacion | currency: 'ARS' : 'symbol' : '1.0-0' }}</span></li>
-                          }
-                        }
-                        @if ((det.cambioContado ?? 0) > 0) {
-                          <li><span>Cambio</span><span>{{ det.cambioContado | currency: 'ARS' : 'symbol' : '1.0-0' }}</span></li>
-                        }
-                      </ul>
-                    }
-                  }
-
-                  <p class="fila-entradas-fisicas">
-                    Entradas físicas: inicial {{ det.entradasFisicasInicial ?? '—' }} · final {{ det.entradasFisicasFinal ?? '—' }}
-                    @if (det.entradasFisicasEsperadas !== null) {
-                      <span [class]="claseDiferenciaValor(det.diferenciaEntradas)">
-                        · esperadas {{ det.entradasFisicasEsperadas }}
-                        ({{ (det.diferenciaEntradas ?? 0) < 0 ? 'faltan ' + (-det.diferenciaEntradas!) : (det.diferenciaEntradas ?? 0) > 0 ? 'sobran ' + det.diferenciaEntradas : 'sin diferencia' }})
-                      </span>
-                    }
-                  </p>
-
-                  @if (det.operaciones && det.operaciones.length > 0) {
-                    <div class="tabla-simple tabla-detalle-operaciones">
-                      <div class="fila-simple fila-simple-operaciones fila-simple-header">
-                        <span>Hora</span><span>Tipo</span><span>Detalle</span><span>Monto</span>
-                      </div>
-                      @for (op of det.operaciones; track $index) {
-                        <div class="fila-simple fila-simple-operaciones" [class.fila-operacion-retiro]="op.tipo === 'RETIRO'">
-                          <span>{{ op.fecha | date: 'HH:mm' }}</span>
-                          <span>{{ etiquetaOperacion(op) }}</span>
-                          <span>{{ op.detalle }}</span>
-                          <span>{{ op.monto !== null ? (op.monto | currency: 'ARS' : 'symbol' : '1.0-0') : '' }}</span>
-                        </div>
-                      }
-                    </div>
-                  }
+                  <app-resumen-cierre [caja]="det" [mostrarAcciones]="true" (corregir)="iniciarCorreccion(det)" />
                 }
               </div>
             }
@@ -213,5 +154,26 @@
   }
 
   </div>
+
+  <!-- Se mantiene siempre montado (oculto con CSS, no @if): así "Cancelar" nunca borra los
+       billetes/posnet/entradas ya cargados — ver el efecto de precarga en el componente. -->
+  <app-cierre-caja-modal
+    [class.oculto]="!mostrarCierre()"
+    [cajaId]="cajaIdCierre()"
+    [cajaAbierta]="cajaCierreDetalle()"
+    [cajaParaCorregir]="cajaParaCorregir()"
+    (cajaCerrada)="onCajaCerrada($event)"
+    (cajaActualizada)="onCajaActualizadaCierre($event)"
+    (cerrar)="mostrarCierre.set(false)" />
+
+  @if (cajaRecienCerrada(); as c) {
+    <div class="modal-overlay" (click)="cajaRecienCerrada.set(null)">
+      <div class="panel-caja panel-caja-resultado-cierre" (click)="$event.stopPropagation()">
+        <h3>Caja cerrada</h3>
+        <app-resumen-cierre [caja]="c" [mostrarAcciones]="false" />
+        <button type="button" class="btn-primario" (click)="cajaRecienCerrada.set(null)">Listo</button>
+      </div>
+    </div>
+  }
 
 </div>

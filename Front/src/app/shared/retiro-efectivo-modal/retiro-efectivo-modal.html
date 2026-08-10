@@ -1,6 +1,12 @@
 <div class="modal-overlay" (click)="cerrar.emit()">
   <div class="panel-caja" (click)="$event.stopPropagation()">
-    <h3>Retirar efectivo</h3>
+    <h3>{{ tipo() === 'APORTE' ? 'Agregar plata' : 'Retirar efectivo' }}</h3>
+
+    <div class="grupo-toggle-pill">
+      <button type="button" class="btn-toggle-pill" [class.activo]="tipo() === 'RETIRO'" (click)="tipo.set('RETIRO')">Retiro</button>
+      <button type="button" class="btn-toggle-pill" [class.activo]="tipo() === 'APORTE'" (click)="tipo.set('APORTE')">Aporte</button>
+    </div>
+
     <div class="fila-panel-caja">
       <label>
         Monto
@@ -27,14 +33,21 @@
     <div class="acciones">
       <button type="button" class="btn-limpiar" (click)="cerrar.emit()">Cancelar</button>
       <button type="button" class="btn-cobrar" [disabled]="registrando()" (click)="confirmar()">
-        {{ registrando() ? 'Registrando…' : 'Confirmar retiro' }}
+        @if (registrando()) {
+          Registrando…
+        } @else {
+          {{ tipo() === 'APORTE' ? 'Confirmar aporte' : 'Confirmar retiro' }}
+        }
       </button>
     </div>
 
     @if (retiros().length) {
       <ul class="lista-retiros">
         @for (r of retiros(); track r.id) {
-          <li><span>{{ r.motivo }}</span><span>{{ r.monto | currency: 'ARS' : 'symbol' : '1.0-0' }}</span></li>
+          <li>
+            <span>{{ r.tipo === 'APORTE' ? '+ ' : '− ' }}{{ r.motivo }}</span>
+            <span>{{ r.monto | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+          </li>
         }
       </ul>
     }

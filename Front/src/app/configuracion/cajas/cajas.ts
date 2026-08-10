@@ -3,9 +3,10 @@ import { CurrencyPipe, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ReporteService } from '../../Services/reporte.service';
 import { CajaResumen, ReporteResumen } from '../../models/reporte';
-import { CajaService, Caja, OperacionCaja } from '../../Services/caja.service';
-import { etiquetaFormaPago } from '../../pos/formas-pago-pos';
+import { CajaService, Caja, CajaAbierta } from '../../Services/caja.service';
 import { CabeceraInterna } from '../../shared/cabecera-interna/cabecera-interna';
+import { CierreCajaModal } from './cierre-caja-modal/cierre-caja-modal';
+import { ResumenCierre } from './resumen-cierre/resumen-cierre';
 
 function aFechaISO(d: Date): string {
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -14,7 +15,7 @@ function aFechaISO(d: Date): string {
 
 @Component({
   selector: 'app-configuracion-cajas',
-  imports: [FormsModule, CurrencyPipe, DatePipe, CabeceraInterna],
+  imports: [FormsModule, CurrencyPipe, DatePipe, CabeceraInterna, CierreCajaModal, ResumenCierre],
   templateUrl: './cajas.html',
   styleUrls: ['../configuracion-shared.css', './cajas.css'],
 })
@@ -22,12 +23,27 @@ export class ConfiguracionCajas implements OnInit {
   private reporteService = inject(ReporteService);
   private cajaService = inject(CajaService);
 
+  // ---------- Cajas abiertas ahora mismo ----------
+  cajasAbiertas = signal<CajaAbierta[]>([]);
+  cargandoCajasAbiertas = signal(false);
+
+  // ---------- Cerrar caja / corregir un cierre ya hecho ----------
+  /** Controla sólo la visibilidad del modal (ver [class.oculto]): nunca se destruye, así "Cancelar" no borra lo ya cargado. */
+  mostrarCierre = signal(false);
+  /** Id de la caja abierta que se está por cerrar. Sólo cambia al apuntar a una caja distinta (no al cancelar). */
+  cajaIdCierre = signal<number | null>(null);
+  /** Detalle de esa misma caja (vía obtenerDetalle): esperado sigue oculto porque sigue abierta, sólo trae huboVentaDolares/retiros. */
+  cajaCierreDetalle = signal<Caja | null>(null);
+  /** Si está seteada, el modal corrige esa caja ya cerrada en vez de cerrar una abierta. Sólo cambia al apuntar a una caja distinta. */
+  cajaParaCorregir = signal<Caja | null>(null);
+  /** Resultado a mostrar justo después de cerrar una caja (no una corrección): el admin necesita ver que el cierre se guardó y con qué números, no volver directo a la lista sin feedback. */
+  cajaRecienCerrada = signal<Caja | null>(null);
+
   /** Id de la fila desplegada (null = ninguna); el detalle de sólo lectura de esa caja se carga debajo. */
   filaExpandidaId = signal<number | null>(null);
   cajaDetalle = signal<Caja | null>(null);
   cargandoDetalle = signal(false);
   errorDetalle = signal<string | null>(null);
-  mostrarBilletesDetalle = signal(false);
 
   private readonly hoy = new Date();
   desde = signal(aFechaISO(new Date(this.hoy.getFullYear(), this.hoy.getMonth(), this.hoy.getDate() - 29)));
@@ -42,6 +58,69 @@ export class ConfiguracionCajas implements OnInit {
 
   ngOnInit(): void {
     this.cargar();
+    this.cargarCajasAbiertas();
+  }
+
+  cargarCajasAbiertas(): void {
+    this.cargandoCajasAbiertas.set(true);
+    this.cajaService.obtenerCajasAbiertas().subscribe({
+      next: (cs) => {
+        this.cajasAbiertas.set(cs);
+        this.cargandoCajasAbiertas.set(false);
+      },
+      error: (err) => {
+        console.error('Error al cargar las cajas abiertas:', err);
+        this.cargandoCajasAbiertas.set(false);
+      },
+    });
+  }
+
+  /** Abre el modal para cerrar esa caja abierta (busca su detalle, sin exponer lo esperado: sigue abierta). */
+  iniciarCierre(cajaId: number): void {
+    this.cajaParaCorregir.set(null);
+    this.cajaIdCierre.set(cajaId);
+    this.mostrarCierre.set(true);
+    this.cajaService.obtenerDetalle(cajaId).subscribe({
+      next: (c) => this.cajaCierreDetalle.set(c),
+      error: (err) => console.error('Error al cargar el detalle de la caja a cerrar:', err),
+    });
+  }
+
+  /** Abre el modal para corregir un cierre ya hecho (precargado con lo que ya tiene esa caja). */
+  iniciarCorreccion(caja: Caja): void {
+    this.cajaIdCierre.set(null);
+    this.cajaCierreDetalle.set(null);
+    this.cajaParaCorregir.set(caja);
+    this.mostrarCierre.set(true);
+  }
+
+  /** Se cerró o corrigió con éxito: refresca las listas afectadas. */
+  onCajaCerrada(c: Caja): void {
+    const eraCorreccion = this.cajaParaCorregir() !== null;
+    this.mostrarCierre.set(false);
+    this.cajaIdCierre.set(null);
+    this.cajaCierreDetalle.set(null);
+    this.cajaParaCorregir.set(null);
+    this.cargarCajasAbiertas();
+    this.cargar();
+    if (eraCorreccion) {
+      if (this.filaExpandidaId() === c.id) {
+        this.cajaDetalle.set(c);
+      }
+    } else {
+      // Recién se cerró (no una corrección): mostrar el resultado, si no el modal
+      // simplemente desaparece y el admin no tiene forma de saber que se guardó.
+      this.cajaRecienCerrada.set(c);
+    }
+  }
+
+  /** Se agregó un retiro/aporte desde dentro del modal de cierre, sin llegar a cerrar: refresca sólo esa caja, sin tocar el resto del formulario. */
+  onCajaActualizadaCierre(c: Caja): void {
+    if (this.cajaParaCorregir()) {
+      this.cajaParaCorregir.set(c);
+    } else {
+      this.cajaCierreDetalle.set(c);
+    }
   }
 
   cargar(): void {
@@ -73,7 +152,6 @@ export class ConfiguracionCajas implements OnInit {
 
   /** Despliega el detalle de esa fila, o lo cierra si ya estaba abierta. */
   toggleDetalle(cajaId: number): void {
-    this.mostrarBilletesDetalle.set(false);
     if (this.filaExpandidaId() === cajaId) {
       this.filaExpandidaId.set(null);
       this.cajaDetalle.set(null);
@@ -95,26 +173,6 @@ export class ConfiguracionCajas implements OnInit {
         this.cargandoDetalle.set(false);
       },
     });
-  }
-
-  /** Todo lo vendido en el turno de esa caja, sin importar la forma de pago. */
-  totalVendidoDetalle(c: Caja): number {
-    return (c.totalVentasEfectivo ?? 0) + (c.totalVentasTarjeta ?? 0) + (c.totalVentasQr ?? 0);
-  }
-
-  /** Mismo criterio de color que claseDiferencia, pero para cualquier par esperado/contado del detalle (tarjeta, QR, entradas). */
-  claseDiferenciaValor(valor: number | null): string {
-    if (valor === null || valor === undefined) return '';
-    if (valor < 0) return 'diferencia-faltante';
-    if (valor > 0) return 'diferencia-sobrante';
-    return 'diferencia-exacta';
-  }
-
-  /** Nombre corto para una operación del detalle de caja (venta por forma de pago, ingreso de entradas, o retiro). */
-  etiquetaOperacion(op: OperacionCaja): string {
-    if (op.tipo === 'VENTA') return etiquetaFormaPago(op.formaPago);
-    if (op.tipo === 'INGRESO_ENTRADAS') return 'Entradas';
-    return 'Retiro';
   }
 
   /** Nombres únicos de boleteros con al menos una caja cerrada en el rango, para el filtro. */

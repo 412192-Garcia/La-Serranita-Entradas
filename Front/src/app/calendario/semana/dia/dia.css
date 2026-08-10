@@ -90,8 +90,10 @@
 }
 
 .dia-pasado-abierto {
-  background-color: #c2e6cf;
-  color: #a2bfae;
+  /* Mismo verde de "abierto" pero apagado hacia el gris de "cerrado": así se nota que ya pasó
+     sin perder la relación con el color de tema elegido (antes era un verde fijo aparte). */
+  background-color: color-mix(in srgb, var(--color-calendar-day) 55%, #e0e0e0);
+  color: color-mix(in srgb, var(--color-calendar-day) 45%, #757575);
   cursor: default;
 }
 .dia-pasado-cerrado {

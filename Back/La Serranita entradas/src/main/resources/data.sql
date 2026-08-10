@@ -200,17 +200,17 @@ INSERT INTO cajas (
 ALTER TABLE cajas ALTER COLUMN id RESTART WITH 9;
 
 INSERT INTO retiros_caja (
-    id, id_caja, monto, motivo, fecha,
+    id, id_caja, monto, motivo, tipo, fecha,
     fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion
 ) VALUES
-    (1, 1, 10000.00, 'Resguardo en caja fuerte', '2026-07-04 16:00:00', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'admin', 'admin'),
-    (2, 2, 15000.00, 'Resguardo en caja fuerte', '2026-07-05 16:00:00', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'admin', 'admin'),
-    (3, 3, 8000.00, 'Resguardo en caja fuerte', '2026-07-11 16:00:00', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'admin', 'admin'),
-    (4, 4, 20000.00, 'Resguardo en caja fuerte', '2026-07-12 16:00:00', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'admin', 'admin'),
-    (5, 5, 5000.00, 'Resguardo en caja fuerte', '2026-07-18 16:00:00', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'admin', 'admin'),
-    (6, 6, 12000.00, 'Resguardo en caja fuerte', '2026-07-19 16:00:00', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'admin', 'admin'),
-    (7, 7, 10000.00, 'Resguardo en caja fuerte', '2026-07-25 16:00:00', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'admin', 'admin'),
-    (8, 8, 18000.00, 'Resguardo en caja fuerte', '2026-07-26 16:00:00', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'admin', 'admin');
+    (1, 1, 10000.00, 'Resguardo en caja fuerte', 'RETIRO', '2026-07-04 16:00:00', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'admin', 'admin'),
+    (2, 2, 15000.00, 'Resguardo en caja fuerte', 'RETIRO', '2026-07-05 16:00:00', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'admin', 'admin'),
+    (3, 3, 8000.00, 'Resguardo en caja fuerte', 'RETIRO', '2026-07-11 16:00:00', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'admin', 'admin'),
+    (4, 4, 20000.00, 'Resguardo en caja fuerte', 'RETIRO', '2026-07-12 16:00:00', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'admin', 'admin'),
+    (5, 5, 5000.00, 'Resguardo en caja fuerte', 'RETIRO', '2026-07-18 16:00:00', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'admin', 'admin'),
+    (6, 6, 12000.00, 'Resguardo en caja fuerte', 'RETIRO', '2026-07-19 16:00:00', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'admin', 'admin'),
+    (7, 7, 10000.00, 'Resguardo en caja fuerte', 'RETIRO', '2026-07-25 16:00:00', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'admin', 'admin'),
+    (8, 8, 18000.00, 'Resguardo en caja fuerte', 'RETIRO', '2026-07-26 16:00:00', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'admin', 'admin');
 
 ALTER TABLE retiros_caja ALTER COLUMN id RESTART WITH 9;
 
