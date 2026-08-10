@@ -1,4 +1,5 @@
-<div class="panel-login">
+<div class="panel-login" [class.con-cuentas]="cuentasRecientes().length > 0">
+
   <div class="tarjeta-login">
     <h1>Ingreso al módulo interno</h1>
     <p class="ayuda">Boletería y Configuración del parque. Ingresá con tu usuario del staff.</p>
@@ -21,6 +22,7 @@
       <label>
         Contraseña
         <input
+          #inputPassword
           type="password"
           autocomplete="current-password"
           [ngModel]="password()"
@@ -34,4 +36,30 @@
       </button>
     </form>
   </div>
+
+  @if (cuentasRecientes().length > 0) {
+    <div class="tarjeta-cuentas">
+      <h2>Cuentas usadas en este dispositivo</h2>
+      <ul class="lista-cuentas">
+        @for (c of cuentasRecientes(); track c.username) {
+          <li class="fila-cuenta" (click)="elegirCuenta(c)">
+            @if (c.fotoPerfil) {
+              <img class="avatar-cuenta" [src]="c.fotoPerfil" alt="" />
+            } @else {
+              <span class="avatar-cuenta avatar-cuenta-fallback">
+                <svg lucideUser [strokeWidth]="2"></svg>
+              </span>
+            }
+            <span class="datos-cuenta">
+              <span class="nombre-cuenta">{{ c.nombre }}</span>
+              <span class="rol-cuenta">{{ c.rol === 'ADMIN' ? 'Admin' : 'Boletero' }}</span>
+            </span>
+            <button type="button" class="btn-quitar-cuenta" (click)="quitarCuenta(c.username, $event)" aria-label="Quitar de la lista">
+              <svg lucideX [strokeWidth]="2"></svg>
+            </button>
+          </li>
+        }
+      </ul>
+    </div>
+  }
 </div>

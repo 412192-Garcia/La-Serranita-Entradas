@@ -1,0 +1,107 @@
+<div class="tarjeta-kpis-detalle">
+  <div>
+    <h2>Total vendido</h2>
+    <p class="kpi-numero">{{ totalVendido() | currency: 'ARS' : 'symbol' : '1.0-0' }}</p>
+  </div>
+  <div>
+    <h2>Entradas vendidas</h2>
+    <p class="kpi-numero kpi-numero-secundario">{{ caja().totalEntradasVendidas ?? 0 }}</p>
+  </div>
+</div>
+
+@if (caja().entradasVendidasPorTipo && caja().entradasVendidasPorTipo!.length > 0) {
+  <div class="chips-entradas-tipo">
+    @for (t of caja().entradasVendidasPorTipo!; track t.nombreTipo) {
+      <span class="chip-entrada-tipo">{{ t.nombreTipo }} <strong>{{ t.cantidad }}</strong></span>
+    }
+  </div>
+}
+
+<div class="tabla-simple tabla-detalle-formaspago">
+  <div class="fila-simple fila-simple-formaspago fila-simple-header">
+    <span>Forma de pago</span><span>Esperado</span><span>Contado</span><span>Diferencia</span>
+  </div>
+  <div class="fila-simple fila-simple-formaspago">
+    <span>Efectivo</span>
+    <span>{{ caja().efectivoEsperado | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+    <span>{{ caja().montoContado | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+    <span [class]="claseDiferenciaValor(caja().diferencia)">{{ caja().diferencia | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+  </div>
+  @if (caja().totalVentasPosnet !== null) {
+    <div class="fila-simple fila-simple-formaspago">
+      <span>Tarjeta + QR</span>
+      <span>{{ caja().totalVentasPosnet | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+      <span>{{ caja().totalCerradoPosnet | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+      <span [class]="claseDiferenciaValor(caja().diferenciaPosnet)">{{ caja().diferenciaPosnet | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+    </div>
+  } @else {
+    <div class="fila-simple fila-simple-formaspago">
+      <span>Tarjeta</span>
+      <span>{{ caja().totalVentasTarjeta | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+      <span>{{ caja().totalCerradoTarjeta | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+      <span [class]="claseDiferenciaValor(caja().diferenciaTarjeta)">{{ caja().diferenciaTarjeta | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+    </div>
+    <div class="fila-simple fila-simple-formaspago">
+      <span>QR</span>
+      <span>{{ caja().totalVentasQr | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+      <span>{{ caja().totalCerradoQr | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+      <span [class]="claseDiferenciaValor(caja().diferenciaQr)">{{ caja().diferenciaQr | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+    </div>
+  }
+  @if (caja().huboVentaDolares) {
+    <div class="fila-simple fila-simple-formaspago">
+      <span>Dólares</span>
+      <span>U$S {{ caja().dolaresEsperado | number: '1.2-2' }}</span>
+      <span>U$S {{ caja().dolaresContado | number: '1.2-2' }}</span>
+      <span [class]="claseDiferenciaValor(caja().diferenciaDolares)">U$S {{ caja().diferenciaDolares | number: '1.2-2' }}</span>
+    </div>
+  }
+</div>
+
+@if (caja().conteoEfectivo.length > 0) {
+  <button type="button" class="btn-desglose-detalle" (click)="mostrarBilletes.set(!mostrarBilletes())">
+    {{ mostrarBilletes() ? 'Ocultar billetes' : 'Ver billetes' }}
+  </button>
+  @if (mostrarBilletes()) {
+    <ul class="lista-desglose-detalle">
+      @for (c of caja().conteoEfectivo; track c.denominacion) {
+        @if (c.cantidad > 0) {
+          <li><span>{{ c.cantidad }} × {{ c.denominacion | currency: 'ARS' : 'symbol' : '1.0-0' }}</span><span>{{ c.cantidad * c.denominacion | currency: 'ARS' : 'symbol' : '1.0-0' }}</span></li>
+        }
+      }
+      @if ((caja().cambioContado ?? 0) > 0) {
+        <li><span>Cambio</span><span>{{ caja().cambioContado | currency: 'ARS' : 'symbol' : '1.0-0' }}</span></li>
+      }
+    </ul>
+  }
+}
+
+<p class="fila-entradas-fisicas">
+  Entradas físicas: inicial {{ caja().entradasFisicasInicial ?? '—' }} · cortadas {{ caja().entradasFisicasCortadas ?? '—' }}
+  @if (caja().entradasFisicasEsperadas !== null) {
+    <span [class]="claseDiferenciaValor(caja().diferenciaEntradas)">
+      · esperadas {{ caja().entradasFisicasEsperadas }}
+      ({{ (caja().diferenciaEntradas ?? 0) < 0 ? 'faltan ' + (-caja().diferenciaEntradas!) : (caja().diferenciaEntradas ?? 0) > 0 ? 'sobran ' + caja().diferenciaEntradas : 'sin diferencia' }})
+    </span>
+  }
+</p>
+
+@if (mostrarAcciones()) {
+  <button type="button" class="btn-corregir-cierre" (click)="corregir.emit()">Corregir cierre</button>
+}
+
+@if (caja().operaciones && caja().operaciones!.length > 0) {
+  <div class="tabla-simple tabla-detalle-operaciones">
+    <div class="fila-simple fila-simple-operaciones fila-simple-header">
+      <span>Hora</span><span>Tipo</span><span>Detalle</span><span>Monto</span>
+    </div>
+    @for (op of caja().operaciones!; track $index) {
+      <div class="fila-simple fila-simple-operaciones" [class.fila-operacion-retiro]="op.tipo === 'RETIRO'" [class.fila-operacion-aporte]="op.tipo === 'APORTE'">
+        <span>{{ op.fecha | date: 'HH:mm' }}</span>
+        <span>{{ etiquetaTipoOperacion(op) }}</span>
+        <span>{{ op.detalle }}</span>
+        <span>{{ op.monto !== null ? (op.monto | currency: 'ARS' : 'symbol' : '1.0-0') : '' }}</span>
+      </div>
+    }
+  </div>
+}

@@ -38,7 +38,19 @@ interface LoginResponse {
   fotoPerfil: string | null;
 }
 
+export interface CuentaReciente {
+  username: string;
+  nombre: string;
+  rol: Rol;
+  fotoPerfil: string | null;
+  /** Sólo se guarda para BOLETERO (dispositivo compartido de uso interno): permite elegir la
+   *  cuenta y entrar directo, sin re-tipear. Nunca se guarda para ADMIN (mayor acceso). */
+  password?: string;
+}
+
 const STORAGE_KEY = 'serranita.sesion';
+const CUENTAS_KEY = 'serranita.cuentasRecientes';
+const MAX_CUENTAS_RECIENTES = 5;
 
 /**
  * Sesión del módulo interno (boletería/configuración). El login real valida usuario y
@@ -56,16 +68,12 @@ export class SesionService {
   private loginUrl = `${environment.apiBase}/usuarios/login`;
 
   private usuarioActual = signal<UsuarioSesion | null>(this.leerDeStorage());
+  private cuentasRecientesActual = signal<CuentaReciente[]>(this.leerCuentasRecientes());
 
   readonly usuario = this.usuarioActual.asReadonly();
   readonly rol = computed(() => this.usuarioActual()?.rol ?? null);
   readonly estaAutenticado = computed(() => this.usuarioActual() !== null);
-
-  constructor() {
-    // Al recargar la página no queda nada de :root pisado (era un estilo inline en memoria),
-    // así que hay que reaplicar el tema guardado apenas arranca el servicio.
-    this.aplicarTema(this.usuarioActual());
-  }
+  readonly cuentasRecientes = this.cuentasRecientesActual.asReadonly();
 
   tieneAlgunRol(roles: Rol[]): boolean {
     const rol = this.rol();
@@ -79,26 +87,51 @@ export class SesionService {
   login(username: string, password: string): Observable<UsuarioSesion> {
     return this.http.post<LoginResponse>(this.loginUrl, { username, password }).pipe(
       tap((res) =>
-        this.iniciarSesion({
-          id: res.id,
-          username: res.username,
-          nombre: res.nombre,
-          rol: res.rol,
-          token: res.token,
-          colorTema: res.colorTema,
-          colorFondo: res.colorFondo,
-          colorTarjeta: res.colorTarjeta,
-          colorBorde: res.colorBorde,
-          fotoPerfil: res.fotoPerfil,
-        })
+        this.iniciarSesion(
+          {
+            id: res.id,
+            username: res.username,
+            nombre: res.nombre,
+            rol: res.rol,
+            token: res.token,
+            colorTema: res.colorTema,
+            colorFondo: res.colorFondo,
+            colorTarjeta: res.colorTarjeta,
+            colorBorde: res.colorBorde,
+            fotoPerfil: res.fotoPerfil,
+          },
+          password
+        )
       )
     );
   }
 
-  iniciarSesion(usuario: UsuarioSesion): void {
+  iniciarSesion(usuario: UsuarioSesion, password?: string): void {
     this.usuarioActual.set(usuario);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(usuario));
     this.aplicarTema(usuario);
+    this.recordarCuenta(usuario, password);
+  }
+
+  /** Saca esa cuenta de la lista de "usados recientemente" en este dispositivo (botón "x" del login). */
+  quitarCuentaReciente(username: string): void {
+    const restantes = this.cuentasRecientesActual().filter((c) => c.username !== username);
+    this.cuentasRecientesActual.set(restantes);
+    localStorage.setItem(CUENTAS_KEY, JSON.stringify(restantes));
+  }
+
+  private recordarCuenta(usuario: UsuarioSesion, password?: string): void {
+    const otras = this.cuentasRecientesActual().filter((c) => c.username !== usuario.username);
+    const nueva: CuentaReciente = {
+      username: usuario.username,
+      nombre: usuario.nombre,
+      rol: usuario.rol,
+      fotoPerfil: usuario.fotoPerfil,
+      password: usuario.rol === 'BOLETERO' ? password : undefined,
+    };
+    const actualizadas = [nueva, ...otras].slice(0, MAX_CUENTAS_RECIENTES);
+    this.cuentasRecientesActual.set(actualizadas);
+    localStorage.setItem(CUENTAS_KEY, JSON.stringify(actualizadas));
   }
 
   /** Actualiza los colores personalizados de la sesión activa (después de guardarlos en "Mi cuenta"), sin tocar el resto de los datos ni pedir un nuevo login. */
@@ -129,7 +162,16 @@ export class SesionService {
     this.theme.aplicarBorde(null);
   }
 
-  private aplicarTema(usuario: UsuarioSesion | null): void {
+  /**
+   * Pisa las variables CSS de tema con las del usuario (o las resetea al verde por defecto si
+   * es null). Al recargar la página no queda nada de :root pisado (era un estilo inline en
+   * memoria) — quien decide CUÁNDO llamar a esto es el componente raíz (ver App), no este
+   * servicio: el módulo público (compra de entradas) comparte el mismo bundle/injector que el
+   * módulo interno, así que si esto se aplicara solo, un dispositivo con sesión de staff
+   * guardada terminaría pintando la compra pública con el color personalizado del staff en vez
+   * del verde fijo del parque.
+   */
+  aplicarTema(usuario: UsuarioSesion | null): void {
     this.theme.aplicarPrimario(usuario?.colorTema ?? null);
     this.theme.aplicarFondo(usuario?.colorFondo ?? null);
     this.theme.aplicarTarjeta(usuario?.colorTarjeta ?? null);
@@ -142,6 +184,15 @@ export class SesionService {
       return crudo ? (JSON.parse(crudo) as UsuarioSesion) : null;
     } catch {
       return null;
+    }
+  }
+
+  private leerCuentasRecientes(): CuentaReciente[] {
+    try {
+      const crudo = localStorage.getItem(CUENTAS_KEY);
+      return crudo ? (JSON.parse(crudo) as CuentaReciente[]) : [];
+    } catch {
+      return [];
     }
   }
 }

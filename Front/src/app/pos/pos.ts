@@ -1,5 +1,4 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
-import { Router } from '@angular/router';
 import { BoleteriaService } from '../Services/boleteria.service';
 import { TipoEntradaService } from '../Services/tipo-entrada.service';
 import { CajaService, Caja } from '../Services/caja.service';
@@ -13,10 +12,8 @@ import { CabeceraInterna } from '../shared/cabecera-interna/cabecera-interna';
 import { AperturaCaja } from './apertura-caja/apertura-caja';
 import { BarraCaja } from './barra-caja/barra-caja';
 import { ValidarReservaModal } from './validar-reserva-modal/validar-reserva-modal';
-import { RetiroEfectivoModal } from './retiro-efectivo-modal/retiro-efectivo-modal';
+import { RetiroEfectivoModal } from '../shared/retiro-efectivo-modal/retiro-efectivo-modal';
 import { IngresoEntradasModal } from './ingreso-entradas-modal/ingreso-entradas-modal';
-import { CierreCajaModal } from './cierre-caja-modal/cierre-caja-modal';
-import { ResumenCierre } from './resumen-cierre/resumen-cierre';
 import { CatalogoEntradas } from './catalogo-entradas/catalogo-entradas';
 import { AgregarArticulo } from './agregar-articulo/agregar-articulo';
 import { CarritoVenta, VentaPosConfirmada } from './carrito-venta/carrito-venta';
@@ -31,8 +28,6 @@ import { ComprobanteVenta } from './comprobante-venta/comprobante-venta';
     ValidarReservaModal,
     RetiroEfectivoModal,
     IngresoEntradasModal,
-    CierreCajaModal,
-    ResumenCierre,
     CatalogoEntradas,
     AgregarArticulo,
     CarritoVenta,
@@ -47,19 +42,15 @@ export class Pos implements OnInit {
   private cajaService = inject(CajaService);
   private promocionService = inject(PromocionService);
   private articuloVarioService = inject(ArticuloVarioService);
-  private router = inject(Router);
 
   // ---------- Caja: sin una abierta no se puede vender ----------
   cargandoCaja = signal(true);
-  /** Caja abierta del boletero; null = no tiene ninguna en curso (hay que abrir una). */
+  /** Caja abierta del boletero; null = no tiene ninguna en curso (hay que abrir una — o pedirle a un admin que cierre la que ya está abierta). */
   caja = signal<Caja | null>(null);
-  /** Resumen de la última caja cerrada: se muestra hasta que el boletero inicia la próxima. */
-  cajaCerrada = signal<Caja | null>(null);
 
   mostrarBusquedaReserva = signal(false);
   mostrarRetiro = signal(false);
   mostrarIngresoEntradas = signal(false);
-  mostrarCierre = signal(false);
 
   tiposEntrada = signal<TipoEntrada[]>([]);
   cargando = signal(true);
@@ -120,12 +111,6 @@ export class Pos implements OnInit {
     this.mostrarIngresoEntradas.set(false);
   }
 
-  onCajaCerrada(c: Caja): void {
-    this.cajaCerrada.set(c);
-    this.caja.set(null);
-    this.mostrarCierre.set(false);
-  }
-
   onArticuloAgregado(fila: FilaArticuloCarrito): void {
     this.articulosCarrito.update((c) => [...c, fila]);
   }
@@ -154,10 +139,5 @@ export class Pos implements OnInit {
   nuevaVenta(): void {
     this.ultimaVenta.set(null);
     this.onLimpiar();
-  }
-
-  /** Cierra la pantalla de resumen del cierre y deja lista la apertura de la próxima caja. */
-  irAReservas(): void {
-    this.router.navigateByUrl('/boleteria');
   }
 }

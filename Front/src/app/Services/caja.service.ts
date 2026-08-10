@@ -3,10 +3,13 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 
+export type TipoMovimientoCaja = 'RETIRO' | 'APORTE';
+
 export interface RetiroCaja {
   id: number;
   monto: number;
   motivo: string;
+  tipo: TipoMovimientoCaja;
   fecha: string;
 }
 
@@ -19,7 +22,8 @@ export type FormaPagoPosnet = 'TARJETA' | 'MERCADO_PAGO_QR';
 
 export interface CierrePosnet {
   id: number;
-  formaPago: FormaPagoPosnet;
+  /** Null = cargado combinado (Tarjeta+QR juntos, sin distinguir). */
+  formaPago: FormaPagoPosnet | null;
   monto: number;
   nota: string | null;
   fecha: string;
@@ -32,7 +36,7 @@ export interface IngresoEntradas {
 }
 
 export interface OperacionCaja {
-  tipo: 'VENTA' | 'RETIRO' | 'INGRESO_ENTRADAS';
+  tipo: 'VENTA' | 'RETIRO' | 'APORTE' | 'INGRESO_ENTRADAS';
   fecha: string;
   /** Null en los ingresos de entradas físicas: no mueven plata. */
   monto: number | null;
@@ -69,10 +73,14 @@ export interface Caja {
   totalCerradoQr: number | null;
   diferenciaTarjeta: number | null;
   diferenciaQr: number | null;
+  /** Si el cierre se cargó combinado (Tarjeta+QR juntos), estos tres reemplazan a los de arriba; si no, quedan null. */
+  totalVentasPosnet: number | null;
+  totalCerradoPosnet: number | null;
+  diferenciaPosnet: number | null;
   cierresPosnet: CierrePosnet[];
 
   entradasFisicasInicial: number | null;
-  entradasFisicasFinal: number | null;
+  entradasFisicasCortadas: number | null;
   entradasFisicasEsperadas: number | null;
   diferenciaEntradas: number | null;
   totalIngresosEntradas: number;
@@ -103,7 +111,8 @@ export interface EntradasPorTipo {
 }
 
 export interface CierrePosnetInput {
-  formaPago: FormaPagoPosnet;
+  /** Null = combinado (Tarjeta+QR juntos, sin distinguir). */
+  formaPago: FormaPagoPosnet | null;
   monto: number;
   nota?: string | null;
 }
@@ -135,25 +144,32 @@ export class CajaService {
     return this.http.post<Caja>(`${this.cajaUrl}/abrir`, { montoInicial, entradasFisicasInicial });
   }
 
-  registrarRetiro(monto: number, motivo: string): Observable<Caja> {
-    return this.http.post<Caja>(`${this.cajaUrl}/retiros`, { monto, motivo });
+  registrarRetiro(monto: number, motivo: string, tipo: TipoMovimientoCaja): Observable<Caja> {
+    return this.http.post<Caja>(`${this.cajaUrl}/retiros`, { monto, motivo, tipo });
+  }
+
+  /** Igual que registrarRetiro, pero un ADMIN cargándolo en la caja de OTRO usuario (ej. mientras la está cerrando). */
+  registrarRetiroComoAdmin(cajaId: number, monto: number, motivo: string, tipo: TipoMovimientoCaja): Observable<Caja> {
+    return this.http.post<Caja>(`${this.cajaUrl}/${cajaId}/retiros`, { monto, motivo, tipo });
   }
 
   registrarIngresoEntradas(cantidad: number): Observable<Caja> {
     return this.http.post<Caja>(`${this.cajaUrl}/ingresos-entradas`, { cantidad });
   }
 
-  cerrar(
+  /** Cerrar caja es ADMIN-only (ya no self-service): cierra la caja de cualquier usuario por id. */
+  cerrarComoAdmin(
+    cajaId: number,
     conteoEfectivo: ConteoDenominacion[],
     cierresPosnet: CierrePosnetInput[],
-    entradasFisicasFinal: number,
+    entradasFisicasCortadas: number,
     cambioContado: number | null,
     dolaresContado: number | null
   ): Observable<Caja> {
-    return this.http.post<Caja>(`${this.cajaUrl}/cerrar`, {
+    return this.http.post<Caja>(`${this.cajaUrl}/${cajaId}/cerrar`, {
       conteoEfectivo,
       cierresPosnet,
-      entradasFisicasFinal,
+      entradasFisicasCortadas,
       cambioContado,
       dolaresContado,
     });
@@ -169,19 +185,19 @@ export class CajaService {
     return this.http.get<CajaAbierta[]>(`${this.cajaUrl}/abiertas`);
   }
 
-  /** Corrige un cierre ya hecho (ej. un billete mal contado). Sólo el boletero dueño de esa caja puede corregirla. */
+  /** Corrige un cierre ya hecho (ej. un billete mal contado). ADMIN-only, cualquier caja cerrada. */
   corregirCierre(
     cajaId: number,
     conteoEfectivo: ConteoDenominacion[],
     cierresPosnet: CierrePosnetInput[],
-    entradasFisicasFinal: number,
+    entradasFisicasCortadas: number,
     cambioContado: number | null,
     dolaresContado: number | null
   ): Observable<Caja> {
     return this.http.put<Caja>(`${this.cajaUrl}/${cajaId}/cierre`, {
       conteoEfectivo,
       cierresPosnet,
-      entradasFisicasFinal,
+      entradasFisicasCortadas,
       cambioContado,
       dolaresContado,
     });

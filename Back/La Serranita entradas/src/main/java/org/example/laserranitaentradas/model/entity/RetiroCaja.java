@@ -30,11 +30,19 @@ public class RetiroCaja extends BaseEntity {
     @JoinColumn(name = "id_caja", nullable = false)
     private Caja caja;
 
+    /** Siempre un monto positivo: el signo lo da tipo (RETIRO resta, APORTE suma), no el monto en sí. */
     @Column(nullable = false)
     private BigDecimal monto;
 
     @Column(nullable = false)
     private String motivo;
+
+    /** Default 'RETIRO' en la columna: permite que ddl-auto=update agregue esta columna NOT NULL
+     *  sobre las filas ya existentes en la base de prueba en uso (sin default, Postgres rechaza
+     *  el ALTER TABLE porque esas filas quedarían sin valor). */
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20, columnDefinition = "varchar(20) default 'RETIRO'")
+    private TipoMovimientoCaja tipo;
 
     @Column(nullable = false)
     private LocalDateTime fecha;

@@ -1,4 +1,10 @@
-@import '../pos-shared.css';
+@import '../../../pos/pos-shared.css';
+
+/* El componente queda siempre montado (ver cajas.html): esto es lo que lo "cierra"
+   visualmente sin destruir sus signals — así "Cancelar" no borra lo ya cargado. */
+:host(.oculto) {
+  display: none;
+}
 
 /* ---------- Cierre de caja: efectivo a la izquierda, posnet/entradas a la derecha ---------- */
 .panel-caja-cierre {
@@ -102,6 +108,10 @@
 
 .seccion-cierre .subtitulo-apertura {
   margin: -4px 0 0;
+}
+
+.columna-posnet-combinada {
+  max-width: 320px;
 }
 
 .columnas-posnet {

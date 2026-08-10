@@ -15,9 +15,12 @@ html, body {
   --color-primary-dark: color-mix(in srgb, var(--color-primary) 82%, black);
   --color-primary-light: color-mix(in srgb, var(--color-primary) 12%, white);
 
-  /* Verde usado puntualmente en el calendario del sitio real (más "menta" que el primary) */
-  --color-calendar-border: #39b56a;
-  --color-calendar-day: #5fc17b;
+  /* Acentos del calendario (más "menta" que el primary en el verde por defecto): antes eran
+     fijos, así que en gestión con un tema personalizado quedaban siempre verdes aunque el
+     resto de la interfaz cambiara de color. Derivados de --color-primary con color-mix, igual
+     que -dark/-light arriba, para que seleccionar otro color en "Mi cuenta" también los mueva. */
+  --color-calendar-border: var(--color-primary);
+  --color-calendar-day: color-mix(in srgb, var(--color-primary) 65%, white);
 
   /* Naranja del hero: gradiente #F1AC20 → #EC761D */
   --color-accent: #ec761d;

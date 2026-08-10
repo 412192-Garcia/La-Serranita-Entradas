@@ -16,6 +16,7 @@ import org.example.laserranitaentradas.model.entity.EstadoCompra;
 import org.example.laserranitaentradas.model.entity.FormaPago;
 import org.example.laserranitaentradas.model.entity.Tipo;
 import org.example.laserranitaentradas.model.entity.TipoEntrada;
+import org.example.laserranitaentradas.model.entity.TipoMovimientoCaja;
 import org.example.laserranitaentradas.repository.CajaRepository;
 import org.example.laserranitaentradas.repository.CompraRepository;
 import org.example.laserranitaentradas.repository.RetiroCajaRepository;
@@ -271,7 +272,7 @@ public class ReporteServiceImpl implements ReporteService {
 
         for (Caja caja : cajasCerradas) {
             BigDecimal retirosCaja = retiroCajaRepository.findAllByCajaIdOrderByFechaAsc(caja.getId()).stream()
-                    .map(r -> r.getMonto())
+                    .map(r -> r.getTipo() == TipoMovimientoCaja.APORTE ? r.getMonto().negate() : r.getMonto())
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
             totalRetirosCajas = totalRetirosCajas.add(retirosCaja);
 

@@ -43,10 +43,10 @@ public class CajaController {
     }
 
     @PostMapping("/retiros")
-    @Operation(summary = "Registrar un retiro de efectivo de la caja abierta")
+    @Operation(summary = "Registrar un retiro o aporte de efectivo en la caja abierta")
     public ResponseEntity<CajaResponseDTO> registrarRetiro(@RequestBody RetiroCajaRequestDTO request,
                                                             @AuthenticationPrincipal UsuarioAutenticado operador) {
-        return ResponseEntity.ok(cajaService.registrarRetiro(operador.id(), request.getMonto(), request.getMotivo()));
+        return ResponseEntity.ok(cajaService.registrarRetiro(operador.id(), request.getMonto(), request.getMotivo(), request.getTipo()));
     }
 
     @PostMapping("/ingresos-entradas")
@@ -56,12 +56,17 @@ public class CajaController {
         return ResponseEntity.ok(cajaService.registrarIngresoEntradas(operador.id(), request.getCantidad()));
     }
 
-    @PostMapping("/cerrar")
-    @Operation(summary = "Cerrar caja", description = "Compara lo contado (efectivo por denominación, cierres de posnet, entradas físicas) contra lo esperado y cierra el turno")
-    public ResponseEntity<CajaResponseDTO> cerrar(@RequestBody CerrarCajaRequestDTO request,
-                                                   @AuthenticationPrincipal UsuarioAutenticado operador) {
-        return ResponseEntity.ok(cajaService.cerrar(operador.id(), request.getConteoEfectivo(), request.getCierresPosnet(),
-                request.getEntradasFisicasFinal(), request.getCambioContado(), request.getDolaresContado()));
+    @PostMapping("/{id}/cerrar")
+    @Operation(summary = "Cerrar caja (ADMIN)", description = "Compara lo contado (efectivo por denominación, cierres de posnet, entradas físicas) contra lo esperado y cierra el turno. Sólo un ADMIN puede cerrar cajas, sin importar de qué boletero — el cierre ya no es self-service.")
+    public ResponseEntity<CajaResponseDTO> cerrar(@PathVariable Long id, @RequestBody CerrarCajaRequestDTO request) {
+        return ResponseEntity.ok(cajaService.cerrarComoAdmin(id, request.getConteoEfectivo(), request.getCierresPosnet(),
+                request.getEntradasFisicasCortadas(), request.getCambioContado(), request.getDolaresContado()));
+    }
+
+    @PostMapping("/{id}/retiros")
+    @Operation(summary = "Registrar un retiro o aporte en la caja de otro usuario (ADMIN)", description = "Para cuando el admin está cerrando la caja de un boletero y nota que falta cargar un movimiento.")
+    public ResponseEntity<CajaResponseDTO> registrarRetiroComoAdmin(@PathVariable Long id, @RequestBody RetiroCajaRequestDTO request) {
+        return ResponseEntity.ok(cajaService.registrarRetiroComoAdmin(id, request.getMonto(), request.getMotivo(), request.getTipo()));
     }
 
     @GetMapping("/abiertas")
@@ -77,11 +82,9 @@ public class CajaController {
     }
 
     @PutMapping("/{id}/cierre")
-    @Operation(summary = "Corregir un cierre ya hecho", description = "Para arreglar un error de tipeo en el conteo sin tener que meter la mano en la base. Sólo el boletero dueño de esa caja puede corregirla.")
-    public ResponseEntity<CajaResponseDTO> corregirCierre(@PathVariable Long id,
-                                                           @RequestBody CerrarCajaRequestDTO request,
-                                                           @AuthenticationPrincipal UsuarioAutenticado operador) {
-        return ResponseEntity.ok(cajaService.corregirCierre(operador.id(), id, request.getConteoEfectivo(),
-                request.getCierresPosnet(), request.getEntradasFisicasFinal(), request.getCambioContado(), request.getDolaresContado()));
+    @Operation(summary = "Corregir un cierre ya hecho (ADMIN)", description = "Para arreglar un error de tipeo en el conteo sin tener que meter la mano en la base. Sólo un ADMIN puede corregir, cualquier caja cerrada sin importar quién la abrió.")
+    public ResponseEntity<CajaResponseDTO> corregirCierre(@PathVariable Long id, @RequestBody CerrarCajaRequestDTO request) {
+        return ResponseEntity.ok(cajaService.corregirCierre(id, request.getConteoEfectivo(),
+                request.getCierresPosnet(), request.getEntradasFisicasCortadas(), request.getCambioContado(), request.getDolaresContado()));
     }
 }
