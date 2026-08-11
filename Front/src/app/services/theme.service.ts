@@ -10,6 +10,7 @@ export interface PaletaTema {
 /** Prearmadas de sobra a propósito: cuantas más opciones "ya probadas" haya, menos falta hace tirar del picker libre. */
 export const PALETAS_PREARMADAS: PaletaTema[] = [
   { nombre: 'Verde bosque', color: '#39a935' },
+  { nombre: 'Verde La Serranita', color: '#21a454' },
   { nombre: 'Azul océano', color: '#2563eb' },
   { nombre: 'Índigo', color: '#4f46e5' },
   { nombre: 'Violeta', color: '#7c3aed' },
@@ -122,6 +123,7 @@ export interface DisenioPrearmado {
 export const DISENIOS_PREARMADOS: DisenioPrearmado[] = [
   { nombre: 'Verde bosque (por defecto)', colorPrimario: '#39a935', colorFondo: '#f4f5f7', colorTarjeta: '#ffffff', colorBorde: '#e5e7eb' },
   { nombre: 'Verde selva', colorPrimario: '#059669', colorFondo: '#eafaf1', colorTarjeta: '#f3faf5', colorBorde: '#bbdfc0' },
+  { nombre: 'La Serranita', colorPrimario: '#21a454', colorFondo: '#eaf7ee', colorTarjeta: '#ffffff', colorBorde: '#bfe4c9' },
   { nombre: 'Azul océano', colorPrimario: '#2563eb', colorFondo: '#eaf3fb', colorTarjeta: '#f2f8fd', colorBorde: '#bfdbfe' },
   { nombre: 'Violeta real', colorPrimario: '#7c3aed', colorFondo: '#f2eefb', colorTarjeta: '#f8f5fd', colorBorde: '#ddd6fe' },
   { nombre: 'Rosa fucsia', colorPrimario: '#db2777', colorFondo: '#fce8f3', colorTarjeta: '#fdf2f8', colorBorde: '#fbcfe8' },
