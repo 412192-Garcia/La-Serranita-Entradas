@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnDestroy, OnInit, ViewChild, inject, signal } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Chart, registerables } from 'chart.js';
@@ -6,8 +6,18 @@ import { ReporteService } from '../services/reporte.service';
 import { ComprasPorEstado, RecaudacionPorFormaPago, ReporteResumen, VentasPorOrigen } from '../models/reporte';
 import { CabeceraInterna } from '../shared/cabecera-interna/cabecera-interna';
 import { FiltroRangoFechas } from '../shared/filtro-rango-fechas/filtro-rango-fechas';
-import { aFechaISO } from '../shared/fecha.util';
+import { aFechaISO, restarUnAnio } from '../shared/fecha.util';
 import { PesosPipe } from '../shared/pesos.pipe';
+
+/** Un período elegido a mano para la pestaña "Comparación": no se asume "un año antes" a
+ * ciegas porque fechas móviles (Semana Santa, feriados largos) no caen el mismo día todos los
+ * años — el admin define desde/hasta libremente, y puede agregar tantos como quiera. */
+interface PeriodoComparacion {
+  etiqueta: string;
+  desde: string;
+  hasta: string;
+  resumen: ReporteResumen | null;
+}
 
 Chart.register(...registerables);
 
@@ -47,6 +57,11 @@ const COLOR_POR_ORIGEN: Record<VentasPorOrigen['origen'], string> = {
   ANTICIPADA: '#39a935',
 };
 
+/** Los tipos de entrada no son un set fijo (el admin los crea en Configuración → Catálogo), así
+ * que el gráfico de comparación por tipo los colorea ciclando esta paleta en vez de un mapeo
+ * fijo por nombre. */
+const PALETA_TIPOS = ['#39a935', '#4a7fc9', '#e0a72e', '#7a5bc9', '#c94f4f', '#1f6b1c', '#8a3a3a', '#9aa0a6'];
+
 @Component({
   selector: 'app-configuracion-reportes',
   imports: [FormsModule, PesosPipe, DecimalPipe, CabeceraInterna, FiltroRangoFechas],
@@ -56,14 +71,23 @@ const COLOR_POR_ORIGEN: Record<VentasPorOrigen['origen'], string> = {
 export class ConfiguracionReportes implements OnInit, OnDestroy {
   private reporteService = inject(ReporteService);
 
-  @ViewChild('afluenciaCanvas', { static: true }) private afluenciaCanvas!: ElementRef<HTMLCanvasElement>;
-  @ViewChild('desgloseCanvas', { static: true }) private desgloseCanvas!: ElementRef<HTMLCanvasElement>;
-  @ViewChild('formaPagoCanvas', { static: true }) private formaPagoCanvas!: ElementRef<HTMLCanvasElement>;
-  @ViewChild('estadoCanvas', { static: true }) private estadoCanvas!: ElementRef<HTMLCanvasElement>;
-  @ViewChild('extrasCanvas', { static: true }) private extrasCanvas!: ElementRef<HTMLCanvasElement>;
-  @ViewChild('horaCanvas', { static: true }) private horaCanvas!: ElementRef<HTMLCanvasElement>;
-  @ViewChild('origenCanvas', { static: true }) private origenCanvas!: ElementRef<HTMLCanvasElement>;
-  @ViewChild('articulosVariosCanvas', { static: true }) private articulosVariosCanvas!: ElementRef<HTMLCanvasElement>;
+  /** Queries de señal (no `@ViewChild` de decorador): todos estos canvases viven dentro de
+   * bloques `@if` (pestañas Resumen / Comparación) que Angular destruye y recrea al cambiar de
+   * pestaña. Leer una `viewChild()` dentro de un `effect()` la registra como dependencia
+   * reactiva, así que el efecto se vuelve a ejecutar solo cuando el canvas reaparece — con
+   * `@ViewChild` clásico eso no pasaba (la query no forma parte del grafo reactivo) y volver a
+   * una pestaña ya cargada dejaba los gráficos en blanco. */
+  private afluenciaCanvas = viewChild<ElementRef<HTMLCanvasElement>>('afluenciaCanvas');
+  private desgloseCanvas = viewChild<ElementRef<HTMLCanvasElement>>('desgloseCanvas');
+  private formaPagoCanvas = viewChild<ElementRef<HTMLCanvasElement>>('formaPagoCanvas');
+  private estadoCanvas = viewChild<ElementRef<HTMLCanvasElement>>('estadoCanvas');
+  private extrasCanvas = viewChild<ElementRef<HTMLCanvasElement>>('extrasCanvas');
+  private horaCanvas = viewChild<ElementRef<HTMLCanvasElement>>('horaCanvas');
+  private origenCanvas = viewChild<ElementRef<HTMLCanvasElement>>('origenCanvas');
+  private articulosVariosCanvas = viewChild<ElementRef<HTMLCanvasElement>>('articulosVariosCanvas');
+  private comparacionRecaudacionCanvas = viewChild<ElementRef<HTMLCanvasElement>>('comparacionRecaudacionCanvas');
+  private comparacionPersonasCanvas = viewChild<ElementRef<HTMLCanvasElement>>('comparacionPersonasCanvas');
+  private comparacionTiposCanvas = viewChild<ElementRef<HTMLCanvasElement>>('comparacionTiposCanvas');
   private afluenciaChart: Chart | null = null;
   private desgloseChart: Chart | null = null;
   private formaPagoChart: Chart | null = null;
@@ -72,6 +96,9 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
   private horaChart: Chart | null = null;
   private origenChart: Chart | null = null;
   private articulosVariosChart: Chart | null = null;
+  private comparacionRecaudacionChart: Chart | null = null;
+  private comparacionPersonasChart: Chart | null = null;
+  private comparacionTiposChart: Chart | null = null;
 
   private readonly hoy = new Date();
   desde = signal(aFechaISO(new Date(this.hoy.getFullYear(), this.hoy.getMonth(), this.hoy.getDate() - 29)));
@@ -80,6 +107,35 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
   cargando = signal(false);
   error = signal<string | null>(null);
   resumen = signal<ReporteResumen | null>(null);
+
+  vista = signal<'resumen' | 'comparacion'>('resumen');
+
+  /** Arranca con el rango principal y ese mismo rango un año antes, como punto de partida
+   * cómodo: el admin corrige las fechas de cualquier fila (o agrega más) antes de comparar. */
+  periodos = signal<PeriodoComparacion[]>([
+    { etiqueta: 'Período actual', desde: this.desde(), hasta: this.hasta(), resumen: null },
+    { etiqueta: 'Período anterior', desde: restarUnAnio(this.desde()), hasta: restarUnAnio(this.hasta()), resumen: null },
+  ]);
+  comparando = signal(false);
+  huboComparacion = computed(() => this.periodos().some((p) => p.resumen !== null));
+
+  constructor() {
+    // effect (no el callback del http.subscribe) porque los canvases de ambas pestañas se
+    // destruyen y recrean cada vez que @if (vista() === ...) cambia: si sólo se renderizara una
+    // vez al llegar la respuesta HTTP, volver a una pestaña ya cargada mostraría el canvas vacío.
+    effect(() => {
+      if (this.vista() === 'resumen') {
+        const r = this.resumen();
+        if (r) this.renderGraficos(r);
+      }
+    });
+
+    effect(() => {
+      if (this.huboComparacion()) {
+        this.renderGraficoComparacion(this.periodos());
+      }
+    });
+  }
 
   ngOnInit(): void {
     this.cargar();
@@ -94,6 +150,9 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
     this.horaChart?.destroy();
     this.origenChart?.destroy();
     this.articulosVariosChart?.destroy();
+    this.comparacionRecaudacionChart?.destroy();
+    this.comparacionPersonasChart?.destroy();
+    this.comparacionTiposChart?.destroy();
   }
 
   /** Plata cobrada para el origen dado (BOLETERIA = venta en puerta, ANTICIPADA = reservas); null si no hay datos. */
@@ -112,7 +171,6 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
       next: (r) => {
         this.resumen.set(r);
         this.cargando.set(false);
-        this.renderGraficos(r);
       },
       error: (err) => {
         console.error('Error al cargar el reporte:', err);
@@ -122,127 +180,253 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
     });
   }
 
+  agregarPeriodo(): void {
+    this.periodos.update((ps) => [...ps, { etiqueta: '', desde: '', hasta: '', resumen: null }]);
+  }
+
+  quitarPeriodo(index: number): void {
+    this.periodos.update((ps) => ps.filter((_, i) => i !== index));
+  }
+
+  actualizarPeriodo(index: number, campo: 'etiqueta' | 'desde' | 'hasta', valor: string): void {
+    this.periodos.update((ps) => ps.map((p, i) => (i === index ? { ...p, [campo]: valor } : p)));
+  }
+
+  /** Pide el resumen de cada período por separado (no todo-o-nada): si uno falla, los demás
+   * igual se muestran en la tabla. */
+  compararPeriodos(): void {
+    const filas = this.periodos();
+    const conFechas = filas.filter((p) => p.desde && p.hasta);
+    if (conFechas.length === 0) return;
+
+    this.comparando.set(true);
+    let pendientes = conFechas.length;
+    const terminoUno = () => {
+      pendientes--;
+      if (pendientes === 0) this.comparando.set(false);
+    };
+
+    filas.forEach((p, i) => {
+      if (!p.desde || !p.hasta) return;
+      this.reporteService.getResumen(p.desde, p.hasta).subscribe({
+        next: (r) => {
+          this.periodos.update((ps) => ps.map((x, xi) => (xi === i ? { ...x, resumen: r } : x)));
+          terminoUno();
+        },
+        error: (err) => {
+          console.error('Error al cargar el período de comparación:', err);
+          terminoUno();
+        },
+      });
+    });
+  }
+
+  /** Dos gráficos chicos (plata y gente no comparten escala, no tiene sentido un solo eje):
+   * uno agrupa recaudación total/anticipada/en puerta por período, el otro personas ingresadas. */
+  private renderGraficoComparacion(periodos: PeriodoComparacion[]): void {
+    const conDatos = periodos.filter((p): p is PeriodoComparacion & { resumen: ReporteResumen } => p.resumen !== null);
+    const etiquetas = conDatos.map((p) => p.etiqueta || `${p.desde} → ${p.hasta}`);
+
+    if (this.comparacionRecaudacionCanvas()) {
+      this.comparacionRecaudacionChart?.destroy();
+      this.comparacionRecaudacionChart = new Chart(this.comparacionRecaudacionCanvas()!.nativeElement, {
+        type: 'bar',
+        data: {
+          labels: etiquetas,
+          datasets: [
+            { label: 'Recaudación total', data: conDatos.map((p) => p.resumen.recaudacionTotal), backgroundColor: '#39a935' },
+            { label: 'Anticipada', data: conDatos.map((p) => this.recaudacionPorOrigen(p.resumen, 'ANTICIPADA') ?? 0), backgroundColor: '#4a7fc9' },
+            { label: 'En puerta', data: conDatos.map((p) => this.recaudacionPorOrigen(p.resumen, 'BOLETERIA') ?? 0), backgroundColor: '#e0a72e' },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+        },
+      });
+    }
+
+    if (this.comparacionPersonasCanvas()) {
+      this.comparacionPersonasChart?.destroy();
+      this.comparacionPersonasChart = new Chart(this.comparacionPersonasCanvas()!.nativeElement, {
+        type: 'bar',
+        data: {
+          labels: etiquetas,
+          datasets: [{ label: 'Personas que entraron', data: conDatos.map((p) => p.resumen.personasIngresadas), backgroundColor: '#7a5bc9' }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+        },
+      });
+    }
+
+    if (this.comparacionTiposCanvas()) {
+      // Todos los nombres de tipo que aparecen en CUALQUIERA de los períodos comparados (no
+      // sólo el primero): si un tipo se dio de baja o se creó entre medio, igual aparece.
+      const nombresTipo = [...new Set(conDatos.flatMap((p) => p.resumen.desglosePorTipo.map((t) => t.nombre)))];
+      this.comparacionTiposChart?.destroy();
+      this.comparacionTiposChart = new Chart(this.comparacionTiposCanvas()!.nativeElement, {
+        type: 'bar',
+        data: {
+          labels: etiquetas,
+          datasets: nombresTipo.map((nombre, i) => ({
+            label: nombre,
+            data: conDatos.map((p) => {
+              const t = p.resumen.desglosePorTipo.find((x) => x.nombre === nombre);
+              return t ? t.cantidadAnticipada + t.cantidadBoleteria : 0;
+            }),
+            backgroundColor: PALETA_TIPOS[i % PALETA_TIPOS.length],
+          })),
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+        },
+      });
+    }
+  }
+
   private renderGraficos(r: ReporteResumen): void {
-    this.afluenciaChart?.destroy();
-    this.afluenciaChart = new Chart(this.afluenciaCanvas.nativeElement, {
-      type: 'bar',
-      data: {
-        labels: r.afluenciaDiaria.map((d) => d.fecha.slice(5)),
-        datasets: [
-          { label: 'Anticipada vendida', data: r.afluenciaDiaria.map((d) => d.pasesVendidosAnticipada), backgroundColor: '#39a935' },
-          { label: 'Anticipada validada (DNI en boletería)', data: r.afluenciaDiaria.map((d) => d.pasesValidadosAnticipada), backgroundColor: '#1f6b1c' },
-          { label: 'Boletería (venta de puerta)', data: r.afluenciaDiaria.map((d) => d.pasesVendidosBoleteria), backgroundColor: '#4a7fc9' },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
-      },
-    });
+    if (this.afluenciaCanvas()) {
+      this.afluenciaChart?.destroy();
+      this.afluenciaChart = new Chart(this.afluenciaCanvas()!.nativeElement, {
+        type: 'bar',
+        data: {
+          labels: r.afluenciaDiaria.map((d) => d.fecha.slice(5)),
+          datasets: [
+            { label: 'Anticipada vendida', data: r.afluenciaDiaria.map((d) => d.pasesVendidosAnticipada), backgroundColor: '#39a935' },
+            { label: 'Anticipada validada (DNI en boletería)', data: r.afluenciaDiaria.map((d) => d.pasesValidadosAnticipada), backgroundColor: '#1f6b1c' },
+            { label: 'Boletería (venta de puerta)', data: r.afluenciaDiaria.map((d) => d.pasesVendidosBoleteria), backgroundColor: '#4a7fc9' },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+        },
+      });
+    }
 
-    this.desgloseChart?.destroy();
-    this.desgloseChart = new Chart(this.desgloseCanvas.nativeElement, {
-      type: 'bar',
-      data: {
-        labels: r.desglosePorTipo.map((t) => t.nombre),
-        datasets: [
-          { label: 'Anticipada', data: r.desglosePorTipo.map((t) => t.cantidadAnticipada), backgroundColor: '#39a935' },
-          { label: 'Boletería', data: r.desglosePorTipo.map((t) => t.cantidadBoleteria), backgroundColor: '#4a7fc9' },
-        ],
-      },
-      options: {
-        responsive: true,
-        indexAxis: 'y',
-        scales: { x: { stacked: true, beginAtZero: true, ticks: { precision: 0 } }, y: { stacked: true } },
-      },
-    });
+    if (this.desgloseCanvas()) {
+      this.desgloseChart?.destroy();
+      this.desgloseChart = new Chart(this.desgloseCanvas()!.nativeElement, {
+        type: 'bar',
+        data: {
+          labels: r.desglosePorTipo.map((t) => t.nombre),
+          datasets: [
+            { label: 'Anticipada', data: r.desglosePorTipo.map((t) => t.cantidadAnticipada), backgroundColor: '#39a935' },
+            { label: 'Boletería', data: r.desglosePorTipo.map((t) => t.cantidadBoleteria), backgroundColor: '#4a7fc9' },
+          ],
+        },
+        options: {
+          responsive: true,
+          indexAxis: 'y',
+          scales: { x: { stacked: true, beginAtZero: true, ticks: { precision: 0 } }, y: { stacked: true } },
+        },
+      });
+    }
 
-    this.formaPagoChart?.destroy();
-    this.formaPagoChart = new Chart(this.formaPagoCanvas.nativeElement, {
-      type: 'doughnut',
-      data: {
-        labels: r.recaudacionPorFormaPago.map((f) => f.etiqueta),
-        datasets: [{
-          data: r.recaudacionPorFormaPago.map((f) => f.monto),
-          backgroundColor: r.recaudacionPorFormaPago.map((f) => COLOR_POR_FORMA_PAGO[f.formaPago] ?? '#9aa0a6'),
-        }],
-      },
-      options: { responsive: true },
-    });
+    if (this.formaPagoCanvas()) {
+      this.formaPagoChart?.destroy();
+      this.formaPagoChart = new Chart(this.formaPagoCanvas()!.nativeElement, {
+        type: 'doughnut',
+        data: {
+          labels: r.recaudacionPorFormaPago.map((f) => f.etiqueta),
+          datasets: [{
+            data: r.recaudacionPorFormaPago.map((f) => f.monto),
+            backgroundColor: r.recaudacionPorFormaPago.map((f) => COLOR_POR_FORMA_PAGO[f.formaPago] ?? '#9aa0a6'),
+          }],
+        },
+        options: { responsive: true },
+      });
+    }
 
-    this.estadoChart?.destroy();
-    this.estadoChart = new Chart(this.estadoCanvas.nativeElement, {
-      type: 'doughnut',
-      data: {
-        labels: r.comprasPorEstado.map((e) => this.etiquetaEstado(e.estado)),
-        datasets: [{
-          data: r.comprasPorEstado.map((e) => e.cantidad),
-          backgroundColor: r.comprasPorEstado.map((e) => COLOR_POR_ESTADO[e.estado]),
-        }],
-      },
-      options: {
-        responsive: true,
-        plugins: { legend: { position: 'bottom' } },
-      },
-    });
+    if (this.estadoCanvas()) {
+      this.estadoChart?.destroy();
+      this.estadoChart = new Chart(this.estadoCanvas()!.nativeElement, {
+        type: 'doughnut',
+        data: {
+          labels: r.comprasPorEstado.map((e) => this.etiquetaEstado(e.estado)),
+          datasets: [{
+            data: r.comprasPorEstado.map((e) => e.cantidad),
+            backgroundColor: r.comprasPorEstado.map((e) => COLOR_POR_ESTADO[e.estado]),
+          }],
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { position: 'bottom' } },
+        },
+      });
+    }
 
-    this.extrasChart?.destroy();
-    this.extrasChart = new Chart(this.extrasCanvas.nativeElement, {
-      type: 'bar',
-      data: {
-        labels: r.desgloseExtras.map((t) => t.nombre),
-        // Los extras (ej. almuerzo) sólo se venden en la compra anticipada: en boletería/POS no se ofrecen.
-        datasets: [{ label: 'Unidades vendidas', data: r.desgloseExtras.map((t) => t.cantidadAnticipada), backgroundColor: '#39a935' }],
-      },
-      options: {
-        responsive: true,
-        indexAxis: 'y',
-        scales: { x: { beginAtZero: true, ticks: { precision: 0 } } },
-      },
-    });
+    if (this.extrasCanvas()) {
+      this.extrasChart?.destroy();
+      this.extrasChart = new Chart(this.extrasCanvas()!.nativeElement, {
+        type: 'bar',
+        data: {
+          labels: r.desgloseExtras.map((t) => t.nombre),
+          // Los extras (ej. almuerzo) sólo se venden en la compra anticipada: en boletería/POS no se ofrecen.
+          datasets: [{ label: 'Unidades vendidas', data: r.desgloseExtras.map((t) => t.cantidadAnticipada), backgroundColor: '#39a935' }],
+        },
+        options: {
+          responsive: true,
+          indexAxis: 'y',
+          scales: { x: { beginAtZero: true, ticks: { precision: 0 } } },
+        },
+      });
+    }
 
-    this.horaChart?.destroy();
-    this.horaChart = new Chart(this.horaCanvas.nativeElement, {
-      type: 'bar',
-      data: {
-        labels: r.ventasPorHora.map((h) => `${String(h.hora).padStart(2, '0')}h`),
-        datasets: [
-          { label: 'Anticipada', data: r.ventasPorHora.map((h) => h.cantidadComprasAnticipada), backgroundColor: '#39a935' },
-          { label: 'Boletería', data: r.ventasPorHora.map((h) => h.cantidadComprasBoleteria), backgroundColor: '#4a7fc9' },
-        ],
-      },
-      options: {
-        responsive: true,
-        scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } } },
-      },
-    });
+    if (this.horaCanvas()) {
+      this.horaChart?.destroy();
+      this.horaChart = new Chart(this.horaCanvas()!.nativeElement, {
+        type: 'bar',
+        data: {
+          labels: r.ventasPorHora.map((h) => `${String(h.hora).padStart(2, '0')}h`),
+          datasets: [
+            { label: 'Anticipada', data: r.ventasPorHora.map((h) => h.cantidadComprasAnticipada), backgroundColor: '#39a935' },
+            { label: 'Boletería', data: r.ventasPorHora.map((h) => h.cantidadComprasBoleteria), backgroundColor: '#4a7fc9' },
+          ],
+        },
+        options: {
+          responsive: true,
+          scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } } },
+        },
+      });
+    }
 
-    this.origenChart?.destroy();
-    this.origenChart = new Chart(this.origenCanvas.nativeElement, {
-      type: 'doughnut',
-      data: {
-        labels: r.ventasPorOrigen.map((o) => o.etiqueta),
-        datasets: [{
-          data: r.ventasPorOrigen.map((o) => o.monto),
-          backgroundColor: r.ventasPorOrigen.map((o) => COLOR_POR_ORIGEN[o.origen]),
-        }],
-      },
-      options: { responsive: true },
-    });
+    if (this.origenCanvas()) {
+      this.origenChart?.destroy();
+      this.origenChart = new Chart(this.origenCanvas()!.nativeElement, {
+        type: 'doughnut',
+        data: {
+          labels: r.ventasPorOrigen.map((o) => o.etiqueta),
+          datasets: [{
+            data: r.ventasPorOrigen.map((o) => o.monto),
+            backgroundColor: r.ventasPorOrigen.map((o) => COLOR_POR_ORIGEN[o.origen]),
+          }],
+        },
+        options: { responsive: true },
+      });
+    }
 
-    this.articulosVariosChart?.destroy();
-    this.articulosVariosChart = new Chart(this.articulosVariosCanvas.nativeElement, {
-      type: 'bar',
-      data: {
-        labels: r.ventasArticulosVarios.map((a) => a.nombre),
-        datasets: [{ label: 'Unidades vendidas', data: r.ventasArticulosVarios.map((a) => a.cantidad), backgroundColor: '#e0a72e' }],
-      },
-      options: {
-        responsive: true,
-        indexAxis: 'y',
-        scales: { x: { beginAtZero: true, ticks: { precision: 0 } } },
-      },
-    });
+    if (this.articulosVariosCanvas()) {
+      this.articulosVariosChart?.destroy();
+      this.articulosVariosChart = new Chart(this.articulosVariosCanvas()!.nativeElement, {
+        type: 'bar',
+        data: {
+          labels: r.ventasArticulosVarios.map((a) => a.nombre),
+          datasets: [{ label: 'Unidades vendidas', data: r.ventasArticulosVarios.map((a) => a.cantidad), backgroundColor: '#e0a72e' }],
+        },
+        options: {
+          responsive: true,
+          indexAxis: 'y',
+          scales: { x: { beginAtZero: true, ticks: { precision: 0 } } },
+        },
+      });
+    }
   }
 }

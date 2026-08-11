@@ -4,6 +4,12 @@
     titulo="Reportes"
     descripcion="Recaudación, afluencia y desgloses del parque." />
 
+  <div class="tabs-reportes">
+    <button type="button" class="tab-reportes" [class.activo]="vista() === 'resumen'" (click)="vista.set('resumen')">Resumen</button>
+    <button type="button" class="tab-reportes" [class.activo]="vista() === 'comparacion'" (click)="vista.set('comparacion')">Comparación</button>
+  </div>
+
+  @if (vista() === 'resumen') {
   <div class="seccion seccion-reportes">
 
   <app-filtro-rango-fechas
@@ -211,5 +217,80 @@
   }
 
   </div>
+  }
+
+  @if (vista() === 'comparacion') {
+    <div class="tarjeta tarjeta-ancha">
+      <h2>Comparar períodos</h2>
+      <p class="ayuda">Agregá los rangos que quieras comparar (años, temporadas, fechas móviles como Semana Santa) y compará sus números lado a lado.</p>
+
+      <div class="lista-periodos-comparar">
+        @for (p of periodos(); track $index) {
+          <div class="fila-periodo-comparar">
+            <input
+              type="text"
+              placeholder="Etiqueta (ej: Semana Santa 2026)"
+              class="input-etiqueta-periodo"
+              [ngModel]="p.etiqueta"
+              (ngModelChange)="actualizarPeriodo($index, 'etiqueta', $event)" />
+            <input type="date" [ngModel]="p.desde" (ngModelChange)="actualizarPeriodo($index, 'desde', $event)" />
+            <input type="date" [ngModel]="p.hasta" (ngModelChange)="actualizarPeriodo($index, 'hasta', $event)" />
+            @if (periodos().length > 1) {
+              <button type="button" class="btn-quitar-periodo" (click)="quitarPeriodo($index)" aria-label="Quitar período">✕</button>
+            }
+          </div>
+        }
+      </div>
+
+      <div class="acciones-comparar">
+        <button type="button" class="btn-secundario" (click)="agregarPeriodo()">+ Agregar período</button>
+        <button type="button" class="btn-primario" [disabled]="comparando()" (click)="compararPeriodos()">
+          {{ comparando() ? 'Comparando…' : 'Comparar' }}
+        </button>
+      </div>
+
+      @if (huboComparacion()) {
+        <div class="tabla-simple">
+          <div class="fila-simple fila-simple-comparacion fila-simple-header">
+            <span>Período</span><span>Recaudación total</span><span>Anticipada</span><span>En puerta</span><span>Personas</span>
+          </div>
+          @for (p of periodos(); track $index) {
+            <div class="fila-simple fila-simple-comparacion">
+              <span>{{ p.etiqueta || (p.desde + ' → ' + p.hasta) }}</span>
+              @if (p.resumen; as r) {
+                <span>{{ r.recaudacionTotal | pesos }}</span>
+                <span>{{ (recaudacionPorOrigen(r, 'ANTICIPADA') ?? 0) | pesos }}</span>
+                <span>{{ (recaudacionPorOrigen(r, 'BOLETERIA') ?? 0) | pesos }}</span>
+                <span>{{ r.personasIngresadas | number }}</span>
+              } @else {
+                <span>—</span><span>—</span><span>—</span><span>—</span>
+              }
+            </div>
+          }
+        </div>
+
+        <div class="graficos-comparacion">
+          <div>
+            <h3 class="subtitulo-comparacion">Recaudación por período</h3>
+            <div class="grafico-contenedor">
+              <canvas #comparacionRecaudacionCanvas></canvas>
+            </div>
+          </div>
+          <div>
+            <h3 class="subtitulo-comparacion">Personas que entraron</h3>
+            <div class="grafico-contenedor">
+              <canvas #comparacionPersonasCanvas></canvas>
+            </div>
+          </div>
+          <div class="grafico-comparacion-ancho">
+            <h3 class="subtitulo-comparacion">Entradas vendidas por tipo</h3>
+            <div class="grafico-contenedor">
+              <canvas #comparacionTiposCanvas></canvas>
+            </div>
+          </div>
+        </div>
+      }
+    </div>
+  }
 
 </div>
