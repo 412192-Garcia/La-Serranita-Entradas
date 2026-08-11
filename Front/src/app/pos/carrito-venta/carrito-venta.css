@@ -1,4 +1,4 @@
-@import '../pos-shared.css';
+@import '../../shared/pos-caja.css';
 
 .carrito {
   position: sticky;

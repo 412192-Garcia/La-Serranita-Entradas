@@ -1,6 +1,6 @@
 import { Component, inject, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { CajaService, Caja } from '../../Services/caja.service';
+import { CajaService, Caja } from '../../services/caja.service';
 import { MoneyInputDirective } from '../../shared/money-input/money-input.directive';
 import { LucideLockOpen } from '@lucide/angular';
 

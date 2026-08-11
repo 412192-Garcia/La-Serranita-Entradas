@@ -1,4 +1,4 @@
-@import '../pos-shared.css';
+@import '../../shared/pos-caja.css';
 
 .comprobante-codigo {
   font-family: monospace;
@@ -6,6 +6,19 @@
   font-weight: 700;
   color: var(--color-text-muted);
   margin: 0 0 12px;
+}
+
+/* Venta cobrada sin conexión: ámbar en vez del verde de "confirmada", para que se note que
+   todavía falta que el servidor la registre (sin que parezca un error: la venta es válida). */
+.comprobante-icono-pendiente {
+  color: var(--color-accent-dark);
+}
+
+.comprobante-aviso-pendiente {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  margin: 0 0 12px;
+  max-width: 300px;
 }
 
 .comprobante-monto,

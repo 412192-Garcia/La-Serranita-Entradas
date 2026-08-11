@@ -1,0 +1,67 @@
+<div class="calendario-card">
+
+  <div class="calendario-wrapper" [class.colapsado]="esRegalo">
+    <div class="calendario-inner">
+  <div class="calendario-header">
+    <button type="button" class="btn-nav" (click)="cambiarMes(-1)" [disabled]="esMesMinimo" [attr.aria-label]="'Mes anterior'">&#10216;</button>
+    <h2>{{ nombreMes }} {{ anioActual }}</h2>
+    <button type="button" class="btn-nav" (click)="cambiarMes(1)" [disabled]="esMesMaximo" [attr.aria-label]="'Mes siguiente'">&#10217;</button>
+  </div>
+
+  <div class="calendario-body">
+    <div class="dias-semana-header">
+      @for (nombreDia of nombreDias; track $index)
+      {
+        <div class="nombre-dia">{{nombreDia}}</div>
+      }
+    </div>
+
+    @if (cargando) {
+      <app-spinner />
+    } @else {
+    <div class="semanas-contenedor">
+      @for (semana of semanas; track $index){
+        <app-semana
+        [dias]="semana"
+        (diaSeleccionado)="onDiaSeleccionado($event)">
+        </app-semana>
+      }
+    </div>
+    }
+  </div>
+    </div>
+  </div>
+  @if (mostrarOpcionRegalo) {
+    <div class="footer-regalo" [class.modo-activo]="esRegalo">
+      <label class="checkbox-regalo-label">
+        <input
+          type="checkbox"
+          class="checkbox-regalo-input"
+          [(ngModel)]="esRegalo"
+          (ngModelChange)="onCambioRegalo($event)"
+        >
+        <div class="info-regalo">
+          <span class="titulo-regalo">Comprar como Regalo</span>
+          <span class="desc-regalo">Sin fecha</span>
+        </div>
+      </label>
+    </div>
+
+    @if (esRegalo) {
+      <div class="feedback-regalo-activo">
+        Quien lo reciba va a poder usarlo el día que prefiera, dentro de los 90 días desde la compra.
+      </div>
+    }
+  }
+
+</div>
+
+@if (fechaSeleccionada)
+{
+  <div class="feedback-reserva">
+    Día seleccionado: <strong>{{fechaSeleccionada | date:'dd/MM/yyyy'}}</strong>
+  </div>
+}
+
+
+

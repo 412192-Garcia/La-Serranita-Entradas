@@ -46,14 +46,16 @@ public class CajaController {
     @Operation(summary = "Registrar un retiro o aporte de efectivo en la caja abierta")
     public ResponseEntity<CajaResponseDTO> registrarRetiro(@RequestBody RetiroCajaRequestDTO request,
                                                             @AuthenticationPrincipal UsuarioAutenticado operador) {
-        return ResponseEntity.ok(cajaService.registrarRetiro(operador.id(), request.getMonto(), request.getMotivo(), request.getTipo()));
+        return ResponseEntity.ok(cajaService.registrarRetiro(operador.id(), request.getMonto(), request.getMotivo(),
+                request.getTipo(), request.getIdempotencyKey(), request.getFechaOriginal()));
     }
 
     @PostMapping("/ingresos-entradas")
     @Operation(summary = "Registrar un ingreso de entradas físicas a la caja abierta", description = "Para cuando el boletero se queda sin talonario y le traen más a mitad de turno")
     public ResponseEntity<CajaResponseDTO> registrarIngresoEntradas(@RequestBody IngresoEntradasRequestDTO request,
                                                                       @AuthenticationPrincipal UsuarioAutenticado operador) {
-        return ResponseEntity.ok(cajaService.registrarIngresoEntradas(operador.id(), request.getCantidad()));
+        return ResponseEntity.ok(cajaService.registrarIngresoEntradas(operador.id(), request.getCantidad(),
+                request.getIdempotencyKey(), request.getFechaOriginal()));
     }
 
     @PostMapping("/{id}/cerrar")

@@ -31,7 +31,7 @@
         <label>
           Precio
           @if (precioBloqueado()) {
-            <span class="precio-catalogo-fijo">{{ catalogoPrecio() | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+            <span class="precio-catalogo-fijo">{{ catalogoPrecio() | pesos }}</span>
           } @else {
             <input
               type="text"

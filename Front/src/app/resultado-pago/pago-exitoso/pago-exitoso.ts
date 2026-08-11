@@ -1,7 +1,7 @@
 import { ChangeDetectorRef, Component, Input, NgZone, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { LucideCircleCheck } from '@lucide/angular';
-import { CompraService } from '../../Services/compra.service';
+import { CompraService } from '../../services/compra.service';
 
 @Component({
   selector: 'app-pago-exitoso',

@@ -1,6 +1,6 @@
 import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
-import { Rol, SesionService } from '../Services/sesion.service';
+import { Rol, SesionService } from '../services/sesion.service';
 
 /**
  * Guard funcional parametrizable por rol.

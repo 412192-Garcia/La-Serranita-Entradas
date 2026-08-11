@@ -2,7 +2,8 @@ import { Component, OnInit, inject, signal, computed, effect } from '@angular/co
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { forkJoin } from 'rxjs';
-import { ConfiguracionService, DiaApertura } from '../../Services/configuracion.service';
+import { ConfiguracionService, DiaApertura } from '../../services/configuracion.service';
+import { Spinner } from '../../shared/spinner/spinner';
 
 const MESES: string[] = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -17,7 +18,7 @@ interface CeldaMes {
 
 @Component({
   selector: 'app-configuracion-dias-horarios',
-  imports: [FormsModule, DatePipe],
+  imports: [FormsModule, DatePipe, Spinner],
   templateUrl: './dias-horarios.html',
   styleUrls: ['../configuracion-shared.css', './dias-horarios.css'],
 })

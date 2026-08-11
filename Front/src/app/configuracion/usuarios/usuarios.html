@@ -48,15 +48,40 @@
   <div class="tarjeta tarjeta-ancha">
     <h2>Usuarios existentes</h2>
     @if (cargando()) {
-      <div class="spinner-contenedor"><div class="spinner"></div></div>
+      <app-spinner />
     } @else if (usuarios().length === 0) {
       <p class="ayuda">Todavía no hay usuarios creados.</p>
     } @else {
+      <div class="fila-simple-controles">
+        <label class="toggle-inactivos">
+          <input type="checkbox" [ngModel]="mostrarInactivos()" (ngModelChange)="mostrarInactivos.set($event)" />
+          Mostrar inactivos
+        </label>
+      </div>
+      @if (usuariosVisibles().length === 0) {
+        <p class="ayuda">No hay usuarios activos. Activá "Mostrar inactivos" para verlos.</p>
+      } @else {
       <div class="tabla-simple">
         <div class="fila-simple fila-simple-usuarios fila-simple-header">
-          <span>Usuario</span><span>Nombre</span><span>Rol</span><span>Estado</span><span>Acción</span>
+          <button type="button" class="col-ordenable" (click)="ordenarColumna('username')">
+            Usuario
+            <app-columna-ordenable [estado]="estadoOrden('username')" />
+          </button>
+          <button type="button" class="col-ordenable" (click)="ordenarColumna('nombre')">
+            Nombre
+            <app-columna-ordenable [estado]="estadoOrden('nombre')" />
+          </button>
+          <button type="button" class="col-ordenable" (click)="ordenarColumna('rol')">
+            Rol
+            <app-columna-ordenable [estado]="estadoOrden('rol')" />
+          </button>
+          <button type="button" class="col-ordenable" (click)="ordenarColumna('estado')">
+            Estado
+            <app-columna-ordenable [estado]="estadoOrden('estado')" />
+          </button>
+          <span>Acción</span>
         </div>
-        @for (u of usuarios(); track u.id) {
+        @for (u of usuariosVisibles(); track u.id) {
           <div class="fila-simple fila-simple-usuarios">
             <span>{{ u.username }}</span>
             <span>{{ u.nombre }} {{ u.apellido }}</span>
@@ -78,6 +103,7 @@
           </div>
         }
       </div>
+      }
     }
   </div>
 </div>

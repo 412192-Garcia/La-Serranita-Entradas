@@ -4,7 +4,7 @@
     <div class="selector-tipo">
       <div class="selector-header">
         <span class="selector-nombre">{{ t.nombre }}</span>
-        <span class="selector-precio">{{ t.precio | currency: 'ARS' : 'symbol' : '1.0-0' }} c/u</span>
+        <span class="selector-precio">{{ t.precio | pesos }} c/u</span>
       </div>
       <div class="selector-numeros">
         @for (n of numerosRapidos; track n) {
@@ -37,7 +37,7 @@
     <div class="selector-tipo selector-simple">
       <div class="selector-header">
         <span class="selector-nombre">{{ t.nombre }}</span>
-        <span class="selector-precio">{{ t.precio | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+        <span class="selector-precio">{{ t.precio | pesos }}</span>
       </div>
       <div class="stepper">
         <button type="button" class="btn-cant" (click)="cambiarCantidad(t.id, -1)" aria-label="Quitar uno">−</button>

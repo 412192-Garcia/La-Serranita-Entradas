@@ -39,4 +39,11 @@ public class ReporteResumenDTO {
     private BigDecimal totalFaltantesCajas;
     /** Suma de las diferencias positivas: plata de más al cerrar. */
     private BigDecimal totalSobrantesCajas;
+
+    /** Ventas de artículos varios (souvenirs, etc.), por artículo. Antes quedaban fuera de todo reporte. */
+    private List<VentaArticuloVarioDTO> ventasArticulosVarios;
+    /** Uso de promos de venta en puerta, por promo. */
+    private List<UsoPromocionDTO> usoPromociones;
+    /** Ventas cobradas en efectivo-dólares en el rango. */
+    private VentasDolaresDTO ventasDolares;
 }

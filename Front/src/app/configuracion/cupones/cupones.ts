@@ -1,12 +1,13 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ConfiguracionService, Cupon, FamiliaCupon } from '../../Services/configuracion.service';
+import { ConfiguracionService, Cupon, FamiliaCupon } from '../../services/configuracion.service';
 import { MoneyInputDirective } from '../../shared/money-input/money-input.directive';
+import { Spinner } from '../../shared/spinner/spinner';
 
 @Component({
   selector: 'app-configuracion-cupones',
-  imports: [FormsModule, DatePipe, MoneyInputDirective],
+  imports: [FormsModule, DatePipe, MoneyInputDirective, Spinner],
   templateUrl: './cupones.html',
   styleUrls: ['../configuracion-shared.css', './cupones.css'],
 })

@@ -1,7 +1,7 @@
 import { ChangeDetectorRef, Component, NgZone } from '@angular/core';
 import {ActivatedRoute, Router} from '@angular/router';
 import { LucideCircleX } from '@lucide/angular';
-import { CompraService } from '../../Services/compra.service';
+import { CompraService } from '../../services/compra.service';
 
 @Component({
   selector: 'app-pago-fallido',

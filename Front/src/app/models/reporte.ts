@@ -61,6 +61,31 @@ export interface CajaResumen {
   diferencia: number;
 }
 
+/** articuloVarioId null = líneas sin catálogo (descripción libre tipeada en el POS). */
+export interface VentaArticuloVario {
+  articuloVarioId: number | null;
+  nombre: string;
+  cantidad: number;
+  monto: number;
+}
+
+/** Sólo cuenta ventas hechas después de que se empezó a guardar la promo usada en la compra. */
+export interface UsoPromocion {
+  promocionId: number;
+  nombre: string;
+  cantidadVentas: number;
+  totalDescontado: number;
+}
+
+export interface VentasDolares {
+  cantidadVentas: number;
+  totalDolaresRecibidos: number;
+  /** Suma de montoTotal (en pesos) de esas ventas. */
+  totalEquivalenteArs: number;
+  /** Promedio ponderado por dólares recibidos. Null si no hubo ventas en dólares en el rango. */
+  cotizacionPromedio: number | null;
+}
+
 export interface ReporteResumen {
   desde: string;
   hasta: string;
@@ -82,4 +107,7 @@ export interface ReporteResumen {
   totalRetirosCajas: number;
   totalFaltantesCajas: number;
   totalSobrantesCajas: number;
+  ventasArticulosVarios: VentaArticuloVario[];
+  usoPromociones: UsoPromocion[];
+  ventasDolares: VentasDolares;
 }

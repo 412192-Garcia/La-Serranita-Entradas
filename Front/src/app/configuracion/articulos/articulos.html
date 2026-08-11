@@ -33,18 +33,39 @@
   <div class="tarjeta">
     <h2>Artículos existentes</h2>
     @if (cargando()) {
-      <div class="spinner-contenedor"><div class="spinner"></div></div>
+      <app-spinner />
     } @else if (articulos().length === 0) {
       <p class="ayuda">Todavía no hay artículos creados.</p>
     } @else {
+      <div class="fila-simple-controles">
+        <label class="toggle-inactivos">
+          <input type="checkbox" [ngModel]="mostrarInactivos()" (ngModelChange)="mostrarInactivos.set($event)" />
+          Mostrar inactivos
+        </label>
+      </div>
+      @if (articulosVisibles().length === 0) {
+        <p class="ayuda">No hay artículos activos. Activá "Mostrar inactivos" para verlos.</p>
+      } @else {
       <div class="tabla-simple">
         <div class="fila-simple fila-simple-articulos fila-simple-header">
-          <span>Nombre</span><span>Precio sugerido</span><span>Estado</span><span>Acción</span>
+          <button type="button" class="col-ordenable" (click)="ordenarColumna('nombre')">
+            Nombre
+            <app-columna-ordenable [estado]="estadoOrden('nombre')" />
+          </button>
+          <button type="button" class="col-ordenable" (click)="ordenarColumna('precioSugerido')">
+            Precio sugerido
+            <app-columna-ordenable [estado]="estadoOrden('precioSugerido')" />
+          </button>
+          <button type="button" class="col-ordenable" (click)="ordenarColumna('estado')">
+            Estado
+            <app-columna-ordenable [estado]="estadoOrden('estado')" />
+          </button>
+          <span>Acción</span>
         </div>
-        @for (a of articulos(); track a.id) {
+        @for (a of articulosVisibles(); track a.id) {
           <div class="fila-simple fila-simple-articulos">
             <span>{{ a.nombre }}</span>
-            <span>{{ a.precioSugerido !== null ? (a.precioSugerido | currency: 'ARS' : 'symbol' : '1.0-0') : '—' }}</span>
+            <span>{{ a.precioSugerido !== null ? (a.precioSugerido | pesos) : '—' }}</span>
             <span class="badge" [class.badge-activo]="a.activo" [class.badge-inactivo]="!a.activo">
               {{ a.activo ? 'Activo' : 'Inactivo' }}
             </span>
@@ -57,6 +78,7 @@
           </div>
         }
       </div>
+      }
     }
   </div>
 </div>

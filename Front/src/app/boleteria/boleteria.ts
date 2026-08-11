@@ -1,12 +1,17 @@
 import { Component, HostListener, computed, inject, OnInit, signal } from '@angular/core';
-import { CurrencyPipe, DatePipe } from '@angular/common';
+import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { BoleteriaService, CampoOrdenCompras, EstadoCompra, Pagina, Reserva, TipoListadoCompra } from '../Services/boleteria.service';
+import { BoleteriaService, CampoOrdenCompras, EstadoCompra, Pagina, Reserva, TipoListadoCompra } from '../services/boleteria.service';
 import { FormaPagoType } from '../models/compra';
 import { CabeceraInterna } from '../shared/cabecera-interna/cabecera-interna';
-import { CajaService, Caja } from '../Services/caja.service';
+import { CajaService, Caja } from '../services/caja.service';
 import { AperturaCaja } from '../pos/apertura-caja/apertura-caja';
-import { LucideSearchX, LucideEllipsisVertical, LucideArrowUp, LucideArrowDown, LucideChevronsUpDown } from '@lucide/angular';
+import { LucideSearchX, LucideEllipsisVertical } from '@lucide/angular';
+import { Spinner } from '../shared/spinner/spinner';
+import { Modal } from '../shared/modal/modal';
+import { crearOrdenable } from '../shared/ordenable';
+import { ColumnaOrdenable } from '../shared/columna-ordenable/columna-ordenable';
+import { PesosPipe } from '../shared/pesos.pipe';
 
 function hoyComoFechaInput(): string {
   const hoy = new Date();
@@ -141,7 +146,7 @@ const TAMANIO_PAGINA = 50;
 
 @Component({
   selector: 'app-boleteria',
-  imports: [CurrencyPipe, DatePipe, FormsModule, CabeceraInterna, AperturaCaja, LucideSearchX, LucideEllipsisVertical, LucideArrowUp, LucideArrowDown, LucideChevronsUpDown],
+  imports: [PesosPipe, DatePipe, FormsModule, CabeceraInterna, AperturaCaja, Spinner, Modal, ColumnaOrdenable, LucideSearchX, LucideEllipsisVertical],
   templateUrl: './boleteria.html',
   styleUrl: './boleteria.css',
 })
@@ -172,8 +177,10 @@ export class Boleteria implements OnInit {
   estadosActivos = signal<ReadonlySet<EstadoCompra>>(new Set(ESTADOS_POR_DEFECTO));
   formaPago = signal<FormaPagoType | ''>('');
   pagina = signal(0);
-  ordenarPor = signal<CampoOrdenCompras>('fechaVisita');
-  direccionOrden = signal<'ASC' | 'DESC'>('ASC');
+  private orden = crearOrdenable<CampoOrdenCompras>('fechaVisita');
+  ordenarPor = this.orden.ordenarPor;
+  direccionOrden = this.orden.direccionOrden;
+  estadoOrden = this.orden.estadoOrden;
 
   readonly estadosAnticipadaFiltrables = ESTADOS_ANTICIPADA_FILTRABLES;
   readonly formasPagoFiltrables = FORMAS_PAGO_FILTRABLES;
@@ -235,20 +242,9 @@ export class Boleteria implements OnInit {
 
   /** Clic en un encabezado ordenable: si ya se ordena por esa columna, invierte la dirección; si no, la adopta ascendente. */
   ordenarColumna(campo: CampoOrdenCompras): void {
-    if (this.ordenarPor() === campo) {
-      this.direccionOrden.update((d) => (d === 'ASC' ? 'DESC' : 'ASC'));
-    } else {
-      this.ordenarPor.set(campo);
-      this.direccionOrden.set('ASC');
-    }
+    this.orden.ordenarColumna(campo);
     this.pagina.set(0);
     this.ejecutarBusqueda();
-  }
-
-  /** Qué ícono de orden mostrar en el encabezado: sin ordenar, ascendente o descendente. */
-  estadoOrden(campo: CampoOrdenCompras): 'sinOrden' | 'asc' | 'desc' {
-    if (this.ordenarPor() !== campo) return 'sinOrden';
-    return this.direccionOrden() === 'ASC' ? 'asc' : 'desc';
   }
 
   paginaAnterior(): void {

@@ -1,0 +1,17 @@
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 16px;
+}
+
+/* Transparente para el layout: el panel proyectado (con su propia clase) es el
+   verdadero item flex centrado por .modal-overlay, este div sólo existe para
+   frenar el click y no cerrar el modal al clickear adentro. */
+.modal-panel-wrapper {
+  display: contents;
+}

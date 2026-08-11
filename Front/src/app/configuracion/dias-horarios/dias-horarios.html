@@ -35,7 +35,7 @@
     }
 
     @if (cargandoDias()) {
-      <div class="spinner-contenedor"><div class="spinner"></div></div>
+      <app-spinner />
     } @else {
       <div class="grid-nombres-dias">
         @for (nombre of nombresDias; track nombre; let i = $index) {

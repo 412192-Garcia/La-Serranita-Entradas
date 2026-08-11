@@ -724,17 +724,6 @@
 }
 
 /* ---------- Modal de edición de contacto ---------- */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background-color: rgba(0, 0, 0, 0.4);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-  padding: 16px;
-}
-
 .modal-contenido {
   background-color: var(--color-card-bg);
   border-radius: var(--radius-lg);

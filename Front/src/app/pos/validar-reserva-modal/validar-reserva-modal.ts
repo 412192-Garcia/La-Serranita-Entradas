@@ -1,12 +1,13 @@
 import { Component, inject, output, signal } from '@angular/core';
-import { CurrencyPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Observable } from 'rxjs';
-import { BoleteriaService, Reserva } from '../../Services/boleteria.service';
+import { BoleteriaService, Reserva } from '../../services/boleteria.service';
+import { Modal } from '../../shared/modal/modal';
+import { PesosPipe } from '../../shared/pesos.pipe';
 
 @Component({
   selector: 'app-validar-reserva-modal',
-  imports: [CurrencyPipe, FormsModule],
+  imports: [PesosPipe, FormsModule, Modal],
   templateUrl: './validar-reserva-modal.html',
   styleUrl: './validar-reserva-modal.css',
 })

@@ -1,0 +1,3 @@
+/* Encapsulación de vista de Angular: los estilos del padre (configuracion-shared.css) no
+   alcanzan a este componente hijo, hay que importarlos acá también. */
+@import '../../configuracion/configuracion-shared.css';

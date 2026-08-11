@@ -73,9 +73,9 @@
             @for (d of descuentosDelTipoActual(); track d.id) {
               <div class="fila-simple fila-simple-descuentos">
                 <span>{{ d.cantidadPases }}</span>
-                <span>{{ d.precioPromocionalTotal | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
-                <span>{{ precioPorPersona(d) | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
-                <span>{{ ahorroDescuento(d) | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+                <span>{{ d.precioPromocionalTotal | pesos }}</span>
+                <span>{{ precioPorPersona(d) | pesos }}</span>
+                <span>{{ ahorroDescuento(d) | pesos }}</span>
                 <span class="acciones-tipo">
                   <button type="button" class="btn-secundario" (click)="editarDescuento(d)">Editar</button>
                   <button type="button" class="btn-secundario" (click)="eliminarDescuento(d)">Eliminar</button>
@@ -109,19 +109,49 @@
   <div class="tarjeta">
     <h2>Tipos de entrada existentes</h2>
     @if (cargandoTipos()) {
-      <div class="spinner-contenedor"><div class="spinner"></div></div>
+      <app-spinner />
     } @else if (tiposEntrada().length === 0) {
       <p class="ayuda">Todavía no hay tipos de entrada creados.</p>
     } @else {
+      <div class="fila-simple-controles">
+        <label class="toggle-inactivos">
+          <input type="checkbox" [ngModel]="mostrarInactivos()" (ngModelChange)="mostrarInactivos.set($event)" />
+          Mostrar inactivos
+        </label>
+      </div>
+      @if (tiposEntradaVisibles().length === 0) {
+        <p class="ayuda">No hay tipos de entrada activos. Activá "Mostrar inactivos" para verlos.</p>
+      } @else {
       <div class="tabla-simple">
         <div class="fila-simple fila-simple-tipos fila-simple-header">
-          <span>Nombre</span><span>Categoría</span><span>Precio</span><span>Obligatorio</span><span>Máx/día</span><span>Estado</span><span>Acción</span>
+          <button type="button" class="col-ordenable" (click)="ordenarColumna('nombre')">
+            Nombre
+            <app-columna-ordenable [estado]="estadoOrden('nombre')" />
+          </button>
+          <button type="button" class="col-ordenable" (click)="ordenarColumna('tipo')">
+            Categoría
+            <app-columna-ordenable [estado]="estadoOrden('tipo')" />
+          </button>
+          <button type="button" class="col-ordenable" (click)="ordenarColumna('precio')">
+            Precio
+            <app-columna-ordenable [estado]="estadoOrden('precio')" />
+          </button>
+          <span>Obligatorio</span>
+          <button type="button" class="col-ordenable" (click)="ordenarColumna('maximoPorDia')">
+            Máx/día
+            <app-columna-ordenable [estado]="estadoOrden('maximoPorDia')" />
+          </button>
+          <button type="button" class="col-ordenable" (click)="ordenarColumna('estado')">
+            Estado
+            <app-columna-ordenable [estado]="estadoOrden('estado')" />
+          </button>
+          <span>Acción</span>
         </div>
-        @for (t of tiposEntrada(); track t.id) {
+        @for (t of tiposEntradaVisibles(); track t.id) {
           <div class="fila-simple fila-simple-tipos">
             <span>{{ t.nombre }}</span>
             <span>{{ t.tipo === 'ENTRADA' ? 'Entrada' : 'Extra' }}</span>
-            <span>{{ t.precio | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+            <span>{{ t.precio | pesos }}</span>
             <span>
               @if (t.obligatorio) {
                 <span class="badge badge-activo">Sí</span>
@@ -142,6 +172,7 @@
           </div>
         }
       </div>
+      }
     }
   </div>
 </div>

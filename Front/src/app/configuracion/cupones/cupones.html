@@ -95,7 +95,7 @@
   <div class="tarjeta tarjeta-ancha">
     <h2>Cupones existentes</h2>
     @if (cargandoCupones()) {
-      <div class="spinner-contenedor"><div class="spinner"></div></div>
+      <app-spinner />
     } @else if (cupones().length === 0) {
       <p class="ayuda">Todavía no hay cupones creados.</p>
     } @else {
@@ -126,7 +126,7 @@
       }
     </div>
     @if (cargandoLotes()) {
-      <div class="spinner-contenedor"><div class="spinner"></div></div>
+      <app-spinner />
     } @else if (lotes().length === 0) {
       <p class="ayuda">Todavía no se generó ningún lote de cupones.</p>
     } @else {

@@ -1,14 +1,21 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
-import { CurrencyPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ConfiguracionService, DescuentoEfectivo } from '../../Services/configuracion.service';
-import { TipoEntradaService } from '../../Services/tipo-entrada.service';
+import { ConfiguracionService, DescuentoEfectivo } from '../../services/configuracion.service';
+import { TipoEntradaService } from '../../services/tipo-entrada.service';
 import { TipoEntrada } from '../../models/tipo-entrada';
 import { MoneyInputDirective } from '../../shared/money-input/money-input.directive';
+import { compararTexto, compararNumero, compararBooleano } from '../../shared/orden.util';
+import { Spinner } from '../../shared/spinner/spinner';
+import { crearOrdenable } from '../../shared/ordenable';
+import { crearEstadoEdicion } from '../../shared/edicion.util';
+import { ColumnaOrdenable } from '../../shared/columna-ordenable/columna-ordenable';
+import { PesosPipe } from '../../shared/pesos.pipe';
+
+type CampoOrdenTipoEntrada = 'nombre' | 'tipo' | 'precio' | 'maximoPorDia' | 'estado';
 
 @Component({
   selector: 'app-configuracion-tipos-entrada',
-  imports: [FormsModule, CurrencyPipe, MoneyInputDirective],
+  imports: [FormsModule, PesosPipe, MoneyInputDirective, Spinner, ColumnaOrdenable],
   templateUrl: './tipos-entrada.html',
   styleUrls: ['../configuracion-shared.css', './tipos-entrada.css'],
 })
@@ -20,7 +27,33 @@ export class ConfiguracionTiposEntrada implements OnInit {
   cargandoTipos = signal(false);
   errorTipos = signal<string | null>(null);
 
-  tipoEditandoId = signal<number | null>(null);
+  mostrarInactivos = signal(false);
+  private orden = crearOrdenable<CampoOrdenTipoEntrada>('nombre');
+  ordenarColumna = this.orden.ordenarColumna;
+  estadoOrden = this.orden.estadoOrden;
+
+  tiposEntradaVisibles = computed(() => {
+    const base = this.mostrarInactivos() ? this.tiposEntrada() : this.tiposEntrada().filter((t) => t.activo);
+    const dir = this.orden.direccionOrden() === 'ASC' ? 1 : -1;
+    const campo = this.orden.ordenarPor();
+    return [...base].sort((a, b) => {
+      switch (campo) {
+        case 'nombre':
+          return compararTexto(a.nombre, b.nombre) * dir;
+        case 'tipo':
+          return compararTexto(a.tipo, b.tipo) * dir;
+        case 'precio':
+          return compararNumero(a.precio, b.precio) * dir;
+        case 'maximoPorDia':
+          return compararNumero(a.maximoPorDia ?? null, b.maximoPorDia ?? null) * dir;
+        case 'estado':
+          return compararBooleano(a.activo, b.activo) * dir;
+      }
+    });
+  });
+
+  private edicionTipo = crearEstadoEdicion<number>();
+  tipoEditandoId = this.edicionTipo.editandoId;
   nombreTipo = signal('');
   descripcionTipo = signal('');
   precioTipo = signal<number | null>(null);
@@ -34,7 +67,8 @@ export class ConfiguracionTiposEntrada implements OnInit {
   cargandoDescuentos = signal(false);
   errorDescuentos = signal<string | null>(null);
 
-  descuentoEditandoId = signal<number | null>(null);
+  private edicionDescuento = crearEstadoEdicion<number>();
+  descuentoEditandoId = this.edicionDescuento.editandoId;
   cantidadPasesDescuento = signal<number | null>(null);
   precioTotalDescuento = signal<number | null>(null);
   guardandoDescuento = signal(false);
@@ -64,7 +98,7 @@ export class ConfiguracionTiposEntrada implements OnInit {
   }
 
   editarTipo(t: TipoEntrada): void {
-    this.tipoEditandoId.set(t.id);
+    this.edicionTipo.editar(t.id);
     this.nombreTipo.set(t.nombre);
     this.descripcionTipo.set(t.descripcion ?? '');
     this.precioTipo.set(t.precio);
@@ -77,7 +111,7 @@ export class ConfiguracionTiposEntrada implements OnInit {
   }
 
   cancelarEdicionTipo(): void {
-    this.tipoEditandoId.set(null);
+    this.edicionTipo.cancelarEdicion();
     this.nombreTipo.set('');
     this.descripcionTipo.set('');
     this.precioTipo.set(null);
@@ -182,14 +216,14 @@ export class ConfiguracionTiposEntrada implements OnInit {
   }
 
   editarDescuento(d: DescuentoEfectivo): void {
-    this.descuentoEditandoId.set(d.id);
+    this.edicionDescuento.editar(d.id);
     this.cantidadPasesDescuento.set(d.cantidadPases);
     this.precioTotalDescuento.set(d.precioPromocionalTotal);
     this.errorDescuentos.set(null);
   }
 
   cancelarEdicionDescuento(): void {
-    this.descuentoEditandoId.set(null);
+    this.edicionDescuento.cancelarEdicion();
     this.cantidadPasesDescuento.set(null);
     this.precioTotalDescuento.set(null);
     this.errorDescuentos.set(null);

@@ -1,0 +1,20 @@
+<div class="tarjeta" [class.tarjeta-ancha]="ancho()">
+  <h2>Rango de fechas</h2>
+  <p class="ayuda">{{ subtitulo() }}</p>
+  @if (errorRango()) {
+    <p class="alerta-error">{{ errorRango() }}</p>
+  }
+  <div class="form-grid">
+    <label>
+      Desde
+      <input type="date" [ngModel]="desde()" (ngModelChange)="desde.set($event)" />
+    </label>
+    <label>
+      Hasta
+      <input type="date" [ngModel]="hasta()" (ngModelChange)="hasta.set($event)" />
+    </label>
+  </div>
+  <button type="button" class="btn-primario" [disabled]="cargando()" (click)="onAplicar()">
+    {{ cargando() ? 'Cargando…' : 'Aplicar' }}
+  </button>
+</div>

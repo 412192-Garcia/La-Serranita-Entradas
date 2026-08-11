@@ -1,5 +1,5 @@
-<div class="modal-overlay" (click)="cerrar.emit()">
-  <div class="panel-caja" (click)="$event.stopPropagation()">
+<app-modal (cerrar)="cerrar.emit()">
+  <div class="panel-caja">
     <h3>Agregar entradas físicas</h3>
     <p class="subtitulo-apertura">Para cuando se termina el talonario y traen más a mitad de turno.</p>
 
@@ -32,4 +32,4 @@
       </ul>
     }
   </div>
-</div>
+</app-modal>

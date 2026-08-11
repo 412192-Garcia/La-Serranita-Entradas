@@ -1,7 +1,7 @@
 import { Routes } from '@angular/router';
-import {Calendario} from './calendario/calendario';
-import {SeleccionEntradas} from './seleccion-entradas/seleccion-entradas';
-import {Entradas} from './entradas/entradas';
+import {Calendario} from './compra/calendario/calendario';
+import {SeleccionEntradas} from './compra/seleccion-entradas/seleccion-entradas';
+import {Entradas} from './compra/entradas/entradas';
 import {PagoExitoso} from './resultado-pago/pago-exitoso/pago-exitoso';
 import {PagoFallido} from './resultado-pago/pago-fallido/pago-fallido';
 import {rolGuard} from './guards/rol-guard';
@@ -47,17 +47,17 @@ export const routes: Routes = [
   },
   {
     path: 'hoy',
-    loadComponent: () => import('./configuracion/hoy/hoy').then((m) => m.DashboardHoy),
+    loadComponent: () => import('./hoy/hoy').then((m) => m.DashboardHoy),
     canActivate: [rolGuard(['ADMIN'])],
   },
   {
     path: 'reportes',
-    loadComponent: () => import('./configuracion/reportes/reportes').then((m) => m.ConfiguracionReportes),
+    loadComponent: () => import('./reportes/reportes').then((m) => m.ConfiguracionReportes),
     canActivate: [rolGuard(['ADMIN'])],
   },
   {
     path: 'cajas',
-    loadComponent: () => import('./configuracion/cajas/cajas').then((m) => m.ConfiguracionCajas),
+    loadComponent: () => import('./cajas/cajas').then((m) => m.ConfiguracionCajas),
     canActivate: [rolGuard(['ADMIN'])],
   },
 ];

@@ -8,6 +8,7 @@ import org.example.laserranitaentradas.model.entity.Caja;
 import org.example.laserranitaentradas.model.entity.TipoMovimientoCaja;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 
 public interface CajaService {
@@ -20,13 +21,20 @@ public interface CajaService {
 
     CajaResponseDTO abrir(Long usuarioId, BigDecimal montoInicial, Integer entradasFisicasInicial);
 
-    CajaResponseDTO registrarRetiro(Long usuarioId, BigDecimal monto, String motivo, TipoMovimientoCaja tipo);
+    /**
+     * idempotencyKey/fechaOriginal vienen sólo del POS con cola offline: la clave evita duplicar
+     * si se reintenta un movimiento cuya respuesta se perdió en un corte, y la fecha registra
+     * cuándo pasó de verdad en vez de cuándo se sincronizó. Ambos null desde el uso normal.
+     */
+    CajaResponseDTO registrarRetiro(Long usuarioId, BigDecimal monto, String motivo, TipoMovimientoCaja tipo,
+                                     String idempotencyKey, LocalDateTime fechaOriginal);
 
-    /** Igual que registrarRetiro, pero para que un ADMIN lo cargue en la caja de OTRO usuario (ADMIN-only, gateado en SecurityConfig). */
+    /** Igual que registrarRetiro, pero para que un ADMIN lo cargue en la caja de OTRO usuario (ADMIN-only, gateado en SecurityConfig). Sin cola offline: el admin siempre opera con conexión. */
     CajaResponseDTO registrarRetiroComoAdmin(Long cajaId, BigDecimal monto, String motivo, TipoMovimientoCaja tipo);
 
-    /** Suma entradas físicas al talonario de la caja abierta, ej. cuando el boletero se quedó sin y le traen más. */
-    CajaResponseDTO registrarIngresoEntradas(Long usuarioId, Integer cantidad);
+    /** Suma entradas físicas al talonario de la caja abierta, ej. cuando el boletero se quedó sin y le traen más. Ver registrarRetiro por idempotencyKey/fechaOriginal. */
+    CajaResponseDTO registrarIngresoEntradas(Long usuarioId, Integer cantidad,
+                                              String idempotencyKey, LocalDateTime fechaOriginal);
 
     CajaResponseDTO cerrar(Long usuarioId, List<ConteoDenominacionDTO> conteoEfectivo,
                             List<CierrePosnetRequestDTO> cierresPosnet, Integer entradasFisicasCortadas,

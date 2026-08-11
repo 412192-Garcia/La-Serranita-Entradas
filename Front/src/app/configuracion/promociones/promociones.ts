@@ -1,13 +1,20 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
-import { CurrencyPipe } from '@angular/common';
+import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { PromocionService } from '../../Services/promocion.service';
+import { PromocionService } from '../../services/promocion.service';
 import { Promocion } from '../../models/promocion';
 import { MoneyInputDirective } from '../../shared/money-input/money-input.directive';
+import { compararTexto, compararBooleano } from '../../shared/orden.util';
+import { Spinner } from '../../shared/spinner/spinner';
+import { crearOrdenable } from '../../shared/ordenable';
+import { crearEstadoEdicion } from '../../shared/edicion.util';
+import { ColumnaOrdenable } from '../../shared/columna-ordenable/columna-ordenable';
+import { PesosPipe } from '../../shared/pesos.pipe';
+
+type CampoOrdenPromocion = 'nombre' | 'estado';
 
 @Component({
   selector: 'app-configuracion-promociones',
-  imports: [FormsModule, CurrencyPipe, MoneyInputDirective],
+  imports: [FormsModule, PesosPipe, MoneyInputDirective, Spinner, ColumnaOrdenable],
   templateUrl: './promociones.html',
   styleUrls: ['../configuracion-shared.css', './promociones.css'],
 })
@@ -18,7 +25,27 @@ export class ConfiguracionPromociones implements OnInit {
   cargando = signal(false);
   error = signal<string | null>(null);
 
-  editandoId = signal<number | null>(null);
+  mostrarInactivas = signal(false);
+  private orden = crearOrdenable<CampoOrdenPromocion>('nombre');
+  ordenarColumna = this.orden.ordenarColumna;
+  estadoOrden = this.orden.estadoOrden;
+
+  promocionesVisibles = computed(() => {
+    const base = this.mostrarInactivas() ? this.promociones() : this.promociones().filter((p) => p.activo);
+    const dir = this.orden.direccionOrden() === 'ASC' ? 1 : -1;
+    const campo = this.orden.ordenarPor();
+    return [...base].sort((a, b) => {
+      switch (campo) {
+        case 'nombre':
+          return compararTexto(a.nombre, b.nombre) * dir;
+        case 'estado':
+          return compararBooleano(a.activo, b.activo) * dir;
+      }
+    });
+  });
+
+  private edicion = crearEstadoEdicion<number>();
+  editandoId = this.edicion.editandoId;
   nombre = signal('');
   tipoDescuento = signal<'porcentaje' | 'monto'>('porcentaje');
   valor = signal<number | null>(null);
@@ -43,7 +70,7 @@ export class ConfiguracionPromociones implements OnInit {
   }
 
   editar(p: Promocion): void {
-    this.editandoId.set(p.id);
+    this.edicion.editar(p.id);
     this.nombre.set(p.nombre);
     this.tipoDescuento.set(p.montoDescuento !== null ? 'monto' : 'porcentaje');
     this.valor.set(p.montoDescuento !== null ? p.montoDescuento : p.porcentajeDescuento);
@@ -51,7 +78,7 @@ export class ConfiguracionPromociones implements OnInit {
   }
 
   cancelarEdicion(): void {
-    this.editandoId.set(null);
+    this.edicion.cancelarEdicion();
     this.nombre.set('');
     this.tipoDescuento.set('porcentaje');
     this.valor.set(null);

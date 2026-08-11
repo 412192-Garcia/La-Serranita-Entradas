@@ -87,6 +87,9 @@ public class SecurityConfig {
                 .requestMatchers("/api/interno/**").hasAnyRole("BOLETERO", "ADMIN")
                 .requestMatchers(HttpMethod.GET, "/api/promociones/**").hasAnyRole("BOLETERO", "ADMIN")
                 .requestMatchers(HttpMethod.GET, "/api/articulos-varios/**").hasAnyRole("BOLETERO", "ADMIN")
+                // El POS los cachea para poder calcular el precio de grupo sin conexión. Sólo
+                // lectura: crear/editar/borrar escalones sigue siendo ADMIN (regla de más abajo).
+                .requestMatchers(HttpMethod.GET, "/api/descuentos-efectivo/**").hasAnyRole("BOLETERO", "ADMIN")
 
                 // ---------- Configuración (solo ADMIN) ----------
                 .requestMatchers("/api/dias-apertura/**").hasRole("ADMIN")

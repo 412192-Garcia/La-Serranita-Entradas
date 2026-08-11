@@ -2,7 +2,7 @@ import { Component, inject, signal } from '@angular/core';
 import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { SwUpdate, VersionReadyEvent } from '@angular/service-worker';
 import { filter } from 'rxjs';
-import { SesionService } from './Services/sesion.service';
+import { SesionService } from './services/sesion.service';
 
 /** Rutas del módulo público (compra de entradas): comparten bundle/injector con el módulo
  *  interno, así que necesitan excluirse a mano — nunca deben pintarse con un tema personalizado. */
