@@ -1,7 +1,8 @@
-import { Component, HostListener, Input, computed, inject, signal } from '@angular/core';
+import { Component, Input, computed, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { LucideMenu, LucideX, LucideLogOut, LucideWifiOff } from '@lucide/angular';
-import { SesionService } from '../../Services/sesion.service';
+import { SesionService } from '../../services/sesion.service';
+import { ConectividadService } from '../../services/conectividad.service';
 
 interface EnlaceCabecera {
   texto: string;
@@ -45,18 +46,8 @@ export class CabeceraInterna {
 
   readonly operador = this.sesion.usuario;
 
-  /** navigator.onLine no es 100% preciso (sólo mira la interfaz de red, no si internet realmente responde), pero alcanza para un aviso visual simple. */
-  enLinea = signal(navigator.onLine);
-
-  @HostListener('window:online')
-  onOnline(): void {
-    this.enLinea.set(true);
-  }
-
-  @HostListener('window:offline')
-  onOffline(): void {
-    this.enLinea.set(false);
-  }
+  /** Estado real de conexión al backend (no sólo navigator.onLine): lo mantiene ConectividadService. */
+  readonly enLinea = inject(ConectividadService).enLinea;
 
   readonly enlacesVisibles = computed(() => {
     const esAdmin = this.sesion.rol() === 'ADMIN';

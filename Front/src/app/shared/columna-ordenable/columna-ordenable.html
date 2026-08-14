@@ -1,0 +1,5 @@
+@switch (estado()) {
+  @case ('asc') { <svg lucideArrowUp [strokeWidth]="2"></svg> }
+  @case ('desc') { <svg lucideArrowDown [strokeWidth]="2"></svg> }
+  @default { <svg lucideChevronsUpDown [strokeWidth]="2" class="icono-orden-inactivo"></svg> }
+}

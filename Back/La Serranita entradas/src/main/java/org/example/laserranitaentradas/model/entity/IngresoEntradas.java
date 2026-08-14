@@ -34,4 +34,13 @@ public class IngresoEntradas extends BaseEntity {
 
     @Column(nullable = false)
     private LocalDateTime fecha;
+
+    /**
+     * Clave que genera el cliente antes de mandar la operación, para que un reintento no
+     * duplique: si la petición original llegó y se procesó pero la respuesta se perdió (corte
+     * de conexión justo ahí), el reintento trae la misma clave y el servicio devuelve lo ya
+     * guardado. Null para operaciones que no vienen de la cola offline del POS.
+     */
+    @Column(name = "idempotency_key", unique = true, length = 64)
+    private String idempotencyKey;
 }

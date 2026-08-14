@@ -1,13 +1,20 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
-import { CurrencyPipe } from '@angular/common';
+import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ArticuloVarioService } from '../../Services/articulo-vario.service';
+import { ArticuloVarioService } from '../../services/articulo-vario.service';
 import { ArticuloVario } from '../../models/articulo-vario';
 import { MoneyInputDirective } from '../../shared/money-input/money-input.directive';
+import { compararTexto, compararNumero, compararBooleano } from '../../shared/orden.util';
+import { Spinner } from '../../shared/spinner/spinner';
+import { crearOrdenable } from '../../shared/ordenable';
+import { crearEstadoEdicion } from '../../shared/edicion.util';
+import { ColumnaOrdenable } from '../../shared/columna-ordenable/columna-ordenable';
+import { PesosPipe } from '../../shared/pesos.pipe';
+
+type CampoOrdenArticulo = 'nombre' | 'precioSugerido' | 'estado';
 
 @Component({
   selector: 'app-configuracion-articulos',
-  imports: [FormsModule, CurrencyPipe, MoneyInputDirective],
+  imports: [FormsModule, PesosPipe, MoneyInputDirective, Spinner, ColumnaOrdenable],
   templateUrl: './articulos.html',
   styleUrls: ['../configuracion-shared.css', './articulos.css'],
 })
@@ -18,7 +25,30 @@ export class ConfiguracionArticulos implements OnInit {
   cargando = signal(false);
   error = signal<string | null>(null);
 
-  editandoId = signal<number | null>(null);
+  mostrarInactivos = signal(false);
+  private orden = crearOrdenable<CampoOrdenArticulo>('nombre');
+  ordenarColumna = this.orden.ordenarColumna;
+  estadoOrden = this.orden.estadoOrden;
+
+  /** Con muchos artículos desactivados con el tiempo, mezclarlos todos vuelve la lista inmanejable: por defecto se ocultan. */
+  articulosVisibles = computed(() => {
+    const base = this.mostrarInactivos() ? this.articulos() : this.articulos().filter((a) => a.activo);
+    const dir = this.orden.direccionOrden() === 'ASC' ? 1 : -1;
+    const campo = this.orden.ordenarPor();
+    return [...base].sort((a, b) => {
+      switch (campo) {
+        case 'nombre':
+          return compararTexto(a.nombre, b.nombre) * dir;
+        case 'precioSugerido':
+          return compararNumero(a.precioSugerido, b.precioSugerido) * dir;
+        case 'estado':
+          return compararBooleano(a.activo, b.activo) * dir;
+      }
+    });
+  });
+
+  private edicion = crearEstadoEdicion<number>();
+  editandoId = this.edicion.editandoId;
   nombre = signal('');
   precioSugerido = signal<number | null>(null);
   guardando = signal(false);
@@ -42,14 +72,14 @@ export class ConfiguracionArticulos implements OnInit {
   }
 
   editar(a: ArticuloVario): void {
-    this.editandoId.set(a.id);
+    this.edicion.editar(a.id);
     this.nombre.set(a.nombre);
     this.precioSugerido.set(a.precioSugerido);
     this.error.set(null);
   }
 
   cancelarEdicion(): void {
-    this.editandoId.set(null);
+    this.edicion.cancelarEdicion();
     this.nombre.set('');
     this.precioSugerido.set(null);
     this.error.set(null);

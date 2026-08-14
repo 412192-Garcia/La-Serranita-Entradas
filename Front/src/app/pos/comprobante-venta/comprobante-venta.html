@@ -1,18 +1,24 @@
 <!-- ============ COMPROBANTE DE LA VENTA RECIÉN CERRADA ============ -->
 <div class="comprobante">
-  <svg lucideCircleCheck class="comprobante-icono" [strokeWidth]="1.5"></svg>
-  <h2>Venta registrada</h2>
-  <p class="comprobante-codigo">#{{ venta().codigoReserva }}</p>
+  @if (pendiente()) {
+    <svg lucideCloudOff class="comprobante-icono comprobante-icono-pendiente" [strokeWidth]="1.5"></svg>
+    <h2>Venta cobrada sin conexión</h2>
+    <p class="comprobante-aviso-pendiente">Se guardó en este dispositivo y se registra sola cuando vuelva la señal.</p>
+  } @else {
+    <svg lucideCircleCheck class="comprobante-icono" [strokeWidth]="1.5"></svg>
+    <h2>Venta registrada</h2>
+    <p class="comprobante-codigo">#{{ venta().codigoReserva }}</p>
+  }
 
   <div class="comprobante-monto">
     <span class="etiqueta">Cobrado</span>
-    <span class="valor">{{ venta().montoTotal | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+    <span class="valor">{{ venta().montoTotal | pesos }}</span>
   </div>
 
   @if (formaPago() === 'EFECTIVO_BOLETERIA' && vuelto() !== null) {
     <div class="comprobante-vuelto">
       <span class="etiqueta">Vuelto</span>
-      <span class="valor">{{ vuelto() | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+      <span class="valor">{{ vuelto() | pesos }}</span>
     </div>
   }
 

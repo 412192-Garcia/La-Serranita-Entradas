@@ -40,20 +40,38 @@
   <div class="tarjeta">
     <h2>Promociones existentes</h2>
     @if (cargando()) {
-      <div class="spinner-contenedor"><div class="spinner"></div></div>
+      <app-spinner />
     } @else if (promociones().length === 0) {
       <p class="ayuda">Todavía no hay promociones creadas.</p>
     } @else {
+      <div class="fila-simple-controles">
+        <label class="toggle-inactivos">
+          <input type="checkbox" [ngModel]="mostrarInactivas()" (ngModelChange)="mostrarInactivas.set($event)" />
+          Mostrar inactivas
+        </label>
+      </div>
+      @if (promocionesVisibles().length === 0) {
+        <p class="ayuda">No hay promociones activas. Activá "Mostrar inactivas" para verlas.</p>
+      } @else {
       <div class="tabla-simple">
         <div class="fila-simple fila-simple-promos fila-simple-header">
-          <span>Nombre</span><span>Descuento</span><span>Estado</span><span>Acción</span>
+          <button type="button" class="col-ordenable" (click)="ordenarColumna('nombre')">
+            Nombre
+            <app-columna-ordenable [estado]="estadoOrden('nombre')" />
+          </button>
+          <span>Descuento</span>
+          <button type="button" class="col-ordenable" (click)="ordenarColumna('estado')">
+            Estado
+            <app-columna-ordenable [estado]="estadoOrden('estado')" />
+          </button>
+          <span>Acción</span>
         </div>
-        @for (p of promociones(); track p.id) {
+        @for (p of promocionesVisibles(); track p.id) {
           <div class="fila-simple fila-simple-promos">
             <span>{{ p.nombre }}</span>
             <span>
               @if (p.montoDescuento !== null) {
-                {{ p.montoDescuento | currency: 'ARS' : 'symbol' : '1.0-0' }}
+                {{ p.montoDescuento | pesos }}
               } @else {
                 {{ p.porcentajeDescuento }}%
               }
@@ -70,6 +88,7 @@
           </div>
         }
       </div>
+      }
     }
   </div>
 </div>

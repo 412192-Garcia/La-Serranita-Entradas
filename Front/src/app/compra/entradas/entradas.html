@@ -1,0 +1,100 @@
+<div class="modulo-compra-container">
+  <div class="columna-izquierda-contenido">
+    <app-calendario
+      (fechaSeleccionadaChange)="onFechaSeleccionada($event)"
+      (esRegaloChange)="onEsRegaloCambio($event)">
+    </app-calendario>
+
+    <div class="contenedor-info-util">
+
+      <div class="item-info">
+        <svg lucideClock class="icono-svg" [strokeWidth]="2.5"></svg>
+        <p class="texto-info">
+          <strong>Horarios del Parque:</strong> Abierto de 11:00 a 18:30 hs.
+        </p>
+      </div>
+
+      <div class="item-info">
+        <svg lucideCloudRain class="icono-svg" [strokeWidth]="2.5"></svg>
+        <p class="texto-info">
+          <strong>Seguro de Lluvia:</strong> Si llueve, es posible utilizar la entrada otro dia en el que el parque esté abierto.
+        </p>
+      </div>
+
+      <div class="item-info">
+        <svg lucideTriangleAlert class="icono-svg" [strokeWidth]="2.5"></svg>
+        <p class="texto-info">
+          <strong>Prioridad de Ingreso:</strong> Las entradas online aseguran tu lugar pero no otorgan prioridad de ingreso ni egreso respecto a la boletería física.
+        </p>
+      </div>
+
+    </div>
+  </div>
+
+  @switch (etapa)
+  {
+    @case (etapaCompra.SELECCION)
+    {
+      <app-seleccion-entradas class="panel-derecho"
+                              [fechaSeleccionada]="compraAcumulada.fechaVisita"
+                              [esRegalo]="compraAcumulada.esRegalo"
+                              [entradasPrevias]="compraAcumulada.entradas"
+                              (pasoSiguiente)="onPasoSiguiente($event)">
+      </app-seleccion-entradas>
+    }
+    @case (etapaCompra.DATOS)
+    {
+      <app-form-cliente class="panel-derecho"
+                        (siguiente)="onPasoSiguiente($event)"
+                        (atras)="volverPasoAnterior()"
+                        [datosPrevios]="compraAcumulada.cliente"
+                        [esRegalo]="compraAcumulada.esRegalo"
+                        [datosPreviosReceptor]="compraAcumulada.receptor"
+      >
+      </app-form-cliente>
+    }
+    @case (etapaCompra.RESUMEN)
+    {
+    <div class="panel-derecho">
+      @if (!pagoConfirmado) {
+        @if (aviso) {
+          <p class="aviso-pago" role="alert">{{ aviso }}</p>
+        }
+        <!-- Muestra el resumen y el botón de generar preferencia -->
+        <app-resumen
+          [datosCompra]="compraAcumulada"
+          [cargandoPago]="procesandoPago"
+          [cuponAplicado]="cuponAplicado"
+          (formaPagoChange)="onFormaPagoCambio($event)"
+          (cuponCambio)="onCuponCambio($event)"
+          (confirmarPago)="iniciarPagoMercadoPago()"
+          (volverAtras)="volverPasoAnterior()">
+        </app-resumen>
+      } @else {
+        <app-pago-exitoso
+          [codigoReserva]="codigoReservaActual"
+          [compraAcumulada]="compraAcumulada">
+        </app-pago-exitoso>
+      }
+    </div>
+
+    @if (dniAConfirmar) {
+      <app-modal (cerrar)="corregirDatosPorDni()">
+        <div class="modal-contenido" role="alertdialog">
+          <h3>Confirmá que sos vos</h3>
+          <p>{{ dniAConfirmar }}</p>
+          <label class="check-actualizar-datos">
+            <input type="checkbox" [(ngModel)]="actualizarDatosCliente" name="actualizarDatosCliente">
+            Actualizar mis datos guardados con lo que acabo de escribir
+          </label>
+          <div class="modal-acciones">
+            <button type="button" class="btn-revisar-datos" (click)="corregirDatosPorDni()">Revisar datos</button>
+            <button type="button" class="btn-revisar-datos" (click)="noSoyYo()">No soy yo</button>
+            <button type="button" class="btn-confirmar-dni" (click)="confirmarDniYContinuar()">Sí, soy yo</button>
+          </div>
+        </div>
+      </app-modal>
+    }
+  }
+  }
+</div>

@@ -1,0 +1,10 @@
+/* Encapsulación de vista de Angular: los estilos del padre (configuracion-shared.css) no
+   alcanzan a este componente hijo, hay que importarlos acá también. */
+@import '../../configuracion/configuracion-shared.css';
+
+/* Sin esto, <app-filtro-rango-fechas> es una caja propia dentro del grid del padre (ej.
+   .seccion-reportes) y el "grid-column: 1 / -1" de .tarjeta-ancha no tiene ningún efecto,
+   porque no es hijo directo de ese grid — display:contents lo saca de en medio. */
+:host {
+  display: contents;
+}

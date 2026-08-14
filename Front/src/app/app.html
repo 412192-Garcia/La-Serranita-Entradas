@@ -1,7 +1,7 @@
 
 <router-outlet />
 
-@if (actualizacionDisponible()) {
+@if (actualizacionDisponible() && !rutaPublica()) {
   <div class="banner-actualizacion">
     <span>Hay una versión nueva disponible.</span>
     <button type="button" (click)="actualizar()" [disabled]="actualizando()">

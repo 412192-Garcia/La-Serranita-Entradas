@@ -1,5 +1,6 @@
 package org.example.laserranitaentradas.service.impl;
 
+import org.example.laserranitaentradas.model.dto.CajaResponseDTO;
 import org.example.laserranitaentradas.model.dto.CierrePosnetRequestDTO;
 import org.example.laserranitaentradas.model.dto.ConteoDenominacionDTO;
 import org.example.laserranitaentradas.model.entity.Caja;
@@ -8,6 +9,7 @@ import org.example.laserranitaentradas.model.entity.Compra;
 import org.example.laserranitaentradas.model.entity.CompraDetalle;
 import org.example.laserranitaentradas.model.entity.EstadoCompra;
 import org.example.laserranitaentradas.model.entity.FormaPago;
+import org.example.laserranitaentradas.model.entity.IngresoEntradas;
 import org.example.laserranitaentradas.model.entity.RetiroCaja;
 import org.example.laserranitaentradas.model.entity.TipoEntrada;
 import org.example.laserranitaentradas.model.entity.TipoMovimientoCaja;
@@ -26,6 +28,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -33,6 +36,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -102,13 +106,13 @@ class CajaServiceImplTest {
 
     @Test
     void registrarRetiro_conMontoCero_rechaza() {
-        assertThatThrownBy(() -> service.registrarRetiro(USUARIO_ID, BigDecimal.ZERO, "motivo", null))
+        assertThatThrownBy(() -> service.registrarRetiro(USUARIO_ID, BigDecimal.ZERO, "motivo", null, null, null))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     void registrarRetiro_conMotivoVacio_rechaza() {
-        assertThatThrownBy(() -> service.registrarRetiro(USUARIO_ID, new BigDecimal("1000"), "   ", null))
+        assertThatThrownBy(() -> service.registrarRetiro(USUARIO_ID, new BigDecimal("1000"), "   ", null, null, null))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
@@ -147,7 +151,7 @@ class CajaServiceImplTest {
 
     @Test
     void registrarIngresoEntradas_conCantidadCero_rechaza() {
-        assertThatThrownBy(() -> service.registrarIngresoEntradas(USUARIO_ID, 0))
+        assertThatThrownBy(() -> service.registrarIngresoEntradas(USUARIO_ID, 0, null, null))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
@@ -272,7 +276,7 @@ class CajaServiceImplTest {
         when(retiroCajaRepository.findAllByCajaIdOrderByFechaAsc(7L)).thenReturn(List.of());
         when(ingresoEntradasRepository.findAllByCajaIdOrderByFechaAsc(7L)).thenReturn(List.of());
 
-        service.registrarRetiro(USUARIO_ID, new BigDecimal("2000"), "vuelto extra", TipoMovimientoCaja.APORTE);
+        service.registrarRetiro(USUARIO_ID, new BigDecimal("2000"), "vuelto extra", TipoMovimientoCaja.APORTE, null, null);
 
         ArgumentCaptor<RetiroCaja> captor = ArgumentCaptor.forClass(RetiroCaja.class);
         verify(retiroCajaRepository).save(captor.capture());
@@ -288,11 +292,77 @@ class CajaServiceImplTest {
         when(retiroCajaRepository.findAllByCajaIdOrderByFechaAsc(7L)).thenReturn(List.of());
         when(ingresoEntradasRepository.findAllByCajaIdOrderByFechaAsc(7L)).thenReturn(List.of());
 
-        service.registrarRetiro(USUARIO_ID, new BigDecimal("2000"), "motivo", null);
+        service.registrarRetiro(USUARIO_ID, new BigDecimal("2000"), "motivo", null, null, null);
 
         ArgumentCaptor<RetiroCaja> captor = ArgumentCaptor.forClass(RetiroCaja.class);
         verify(retiroCajaRepository).save(captor.capture());
         assertThat(captor.getValue().getTipo()).isEqualTo(TipoMovimientoCaja.RETIRO);
+    }
+
+    @Test
+    void registrarRetiro_conClaveYaProcesada_noDuplicaYDevuelveLoGuardado() {
+        // El caso que hace segura la cola offline: la petición original llegó y se guardó, pero
+        // la respuesta se perdió en el corte. El reintento trae la misma clave y no cobra dos veces.
+        Caja cajaAbierta = cajaAbierta(7L, "5000", 50);
+        RetiroCaja yaGuardado = RetiroCaja.builder()
+                .caja(cajaAbierta)
+                .monto(new BigDecimal("2000"))
+                .motivo("resguardo")
+                .tipo(TipoMovimientoCaja.RETIRO)
+                .fecha(LocalDateTime.now())
+                .idempotencyKey("clave-1")
+                .build();
+        when(retiroCajaRepository.findByIdempotencyKey("clave-1")).thenReturn(Optional.of(yaGuardado));
+        when(compraRepository.findAllByCajaId(7L)).thenReturn(List.of());
+        when(retiroCajaRepository.findAllByCajaIdOrderByFechaAsc(7L)).thenReturn(List.of(yaGuardado));
+        when(ingresoEntradasRepository.findAllByCajaIdOrderByFechaAsc(7L)).thenReturn(List.of());
+
+        CajaResponseDTO dto = service.registrarRetiro(USUARIO_ID, new BigDecimal("2000"), "resguardo",
+                TipoMovimientoCaja.RETIRO, "clave-1", null);
+
+        assertThat(dto.getId()).isEqualTo(7L);
+        verify(retiroCajaRepository, never()).save(any());
+    }
+
+    @Test
+    void registrarRetiro_conFechaOriginal_guardaEsaFechaYNoLaDeSincronizacion() {
+        // Un retiro hecho a las 14:00 sin señal y sincronizado a las 18:00 tiene que quedar
+        // registrado a las 14:00, o el detalle de caja y los reportes por hora quedan mal.
+        LocalDateTime cuandoPasoDeVerdad = LocalDateTime.of(2026, 8, 10, 14, 0);
+        Caja cajaAbierta = cajaAbierta(7L, "5000", 50);
+        when(retiroCajaRepository.findByIdempotencyKey("clave-2")).thenReturn(Optional.empty());
+        when(cajaRepository.findByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(Optional.of(cajaAbierta));
+        when(compraRepository.findAllByCajaId(7L)).thenReturn(List.of());
+        when(retiroCajaRepository.findAllByCajaIdOrderByFechaAsc(7L)).thenReturn(List.of());
+        when(ingresoEntradasRepository.findAllByCajaIdOrderByFechaAsc(7L)).thenReturn(List.of());
+
+        service.registrarRetiro(USUARIO_ID, new BigDecimal("2000"), "resguardo", TipoMovimientoCaja.RETIRO,
+                "clave-2", cuandoPasoDeVerdad);
+
+        ArgumentCaptor<RetiroCaja> captor = ArgumentCaptor.forClass(RetiroCaja.class);
+        verify(retiroCajaRepository).save(captor.capture());
+        assertThat(captor.getValue().getFecha()).isEqualTo(cuandoPasoDeVerdad);
+        assertThat(captor.getValue().getIdempotencyKey()).isEqualTo("clave-2");
+    }
+
+    @Test
+    void registrarIngresoEntradas_conClaveYaProcesada_noDuplica() {
+        Caja cajaAbierta = cajaAbierta(7L, "5000", 50);
+        IngresoEntradas yaGuardado = IngresoEntradas.builder()
+                .caja(cajaAbierta)
+                .cantidad(20)
+                .fecha(LocalDateTime.now())
+                .idempotencyKey("clave-3")
+                .build();
+        when(ingresoEntradasRepository.findByIdempotencyKey("clave-3")).thenReturn(Optional.of(yaGuardado));
+        when(compraRepository.findAllByCajaId(7L)).thenReturn(List.of());
+        when(retiroCajaRepository.findAllByCajaIdOrderByFechaAsc(7L)).thenReturn(List.of());
+        when(ingresoEntradasRepository.findAllByCajaIdOrderByFechaAsc(7L)).thenReturn(List.of(yaGuardado));
+
+        CajaResponseDTO dto = service.registrarIngresoEntradas(USUARIO_ID, 20, "clave-3", null);
+
+        assertThat(dto.getId()).isEqualTo(7L);
+        verify(ingresoEntradasRepository, never()).save(any());
     }
 
     @Test

@@ -2,7 +2,7 @@ import { Component, ElementRef, ViewChild, inject, signal } from '@angular/core'
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { LucideUser, LucideX } from '@lucide/angular';
-import { CuentaReciente, SesionService } from '../Services/sesion.service';
+import { CuentaReciente, SesionService } from '../services/sesion.service';
 
 @Component({
   selector: 'app-login',

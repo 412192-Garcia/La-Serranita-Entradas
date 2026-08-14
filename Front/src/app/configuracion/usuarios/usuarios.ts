@@ -1,11 +1,18 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { UsuarioService, Usuario } from '../../Services/usuario.service';
-import { SesionService, Rol } from '../../Services/sesion.service';
+import { UsuarioService, Usuario } from '../../services/usuario.service';
+import { SesionService, Rol } from '../../services/sesion.service';
+import { compararTexto, compararBooleano } from '../../shared/orden.util';
+import { Spinner } from '../../shared/spinner/spinner';
+import { crearOrdenable, EstadoOrden } from '../../shared/ordenable';
+import { crearEstadoEdicion } from '../../shared/edicion.util';
+import { ColumnaOrdenable } from '../../shared/columna-ordenable/columna-ordenable';
+
+type CampoOrdenUsuario = 'username' | 'nombre' | 'rol' | 'estado';
 
 @Component({
   selector: 'app-configuracion-usuarios',
-  imports: [FormsModule],
+  imports: [FormsModule, Spinner, ColumnaOrdenable],
   templateUrl: './usuarios.html',
   styleUrls: ['../configuracion-shared.css', './usuarios.css'],
 })
@@ -17,7 +24,31 @@ export class ConfiguracionUsuarios implements OnInit {
   cargando = signal(false);
   error = signal<string | null>(null);
 
-  editandoId = signal<number | null>(null);
+  mostrarInactivos = signal(false);
+  private orden = crearOrdenable<CampoOrdenUsuario>('username');
+  ordenarColumna = this.orden.ordenarColumna;
+  estadoOrden = this.orden.estadoOrden;
+
+  usuariosVisibles = computed(() => {
+    const base = this.mostrarInactivos() ? this.usuarios() : this.usuarios().filter((u) => u.activo);
+    const dir = this.orden.direccionOrden() === 'ASC' ? 1 : -1;
+    const campo = this.orden.ordenarPor();
+    return [...base].sort((a, b) => {
+      switch (campo) {
+        case 'username':
+          return compararTexto(a.username, b.username) * dir;
+        case 'nombre':
+          return compararTexto(`${a.nombre} ${a.apellido}`, `${b.nombre} ${b.apellido}`) * dir;
+        case 'rol':
+          return compararTexto(a.rol, b.rol) * dir;
+        case 'estado':
+          return compararBooleano(a.activo, b.activo) * dir;
+      }
+    });
+  });
+
+  private edicion = crearEstadoEdicion<number>();
+  editandoId = this.edicion.editandoId;
   usernameForm = signal('');
   passwordForm = signal('');
   nombreForm = signal('');
@@ -51,7 +82,7 @@ export class ConfiguracionUsuarios implements OnInit {
   }
 
   editar(u: Usuario): void {
-    this.editandoId.set(u.id);
+    this.edicion.editar(u.id);
     this.usernameForm.set(u.username);
     this.passwordForm.set('');
     this.nombreForm.set(u.nombre);
@@ -62,7 +93,7 @@ export class ConfiguracionUsuarios implements OnInit {
   }
 
   cancelarEdicion(): void {
-    this.editandoId.set(null);
+    this.edicion.cancelarEdicion();
     this.usernameForm.set('');
     this.passwordForm.set('');
     this.nombreForm.set('');

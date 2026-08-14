@@ -1,16 +1,21 @@
 import { Component, computed, effect, inject, input, output, signal } from '@angular/core';
-import { CurrencyPipe, DecimalPipe } from '@angular/common';
+import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Subject, of } from 'rxjs';
 import { catchError, switchMap } from 'rxjs/operators';
-import { BoleteriaService, CotizacionResponse, DescuentoPos, LineaArticuloPos, LineaVentaPos, Reserva } from '../../Services/boleteria.service';
+import { BoleteriaService, CotizacionResponse, DescuentoPos, LineaArticuloPos, LineaVentaPos, Reserva, VentaPosRequest } from '../../services/boleteria.service';
+import { OperacionesPendientesService } from '../../services/operaciones-pendientes.service';
 import { TipoEntrada } from '../../models/tipo-entrada';
 import { Promocion } from '../../models/promocion';
 import { FilaArticuloCarrito } from '../../models/venta-pos';
 import { FormaPagoPos } from '../../models/compra';
-import { FORMAS_PAGO } from '../formas-pago-pos';
+import { FORMAS_PAGO } from '../../models/forma-pago';
 import { MoneyInputDirective } from '../../shared/money-input/money-input.directive';
+import { ConectividadService } from '../../services/conectividad.service';
+import { DescuentoEfectivo } from '../../services/configuracion.service';
+import { cotizarLocalmente } from '../../shared/calculo-precio.util';
+import { PesosPipe } from '../../shared/pesos.pipe';
 
 export interface ItemVentaResumen {
   cantidad: number;
@@ -25,21 +30,27 @@ export interface VentaPosConfirmada {
   items: ItemVentaResumen[];
   /** Si este cobro en efectivo se hizo en dólares (no es una forma de pago aparte, sigue siendo EFECTIVO_BOLETERIA). */
   pagoEnDolares: boolean;
+  /** La venta quedó encolada sin confirmar contra el servidor: los datos son los calculados localmente. */
+  pendiente: boolean;
 }
 
 @Component({
   selector: 'app-carrito-venta',
-  imports: [CurrencyPipe, DecimalPipe, FormsModule, MoneyInputDirective],
+  imports: [PesosPipe, DecimalPipe, FormsModule, MoneyInputDirective],
   templateUrl: './carrito-venta.html',
   styleUrl: './carrito-venta.css',
 })
 export class CarritoVenta {
   private boleteriaService = inject(BoleteriaService);
+  private conectividad = inject(ConectividadService);
+  private pendientes = inject(OperacionesPendientesService);
 
   tiposEntrada = input<TipoEntrada[]>([]);
   cantidades = input<Record<number, number>>({});
   articulosCarrito = input<FilaArticuloCarrito[]>([]);
   promociones = input<Promocion[]>([]);
+  /** Escalones de precio por grupo, para poder cotizar sin conexión. */
+  descuentosEfectivo = input<DescuentoEfectivo[]>([]);
 
   quitarArticulo = output<number>();
   limpiar = output<void>();
@@ -162,12 +173,35 @@ export class CarritoVenta {
 
     this.pedidoCotizacion
       .pipe(
-        switchMap(({ formaPago, entradas, articulos, descuento }) =>
-          this.boleteriaService.cotizar(formaPago, entradas, descuento, articulos).pipe(catchError(() => of(null)))
-        ),
+        switchMap(({ formaPago, entradas, articulos, descuento }) => {
+          // Sin señal ni siquiera se intenta: el cálculo local da el mismo número y evita
+          // que el boletero vea el total "colgado" esperando un timeout en cada tecla.
+          const local = () => this.cotizarSinConexion(formaPago, entradas, articulos, descuento);
+          if (!this.conectividad.enLinea()) return of(local());
+          return this.boleteriaService
+            .cotizar(formaPago, entradas, descuento, articulos)
+            .pipe(catchError(() => of(local())));
+        }),
         takeUntilDestroyed()
       )
       .subscribe((cotizacion) => this.cotizacion.set(cotizacion));
+  }
+
+  private cotizarSinConexion(
+    formaPago: FormaPagoPos,
+    entradas: LineaVentaPos[],
+    articulos: LineaArticuloPos[],
+    descuento: DescuentoPos
+  ): CotizacionResponse {
+    return cotizarLocalmente(
+      formaPago,
+      entradas,
+      articulos,
+      descuento,
+      this.tiposEntrada(),
+      this.descuentosEfectivo(),
+      this.promociones()
+    );
   }
 
   /** Payload de descuento a mandar en cotizar/registrarVentaPos según el modo elegido. */
@@ -252,7 +286,7 @@ export class CarritoVenta {
     this.limpiar.emit();
   }
 
-  cobrar(): void {
+  async cobrar(): Promise<void> {
     if (!this.puedeCobrar()) return;
 
     this.cobrando.set(true);
@@ -263,6 +297,7 @@ export class CarritoVenta {
     const formaPago = this.formaPago();
     const pagoEnDolares = this.pagoEnDolares();
     const vuelto = pagoEnDolares ? this.vueltoEnPesosPorDolares() : this.vuelto();
+    const total = this.total();
     const items: ItemVentaResumen[] = [
       ...this.lineas().map((l) => ({ cantidad: l.cantidad, nombre: l.tipo.nombre })),
       ...this.articulosCarrito().map((a) => ({ cantidad: a.cantidad, nombre: a.nombre })),
@@ -272,18 +307,41 @@ export class CarritoVenta {
       ? { cotizacionDolar: this.cotizacionDolar(), dolaresRecibidos: this.pagaConDolares() }
       : {};
 
-    this.boleteriaService
-      .registrarVentaPos({ formaPago, entradas, articulos, ...this.descuentoPayload(), ...dolaresPayload })
-      .subscribe({
-        next: (venta) => {
-          this.cobrando.set(false);
-          this.ventaRegistrada.emit({ venta, formaPago, vuelto, items, pagoEnDolares });
-        },
-        error: (err) => {
-          console.error('Error al registrar la venta:', err);
-          this.error.set(typeof err?.error === 'string' ? err.error : 'No se pudo registrar la venta. Reintentá.');
-          this.cobrando.set(false);
-        },
-      });
+    const payload: VentaPosRequest = {
+      formaPago,
+      entradas,
+      articulos,
+      ...this.descuentoPayload(),
+      ...dolaresPayload,
+    };
+
+    // Toda venta pasa por la cola: si hay señal se confirma al instante y sigue todo igual que
+    // antes, y si no, queda guardada y se sincroniza sola (ver OperacionesPendientesService).
+    const resultado = await this.pendientes.ejecutar<Reserva>({ tipo: 'VENTA', payload });
+    this.cobrando.set(false);
+
+    if (resultado.confirmada) {
+      this.ventaRegistrada.emit({ venta: resultado.resultado, formaPago, vuelto, items, pagoEnDolares, pendiente: false });
+      return;
+    }
+
+    // Sin confirmación del servidor se arma un comprobante con lo calculado en el navegador:
+    // el cliente ya pagó y está entrando, no se lo puede hacer esperar a que vuelva la señal.
+    const ventaLocal: Reserva = {
+      id: 0,
+      codigoReserva: 'PENDIENTE',
+      cliente: null,
+      contactEmail: null,
+      contactPhone: null,
+      fechaVisita: new Date().toISOString().slice(0, 10),
+      montoTotal: total,
+      descuentoAplicado: 0,
+      estado: 'VENDIDO_EN_PUERTA',
+      formaPago,
+      detalles: null,
+      fechaValidacion: new Date().toISOString(),
+      usuarioValidador: null,
+    };
+    this.ventaRegistrada.emit({ venta: ventaLocal, formaPago, vuelto, items, pagoEnDolares, pendiente: true });
   }
 }

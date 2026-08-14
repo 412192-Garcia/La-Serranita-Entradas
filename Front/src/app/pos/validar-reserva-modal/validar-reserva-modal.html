@@ -1,5 +1,5 @@
-<div class="modal-overlay" (click)="cerrar.emit()">
-  <div class="panel-caja" (click)="$event.stopPropagation()">
+<app-modal (cerrar)="cerrar.emit()">
+  <div class="panel-caja">
     <h3>Validar reserva anticipada</h3>
     <div class="fila-panel-caja">
       <label class="campo-motivo">
@@ -37,7 +37,7 @@
                 </button>
               } @else if (r.estado === 'RESERVADO_EFECTIVO') {
                 <button type="button" class="btn-accion-reserva btn-accion-reserva-cobrar" [disabled]="procesando(r)" (click)="cobrarReserva(r)">
-                  {{ procesando(r) ? 'Registrando…' : 'Cobrar (' + (r.montoTotal | currency: 'ARS' : 'symbol' : '1.0-0') + ')' }}
+                  {{ procesando(r) ? 'Registrando…' : 'Cobrar (' + (r.montoTotal | pesos) + ')' }}
                 </button>
               } @else {
                 <span class="reserva-encontrada-estado">{{ r.estado }}</span>
@@ -48,4 +48,4 @@
       }
     }
   </div>
-</div>
+</app-modal>

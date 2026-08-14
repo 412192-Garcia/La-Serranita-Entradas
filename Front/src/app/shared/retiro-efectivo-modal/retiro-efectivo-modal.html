@@ -1,5 +1,5 @@
-<div class="modal-overlay" (click)="cerrar.emit()">
-  <div class="panel-caja" (click)="$event.stopPropagation()">
+<app-modal (cerrar)="cerrar.emit()">
+  <div class="panel-caja">
     <h3>{{ tipo() === 'APORTE' ? 'Agregar plata' : 'Retirar efectivo' }}</h3>
 
     <div class="grupo-toggle-pill">
@@ -44,12 +44,12 @@
     @if (retiros().length) {
       <ul class="lista-retiros">
         @for (r of retiros(); track r.id) {
-          <li>
+          <li [class.item-retiro]="r.tipo === 'RETIRO'" [class.item-aporte]="r.tipo === 'APORTE'">
             <span>{{ r.tipo === 'APORTE' ? '+ ' : '− ' }}{{ r.motivo }}</span>
-            <span>{{ r.monto | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+            <span>{{ r.monto | pesos }}</span>
           </li>
         }
       </ul>
     }
   </div>
-</div>
+</app-modal>

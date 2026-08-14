@@ -3,8 +3,21 @@
 <div class="barra-caja">
   <div class="barra-caja-datos">
     <span class="barra-caja-item"><strong>Caja abierta</strong></span>
-    <span class="barra-caja-item muted">Inicial {{ caja().montoInicial | currency: 'ARS' : 'symbol' : '1.0-0' }} · Retiros {{ caja().totalRetiros | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+    <span class="barra-caja-item muted">Inicial {{ caja().montoInicial | pesos }} · Retiros {{ caja().totalRetiros | pesos }}</span>
     <span class="barra-caja-item muted">Entradas: {{ caja().entradasFisicasInicial ?? '—' }}{{ caja().totalIngresosEntradas > 0 ? ' + ' + caja().totalIngresosEntradas + ' ingresadas' : '' }}</span>
+
+    @if (pendientes() > 0) {
+      <span class="chip-pendientes" title="Se registran solas cuando vuelva la señal">
+        <svg lucideCloudOff [strokeWidth]="2"></svg>
+        {{ pendientes() }} {{ pendientes() === 1 ? 'operación' : 'operaciones' }} por sincronizar
+      </span>
+    }
+    @if (conError().length > 0) {
+      <span class="chip-error-sincro" [title]="conError()[0].mensajeError ?? ''">
+        <svg lucideTriangleAlert [strokeWidth]="2"></svg>
+        {{ conError().length }} con error — avisale a un admin
+      </span>
+    }
   </div>
   <div class="barra-caja-acciones">
     <button type="button" class="btn-secundario-caja" (click)="validarReserva.emit()">Validar reserva</button>

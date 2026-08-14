@@ -7,14 +7,14 @@
         <!-- Sólo detalle: la cantidad se elige en el catálogo, acá no se modifica. -->
         <div class="linea">
           <span class="linea-nombre">{{ l.cantidad }}× {{ l.tipo.nombre }}</span>
-          <span class="linea-subtotal">{{ l.tipo.precio * l.cantidad | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+          <span class="linea-subtotal">{{ l.tipo.precio * l.cantidad | pesos }}</span>
         </div>
       }
       @for (a of articulosCarrito(); track $index) {
         <div class="linea">
           <span class="linea-nombre">{{ a.cantidad }}× {{ a.nombre }}</span>
           <span class="linea-subtotal">
-            {{ a.precioUnitario * a.cantidad | currency: 'ARS' : 'symbol' : '1.0-0' }}
+            {{ a.precioUnitario * a.cantidad | pesos }}
             <button type="button" class="btn-quitar-cierre" (click)="onQuitarArticulo($index)" aria-label="Quitar">✕</button>
           </span>
         </div>
@@ -37,7 +37,7 @@
 
     @if (ahorro() > 0) {
       <p class="aviso-promo">
-        Precio promocional por grupo aplicado — ahorra {{ ahorro() | currency: 'ARS' : 'symbol' : '1.0-0' }}
+        Precio promocional por grupo aplicado — ahorra {{ ahorro() | pesos }}
       </p>
     }
 
@@ -54,7 +54,7 @@
             <option [ngValue]="null">Elegí una promo…</option>
             @for (p of promocionesActivas(); track p.id) {
               <option [ngValue]="p.id">
-                {{ p.nombre }} ({{ p.montoDescuento !== null ? (p.montoDescuento | currency: 'ARS' : 'symbol' : '1.0-0') : p.porcentajeDescuento + '%' }})
+                {{ p.nombre }} ({{ p.montoDescuento !== null ? (p.montoDescuento | pesos) : p.porcentajeDescuento + '%' }})
               </option>
             }
           </select>
@@ -89,7 +89,7 @@
 
     <div class="fila-total">
       <span class="etiqueta-total">TOTAL</span>
-      <span class="valor-total">{{ total() | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+      <span class="valor-total">{{ total() | pesos }}</span>
     </div>
 
     @if (formaPago() === 'EFECTIVO_BOLETERIA' && hayItems()) {
@@ -134,7 +134,7 @@
             @if (vueltoEnPesosPorDolares(); as vueltoDolares) {
               <div class="vuelto-resultado">
                 <span>Vuelto en pesos</span>
-                <strong>{{ vueltoDolares | currency: 'ARS' : 'symbol' : '1.0-0' }}</strong>
+                <strong>{{ vueltoDolares | pesos }}</strong>
               </div>
             }
           }
@@ -152,7 +152,7 @@
           @if (vuelto() !== null) {
             <div class="vuelto-resultado">
               <span>Vuelto</span>
-              <strong>{{ vuelto() | currency: 'ARS' : 'symbol' : '1.0-0' }}</strong>
+              <strong>{{ vuelto() | pesos }}</strong>
             </div>
           }
         }

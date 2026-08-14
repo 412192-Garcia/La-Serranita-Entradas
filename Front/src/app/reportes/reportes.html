@@ -1,0 +1,296 @@
+<div class="panel">
+
+  <app-cabecera-interna
+    titulo="Reportes"
+    descripcion="Recaudación, afluencia y desgloses del parque." />
+
+  <div class="tabs-reportes">
+    <button type="button" class="tab-reportes" [class.activo]="vista() === 'resumen'" (click)="vista.set('resumen')">Resumen</button>
+    <button type="button" class="tab-reportes" [class.activo]="vista() === 'comparacion'" (click)="vista.set('comparacion')">Comparación</button>
+  </div>
+
+  @if (vista() === 'resumen') {
+  <div class="seccion seccion-reportes">
+
+  <app-filtro-rango-fechas
+    [(desde)]="desde"
+    [(hasta)]="hasta"
+    subtitulo="Filtra por fecha de visita. Por defecto muestra los últimos 30 días."
+    [ancho]="true"
+    [cargando]="cargando()"
+    (aplicar)="cargar()" />
+  @if (error()) {
+    <p class="alerta-error">{{ error() }}</p>
+  }
+
+  @if (resumen(); as r) {
+    <div class="tarjeta tarjeta-ancha tarjeta-kpis">
+      <div>
+        <h2>Recaudación total</h2>
+        <p class="kpi-numero">{{ r.recaudacionTotal | pesos }}</p>
+        <p class="ayuda">{{ r.cantidadCompras }} compra{{ r.cantidadCompras === 1 ? '' : 's' }} facturada{{ r.cantidadCompras === 1 ? '' : 's' }}</p>
+      </div>
+      <div>
+        <h2>Recaudación anticipada</h2>
+        @if (recaudacionPorOrigen(r, 'ANTICIPADA'); as monto) {
+          <p class="kpi-numero kpi-numero-secundario">{{ monto | pesos }}</p>
+        } @else {
+          <p class="kpi-numero kpi-numero-secundario">—</p>
+        }
+        <p class="ayuda">Cobrado por reservas online</p>
+      </div>
+      <div>
+        <h2>Recaudación en puerta</h2>
+        @if (recaudacionPorOrigen(r, 'BOLETERIA'); as monto) {
+          <p class="kpi-numero kpi-numero-secundario">{{ monto | pesos }}</p>
+        } @else {
+          <p class="kpi-numero kpi-numero-secundario">—</p>
+        }
+        <p class="ayuda">Entradas vendidas directamente en boletería</p>
+      </div>
+      <div>
+        <h2>Personas que entraron</h2>
+        <p class="kpi-numero kpi-numero-secundario">{{ r.personasIngresadas | number }}</p>
+        <p class="ayuda">Venta en puerta + anticipadas</p>
+      </div>
+    </div>
+  }
+
+  <div class="tarjeta tarjeta-ancha" [class.oculta]="!resumen()">
+    <h2>Afluencia diaria</h2>
+    <p class="ayuda">Entradas anticipadas vendidas por día vs. personas que entraron.</p>
+    <div class="grafico-contenedor grafico-contenedor-grande">
+      <canvas #afluenciaCanvas></canvas>
+    </div>
+  </div>
+
+  <div class="tarjeta tarjeta-ancha" [class.oculta]="!resumen()">
+    <h2>Desglose por tipo de entrada</h2>
+    <div class="grafico-contenedor">
+      <canvas #desgloseCanvas></canvas>
+    </div>
+    @if (resumen(); as r) {
+      <div class="tabla-simple">
+        <div class="fila-simple fila-simple-desglose fila-simple-header">
+          <span>Tipo</span><span>Cant. anticipada</span><span>Monto anticipada</span><span>Cant. boletería</span><span>Monto boletería</span>
+        </div>
+        @for (t of r.desglosePorTipo; track t.tipoEntradaId) {
+          <div class="fila-simple fila-simple-desglose">
+            <span>{{ t.nombre }}</span>
+            <span>{{ t.cantidadAnticipada }}</span>
+            <span>{{ t.montoAnticipada | pesos }}</span>
+            <span>{{ t.cantidadBoleteria }}</span>
+            <span>{{ t.montoBoleteria | pesos }}</span>
+          </div>
+        }
+      </div>
+    }
+  </div>
+
+  <div class="tarjeta" [class.oculta]="!resumen()">
+    <h2>Recaudación por forma de pago</h2>
+    <p class="ayuda">Solo compras aprobadas o ya validadas.</p>
+    <div class="grafico-contenedor grafico-torta">
+      <canvas #formaPagoCanvas></canvas>
+    </div>
+  </div>
+
+  <div class="tarjeta" [class.oculta]="!resumen()">
+    <h2>Compras por estado</h2>
+    <p class="ayuda">Todas las compras del rango, incluidas las pendientes y canceladas.</p>
+    <div class="grafico-contenedor grafico-torta">
+      <canvas #estadoCanvas></canvas>
+    </div>
+  </div>
+
+  <div class="tarjeta" [class.oculta]="!resumen()">
+    <h2>Boletería vs. anticipada</h2>
+    <p class="ayuda">Cuánto se cobró en la puerta contra reservas hechas de antemano.</p>
+    <div class="grafico-contenedor grafico-torta">
+      <canvas #origenCanvas></canvas>
+    </div>
+  </div>
+
+  @if (resumen(); as r) {
+    <div class="tarjeta">
+      <h2>Cupones aplicados</h2>
+      <p class="ayuda">Descuento total otorgado por códigos de cupón en anticipadas.</p>
+      <p class="kpi-numero kpi-numero-secundario">{{ r.totalDescuentos | pesos }}</p>
+      <p class="ayuda">{{ r.cantidadComprasConDescuento }} compra{{ r.cantidadComprasConDescuento === 1 ? '' : 's' }} con cupón aplicado</p>
+    </div>
+  }
+
+  <div class="tarjeta tarjeta-ancha" [class.oculta]="!resumen()">
+    <h2>Extras vendidos</h2>
+    <p class="ayuda">Extras vendidos con las anticipadas.</p>
+    <div class="grafico-contenedor">
+      <canvas #extrasCanvas></canvas>
+    </div>
+    @if (resumen(); as r) {
+      @if (r.desgloseExtras.length === 0) {
+        <p class="ayuda">No hay extras activos configurados.</p>
+      } @else {
+        <div class="tabla-simple">
+          <div class="fila-simple fila-simple-desglose-simple fila-simple-header">
+            <span>Extra</span><span>Cantidad</span><span>Monto</span>
+          </div>
+          @for (t of r.desgloseExtras; track t.tipoEntradaId) {
+            <div class="fila-simple fila-simple-desglose-simple">
+              <span>{{ t.nombre }}</span>
+              <span>{{ t.cantidadAnticipada }}</span>
+              <span>{{ t.montoAnticipada | pesos }}</span>
+            </div>
+          }
+        </div>
+      }
+    }
+  </div>
+
+  <div class="tarjeta tarjeta-ancha" [class.oculta]="!resumen()">
+    <h2>Compras por hora del día</h2>
+    <p class="ayuda">A qué hora se hacen más compras.</p>
+    <div class="grafico-contenedor">
+      <canvas #horaCanvas></canvas>
+    </div>
+  </div>
+
+  <div class="tarjeta tarjeta-ancha" [class.oculta]="!resumen()">
+    <h2>Ventas de artículos varios</h2>
+    <p class="ayuda">Souvenirs y demás artículos vendidos en boletería, aparte de las entradas.</p>
+    <div class="grafico-contenedor">
+      <canvas #articulosVariosCanvas></canvas>
+    </div>
+    @if (resumen(); as r) {
+      @if (r.ventasArticulosVarios.length === 0) {
+        <p class="ayuda">No se vendieron artículos varios en el rango.</p>
+      } @else {
+        <div class="tabla-simple">
+          <div class="fila-simple fila-simple-desglose-simple fila-simple-header">
+            <span>Artículo</span><span>Cantidad</span><span>Monto</span>
+          </div>
+          @for (a of r.ventasArticulosVarios; track a.articuloVarioId ?? a.nombre) {
+            <div class="fila-simple fila-simple-desglose-simple">
+              <span>{{ a.nombre }}</span>
+              <span>{{ a.cantidad }}</span>
+              <span>{{ a.monto | pesos }}</span>
+            </div>
+          }
+        </div>
+      }
+    }
+  </div>
+
+  @if (resumen(); as r) {
+    <div class="tarjeta tarjeta-ancha">
+      <h2>Uso de promociones en puerta</h2>
+      <p class="ayuda">Sólo cuenta ventas hechas desde que se empezó a registrar qué promo se usó en cada una.</p>
+      @if (r.usoPromociones.length === 0) {
+        <p class="ayuda">No se aplicaron promociones en el rango.</p>
+      } @else {
+        <div class="tabla-simple">
+          <div class="fila-simple fila-simple-desglose-simple fila-simple-header">
+            <span>Promoción</span><span>Ventas</span><span>Descontado</span>
+          </div>
+          @for (p of r.usoPromociones; track p.promocionId) {
+            <div class="fila-simple fila-simple-desglose-simple">
+              <span>{{ p.nombre }}</span>
+              <span>{{ p.cantidadVentas }}</span>
+              <span>{{ p.totalDescontado | pesos }}</span>
+            </div>
+          }
+        </div>
+      }
+    </div>
+
+    <div class="tarjeta">
+      <h2>Ventas y saldo en dólares</h2>
+      <p class="ayuda">Cobros en efectivo hechos en dólares.</p>
+      <p class="kpi-numero kpi-numero-secundario">U$S {{ r.ventasDolares.totalDolaresRecibidos | number: '1.2-2' }}</p>
+      <p class="ayuda">
+        {{ r.ventasDolares.cantidadVentas }} venta{{ r.ventasDolares.cantidadVentas === 1 ? '' : 's' }}
+        · equivalente {{ r.ventasDolares.totalEquivalenteArs | pesos }}
+        @if (r.ventasDolares.cotizacionPromedio !== null) {
+          · cotización promedio {{ r.ventasDolares.cotizacionPromedio | pesos }}
+        }
+      </p>
+    </div>
+  }
+
+  </div>
+  }
+
+  @if (vista() === 'comparacion') {
+    <div class="tarjeta tarjeta-ancha">
+      <h2>Comparar períodos</h2>
+      <p class="ayuda">Agregá los rangos que quieras comparar (años, temporadas, fechas móviles como Semana Santa) y compará sus números lado a lado.</p>
+
+      <div class="lista-periodos-comparar">
+        @for (p of periodos(); track $index) {
+          <div class="fila-periodo-comparar">
+            <input
+              type="text"
+              placeholder="Etiqueta (ej: Semana Santa 2026)"
+              class="input-etiqueta-periodo"
+              [ngModel]="p.etiqueta"
+              (ngModelChange)="actualizarPeriodo($index, 'etiqueta', $event)" />
+            <input type="date" [ngModel]="p.desde" (ngModelChange)="actualizarPeriodo($index, 'desde', $event)" />
+            <input type="date" [ngModel]="p.hasta" (ngModelChange)="actualizarPeriodo($index, 'hasta', $event)" />
+            @if (periodos().length > 1) {
+              <button type="button" class="btn-quitar-periodo" (click)="quitarPeriodo($index)" aria-label="Quitar período">✕</button>
+            }
+          </div>
+        }
+      </div>
+
+      <div class="acciones-comparar">
+        <button type="button" class="btn-secundario" (click)="agregarPeriodo()">+ Agregar período</button>
+        <button type="button" class="btn-primario" [disabled]="comparando()" (click)="compararPeriodos()">
+          {{ comparando() ? 'Comparando…' : 'Comparar' }}
+        </button>
+      </div>
+
+      @if (huboComparacion()) {
+        <div class="tabla-simple">
+          <div class="fila-simple fila-simple-comparacion fila-simple-header">
+            <span>Período</span><span>Recaudación total</span><span>Anticipada</span><span>En puerta</span><span>Personas</span>
+          </div>
+          @for (p of periodos(); track $index) {
+            <div class="fila-simple fila-simple-comparacion">
+              <span>{{ p.etiqueta || (p.desde + ' → ' + p.hasta) }}</span>
+              @if (p.resumen; as r) {
+                <span>{{ r.recaudacionTotal | pesos }}</span>
+                <span>{{ (recaudacionPorOrigen(r, 'ANTICIPADA') ?? 0) | pesos }}</span>
+                <span>{{ (recaudacionPorOrigen(r, 'BOLETERIA') ?? 0) | pesos }}</span>
+                <span>{{ r.personasIngresadas | number }}</span>
+              } @else {
+                <span>—</span><span>—</span><span>—</span><span>—</span>
+              }
+            </div>
+          }
+        </div>
+
+        <div class="graficos-comparacion">
+          <div>
+            <h3 class="subtitulo-comparacion">Recaudación por período</h3>
+            <div class="grafico-contenedor">
+              <canvas #comparacionRecaudacionCanvas></canvas>
+            </div>
+          </div>
+          <div>
+            <h3 class="subtitulo-comparacion">Personas que entraron</h3>
+            <div class="grafico-contenedor">
+              <canvas #comparacionPersonasCanvas></canvas>
+            </div>
+          </div>
+          <div class="grafico-comparacion-ancho">
+            <h3 class="subtitulo-comparacion">Entradas vendidas por tipo</h3>
+            <div class="grafico-contenedor">
+              <canvas #comparacionTiposCanvas></canvas>
+            </div>
+          </div>
+        </div>
+      }
+    </div>
+  }
+
+</div>

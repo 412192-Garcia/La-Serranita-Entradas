@@ -1,4 +1,4 @@
-@import '../pos-shared.css';
+@import '../../shared/pos-caja.css';
 
 .barra-caja {
   display: flex;
@@ -31,4 +31,36 @@
 .barra-caja-acciones {
   display: flex;
   gap: 8px;
+}
+
+/* Ámbar, no rojo: hay operaciones sin subir pero no pasó nada malo, se resuelve solo. */
+.chip-pendientes,
+.chip-error-sincro {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  margin-top: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.chip-pendientes {
+  background-color: var(--color-accent-light);
+  color: var(--color-accent-dark);
+}
+
+/* Esto sí necesita intervención de alguien: el servidor rechazó la operación. */
+.chip-error-sincro {
+  background-color: var(--color-danger-light);
+  color: var(--color-danger-dark);
+}
+
+.chip-pendientes svg,
+.chip-error-sincro svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
 }

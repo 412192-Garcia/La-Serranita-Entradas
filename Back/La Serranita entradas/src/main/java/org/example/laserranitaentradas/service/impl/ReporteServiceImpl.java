@@ -7,13 +7,18 @@ import org.example.laserranitaentradas.model.dto.DesgloseTipoEntradaDTO;
 import org.example.laserranitaentradas.model.dto.RecaudacionPorFormaPagoDTO;
 import org.example.laserranitaentradas.model.dto.ReporteResumenDTO;
 import org.example.laserranitaentradas.model.dto.TipoListadoCompra;
+import org.example.laserranitaentradas.model.dto.UsoPromocionDTO;
+import org.example.laserranitaentradas.model.dto.VentaArticuloVarioDTO;
+import org.example.laserranitaentradas.model.dto.VentasDolaresDTO;
 import org.example.laserranitaentradas.model.dto.VentasPorHoraDTO;
 import org.example.laserranitaentradas.model.dto.VentasPorOrigenDTO;
+import org.example.laserranitaentradas.model.entity.ArticuloVario;
 import org.example.laserranitaentradas.model.entity.Caja;
 import org.example.laserranitaentradas.model.entity.Compra;
 import org.example.laserranitaentradas.model.entity.CompraDetalle;
 import org.example.laserranitaentradas.model.entity.EstadoCompra;
 import org.example.laserranitaentradas.model.entity.FormaPago;
+import org.example.laserranitaentradas.model.entity.Promocion;
 import org.example.laserranitaentradas.model.entity.Tipo;
 import org.example.laserranitaentradas.model.entity.TipoEntrada;
 import org.example.laserranitaentradas.model.entity.TipoMovimientoCaja;
@@ -25,6 +30,7 @@ import org.example.laserranitaentradas.service.ReporteService;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
@@ -108,6 +114,21 @@ public class ReporteServiceImpl implements ReporteService {
         /** Gente que realmente cruzó la puerta: venta en puerta (siempre) + reservas anticipadas ya validadas por DNI. */
         long personasIngresadas = 0;
 
+        Map<Long, ArticuloVario> articulosPorId = new HashMap<>();
+        Map<Long, Long> cantidadPorArticulo = new HashMap<>();
+        Map<Long, BigDecimal> montoPorArticulo = new HashMap<>();
+        long cantidadArticulosSinCatalogo = 0;
+        BigDecimal montoArticulosSinCatalogo = BigDecimal.ZERO;
+
+        Map<Long, Promocion> promocionesPorId = new HashMap<>();
+        Map<Long, Long> cantidadPorPromocion = new HashMap<>();
+        Map<Long, BigDecimal> descuentoPorPromocion = new HashMap<>();
+
+        long cantidadVentasDolares = 0;
+        BigDecimal totalDolaresRecibidos = BigDecimal.ZERO;
+        BigDecimal totalEquivalenteArsDolares = BigDecimal.ZERO;
+        BigDecimal sumaCotizacionPonderada = BigDecimal.ZERO;
+
         for (Compra compra : compras) {
             boolean cobrada = ESTADOS_COBRADOS.contains(compra.getEstado());
             boolean vendida = ESTADOS_VENDIDOS.contains(compra.getEstado());
@@ -126,6 +147,23 @@ public class ReporteServiceImpl implements ReporteService {
                 }
                 cantidadPorFormaPago.merge(compra.getFormaPago(), 1L, Long::sum);
                 montoPorFormaPago.merge(compra.getFormaPago(), compra.getMontoTotal(), BigDecimal::add);
+
+                if (compra.getPromocion() != null) {
+                    Promocion promo = compra.getPromocion();
+                    promocionesPorId.putIfAbsent(promo.getId(), promo);
+                    cantidadPorPromocion.merge(promo.getId(), 1L, Long::sum);
+                    BigDecimal descuentoPromo = compra.getDescuentoAplicado() != null ? compra.getDescuentoAplicado() : BigDecimal.ZERO;
+                    descuentoPorPromocion.merge(promo.getId(), descuentoPromo, BigDecimal::add);
+                }
+                if (compra.getDolaresRecibidos() != null) {
+                    cantidadVentasDolares++;
+                    totalDolaresRecibidos = totalDolaresRecibidos.add(compra.getDolaresRecibidos());
+                    totalEquivalenteArsDolares = totalEquivalenteArsDolares.add(compra.getMontoTotal());
+                    if (compra.getCotizacionDolar() != null) {
+                        sumaCotizacionPonderada = sumaCotizacionPonderada.add(
+                                compra.getCotizacionDolar().multiply(compra.getDolaresRecibidos()));
+                    }
+                }
 
                 TipoListadoCompra origen = esBoleteria ? TipoListadoCompra.BOLETERIA : TipoListadoCompra.ANTICIPADA;
                 cantidadPorOrigen.merge(origen, 1L, Long::sum);
@@ -166,8 +204,23 @@ public class ReporteServiceImpl implements ReporteService {
             if (cobrada) {
                 for (CompraDetalle detalle : compra.getDetalles()) {
                     // Las líneas de artículo vario (venta en puerta) no tienen tipoEntrada: no
-                    // entran en este desglose por tipo/extra (queda fuera de este reporte).
-                    if (detalle.getTipoEntrada() == null) continue;
+                    // entran en el desglose por tipo/extra, van al reporte de artículos varios aparte.
+                    if (detalle.getTipoEntrada() == null) {
+                        BigDecimal montoLinea = detalle.getPrecioUnitario() != null
+                                ? detalle.getPrecioUnitario().multiply(BigDecimal.valueOf(detalle.getCantidad()))
+                                : BigDecimal.ZERO;
+                        if (detalle.getArticuloVario() != null) {
+                            ArticuloVario articulo = detalle.getArticuloVario();
+                            articulosPorId.putIfAbsent(articulo.getId(), articulo);
+                            cantidadPorArticulo.merge(articulo.getId(), (long) detalle.getCantidad(), Long::sum);
+                            montoPorArticulo.merge(articulo.getId(), montoLinea, BigDecimal::add);
+                        } else {
+                            // Línea suelta que el cajero tipeó sin cargarla al catálogo (descripcionLibre).
+                            cantidadArticulosSinCatalogo += detalle.getCantidad();
+                            montoArticulosSinCatalogo = montoArticulosSinCatalogo.add(montoLinea);
+                        }
+                        continue;
+                    }
                     TipoEntrada tipo = detalle.getTipoEntrada();
                     BigDecimal monto = tipo.getPrecio().multiply(BigDecimal.valueOf(detalle.getCantidad()));
                     if (tipo.getTipo() == Tipo.ENTRADA) {
@@ -295,10 +348,35 @@ public class ReporteServiceImpl implements ReporteService {
                     diferencia));
         }
 
+        List<VentaArticuloVarioDTO> ventasArticulosVarios = new ArrayList<>(articulosPorId.values().stream()
+                .sorted((a, b) -> a.getNombre().compareToIgnoreCase(b.getNombre()))
+                .map(articulo -> new VentaArticuloVarioDTO(articulo.getId(), articulo.getNombre(),
+                        cantidadPorArticulo.get(articulo.getId()), montoPorArticulo.get(articulo.getId())))
+                .toList());
+        if (cantidadArticulosSinCatalogo > 0) {
+            ventasArticulosVarios.add(new VentaArticuloVarioDTO(
+                    null, "Sin catálogo (texto libre)", cantidadArticulosSinCatalogo, montoArticulosSinCatalogo));
+        }
+
+        List<UsoPromocionDTO> usoPromociones = promocionesPorId.values().stream()
+                .sorted((a, b) -> a.getNombre().compareToIgnoreCase(b.getNombre()))
+                .map(promo -> new UsoPromocionDTO(promo.getId(), promo.getNombre(),
+                        cantidadPorPromocion.get(promo.getId()), descuentoPorPromocion.get(promo.getId())))
+                .toList();
+
+        VentasDolaresDTO ventasDolares = new VentasDolaresDTO(
+                cantidadVentasDolares,
+                totalDolaresRecibidos,
+                totalEquivalenteArsDolares,
+                totalDolaresRecibidos.compareTo(BigDecimal.ZERO) > 0
+                        ? sumaCotizacionPonderada.divide(totalDolaresRecibidos, 2, RoundingMode.HALF_UP)
+                        : null);
+
         return new ReporteResumenDTO(desde, hasta, recaudacionTotal, cantidadCompras, personasIngresadas, afluenciaDiaria,
                 desglosePorTipo, recaudacionPorFormaPago, comprasPorEstado, desgloseExtras, ventasPorHora,
                 ventasPorOrigen, totalDescuentos, cantidadComprasConDescuento,
-                cajas, totalRetirosCajas, totalFaltantesCajas, totalSobrantesCajas);
+                cajas, totalRetirosCajas, totalFaltantesCajas, totalSobrantesCajas,
+                ventasArticulosVarios, usoPromociones, ventasDolares);
     }
 
     private List<DesgloseTipoEntradaDTO> ordenarPorNombre(Map<Long, TipoEntrada> tiposPorId,

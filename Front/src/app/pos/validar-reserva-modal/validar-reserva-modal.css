@@ -1,4 +1,4 @@
-@import '../pos-shared.css';
+@import '../../shared/pos-caja.css';
 
 .btn-buscar-reserva {
   flex: 0 0 auto;

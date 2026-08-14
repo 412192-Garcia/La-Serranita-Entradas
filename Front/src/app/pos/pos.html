@@ -5,9 +5,9 @@
     descripcion="Cobrá y registra la compra." />
 
   @if (cargandoCaja()) {
-    <div class="spinner-contenedor"><div class="spinner"></div></div>
+    <app-spinner />
   } @else if (caja() === null) {
-    <app-apertura-caja (cajaAbierta)="caja.set($event)" />
+    <app-apertura-caja (cajaAbierta)="onCajaAbierta($event)" />
   } @else {
 
     <app-barra-caja
@@ -26,6 +26,7 @@
       <app-retiro-efectivo-modal
         [retiros]="caja()!.retiros"
         (retiroRegistrado)="onRetiroRegistrado($event)"
+        (retiroEncolado)="onRetiroEncolado($event)"
         (cerrar)="mostrarRetiro.set(false)" />
     }
 
@@ -33,6 +34,7 @@
       <app-ingreso-entradas-modal
         [ingresos]="caja()!.ingresosEntradas"
         (ingresoRegistrado)="onIngresoEntradasRegistrado($event)"
+        (ingresoEncolado)="onIngresoEntradasEncolado($event)"
         (cerrar)="mostrarIngresoEntradas.set(false)" />
     }
 
@@ -42,6 +44,7 @@
         [formaPago]="venta.formaPago"
         [vuelto]="venta.vuelto"
         [items]="venta.items"
+        [pendiente]="venta.pendiente"
         (nuevaVenta)="nuevaVenta()" />
     } @else {
 
@@ -50,7 +53,7 @@
       }
 
       @if (cargando()) {
-        <div class="spinner-contenedor"><div class="spinner"></div></div>
+        <app-spinner />
       } @else {
         <div class="pos-layout">
 
@@ -70,6 +73,7 @@
             [cantidades]="cantidades()"
             [articulosCarrito]="articulosCarrito()"
             [promociones]="promociones()"
+            [descuentosEfectivo]="descuentosEfectivo()"
             (quitarArticulo)="onQuitarArticulo($event)"
             (limpiar)="onLimpiar()"
             (ventaRegistrada)="onVentaRegistrada($event)" />

@@ -38,6 +38,7 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -108,10 +109,19 @@ public class CajaServiceImpl implements CajaService {
 
     @Transactional
     @Override
-    public CajaResponseDTO registrarRetiro(Long usuarioId, BigDecimal monto, String motivo, TipoMovimientoCaja tipo) {
+    public CajaResponseDTO registrarRetiro(Long usuarioId, BigDecimal monto, String motivo, TipoMovimientoCaja tipo,
+                                            String idempotencyKey, LocalDateTime fechaOriginal) {
+        // Antes que nada: si esta misma operación ya se procesó (reintento de algo cuya respuesta
+        // se perdió en un corte), devolver lo guardado en vez de crear un movimiento duplicado.
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            Optional<RetiroCaja> yaRegistrado = retiroCajaRepository.findByIdempotencyKey(idempotencyKey);
+            if (yaRegistrado.isPresent()) {
+                return toDto(yaRegistrado.get().getCaja());
+            }
+        }
         validarMovimiento(monto, motivo);
         Caja caja = getAbiertaOrThrow(usuarioId);
-        return guardarMovimiento(caja, monto, motivo, tipo);
+        return guardarMovimiento(caja, monto, motivo, tipo, idempotencyKey, fechaOriginal);
     }
 
     @Transactional
@@ -123,7 +133,7 @@ public class CajaServiceImpl implements CajaService {
         if (caja.getFechaCierre() != null) {
             throw new IllegalStateException("Esta caja ya está cerrada");
         }
-        return guardarMovimiento(caja, monto, motivo, tipo);
+        return guardarMovimiento(caja, monto, motivo, tipo, null, null);
     }
 
     private void validarMovimiento(BigDecimal monto, String motivo) {
@@ -135,14 +145,16 @@ public class CajaServiceImpl implements CajaService {
         }
     }
 
-    /** Guarda un retiro o un aporte sobre una caja ya resuelta y validada (propia o, más adelante, ajena vía admin). */
-    private CajaResponseDTO guardarMovimiento(Caja caja, BigDecimal monto, String motivo, TipoMovimientoCaja tipo) {
+    /** Guarda un retiro o un aporte sobre una caja ya resuelta y validada (propia o ajena vía admin). */
+    private CajaResponseDTO guardarMovimiento(Caja caja, BigDecimal monto, String motivo, TipoMovimientoCaja tipo,
+                                               String idempotencyKey, LocalDateTime fechaOriginal) {
         RetiroCaja movimiento = RetiroCaja.builder()
                 .caja(caja)
                 .monto(monto)
                 .motivo(motivo.trim())
                 .tipo(tipo == null ? TipoMovimientoCaja.RETIRO : tipo)
-                .fecha(LocalDateTime.now())
+                .fecha(fechaOriginal == null ? LocalDateTime.now() : fechaOriginal)
+                .idempotencyKey(idempotencyKey)
                 .build();
         retiroCajaRepository.save(movimiento);
 
@@ -151,7 +163,15 @@ public class CajaServiceImpl implements CajaService {
 
     @Transactional
     @Override
-    public CajaResponseDTO registrarIngresoEntradas(Long usuarioId, Integer cantidad) {
+    public CajaResponseDTO registrarIngresoEntradas(Long usuarioId, Integer cantidad,
+                                                     String idempotencyKey, LocalDateTime fechaOriginal) {
+        // Ver registrarRetiro: un reintento con la misma clave no vuelve a sumar entradas.
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            Optional<IngresoEntradas> yaRegistrado = ingresoEntradasRepository.findByIdempotencyKey(idempotencyKey);
+            if (yaRegistrado.isPresent()) {
+                return toDto(yaRegistrado.get().getCaja());
+            }
+        }
         if (cantidad == null || cantidad <= 0) {
             throw new IllegalArgumentException("La cantidad de entradas tiene que ser mayor a cero");
         }
@@ -161,7 +181,8 @@ public class CajaServiceImpl implements CajaService {
         IngresoEntradas ingreso = IngresoEntradas.builder()
                 .caja(caja)
                 .cantidad(cantidad)
-                .fecha(LocalDateTime.now())
+                .fecha(fechaOriginal == null ? LocalDateTime.now() : fechaOriginal)
+                .idempotencyKey(idempotencyKey)
                 .build();
         ingresoEntradasRepository.save(ingreso);
 

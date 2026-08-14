@@ -2,7 +2,7 @@ import { HttpInterceptorFn } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { catchError, throwError } from 'rxjs';
-import { SesionService } from '../Services/sesion.service';
+import { SesionService } from '../services/sesion.service';
 
 /** Adjunta el JWT de la sesión a cada request y cierra sesión si el backend responde 401. */
 export const authInterceptor: HttpInterceptorFn = (req, next) => {

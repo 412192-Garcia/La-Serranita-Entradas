@@ -17,11 +17,9 @@
   }
 
   @if (mostrarAperturaCaja()) {
-    <div class="modal-overlay" (click)="mostrarAperturaCaja.set(false)">
-      <div (click)="$event.stopPropagation()">
-        <app-apertura-caja (cajaAbierta)="onCajaAbierta($event)" />
-      </div>
-    </div>
+    <app-modal (cerrar)="mostrarAperturaCaja.set(false)">
+      <app-apertura-caja (cajaAbierta)="onCajaAbierta($event)" />
+    </app-modal>
   }
 
   <!-- ============ CONTROLES DE BÚSQUEDA ============ -->
@@ -123,7 +121,7 @@
 
   <!-- ============ RESULTADOS ============ -->
   @if (buscando()) {
-    <div class="spinner-contenedor"><div class="spinner"></div></div>
+    <app-spinner />
   } @else if (visibles() !== null) {
 
     @if (visibles()!.length === 0) {
@@ -148,35 +146,19 @@
         <div class="fila fila-header">
           <button type="button" class="col-titular col-ordenable" (click)="ordenarColumna('titular')">
             Titular
-            @switch (estadoOrden('titular')) {
-              @case ('asc') { <svg lucideArrowUp [strokeWidth]="2"></svg> }
-              @case ('desc') { <svg lucideArrowDown [strokeWidth]="2"></svg> }
-              @default { <svg lucideChevronsUpDown [strokeWidth]="2" class="icono-orden-inactivo"></svg> }
-            }
+            <app-columna-ordenable [estado]="estadoOrden('titular')" />
           </button>
           <button type="button" class="col-fecha col-ordenable" (click)="ordenarColumna('fechaVisita')">
             Fecha visita
-            @switch (estadoOrden('fechaVisita')) {
-              @case ('asc') { <svg lucideArrowUp [strokeWidth]="2"></svg> }
-              @case ('desc') { <svg lucideArrowDown [strokeWidth]="2"></svg> }
-              @default { <svg lucideChevronsUpDown [strokeWidth]="2" class="icono-orden-inactivo"></svg> }
-            }
+            <app-columna-ordenable [estado]="estadoOrden('fechaVisita')" />
           </button>
           <button type="button" class="col-codigo col-ordenable" (click)="ordenarColumna('codigoReserva')">
             Código
-            @switch (estadoOrden('codigoReserva')) {
-              @case ('asc') { <svg lucideArrowUp [strokeWidth]="2"></svg> }
-              @case ('desc') { <svg lucideArrowDown [strokeWidth]="2"></svg> }
-              @default { <svg lucideChevronsUpDown [strokeWidth]="2" class="icono-orden-inactivo"></svg> }
-            }
+            <app-columna-ordenable [estado]="estadoOrden('codigoReserva')" />
           </button>
           <button type="button" class="col-estado col-ordenable" (click)="ordenarColumna('estado')">
             Estado
-            @switch (estadoOrden('estado')) {
-              @case ('asc') { <svg lucideArrowUp [strokeWidth]="2"></svg> }
-              @case ('desc') { <svg lucideArrowDown [strokeWidth]="2"></svg> }
-              @default { <svg lucideChevronsUpDown [strokeWidth]="2" class="icono-orden-inactivo"></svg> }
-            }
+            <app-columna-ordenable [estado]="estadoOrden('estado')" />
           </button>
           <span class="col-accion">Acción</span>
           <span class="col-menu"></span>
@@ -241,7 +223,7 @@
                   </button>
                 }
                 @case ('RESERVADO_EFECTIVO') {
-                  <span class="monto-cobrar">{{ v.reserva.montoTotal | currency: 'ARS' : 'symbol' : '1.0-0' }}</span>
+                  <span class="monto-cobrar">{{ v.reserva.montoTotal | pesos }}</span>
                   <button type="button" class="btn-accion btn-cobrar" [disabled]="procesando(v.reserva)" (click)="cobrarYValidar(v.reserva)">
                     {{ procesando(v.reserva) ? 'Registrando…' : 'Cobrar y Validar' }}
                   </button>
@@ -325,8 +307,8 @@
   }
 
   @if (editando(); as reserva) {
-    <div class="modal-overlay" (click)="cancelarEdicion()">
-      <div class="modal-contenido" (click)="$event.stopPropagation()">
+    <app-modal (cerrar)="cancelarEdicion()">
+      <div class="modal-contenido">
         <h3>Editar contacto — #{{ reserva.codigoReserva }}</h3>
         @if (errorEdit()) {
           <p class="alerta-error">{{ errorEdit() }}</p>
@@ -354,6 +336,6 @@
           </button>
         </div>
       </div>
-    </div>
+    </app-modal>
   }
 </div>

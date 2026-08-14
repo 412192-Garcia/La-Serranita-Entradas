@@ -9,6 +9,18 @@
   gap: 16px;
 }
 
+.cabecera-texto {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.logo-cabecera {
+  height: 40px;
+  width: auto;
+  flex-shrink: 0;
+}
+
 .cabecera h1 {
   font-family: var(--font-heading);
   font-size: 1.5rem;

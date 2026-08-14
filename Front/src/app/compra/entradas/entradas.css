@@ -1,0 +1,256 @@
+/*
+ * Este módulo se embebe dentro del sitio del parque, en una caja de ~760px como
+ * máximo. Por eso los puntos de quiebre miran el ancho de ESTA caja (@container)
+ * y no el de la ventana: si miraran la ventana, en una notebook de 1400px no se
+ * dispararía ninguno y el layout quedaría en dos columnas dentro de 760px.
+ * Funciona igual si el embebido termina siendo un iframe.
+ *
+ * El contenedor va en el :host y no en .modulo-compra-container porque una
+ * consulta @container sólo puede mirar a un contenedor ANCESTRO: si lo declarara
+ * el mismo elemento que quiero reacomodar, la regla no se aplicaría nunca.
+ */
+:host {
+  container: modulo / inline-size;
+  display: block;
+  width: 100%;
+}
+
+.modulo-compra-container {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: stretch; /* stretch iguala la altura de ambas columnas a la del contenido más alto */
+  width: 100%;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.columna-izquierda-contenido {
+  flex: 0 0 28%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--gradient-accent);
+  padding: 16px 20px;
+  gap: 10px; /* Mantiene la separación sana entre el calendario y el cartel */
+  justify-content: flex-start; /* ⚡ Obliga a los elementos a acomodarse uno abajo del otro en orden natural */
+  box-sizing: border-box;
+}
+
+app-calendario {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* =========================================
+   ℹ️ CONTENEDOR DE INFORMACIÓN ÚTIL
+   ========================================= */
+.contenedor-info-util {
+  width: 100%;
+  max-width: 440px; /* Sigue exactamente el ancho del calendario */
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px; /* Separación interna entre los renglones */
+  padding: 12px 16px; /* Aire interno para que el texto no toque los bordes */
+  box-sizing: border-box;
+  font-family: var(--font-body);
+
+  /* ⚡ CLAVE: Fondo diferenciado sutil pero firme usando un tono naranja quemado */
+  background-color: var(--color-accent-dark);
+  border-radius: var(--radius-lg); /* Esquinas curvas redondeadas en armonía con el diseño */
+  box-shadow: var(--shadow-card);
+}
+
+.item-info {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  background: none !important;
+  border: none !important;
+  padding: 0 !important;
+}
+
+/* Los vectores SVG limpios en blanco puro */
+.icono-svg {
+  width: 18px;
+  height: 18px;
+  color: #ffffff;
+  flex-shrink: 0;
+  margin-top: 2px; /* Centrado óptico perfecto */
+}
+
+.texto-info {
+  font-size: 0.82rem; /* Un toque más compacto para refinar el bloque */
+  color: rgba(255, 255, 255, 0.95); /* Blanco de alta legibilidad */
+  line-height: 1.35;
+  margin: 0;
+  text-align: left;
+}
+
+.texto-info strong {
+  font-weight: 800;
+  color: #ffffff;
+  display: inline;
+  margin-right: 5px;
+}
+
+/* Opcional: Si querés darle un mínimo mimo extra a la prioridad adentro de la caja */
+.item-info.de-prioridad .texto-info strong {
+  color: #ffeaa7; /* Un tono amarillo pastel muy sutil solo al título de advertencia */
+}
+
+
+.panel-derecho {
+  flex: 1 1 70%;
+  width: 100%;
+  /* align-items:stretch (arriba) ya iguala el alto de este contenedor con el de la
+     columna izquierda; sin esto, la tarjeta blanca de adentro (que sí se ve, con su
+     propio fondo/sombra) sólo mide lo que ocupa su contenido y queda mucho más baja
+     que la columna naranja, aunque este panel invisible ya tenga la altura correcta. */
+  display: flex;
+  flex-direction: column;
+}
+
+/* app-resumen pone .panel-resumen como hijo directo de .panel-derecho: que ocupe todo
+   el alto disponible (en vez de sólo el de su contenido) es lo que iguala las columnas. */
+.panel-derecho > app-resumen {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+/* La tarjeta de "pago exitoso" es angosta y a propósito (max-width: 460px, contenido
+   centrado): en vez de estirarla, se centra dentro del alto disponible para que no
+   quede pegada arriba con un montón de aire abajo. */
+.panel-derecho > app-pago-exitoso {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Avisos del checkout (antes eran alert() nativos del navegador). */
+.aviso-pago {
+  background-color: var(--color-danger-light);
+  color: var(--color-danger-dark);
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  margin: 0 0 16px;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+/* Modal de confirmación de DNI: no es un error (por eso el color de acento, no el de
+   peligro) — sólo hay que confirmar si la compra es realmente de la persona que ya
+   está registrada con ese DNI. Se muestra encima del resumen (no lo reemplaza), para
+   que la compra en curso siga visible detrás. */
+.modal-contenido {
+  background-color: #ffffff;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card-lg);
+  padding: 28px;
+  width: 100%;
+  max-width: 440px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-top: 4px solid var(--color-accent);
+}
+
+.modal-contenido h3 {
+  margin: 0 0 6px;
+  font-family: var(--font-heading);
+  font-size: 1.15rem;
+  color: var(--color-text);
+}
+
+.modal-contenido p {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.4;
+  color: var(--color-text-secondary);
+}
+
+.check-actualizar-datos {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  font-size: 0.88rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.check-actualizar-datos input {
+  cursor: pointer;
+}
+
+.modal-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.btn-confirmar-dni {
+  background-color: var(--color-primary);
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 24px;
+  font-size: 0.95rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-confirmar-dni:hover {
+  background-color: var(--color-primary-dark);
+}
+
+.btn-revisar-datos {
+  background: none;
+  border: 1px solid var(--color-accent-dark);
+  color: var(--color-accent-dark);
+  border-radius: 6px;
+  padding: 10px 24px;
+  font-size: 0.95rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-revisar-datos:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+@container modulo (max-width: 600px) {
+  .columna-izquierda-contenido{
+    min-width: 100%;
+    padding: 10px 10px
+  }
+}
+
+@container modulo (max-width: 1200px) {
+  .modulo-compra-container {
+    flex-direction: column;
+    align-items: center;
+    gap: 30px;
+    padding: 0px;
+  }
+
+  .panel-derecho  {
+    flex: none;
+    width: 100%;
+  }
+}
+
+

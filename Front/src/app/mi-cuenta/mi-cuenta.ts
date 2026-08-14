@@ -1,9 +1,9 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { LucideUser } from '@lucide/angular';
-import { UsuarioService } from '../Services/usuario.service';
-import { SesionService } from '../Services/sesion.service';
-import { PALETAS_PREARMADAS, PALETAS_FONDO, PALETAS_TARJETA, PALETAS_BORDE, DISENIOS_PREARMADOS, DisenioPrearmado, ThemeService } from '../Services/theme.service';
+import { UsuarioService } from '../services/usuario.service';
+import { SesionService } from '../services/sesion.service';
+import { PALETAS_PREARMADAS, PALETAS_FONDO, PALETAS_TARJETA, PALETAS_BORDE, DISENIOS_PREARMADOS, DisenioPrearmado, ThemeService } from '../services/theme.service';
 import { CabeceraInterna } from '../shared/cabecera-interna/cabecera-interna';
 
 const PRIMARIO_POR_DEFECTO = '#39a935';

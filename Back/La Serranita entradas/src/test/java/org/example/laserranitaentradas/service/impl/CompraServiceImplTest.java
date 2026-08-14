@@ -315,6 +315,40 @@ class CompraServiceImplTest {
         assertThat(resultado.getMontoTotal()).isEqualByComparingTo("200");
     }
 
+    // ---------- Cola offline: reintentar no puede cobrar dos veces ----------
+
+    @Test
+    void registrarVentaPos_conClaveYaProcesada_devuelveLaCompraGuardadaSinCobrarDeNuevo() {
+        // El caso que hace segura la cola offline: la venta original llegó y se guardó, pero la
+        // respuesta se perdió en el corte. El reintento trae la misma clave y no cobra dos veces.
+        Compra yaRegistrada = Compra.builder().id(123L).idempotencyKey("clave-venta-1").build();
+        when(compraRepository.findByIdempotencyKey("clave-venta-1")).thenReturn(Optional.of(yaRegistrada));
+        var request = ventaPosBasica();
+        request.setIdempotencyKey("clave-venta-1");
+
+        Compra resultado = service.registrarVentaPos(request, 9L);
+
+        assertThat(resultado.getId()).isEqualTo(123L);
+        verify(compraRepository, never()).save(any());
+    }
+
+    @Test
+    void registrarVentaPos_conFechaOriginal_registraEseMomentoYNoElDeSincronizacion() {
+        // Una venta cobrada a las 23:50 sin señal y sincronizada pasada la medianoche tiene que
+        // quedar como visita de ESE día, no del siguiente, y con la hora real en el detalle de caja.
+        java.time.LocalDateTime cuandoSeCobro = java.time.LocalDateTime.of(2026, 8, 10, 23, 50);
+        mockearVentaPosBasica();
+        var request = ventaPosBasica();
+        request.setIdempotencyKey("clave-venta-2");
+        request.setFechaOriginal(cuandoSeCobro);
+
+        Compra resultado = service.registrarVentaPos(request, 9L);
+
+        assertThat(resultado.getFechaValidacion()).isEqualTo(cuandoSeCobro);
+        assertThat(resultado.getFechaVisita()).isEqualTo(cuandoSeCobro.toLocalDate());
+        assertThat(resultado.getIdempotencyKey()).isEqualTo("clave-venta-2");
+    }
+
     // ---------- Cobro en dólares: sigue siendo EFECTIVO_BOLETERIA, sólo cambia la moneda física ----------
 
     @Test

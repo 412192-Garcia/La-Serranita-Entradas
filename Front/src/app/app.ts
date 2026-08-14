@@ -2,7 +2,7 @@ import { Component, inject, signal } from '@angular/core';
 import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { SwUpdate, VersionReadyEvent } from '@angular/service-worker';
 import { filter } from 'rxjs';
-import { SesionService } from './Services/sesion.service';
+import { SesionService } from './services/sesion.service';
 
 /** Rutas del módulo público (compra de entradas): comparten bundle/injector con el módulo
  *  interno, así que necesitan excluirse a mano — nunca deben pintarse con un tema personalizado. */
@@ -25,6 +25,11 @@ export class App {
   actualizacionDisponible = signal(false);
   actualizando = signal(false);
 
+  /** El módulo público se embebe como iframe en el sitio del parque, sin instalación PWA
+   *  propia: el cartel de "hay una versión nueva" es un concepto de la app de gestión (que
+   *  el staff sí instala), no tiene sentido mostrárselo a un visitante comprando entradas. */
+  rutaPublica = signal(false);
+
   constructor() {
     if (this.swUpdate.isEnabled) {
       this.swUpdate.versionUpdates
@@ -37,6 +42,7 @@ export class App {
     // dispositivo tiene guardada una sesión de staff con colores propios.
     this.router.events.pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd)).subscribe((e) => {
       const esRutaPublica = RUTAS_PUBLICAS.some((ruta) => e.urlAfterRedirects.startsWith(ruta));
+      this.rutaPublica.set(esRutaPublica);
       this.sesion.aplicarTema(esRutaPublica ? null : this.sesion.usuario());
     });
   }

@@ -670,6 +670,16 @@ public class CompraServiceImpl implements CompraService {
     @Transactional
     @Override
     public Compra registrarVentaPos(VentaPosRequestDTO request, Long usuarioVendedorId) {
+        // Antes que nada: si esta misma venta ya se procesó (reintento del POS de algo cuya
+        // respuesta se perdió en un corte de conexión), devolver la compra guardada en vez de
+        // cobrarla dos veces.
+        String idempotencyKey = request.getIdempotencyKey();
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            Optional<Compra> yaRegistrada = compraRepository.findByIdempotencyKey(idempotencyKey);
+            if (yaRegistrada.isPresent()) {
+                return yaRegistrada.get();
+            }
+        }
         if (request.getFormaPago() == null) {
             throw new IllegalArgumentException("Debe indicar la forma de pago del cobro");
         }
@@ -689,7 +699,11 @@ public class CompraServiceImpl implements CompraService {
         // El visitante está entrando en este momento, así que la fecha de visita es hoy.
         // A diferencia de la compra online no se valida que el día esté marcado como
         // abierto: si hay alguien vendiendo en la boletería, el parque está abierto.
-        LocalDate hoy = LocalDate.now();
+        // fechaOriginal la manda el POS cuando la venta estuvo encolada sin conexión: se usa
+        // para que una venta cobrada a las 23:50 y sincronizada pasada la medianoche no quede
+        // registrada como visita del día siguiente.
+        LocalDateTime momentoVenta = request.getFechaOriginal() == null ? LocalDateTime.now() : request.getFechaOriginal();
+        LocalDate hoy = momentoVenta.toLocalDate();
 
         DetallesCalculados calculoEntradas = construirDetalles(request.getEntradas(), request.getFormaPago(), hoy);
         DetallesCalculados calculoArticulos = construirLineasArticulos(request.getArticulos());
@@ -707,6 +721,11 @@ public class CompraServiceImpl implements CompraService {
         BigDecimal descuento = calcularDescuentoPos(montoBruto, request.getPromocionId(),
                 request.getDescuentoManualPorcentaje(), request.getDescuentoManualMonto());
         BigDecimal montoFinal = montoBruto.subtract(descuento);
+        // calcularDescuentoPos ya validó que la promo exista y esté activa: se vuelve a buscar
+        // acá sólo para poder guardar la referencia en la Compra (ver comentario en Compra.promocion).
+        Promocion promocionUsada = request.getPromocionId() != null
+                ? promocionRepository.findById(request.getPromocionId()).orElse(null)
+                : null;
 
         // Pagar en dólares sigue siendo un cobro en EFECTIVO_BOLETERIA (misma forma de pago,
         // sólo cambia la moneda física): sólo se activa si el request manda cotización. El
@@ -744,10 +763,12 @@ public class CompraServiceImpl implements CompraService {
                 .estado(EstadoCompra.VENDIDO_EN_PUERTA)
                 .formaPago(request.getFormaPago())
                 .usuarioValidador(vendedor)
-                .fechaValidacion(LocalDateTime.now())
+                .fechaValidacion(momentoVenta)
                 .caja(caja)
+                .promocion(promocionUsada)
                 .cotizacionDolar(cotizacionDolar)
                 .dolaresRecibidos(dolaresRecibidos)
+                .idempotencyKey(idempotencyKey)
                 .build();
 
         for (CompraDetalle det : todosLosDetalles) {

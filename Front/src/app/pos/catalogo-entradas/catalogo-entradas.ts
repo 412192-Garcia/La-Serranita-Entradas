@@ -1,13 +1,13 @@
 import { Component, input, output, signal } from '@angular/core';
-import { CurrencyPipe } from '@angular/common';
 import { TipoEntrada } from '../../models/tipo-entrada';
+import { PesosPipe } from '../../shared/pesos.pipe';
 
 /** Números de un toque para las entradas obligatorias (pagas). Más que eso, se escribe a mano. */
 const NUMEROS_RAPIDOS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
 @Component({
   selector: 'app-catalogo-entradas',
-  imports: [CurrencyPipe],
+  imports: [PesosPipe],
   templateUrl: './catalogo-entradas.html',
   styleUrl: './catalogo-entradas.css',
 })

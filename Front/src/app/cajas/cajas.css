@@ -1,0 +1,149 @@
+@import '../shared/pos-caja.css';
+
+:host {
+  display: block;
+  width: 100%;
+  min-height: 100vh;
+  background-color: var(--color-bg-page);
+  font-family: var(--font-body);
+  color: var(--color-text);
+}
+
+/* El resumen de cierre trae su propia grilla de bloques (efectivo/posnet/entradas): el
+   ancho angosto por defecto de .panel-caja lo aprieta demasiado. */
+.panel-caja-resultado-cierre {
+  max-width: 640px;
+}
+
+.panel-caja-resultado-cierre .btn-primario {
+  align-self: flex-end;
+}
+
+.panel {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 28px 36px 48px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.tarjeta-kpis-cajas {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin-bottom: 16px;
+}
+
+.kpi-numero {
+  font-family: var(--font-heading);
+  font-size: 2.4rem;
+  font-weight: 800;
+  color: var(--color-primary-dark);
+  margin: 4px 0;
+}
+
+.kpi-numero-secundario {
+  color: var(--color-text);
+}
+
+.kpi-numero-negativo {
+  color: var(--color-danger-dark);
+}
+
+.fila-simple-cajas {
+  grid-template-columns: 1.3fr 1fr 1fr 0.9fr 0.9fr 0.9fr 0.9fr 0.9fr;
+  font-size: 0.85rem;
+}
+
+.fila-simple-cajas-abiertas {
+  grid-template-columns: 1.3fr 0.9fr 0.9fr 1fr 0.8fr auto;
+  align-items: center;
+}
+
+.fila-simple-cajas-abiertas .btn-secundario {
+  justify-self: end;
+  padding: 6px 12px;
+  font-size: 0.78rem;
+}
+
+.fila-simple-ranking {
+  grid-template-columns: 1.6fr 1fr 1fr 1fr 1fr;
+  font-size: 0.9rem;
+}
+
+.filtro-boleteros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.chip-filtro {
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-soft);
+  color: var(--color-text);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.chip-filtro.activo {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+
+.diferencia-faltante {
+  color: var(--color-danger-dark);
+  font-weight: 700;
+}
+
+.diferencia-sobrante {
+  color: var(--color-primary-dark);
+  font-weight: 700;
+}
+
+.diferencia-exacta {
+  color: var(--color-text-secondary);
+}
+
+.fila-clickable {
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: background-color 0.15s ease;
+}
+
+.fila-clickable:hover {
+  background-color: var(--color-bg-soft);
+}
+
+.fila-clickable.fila-expandida {
+  background-color: var(--color-primary-light);
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+
+.fila-detalle-expandida {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 16px;
+  margin-bottom: 4px;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  background-color: var(--color-bg-soft);
+  border-top: 2px solid var(--color-primary);
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 900px) {
+  .tarjeta-kpis-cajas { grid-template-columns: 1fr; }
+  .fila-simple-cajas { grid-template-columns: 1fr; font-size: 0.8rem; }
+  .fila-simple-ranking { grid-template-columns: 1fr; font-size: 0.8rem; }
+}
+
+@media (max-width: 600px) {
+  .panel { padding: 20px 16px 32px; }
+}

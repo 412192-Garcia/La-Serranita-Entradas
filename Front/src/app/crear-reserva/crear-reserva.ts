@@ -1,11 +1,13 @@
 import { Component, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { CurrencyPipe, DatePipe } from '@angular/common';
-import { Calendario } from '../calendario/calendario';
-import { SeleccionEntradas } from '../seleccion-entradas/seleccion-entradas';
-import { FormCliente } from '../form-cliente/form-cliente';
-import { CompraService, CompraResponseDTO } from '../Services/compra.service';
+import { DatePipe } from '@angular/common';
+import { Calendario } from '../compra/calendario/calendario';
+import { SeleccionEntradas } from '../compra/seleccion-entradas/seleccion-entradas';
+import { FormCliente } from '../compra/form-cliente/form-cliente';
+import { CompraService, CompraResponseDTO } from '../services/compra.service';
 import { CabeceraInterna } from '../shared/cabecera-interna/cabecera-interna';
+import { Modal } from '../shared/modal/modal';
+import { PesosPipe } from '../shared/pesos.pipe';
 
 enum EtapaReserva {
   SELECCION,
@@ -36,7 +38,7 @@ function datosVacios(): DatosReserva {
 
 @Component({
   selector: 'app-crear-reserva',
-  imports: [FormsModule, CurrencyPipe, DatePipe, Calendario, SeleccionEntradas, FormCliente, CabeceraInterna],
+  imports: [FormsModule, PesosPipe, DatePipe, Calendario, SeleccionEntradas, FormCliente, CabeceraInterna, Modal],
   templateUrl: './crear-reserva.html',
   styleUrl: './crear-reserva.css',
 })
