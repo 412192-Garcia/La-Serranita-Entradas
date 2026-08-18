@@ -56,6 +56,11 @@
 .btn-numero:hover { border-color: var(--color-primary); }
 .btn-numero:active { transform: scale(0.96); }
 
+.btn-numero:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(57, 169, 53, 0.35);
+}
+
 .btn-numero.activo {
   border-color: var(--color-primary);
   background-color: var(--color-primary);
@@ -90,8 +95,8 @@
 }
 
 .btn-cant {
-  width: 38px;
-  height: 38px;
+  width: 44px;
+  height: 44px;
   border: 1.5px solid var(--color-border);
   background-color: var(--color-card-bg);
   border-radius: var(--radius-sm);

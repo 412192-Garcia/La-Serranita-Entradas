@@ -3,6 +3,9 @@
     @if (!hayItems()) {
       <p class="carrito-vacio">Tocá una entrada para empezar la venta.</p>
     } @else {
+      <!-- Lejos de "Cobrar" a propósito: vaciar el carrito es irreversible, no debería
+           quedar al lado del botón que se toca todo el tiempo. -->
+      <button type="button" class="btn-vaciar-carrito" (click)="onLimpiar()">Vaciar carrito</button>
       @for (l of lineas(); track l.tipo.id) {
         <!-- Sólo detalle: la cantidad se elige en el catálogo, acá no se modifica. -->
         <div class="linea">
@@ -50,7 +53,7 @@
         </div>
 
         @if (modoDescuento() === 'promo') {
-          <select [ngModel]="promocionSeleccionadaId()" (ngModelChange)="promocionSeleccionadaId.set($event)">
+          <select aria-label="Elegí una promoción" [ngModel]="promocionSeleccionadaId()" (ngModelChange)="promocionSeleccionadaId.set($event)">
             <option [ngValue]="null">Elegí una promo…</option>
             @for (p of promocionesActivas(); track p.id) {
               <option [ngValue]="p.id">
@@ -73,7 +76,7 @@
                 (ngModelChange)="setDescuentoManualPorcentaje($event)" />
             </label>
             <label>
-              $
+              $ <span class="hint-descuento-maximo">(máx. {{ montoMaximoDescuento() | pesos }})</span>
               <input
                 type="text"
                 inputmode="numeric"
@@ -168,9 +171,6 @@
     }
 
     <div class="acciones">
-      @if (hayItems()) {
-        <button type="button" class="btn-limpiar" (click)="onLimpiar()">Limpiar</button>
-      }
       <button type="button" class="btn-cobrar" [disabled]="!puedeCobrar()" (click)="cobrar()">
         {{ cobrando() ? 'Registrando…' : 'Cobrar' }}
       </button>

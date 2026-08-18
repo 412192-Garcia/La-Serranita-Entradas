@@ -59,6 +59,53 @@
   color: var(--color-primary-dark);
 }
 
+/* Stepper +/- para cantidades, con un input editable en el medio (ver .stepper-input más abajo):
+   sirve tanto para tocar de a uno como para escribir el número directo. */
+.stepper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.btn-cant {
+  width: 44px;
+  height: 44px;
+  border: 1.5px solid var(--color-border);
+  background-color: var(--color-card-bg);
+  border-radius: var(--radius-sm);
+  font-size: 1.2rem;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.btn-cant:hover { border-color: var(--color-primary); color: var(--color-primary-dark); }
+.btn-cant:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* A diferencia de .stepper-cantidad (span, sólo lectura), este es un input real: hay pantallas
+   donde el +/- de a uno no alcanza (reponer talonario, que se carga de a cientos) y hace falta
+   poder escribir el número directo. */
+.stepper-input {
+  width: 64px;
+  padding: 6px 4px;
+  text-align: center;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-heading);
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: var(--color-text);
+  background-color: var(--color-input-bg);
+  outline: none;
+}
+
+.stepper-input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(57, 169, 53, 0.15);
+}
+
 .alerta-error {
   background-color: var(--color-danger-light);
   color: var(--color-danger-dark);
@@ -265,8 +312,8 @@
 
 .btn-quitar-cierre {
   flex: 0 0 auto;
-  width: 36px;
-  height: 36px;
+  width: 42px;
+  height: 42px;
   border: 1.5px solid var(--color-border);
   background-color: var(--color-card-bg);
   border-radius: var(--radius-sm);
@@ -276,3 +323,16 @@
 }
 
 .btn-quitar-cierre:hover { border-color: var(--color-danger); color: var(--color-danger-dark); }
+
+/* Foco de teclado visible: mismo anillo que ya usa Boletería (ver boleteria.css). El POS no
+   tenía ninguna regla de :focus-visible — navegar con Tab no se notaba en ningún botón. */
+.btn-toggle-pill:focus-visible,
+.btn-limpiar:focus-visible,
+.btn-cobrar:focus-visible,
+.btn-secundario-caja:focus-visible,
+.btn-quitar-cierre:focus-visible,
+.btn-nueva-venta:focus-visible,
+.btn-cant:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(57, 169, 53, 0.35);
+}

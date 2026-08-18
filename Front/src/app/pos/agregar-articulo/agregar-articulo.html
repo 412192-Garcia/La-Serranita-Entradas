@@ -5,7 +5,7 @@
 
   @if (mostrarPanel()) {
     <div class="panel-agregar-articulo">
-      <select [ngModel]="seleccion()" (ngModelChange)="elegirOpcion($event)">
+      <select aria-label="Elegí un artículo" [ngModel]="seleccion()" (ngModelChange)="elegirOpcion($event)">
         <option [ngValue]="null">Elegí un artículo…</option>
         @for (a of catalogoActivo(); track a.id) {
           <option [ngValue]="a.id">{{ a.nombre }}</option>
@@ -46,7 +46,17 @@
 
       <label>
         Cantidad
-        <input type="number" min="1" [ngModel]="cantidad()" (ngModelChange)="cantidad.set($event)" />
+        <div class="stepper">
+          <button type="button" class="btn-cant" (click)="decrementarCantidad()" aria-label="Restar uno">−</button>
+          <input
+            type="text"
+            inputmode="numeric"
+            class="stepper-input"
+            aria-label="Cantidad"
+            [ngModel]="cantidad()"
+            (ngModelChange)="setCantidad($event)" />
+          <button type="button" class="btn-cant" (click)="incrementarCantidad()" aria-label="Sumar uno">+</button>
+        </div>
       </label>
 
       <button type="button" class="btn-cobrar" (click)="confirmar()">Agregar al carrito</button>

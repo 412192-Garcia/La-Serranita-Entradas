@@ -6,6 +6,10 @@ import com.mercadopago.exceptions.MPApiException;
 import com.mercadopago.exceptions.MPException;
 import com.mercadopago.net.MPSearchRequest;
 import com.mercadopago.resources.payment.Payment;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.Root;
 import jakarta.transaction.Transactional;
 import org.example.laserranitaentradas.model.dto.*;
 import org.example.laserranitaentradas.model.entity.Caja;
@@ -28,6 +32,7 @@ import org.example.laserranitaentradas.service.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
@@ -62,6 +67,7 @@ public class CompraServiceImpl implements CompraService {
     private final PromocionRepository promocionRepository;
     private final ArticuloVarioRepository articuloVarioRepository;
     private final Map<FormaPago, PagoService> estrategiasPago;
+    private final EntityManager em;
 
     public CompraServiceImpl
             (CompraRepository compraRepository,
@@ -75,7 +81,8 @@ public class CompraServiceImpl implements CompraService {
              CajaService cajaService,
              PromocionRepository promocionRepository,
              ArticuloVarioRepository articuloVarioRepository,
-             List<PagoService> estrategiasDisponibles)
+             List<PagoService> estrategiasDisponibles,
+             EntityManager em)
     {
         this.compraRepository = compraRepository;
         this.tipoEntradaService = tipoEntradaService;
@@ -90,6 +97,7 @@ public class CompraServiceImpl implements CompraService {
         this.articuloVarioRepository = articuloVarioRepository;
         this.estrategiasPago = estrategiasDisponibles.stream()
                 .collect(Collectors.toMap(PagoService::getFormaPago, estrategia -> estrategia));
+        this.em = em;
     }
 
     /**
@@ -357,6 +365,12 @@ public class CompraServiceImpl implements CompraService {
 
     @Override
     public Page<Compra> buscar(BusquedaComprasFiltroDTO filtro, Pageable pageable) {
+        Specification<Compra> spec = construirSpecBusqueda(filtro);
+        return compraRepository.findAll(spec, pageable);
+    }
+
+    /** Mismo criterio de `buscar()` (tipo→estados, texto, fecha(s), forma de pago) armado como Specification reutilizable. */
+    private Specification<Compra> construirSpecBusqueda(BusquedaComprasFiltroDTO filtro) {
         List<EstadoCompra> estados = filtro.estados();
         if (filtro.tipo() == TipoListadoCompra.BOLETERIA) {
             // La venta de puerta es el único estado que nunca fue una reserva anticipada.
@@ -368,14 +382,48 @@ public class CompraServiceImpl implements CompraService {
                     .toList();
         }
 
-        Specification<Compra> spec = Specification.allOf(
+        return Specification.allOf(
                 CompraSpecifications.textoLibre(filtro.texto()),
                 CompraSpecifications.fecha(filtro.fecha()),
+                CompraSpecifications.sinFecha(filtro.sinFecha()),
+                CompraSpecifications.fechaDesde(filtro.fechaDesde()),
+                CompraSpecifications.fechaHasta(filtro.fechaHasta()),
                 CompraSpecifications.estadoIn(estados),
                 CompraSpecifications.formaPago(filtro.formaPago())
         );
+    }
 
-        return compraRepository.findAll(spec, pageable);
+    @Override
+    public Page<LocalDate> fechasDistintas(BusquedaComprasFiltroDTO filtro, Pageable pageable) {
+        Specification<Compra> spec = construirSpecBusqueda(filtro);
+
+        // JpaSpecificationExecutor no ofrece proyecciones (sólo entidades completas), así que
+        // para "fechaVisita distintas" hace falta armar la Criteria a mano — reutilizando el
+        // mismo Specification de arriba, que sólo necesita un (root, query, cb) cualquiera.
+        CriteriaBuilder cb = em.getCriteriaBuilder();
+
+        // Los regalos (fechaVisita null) quedan afuera de esta enumeración a propósito: tienen
+        // su propio bloque en Boletería (filtro sinFecha de /buscar, ver CompraSpecifications),
+        // así que esta paginación por día —pensada para "Ver todas las fechas"— es sólo de días
+        // reales, sin una entrada fantasma para ellos.
+        CriteriaQuery<LocalDate> queryDatos = cb.createQuery(LocalDate.class);
+        Root<Compra> rootDatos = queryDatos.from(Compra.class);
+        queryDatos.select(rootDatos.get("fechaVisita"))
+                .distinct(true)
+                .where(cb.and(spec.toPredicate(rootDatos, queryDatos, cb), cb.isNotNull(rootDatos.get("fechaVisita"))))
+                .orderBy(cb.asc(rootDatos.get("fechaVisita")));
+        List<LocalDate> pagina = em.createQuery(queryDatos)
+                .setFirstResult((int) pageable.getOffset())
+                .setMaxResults(pageable.getPageSize())
+                .getResultList();
+
+        CriteriaQuery<Long> queryConteo = cb.createQuery(Long.class);
+        Root<Compra> rootConteo = queryConteo.from(Compra.class);
+        queryConteo.select(cb.countDistinct(rootConteo.get("fechaVisita")))
+                .where(cb.and(spec.toPredicate(rootConteo, queryConteo, cb), cb.isNotNull(rootConteo.get("fechaVisita"))));
+        long total = em.createQuery(queryConteo).getSingleResult();
+
+        return new PageImpl<>(pagina, pageable, total);
     }
 
     @Transactional

@@ -1,4 +1,5 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, HostListener, OnInit, inject, signal } from '@angular/core';
+import { Router } from '@angular/router';
 import { BoleteriaService } from '../services/boleteria.service';
 import { TipoEntradaService } from '../services/tipo-entrada.service';
 import { CajaService, Caja } from '../services/caja.service';
@@ -15,13 +16,40 @@ import { CabeceraInterna } from '../shared/cabecera-interna/cabecera-interna';
 import { Spinner } from '../shared/spinner/spinner';
 import { AperturaCaja } from './apertura-caja/apertura-caja';
 import { BarraCaja } from './barra-caja/barra-caja';
-import { ValidarReservaModal } from './validar-reserva-modal/validar-reserva-modal';
 import { RetiroEfectivoModal } from '../shared/retiro-efectivo-modal/retiro-efectivo-modal';
 import { IngresoEntradasModal } from './ingreso-entradas-modal/ingreso-entradas-modal';
 import { CatalogoEntradas } from './catalogo-entradas/catalogo-entradas';
 import { AgregarArticulo } from './agregar-articulo/agregar-articulo';
 import { CarritoVenta, VentaPosConfirmada } from './carrito-venta/carrito-venta';
 import { ComprobanteVenta } from './comprobante-venta/comprobante-venta';
+import { TourStep } from '../shared/tour/tour';
+import { DetectorEscaneoDni, extraerDniDeEscaneo } from '../shared/escaner-dni.util';
+
+/** Los targets sólo existen con una caja abierta (antes de eso la pantalla es sólo el
+ * formulario de apertura) — asumible porque para llegar a tocar "Tutorial" acá ya hace
+ * falta haber abierto la caja. */
+const PASOS_TUTORIAL: TourStep[] = [
+  {
+    selector: '[data-tour="barra-caja"]',
+    titulo: 'Tu caja',
+    texto: 'Acá ves el estado de tu caja y accedés a Retiro/Aporte y Reponer talonario. Para validar el ingreso de alguien que ya tiene una entrada, escaneá su DNI en cualquier momento: te lleva directo a Control de Accesos con la búsqueda hecha.',
+  },
+  {
+    selector: '[data-tour="catalogo"]',
+    titulo: 'Catálogo de entradas',
+    texto: 'Tocá la cantidad de cada tipo para sumarla a la venta. El orden de las entradas se define desde Configuración → Catálogo.',
+  },
+  {
+    selector: '[data-tour="agregar-articulo"]',
+    titulo: 'Artículos varios',
+    texto: 'Souvenirs y otros artículos que no son entradas se agregan desde acá.',
+  },
+  {
+    selector: '[data-tour="carrito"]',
+    titulo: 'Cobrar',
+    texto: 'Revisá el resumen, elegí la forma de pago y tocá Cobrar para cerrar la venta.',
+  },
+];
 
 @Component({
   selector: 'app-pos',
@@ -30,7 +58,6 @@ import { ComprobanteVenta } from './comprobante-venta/comprobante-venta';
     Spinner,
     AperturaCaja,
     BarraCaja,
-    ValidarReservaModal,
     RetiroEfectivoModal,
     IngresoEntradasModal,
     CatalogoEntradas,
@@ -49,13 +76,15 @@ export class Pos implements OnInit {
   private articuloVarioService = inject(ArticuloVarioService);
   private configuracionService = inject(ConfiguracionService);
   private cache = inject(PosCacheService);
+  private router = inject(Router);
+
+  readonly pasosTutorial = PASOS_TUTORIAL;
 
   // ---------- Caja: sin una abierta no se puede vender ----------
   cargandoCaja = signal(true);
   /** Caja abierta del boletero; null = no tiene ninguna en curso (hay que abrir una — o pedirle a un admin que cierre la que ya está abierta). */
   caja = signal<Caja | null>(null);
 
-  mostrarBusquedaReserva = signal(false);
   mostrarRetiro = signal(false);
   mostrarIngresoEntradas = signal(false);
 
@@ -229,5 +258,40 @@ export class Pos implements OnInit {
   nuevaVenta(): void {
     this.ultimaVenta.set(null);
     this.onLimpiar();
+  }
+
+  // ---------- Escaneo de DNI de fondo: reemplaza el viejo botón "Validar reserva" ----------
+  // Al escanear el DNI de alguien que ya tiene una entrada, en vez de un modal de búsqueda acá
+  // mismo, se navega directo a Control de Accesos (Boletería) con la búsqueda ya hecha — un
+  // paso menos, y reutiliza la pantalla que ya sabe validar/cobrar.
+  private detectorEscaneo = new DetectorEscaneoDni((escaneo) => {
+    // Con un modal de retiro/ingreso abierto no se pregunta nada: interrumpirlo a mitad de
+    // tipeo con un confirm() encima sería peor que directamente ignorar el escaneo acá — ese
+    // DNI habrá que buscarlo a mano en Boletería después.
+    if (this.mostrarRetiro() || this.mostrarIngresoEntradas()) return;
+
+    // Mientras se ve el comprobante el carrito ya quedó "viejo" (se limpia recién al tocar
+    // "Nueva venta"), así que no cuenta como venta en curso para este chequeo.
+    const ventaEnCurso = !this.ultimaVenta() && this.hayCarritoEnCurso();
+    if (ventaEnCurso) {
+      const seguir = window.confirm(
+        'Hay una venta sin cobrar en el carrito. ¿La cancelás para ir a validar este DNI en Control de Accesos?'
+      );
+      if (!seguir) return;
+    }
+
+    // Al navegar se destruye esta pantalla (y con ella el carrito en curso): no hace falta
+    // limpiarlo a mano antes de irse.
+    const dni = extraerDniDeEscaneo(escaneo);
+    this.router.navigate(['/boleteria'], { queryParams: { dni } });
+  });
+
+  @HostListener('window:keydown', ['$event'])
+  onKeydownGlobal(event: KeyboardEvent): void {
+    this.detectorEscaneo.procesarTecla(event);
+  }
+
+  private hayCarritoEnCurso(): boolean {
+    return Object.values(this.cantidades()).some((c) => c > 0) || this.articulosCarrito().length > 0;
   }
 }

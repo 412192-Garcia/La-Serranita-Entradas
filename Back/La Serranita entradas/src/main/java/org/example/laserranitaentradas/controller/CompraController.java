@@ -109,6 +109,14 @@ public class CompraController {
     public ResponseEntity<Page<CompraResponseDTO>> buscar(
             @RequestParam(required = false) String texto,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fecha,
+            // Rango usado por la vista agrupada por día de Boletería ("ver todas las fechas"):
+            // trae todas las compras de los días de una página (ver /fechas-visita más abajo),
+            // en vez de un único fecha= puntual.
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaDesde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaHasta,
+            // Regalos (fechaVisita null): mutuamente excluyente con fecha/fechaDesde/fechaHasta,
+            // que nunca matchean NULL — ver comentario en CompraSpecifications.sinFecha.
+            @RequestParam(required = false) Boolean sinFecha,
             @RequestParam(required = false) TipoListadoCompra tipo,
             @RequestParam(required = false) List<EstadoCompra> estados,
             @RequestParam(required = false) FormaPago formaPago,
@@ -125,9 +133,31 @@ public class CompraController {
             orden = orden.and(Sort.by(Sort.Direction.ASC, "codigoReserva"));
         }
         Pageable pageable = PageRequest.of(Math.max(page, 0), tamanioPagina, orden);
-        BusquedaComprasFiltroDTO filtro = new BusquedaComprasFiltroDTO(texto, fecha, tipo, estados, formaPago);
+        BusquedaComprasFiltroDTO filtro = new BusquedaComprasFiltroDTO(texto, fecha, fechaDesde, fechaHasta, sinFecha, tipo, estados, formaPago);
         Page<CompraResponseDTO> resultado = compraService.buscar(filtro, pageable).map(CompraController::entityToDto);
         return ResponseEntity.ok(resultado);
+    }
+
+    @GetMapping("/fechas-visita")
+    @Operation(summary = "Días distintos con compras, paginados por día",
+            description = "Mismos filtros que /buscar (menos orden), pero pagina por cantidad de días con al menos " +
+                    "una compra en vez de por cantidad de compras. La vista agrupada por día de Boletería la usa " +
+                    "para saber qué días le tocan a cada página sin partir un día a la mitad entre dos páginas: " +
+                    "primero pide acá la página de días, y con el primer/último día de esa página vuelve a llamar " +
+                    "a /buscar con fechaDesde/fechaHasta para traer todas las compras de esos días completos.")
+    public ResponseEntity<Page<LocalDate>> fechasVisita(
+            @RequestParam(required = false) String texto,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaDesde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaHasta,
+            @RequestParam(required = false) TipoListadoCompra tipo,
+            @RequestParam(required = false) List<EstadoCompra> estados,
+            @RequestParam(required = false) FormaPago formaPago,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        int tamanioPagina = Math.min(Math.max(size, 1), 200);
+        Pageable pageable = PageRequest.of(Math.max(page, 0), tamanioPagina);
+        BusquedaComprasFiltroDTO filtro = new BusquedaComprasFiltroDTO(texto, null, fechaDesde, fechaHasta, null, tipo, estados, formaPago);
+        return ResponseEntity.ok(compraService.fechasDistintas(filtro, pageable));
     }
 
     @PostMapping

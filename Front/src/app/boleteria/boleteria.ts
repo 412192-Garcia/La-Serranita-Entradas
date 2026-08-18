@@ -1,23 +1,72 @@
 import { Component, HostListener, computed, inject, OnInit, signal } from '@angular/core';
-import { DatePipe } from '@angular/common';
+import { DatePipe, NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
+import { Observable } from 'rxjs';
 import { BoleteriaService, CampoOrdenCompras, EstadoCompra, Pagina, Reserva, TipoListadoCompra } from '../services/boleteria.service';
 import { FormaPagoType } from '../models/compra';
 import { CabeceraInterna } from '../shared/cabecera-interna/cabecera-interna';
 import { CajaService, Caja } from '../services/caja.service';
 import { AperturaCaja } from '../pos/apertura-caja/apertura-caja';
-import { LucideSearchX, LucideEllipsisVertical } from '@lucide/angular';
+import { LucideSearchX, LucideEllipsisVertical, LucideChevronDown, LucideChevronLeft, LucideChevronRight, LucideGift } from '@lucide/angular';
 import { Spinner } from '../shared/spinner/spinner';
 import { Modal } from '../shared/modal/modal';
 import { crearOrdenable } from '../shared/ordenable';
 import { ColumnaOrdenable } from '../shared/columna-ordenable/columna-ordenable';
 import { PesosPipe } from '../shared/pesos.pipe';
+import { TourStep } from '../shared/tour/tour';
+import { DetectorEscaneoDni, extraerDniDeEscaneo } from '../shared/escaner-dni.util';
+
+/** ~6 pasos, todos apuntando a elementos siempre presentes en el DOM (nada detrás de "Más
+ * filtros" ni de una fila de resultado puntual, que dependen de los datos del momento). */
+const PASOS_TUTORIAL: TourStep[] = [
+  {
+    selector: '[data-tour="caja"]',
+    titulo: 'Tu caja',
+    texto: 'Acá ves si tu caja está abierta. Si está cerrada, tocá para abrirla antes de cobrar cualquier cosa.',
+  },
+  {
+    selector: '[data-tour="buscador"]',
+    titulo: 'Buscar una reserva',
+    texto: 'Buscá por DNI, nombre, email o código de reserva. También podés escanear el DNI: el lector actúa como si tipearas y apretaras Enter.',
+  },
+  {
+    selector: '[data-tour="fecha"]',
+    titulo: 'Día a consultar',
+    texto: 'Elegí un día puntual, o tocá "Ver todas las fechas" para buscar sin importar cuándo es la visita.',
+  },
+  {
+    selector: '[data-tour="estado"]',
+    titulo: 'Pagadas o a cobrar',
+    texto: 'Estos chips son los que más se usan: filtrá entre lo ya pagado online y lo que falta cobrar en caja, para ver de un vistazo cuánto queda por llegar.',
+  },
+  {
+    selector: '[data-tour="mas-filtros"]',
+    titulo: 'Más filtros',
+    texto: 'Acá encontrás el resto de los estados (ya utilizada, pago pendiente, cancelada, reembolsada), el tipo de listado (Anticipada o venta de Boletería) y la forma de pago, por si necesitás afinar todavía más la búsqueda.',
+  },
+  {
+    selector: '[data-tour="resultados"]',
+    titulo: 'Validar o cobrar',
+    texto: 'Cada resultado tiene un botón para validar el ingreso o cobrar y validar, y un menú ⋮ para editar el contacto, reenviar el mail o reembolsar.',
+  },
+];
+
+function fechaComoInput(d: Date): string {
+  const mes = String(d.getMonth() + 1).padStart(2, '0');
+  const dia = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${mes}-${dia}`;
+}
 
 function hoyComoFechaInput(): string {
-  const hoy = new Date();
-  const mes = String(hoy.getMonth() + 1).padStart(2, '0');
-  const dia = String(hoy.getDate()).padStart(2, '0');
-  return `${hoy.getFullYear()}-${mes}-${dia}`;
+  return fechaComoInput(new Date());
+}
+
+/** El día calendario anterior a `fecha` (string yyyy-MM-dd), como límite superior de "el pasado". */
+function diaAnterior(fecha: string): string {
+  const d = new Date(fecha + 'T00:00:00');
+  d.setDate(d.getDate() - 1);
+  return fechaComoInput(d);
 }
 
 /** "Hoy"/"Mañana"/"Ayer" cuando aplica; null para el resto, que se muestra como día de semana + fecha corta. */
@@ -31,20 +80,24 @@ function etiquetaRelativaFecha(fechaVisita: string, hoy: string): string | null 
   return null;
 }
 
-/**
- * Los lectores de código de barras PDF417 (los que leen el dorso del DNI argentino) se
- * comportan como un teclado: "tipean" el texto decodificado en el campo con foco y rematan
- * con Enter, igual que si alguien lo escribiera a mano y apretara Enter. El DNI no viene solo:
- * el PDF417 trae varios campos separados por "@" (apellido@nombre@sexo@dni@ejemplar@fechaNacimiento@...),
- * así que hay que extraer el campo del documento en vez de usar el texto crudo tal cual.
- */
-function extraerDniDeEscaneo(valorCrudo: string): string {
-  const limpio = valorCrudo.trim();
-  if (limpio.includes('@')) {
-    const dni = limpio.split('@')[3]?.trim();
-    if (dni && /^\d+$/.test(dni)) return dni;
-  }
-  return limpio.replace(/\D/g, '') || limpio;
+const DIAS_SEMANA = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+
+/** Encabezado de cada "contenedor" del día en la vista agrupada: relativa si aplica (Hoy/Mañana/Ayer), si no día de semana + fecha completa. */
+function etiquetaGrupoFecha(fechaVisita: string, hoy: string): string {
+  const relativa = etiquetaRelativaFecha(fechaVisita, hoy);
+  if (relativa) return relativa;
+  const d = new Date(fechaVisita + 'T00:00:00');
+  return `${DIAS_SEMANA[d.getDay()]} ${d.getDate()} de ${MESES[d.getMonth()]}`;
+}
+
+/** Un "contenedor" de la vista agrupada por día (sólo se arma cuando `todasLasFechas()` está activo). */
+interface GrupoDia {
+  fecha: string;
+  etiqueta: string;
+  esHoy: boolean;
+  vistas: ReservaVista[];
+  totalPases: number;
 }
 
 /** Las cuatro existentes: las dos de la compra online y las que agrega la venta en puerta. */
@@ -56,19 +109,23 @@ const FORMAS_PAGO_FILTRABLES: { valor: FormaPagoType; etiqueta: string }[] = [
   { valor: 'RESERVA_ADMIN', etiqueta: 'Generada (admin)' },
 ];
 
-/**
- * Estados que puede tener una reserva anticipada (todo menos la venta de puerta, que es
- * su propio "tipo" de listado). Los dos primeros son los que un boletero toca todo el
- * día; los demás casi no se usan, pero quedan a un toque de distancia.
- */
-const ESTADOS_ANTICIPADA_FILTRABLES: { valor: EstadoCompra; etiqueta: string }[] = [
+/** Los dos que un boletero toca todo el día, para ver cuánto falta por llegar: siempre
+ * visibles, fuera de "Más filtros". También son los que quedan activos por defecto. */
+const ESTADOS_ANTICIPADA_PRINCIPALES: { valor: EstadoCompra; etiqueta: string }[] = [
   { valor: 'RESERVADO_EFECTIVO', etiqueta: 'A cobrar en caja' },
   { valor: 'APROBADO', etiqueta: 'Pagada online' },
+];
+
+/** El resto de los estados: casi no se usan y ocupaban mucho espacio a la vista, así que
+ * quedan detrás de "Más filtros" junto con el tipo de listado y la forma de pago. */
+const ESTADOS_ANTICIPADA_SECUNDARIOS: { valor: EstadoCompra; etiqueta: string }[] = [
   { valor: 'USADO', etiqueta: 'Ya utilizada' },
   { valor: 'PENDIENTE_PAGO', etiqueta: 'Pago pendiente' },
   { valor: 'CANCELADO', etiqueta: 'Cancelada' },
   { valor: 'REEMBOLSADA', etiqueta: 'Reembolsada' },
 ];
+
+const VALORES_ESTADOS_SECUNDARIOS = new Set(ESTADOS_ANTICIPADA_SECUNDARIOS.map((e) => e.valor));
 
 /** Los dos que un boletero realmente toca todo el día; el resto se activa a mano. */
 const ESTADOS_POR_DEFECTO: EstadoCompra[] = ['APROBADO', 'RESERVADO_EFECTIVO'];
@@ -143,16 +200,43 @@ function aVista(reserva: Reserva, hoy: string): ReservaVista {
 }
 
 const TAMANIO_PAGINA = 50;
+/** Días (no filas) por página en la vista agrupada: para que la lista se sienta corta
+ * (pedido explícito: "es demasiado larga la lista") sin arriesgarse a partir un día a la
+ * mitad entre dos páginas — ver `ubicarPaginaDeHoy`/`ejecutarBusquedaAgrupada`. */
+const DIAS_POR_PAGINA_AGRUPADA = 7;
+/** Techo duro del backend para /buscar (ver CompraController): alcanza de sobra para todas
+ * las compras de una tanda de `DIAS_POR_PAGINA_AGRUPADA` días en un parque de este tamaño. */
+const TAMANIO_MAXIMO_VENTANA_AGRUPADA = 200;
 
 @Component({
   selector: 'app-boleteria',
-  imports: [PesosPipe, DatePipe, FormsModule, CabeceraInterna, AperturaCaja, Spinner, Modal, ColumnaOrdenable, LucideSearchX, LucideEllipsisVertical],
+  imports: [
+    PesosPipe,
+    DatePipe,
+    NgTemplateOutlet,
+    FormsModule,
+    CabeceraInterna,
+    AperturaCaja,
+    Spinner,
+    Modal,
+    ColumnaOrdenable,
+    LucideSearchX,
+    LucideEllipsisVertical,
+    LucideChevronDown,
+    LucideChevronLeft,
+    LucideChevronRight,
+    LucideGift,
+  ],
   templateUrl: './boleteria.html',
   styleUrl: './boleteria.css',
 })
 export class Boleteria implements OnInit {
   private boleteriaService = inject(BoleteriaService);
   private cajaService = inject(CajaService);
+  private route = inject(ActivatedRoute);
+  private router = inject(Router);
+
+  readonly pasosTutorial = PASOS_TUTORIAL;
 
   /** undefined = todavía no llegó la respuesta; null = no tiene ninguna caja abierta. */
   cajaActual = signal<Caja | null | undefined>(undefined);
@@ -176,13 +260,16 @@ export class Boleteria implements OnInit {
   tipoListado = signal<TipoListadoCompra>('ANTICIPADA');
   estadosActivos = signal<ReadonlySet<EstadoCompra>>(new Set(ESTADOS_POR_DEFECTO));
   formaPago = signal<FormaPagoType | ''>('');
+  /** Estado/Forma de pago quedan colapsados por defecto: son los filtros que casi no se tocan en el uso diario. */
+  mostrarMasFiltros = signal(false);
   pagina = signal(0);
   private orden = crearOrdenable<CampoOrdenCompras>('fechaVisita');
   ordenarPor = this.orden.ordenarPor;
   direccionOrden = this.orden.direccionOrden;
   estadoOrden = this.orden.estadoOrden;
 
-  readonly estadosAnticipadaFiltrables = ESTADOS_ANTICIPADA_FILTRABLES;
+  readonly estadosPrincipales = ESTADOS_ANTICIPADA_PRINCIPALES;
+  readonly estadosSecundarios = ESTADOS_ANTICIPADA_SECUNDARIOS;
   readonly formasPagoFiltrables = FORMAS_PAGO_FILTRABLES;
 
   /** Lo último que devolvió el backend; null = todavía no se buscó nada. */
@@ -197,10 +284,102 @@ export class Boleteria implements OnInit {
     return res.content.filter((r) => !ocultos.has(r.id)).map((r) => aVista(r, hoy));
   });
 
+  /** Encabezado de "Ver esa fecha": qué día se está mirando, mismo criterio de etiqueta que usan los contenedores de "Ver todas las fechas". */
+  etiquetaFechaVista = computed(() => etiquetaGrupoFecha(this.fecha(), hoyComoFechaInput()));
+
+  // ---------- Regalos (fechaVisita null): bloque colapsable aparte, visible en ambos modos ----------
+  // Al no tener fecha, no encajan en la paginación por día/fila de arriba (antes quedaban
+  // enterrados en la última página de "Ver todas las fechas", y no aparecían en "Ver esa fecha"
+  // directamente). Se buscan aparte con `sinFecha: true` y se muestran siempre, colapsados por
+  // defecto, sin importar qué modo esté activo.
+  private regalosResultado = signal<Pagina<Reserva> | null>(null);
+  regalosExpandido = signal(false);
+
+  regalosVisibles = computed<ReservaVista[] | null>(() => {
+    const res = this.regalosResultado();
+    if (res === null) return null;
+    const ocultos = this.idsOcultosPorValidacion();
+    const hoy = hoyComoFechaInput();
+    return res.content.filter((r) => !ocultos.has(r.id)).map((r) => aVista(r, hoy));
+  });
+
+  totalRegalos = computed(() => this.regalosVisibles()?.length ?? 0);
+
+  toggleRegalos(): void {
+    this.regalosExpandido.update((v) => !v);
+  }
+
   totalElementos = computed(() => this.resultado()?.totalElements ?? 0);
   totalPaginas = computed(() => this.resultado()?.totalPages ?? 0);
   /** Suma de pases sólo de esta página: con paginación real no hay forma barata de sumar todas. */
   totalPasesPagina = computed(() => (this.visibles() ?? []).reduce((acc, v) => acc + v.totalPases, 0));
+
+  // ---------- Vista agrupada por día ("Ver todas las fechas") ----------
+  // Paginada por DÍA (no por fila): ver `ejecutarBusquedaAgrupada`, que primero pide la
+  // página de días distintos y recién después trae las compras de esos días completos —
+  // así un día nunca queda partido a la mitad entre dos páginas. La página inicial no es
+  // la 0 (que arrancaría en el día pendiente más viejo) sino la que contiene "hoy" — ver
+  // `ubicarPaginaDeHoy`. Los números de página que ve el boletero son relativos a esa
+  // ancla: 0 = hoy, negativo = para atrás, positivo = para adelante.
+  paginaHoy = signal<number | null>(null);
+  /** Total de páginas de DÍAS (distinto de `totalPaginas()`, que en este modo cuenta filas
+   * dentro de la ventana de días ya traída, no la cantidad real de páginas para navegar). */
+  totalPaginasAgrupado = signal(0);
+
+  paginaRelativa = computed(() => {
+    const ancla = this.paginaHoy();
+    return ancla === null ? 0 : this.pagina() - ancla;
+  });
+
+  /** Ventana de hasta 5 páginas relativas para los botones numerados, recortada a los límites reales. */
+  paginasVisibles = computed<number[]>(() => {
+    const ancla = this.paginaHoy();
+    if (ancla === null) return [];
+    const min = -ancla;
+    const max = this.totalPaginasAgrupado() - 1 - ancla;
+    const actual = this.paginaRelativa();
+    const paginas: number[] = [];
+    for (let p = Math.max(min, actual - 2); p <= Math.min(max, actual + 2); p++) paginas.push(p);
+    return paginas;
+  });
+
+  irAPaginaRelativa(relativa: number): void {
+    const ancla = this.paginaHoy();
+    if (ancla === null || this.buscando()) return;
+    const objetivo = ancla + relativa;
+    if (objetivo === this.pagina()) return;
+    this.pagina.set(objetivo);
+    this.buscando.set(true);
+    this.errorBusqueda.set(null);
+    this.limpiarOcultamientosPorValidacion();
+    this.ejecutarBusquedaAgrupada(false);
+  }
+
+  /** Los regalos (fechaVisita null) no entran acá: /fechas-visita ya los excluye, así que
+   * `visibles()` en este modo son siempre reservas con fecha real. */
+  gruposDia = computed<GrupoDia[]>(() => {
+    const hoy = hoyComoFechaInput();
+    const vistas = this.visibles() ?? [];
+
+    const porFecha = new Map<string, ReservaVista[]>();
+    for (const v of vistas) {
+      const f = v.reserva.fechaVisita;
+      if (!f) continue;
+      const lista = porFecha.get(f);
+      if (lista) lista.push(v);
+      else porFecha.set(f, [v]);
+    }
+
+    return [...porFecha.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([fecha, vs]) => ({
+        fecha,
+        etiqueta: etiquetaGrupoFecha(fecha, hoy),
+        esHoy: fecha === hoy,
+        vistas: vs,
+        totalPases: vs.reduce((acc, v) => acc + v.totalPases, 0),
+      }));
+  });
 
   estadoActivo(estado: EstadoCompra): boolean {
     return this.estadosActivos().has(estado);
@@ -225,11 +404,18 @@ export class Boleteria implements OnInit {
     this.ejecutarBusqueda();
   }
 
-  /** Los filtros de anticipada están como vienen de fábrica: no hace falta ofrecer restablecerlos. */
+  /** Sólo lo que vive detrás de "Más filtros" (tipo de listado, forma de pago, y los estados
+   * secundarios que se activaron a mano): controla el puntito de aviso en ese botón — los dos
+   * estados principales no cuentan porque ya son siempre visibles. */
+  filtrosAvanzadosEnDefecto = computed(() => {
+    const hayEstadoSecundarioActivo = [...this.estadosActivos()].some((e) => VALORES_ESTADOS_SECUNDARIOS.has(e));
+    return this.tipoListado() === 'ANTICIPADA' && this.formaPago() === '' && !hayEstadoSecundarioActivo;
+  });
+
+  /** Todos los filtros a la vez, Estado incluido: controla "Restablecer filtros", que por eso
+   * vive fuera del panel colapsable — si no, no habría forma de resetear Estado sin abrirlo. */
   filtrosEnDefecto = computed(() =>
-    this.tipoListado() === 'ANTICIPADA' &&
-    mismosElementos(this.estadosActivos(), ESTADOS_POR_DEFECTO) &&
-    this.formaPago() === ''
+    this.filtrosAvanzadosEnDefecto() && mismosElementos(this.estadosActivos(), ESTADOS_POR_DEFECTO)
   );
 
   restablecerFiltros(): void {
@@ -250,25 +436,38 @@ export class Boleteria implements OnInit {
   paginaAnterior(): void {
     if (this.pagina() === 0) return;
     this.pagina.update((p) => p - 1);
-    this.ejecutarBusqueda();
+    this.ejecutarBusqueda(false);
   }
 
   paginaSiguiente(): void {
-    if (this.pagina() + 1 >= this.totalPaginas()) return;
+    const total = this.todasLasFechas() ? this.totalPaginasAgrupado() : this.totalPaginas();
+    if (this.pagina() + 1 >= total) return;
     this.pagina.update((p) => p + 1);
-    this.ejecutarBusqueda();
+    this.ejecutarBusqueda(false);
   }
 
-  /** Acumula las teclas de un posible escaneo cuando el foco no está en un campo de texto. */
-  private bufferEscaneo = '';
-  private ultimoKeyEscaneo = 0;
-  private static readonly UMBRAL_MS_ENTRE_TECLAS = 150;
-  private static readonly LARGO_MINIMO_ESCANEO = 6;
+  /** Detecta un escaneo de DNI cuando el foco no está en un campo de texto (ver DetectorEscaneoDni). */
+  private detectorEscaneo = new DetectorEscaneoDni((escaneo) => {
+    if (this.buscando()) return;
+    this.texto.set(escaneo);
+    this.buscar();
+  });
 
   ngOnInit(): void {
-    // Al entrar, mostramos directamente lo accionable de hoy: es lo que un boletero
-    // necesita ver primero, sin tener que buscar nada.
-    this.ejecutarBusqueda();
+    // Si se llega acá desde el escaneo de fondo del POS, ya viene con el DNI: precargamos el
+    // buscador y disparamos la búsqueda en vez de la de "hoy" por defecto. Se limpia el query
+    // param enseguida para que un refresh no repita la búsqueda ni el botón "atrás" quede
+    // pegado en esta URL.
+    const dniDesdeEscaneo = this.route.snapshot.queryParamMap.get('dni');
+    if (dniDesdeEscaneo) {
+      this.texto.set(dniDesdeEscaneo);
+      this.buscar();
+      this.router.navigate([], { relativeTo: this.route, queryParams: {}, replaceUrl: true });
+    } else {
+      // Al entrar, mostramos directamente lo accionable de hoy: es lo que un boletero
+      // necesita ver primero, sin tener que buscar nada.
+      this.ejecutarBusqueda();
+    }
 
     // Acá no se abre/cierra caja (eso es en Vender entradas), pero conviene saber de
     // un vistazo si ya la abriste antes de mandarte a buscar una reserva para cobrar.
@@ -283,32 +482,7 @@ export class Boleteria implements OnInit {
 
   @HostListener('window:keydown', ['$event'])
   onKeydownGlobal(event: KeyboardEvent): void {
-    const activo = document.activeElement;
-    const escribiendoEnCampo =
-      activo instanceof HTMLInputElement ||
-      activo instanceof HTMLTextAreaElement ||
-      activo instanceof HTMLSelectElement;
-    if (escribiendoEnCampo) return;
-
-    if (event.key === 'Enter') {
-      const escaneo = this.bufferEscaneo;
-      this.bufferEscaneo = '';
-      if (escaneo.length >= Boleteria.LARGO_MINIMO_ESCANEO && !this.buscando()) {
-        event.preventDefault();
-        this.texto.set(escaneo);
-        this.buscar();
-      }
-      return;
-    }
-
-    if (event.key.length === 1) {
-      const ahora = Date.now();
-      if (ahora - this.ultimoKeyEscaneo > Boleteria.UMBRAL_MS_ENTRE_TECLAS) {
-        this.bufferEscaneo = '';
-      }
-      this.bufferEscaneo += event.key;
-      this.ultimoKeyEscaneo = ahora;
-    }
+    this.detectorEscaneo.procesarTecla(event);
   }
 
   /** Un único campo sirve para DNI, código de reserva, nombre o email: el backend prueba los cuatro. */
@@ -323,7 +497,7 @@ export class Boleteria implements OnInit {
 
     this.todasLasFechas.set(true);
     this.pagina.set(0);
-    this.ejecutarBusqueda();
+    this.ejecutarBusqueda(true, true);
   }
 
   /** Trae las reservas del día de visita elegido en el selector de fecha. */
@@ -348,20 +522,59 @@ export class Boleteria implements OnInit {
     this.ejecutarBusqueda();
   }
 
-  private ejecutarBusqueda(): void {
+  /** Filtros comunes a cualquier búsqueda de boletería, sin fecha/orden/paginación. */
+  private construirFiltroBase() {
+    const tipo = this.tipoListado();
+    return {
+      texto: this.texto().trim() || undefined,
+      tipo,
+      estados: tipo === 'ANTICIPADA' ? Array.from(this.estadosActivos()) : undefined,
+      formaPago: this.formaPago() || undefined,
+    };
+  }
+
+  /** `autoExpandirRegalos`: sólo lo pide `buscar()` (búsqueda explícita por texto) — si lo que
+   * escribiste matchea sólo un regalo, la lista principal queda vacía y el match real está
+   * colapsado arriba; sin esto era fácil pensar "no tiene entrada" cuando sí la tiene. El resto
+   * de los disparadores (cambiar de página, tocar un chip de Estado, etc.) no fuerzan la
+   * expansión — respetan si el boletero ya lo cerró a mano. */
+  private ejecutarBusqueda(reubicar = this.todasLasFechas(), autoExpandirRegalos = false): void {
     this.buscando.set(true);
     this.errorBusqueda.set(null);
     this.errorAccion.set(null);
     this.limpiarOcultamientosPorValidacion();
+    this.buscarRegalos(autoExpandirRegalos);
 
-    const tipo = this.tipoListado();
+    if (this.todasLasFechas()) {
+      this.ejecutarBusquedaAgrupada(reubicar);
+    } else {
+      this.ejecutarBusquedaSimple();
+    }
+  }
+
+  /** El bloque colapsable de regalos: mismos filtros (texto/estado/tipo/forma de pago) que la
+   * búsqueda principal, pero sin fecha ni paginación propia — se repite en cada búsqueda nueva
+   * en vez de sólo cuando cambia el filtro, porque es más simple que rastrear cuáles de los
+   * tantos disparadores de `ejecutarBusqueda` tocan el filtro y cuáles sólo cambian de página;
+   * el pedido es liviano igual. */
+  private buscarRegalos(autoExpandir = false): void {
+    this.boleteriaService
+      .buscar({ ...this.construirFiltroBase(), sinFecha: true, page: 0, size: TAMANIO_MAXIMO_VENTANA_AGRUPADA })
+      .subscribe({
+        next: (res) => {
+          this.regalosResultado.set(res);
+          if (autoExpandir && res.content.length > 0) this.regalosExpandido.set(true);
+        },
+        error: (err) => console.error('No se pudieron traer los regalos:', err),
+      });
+  }
+
+  /** Un día puntual ("Ver esa fecha"): la tabla de siempre, paginada por cantidad de filas. */
+  private ejecutarBusquedaSimple(): void {
     this.boleteriaService
       .buscar({
-        texto: this.texto().trim() || undefined,
-        fecha: this.todasLasFechas() ? undefined : this.fecha(),
-        tipo,
-        estados: tipo === 'ANTICIPADA' ? Array.from(this.estadosActivos()) : undefined,
-        formaPago: this.formaPago() || undefined,
+        ...this.construirFiltroBase(),
+        fecha: this.fecha(),
         ordenarPor: this.ordenarPor(),
         direccion: this.direccionOrden(),
         page: this.pagina(),
@@ -380,6 +593,101 @@ export class Boleteria implements OnInit {
       });
   }
 
+  /**
+   * Vista agrupada: primero ubica qué página de DÍAS le toca —la que contiene "hoy" si
+   * `reubicar` (recién se activó "todas las fechas", o cambió algún filtro), o la actual si
+   * se está navegando con `irAPaginaRelativa`/Anterior/Siguiente— y con el primer/último día
+   * de esa página trae todas sus compras vía `buscar` (fechaDesde/fechaHasta), garantizando
+   * que ningún día quede partido a la mitad entre dos páginas.
+   */
+  private ejecutarBusquedaAgrupada(reubicar: boolean): void {
+    if (reubicar) {
+      this.ubicarPaginaDeHoyYBuscar();
+    } else {
+      this.buscarDiasDeLaPaginaActual();
+    }
+  }
+
+  /**
+   * Ubica qué página (0-based) contiene "hoy": cuenta cuántos días distintos hay antes de
+   * hoy —mismos filtros, `fechaHasta` = ayer, page 0 y size 1 sólo para leer `totalElements`
+   * de /fechas-visita— y calcula el número de página a partir de esa cantidad de días.
+   */
+  private ubicarPaginaDeHoyYBuscar(): void {
+    const hoy = hoyComoFechaInput();
+    this.boleteriaService
+      .buscarFechasDistintas({ ...this.construirFiltroBase(), fechaHasta: diaAnterior(hoy), page: 0, size: 1 })
+      .subscribe({
+        next: (conteo) => {
+          const ancla = Math.floor(conteo.totalElements / DIAS_POR_PAGINA_AGRUPADA);
+          this.paginaHoy.set(ancla);
+          this.pagina.set(ancla);
+          this.buscarDiasDeLaPaginaActual();
+        },
+        error: (err) => {
+          console.error('No se pudo ubicar la página de hoy:', err);
+          this.paginaHoy.set(0);
+          this.pagina.set(0);
+          this.buscarDiasDeLaPaginaActual();
+        },
+      });
+  }
+
+  /** Trae los días de `pagina()` y, con ese rango, todas sus compras. Los regalos (sin fecha)
+   * no aparecen acá — /fechas-visita ya los excluye, ver su propio bloque colapsable aparte. */
+  private buscarDiasDeLaPaginaActual(): void {
+    const filtroBase = this.construirFiltroBase();
+    this.boleteriaService
+      .buscarFechasDistintas({ ...filtroBase, page: this.pagina(), size: DIAS_POR_PAGINA_AGRUPADA })
+      .subscribe({
+        next: (paginaFechas) => {
+          this.totalPaginasAgrupado.set(paginaFechas.totalPages);
+          const fechas = paginaFechas.content;
+
+          if (fechas.length === 0) {
+            this.resultado.set({ content: [], totalElements: 0, totalPages: 0, number: 0, size: 0 });
+            this.buscando.set(false);
+            return;
+          }
+
+          this.boleteriaService
+            .buscar({
+              ...filtroBase,
+              fechaDesde: fechas[0],
+              fechaHasta: fechas[fechas.length - 1],
+              ordenarPor: 'fechaVisita',
+              direccion: 'ASC',
+              page: 0,
+              size: TAMANIO_MAXIMO_VENTANA_AGRUPADA,
+            })
+            .subscribe({
+              next: (res) => {
+                this.resultado.set(res);
+                this.buscando.set(false);
+                queueMicrotask(() => this.centrarEnHoy());
+              },
+              error: (err) => {
+                console.error('No se pudo buscar:', err);
+                this.errorBusqueda.set('No se pudo buscar. Revisá la conexión y reintentá.');
+                this.buscando.set(false);
+              },
+            });
+        },
+        error: (err) => {
+          console.error('No se pudieron traer los días:', err);
+          this.errorBusqueda.set('No se pudo buscar. Revisá la conexión y reintentá.');
+          this.buscando.set(false);
+        },
+      });
+  }
+
+  /** Al entrar a la vista agrupada (o volver a la página que contiene "hoy"), lleva el scroll
+   * a ese contenedor para que sea el punto de partida visual; en cualquier otra página el
+   * selector simplemente no encuentra nada y no hace nada. */
+  private centrarEnHoy(): void {
+    document.querySelector('[data-grupo-hoy]')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
   limpiar(): void {
     this.texto.set('');
     this.errorBusqueda.set(null);
@@ -396,7 +704,7 @@ export class Boleteria implements OnInit {
     this.ejecutarAccion(reserva, () => this.boleteriaService.cobrarEfectivoYValidar(reserva.id));
   }
 
-  private ejecutarAccion(reserva: Reserva, accion: () => import('rxjs').Observable<Reserva>): void {
+  private ejecutarAccion(reserva: Reserva, accion: () => Observable<Reserva>): void {
     this.procesandoId.set(reserva.id);
     this.errorAccion.set(null);
 
@@ -416,8 +724,14 @@ export class Boleteria implements OnInit {
   }
 
   /** Reemplaza una fila con lo que devolvió el backend, sin tener que rehacer toda la búsqueda. */
+  /** Una reserva puede estar en `resultado` (vista principal) y/o en `regalosResultado` (bloque
+   * de regalos) a la vez si son el mismo id — se actualizan las dos para que no queden
+   * desincronizadas sin importar desde cuál de las dos se disparó la acción. */
   private reemplazarEnResultado(actualizada: Reserva): void {
     this.resultado.update((res) =>
+      res ? { ...res, content: res.content.map((r) => (r.id === actualizada.id ? actualizada : r)) } : res
+    );
+    this.regalosResultado.update((res) =>
       res ? { ...res, content: res.content.map((r) => (r.id === actualizada.id ? actualizada : r)) } : res
     );
     this.procesandoId.set(null);
@@ -431,9 +745,18 @@ export class Boleteria implements OnInit {
 
   // ---------- Fila recién validada: se pone roja, cuenta regresiva y desaparece sola ----------
 
-  /** Cuánto dura la ventana para arrepentirse antes de que la fila empiece a irse. */
+  /** Cuánto dura la ventana para arrepentirse antes de que la fila empiece a irse. Corta a
+   * propósito: es sólo para el "uy, toqué mal" inmediato, no la única forma de deshacer — ver
+   * VENTANA_DESHACER_MENU_MS más abajo para el caso de "me di cuenta minutos después". */
   readonly VENTANA_DESHACER_MS = 8000;
   private static readonly DURACION_ANIMACION_SALIDA_MS = 350;
+
+  /** Igual al límite que ya valida el backend (`CompraServiceImpl.deshacerValidacion`): un
+   * "Deshacer validación" en el menú "⋮", disponible más allá de los 8s de arriba —para
+   * cuando el error se nota minutos después, no al toque— pero no ilimitado, porque más allá
+   * de esta ventana el backend lo rechaza igual (y correr más ese límite ahí arriescaría
+   * descuadrar una caja que ya se cerró con esa venta adentro). */
+  private static readonly VENTANA_DESHACER_MENU_MS = 120_000;
 
   /** Ids validados en esta sesión de pantalla, todavía dentro de la ventana para deshacer. */
   recienValidados = signal<ReadonlySet<number>>(new Set());
@@ -603,6 +926,15 @@ export class Boleteria implements OnInit {
   /** Sólo tiene sentido para lo pagado online que todavía no ingresó: es lo único que se reembolsa. */
   puedeReembolsar(reserva: Reserva): boolean {
     return reserva.estado === 'APROBADO';
+  }
+
+  /** Habilita "Deshacer validación" en el menú "⋮" para cualquier USADO reciente, más allá de
+   * los 8s de la fila roja — el backend vuelve a chequear la ventana igual, así que esto es
+   * sólo para no mostrar un botón que de entrada ya sabemos que va a fallar. */
+  puedeDeshacerDesdeMenu(reserva: Reserva): boolean {
+    if (reserva.estado !== 'USADO' || !reserva.fechaValidacion) return false;
+    const validado = new Date(reserva.fechaValidacion).getTime();
+    return Date.now() - validado < Boleteria.VENTANA_DESHACER_MENU_MS;
   }
 
   reembolsandoId = signal<number | null>(null);

@@ -124,6 +124,10 @@
       } @else {
       <div class="tabla-simple">
         <div class="fila-simple fila-simple-tipos fila-simple-header">
+          <button type="button" class="col-ordenable" (click)="ordenarColumna('orden')">
+            Orden
+            <app-columna-ordenable [estado]="estadoOrden('orden')" />
+          </button>
           <button type="button" class="col-ordenable" (click)="ordenarColumna('nombre')">
             Nombre
             <app-columna-ordenable [estado]="estadoOrden('nombre')" />
@@ -147,8 +151,20 @@
           </button>
           <span>Acción</span>
         </div>
-        @for (t of tiposEntradaVisibles(); track t.id) {
+        @for (t of tiposEntradaVisibles(); track t.id; let i = $index, ultimo = $last) {
           <div class="fila-simple fila-simple-tipos">
+            <span class="acciones-orden">
+              @if (puedeReordenarManualmente()) {
+                <button type="button" class="btn-reordenar" [disabled]="i === 0 || !!reordenandoId()" (click)="moverArriba(t)" aria-label="Subir en el orden de venta">
+                  <svg lucideArrowUp [strokeWidth]="2"></svg>
+                </button>
+                <button type="button" class="btn-reordenar" [disabled]="ultimo || !!reordenandoId()" (click)="moverAbajo(t)" aria-label="Bajar en el orden de venta">
+                  <svg lucideArrowDown [strokeWidth]="2"></svg>
+                </button>
+              } @else {
+                <span class="ayuda">—</span>
+              }
+            </span>
             <span>{{ t.nombre }}</span>
             <span>{{ t.tipo === 'ENTRADA' ? 'Entrada' : 'Extra' }}</span>
             <span>{{ t.precio | pesos }}</span>

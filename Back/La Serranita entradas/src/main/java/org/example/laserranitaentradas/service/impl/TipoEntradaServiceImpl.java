@@ -34,7 +34,7 @@ public class TipoEntradaServiceImpl implements TipoEntradaService {
 
     @Override
     public List<TipoEntrada> getAll() {
-        return tipoEntradaRepository.findAll();
+        return tipoEntradaRepository.findAllByOrderByOrdenAscIdAsc();
     }
 
     @Override
@@ -49,5 +49,17 @@ public class TipoEntradaServiceImpl implements TipoEntradaService {
             tipoEntrada.setActivo(false);
             tipoEntradaRepository.save(tipoEntrada);
         });
+    }
+
+    @Override
+    public List<TipoEntrada> reordenar(List<Long> idsEnOrden) {
+        for (int i = 0; i < idsEnOrden.size(); i++) {
+            int posicion = i;
+            tipoEntradaRepository.findById(idsEnOrden.get(i)).ifPresent(tipoEntrada -> {
+                tipoEntrada.setOrden(posicion);
+                tipoEntradaRepository.save(tipoEntrada);
+            });
+        }
+        return getAll();
     }
 }

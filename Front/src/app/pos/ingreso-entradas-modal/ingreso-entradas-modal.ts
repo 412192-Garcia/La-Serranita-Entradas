@@ -21,13 +21,29 @@ export class IngresoEntradasModal {
   ingresoEncolado = output<number>();
   cerrar = output<void>();
 
-  cantidad = signal<number | null>(null);
+  cantidad = signal(0);
   registrando = signal(false);
   error = signal<string | null>(null);
 
+  incrementarCantidad(): void {
+    this.cantidad.update((c) => c + 1);
+  }
+
+  decrementarCantidad(): void {
+    this.cantidad.update((c) => Math.max(0, c - 1));
+  }
+
+  /** El talonario se repone de a cientos, no de a uno: hace falta poder escribir el número
+   * directo (el +/- solo sirve para un ajuste chico), a diferencia del stepper puro de
+   * "Agregar artículo", donde las cantidades típicas son bajas. */
+  setCantidad(valor: string | number | null): void {
+    const numero = typeof valor === 'number' ? valor : parseInt(String(valor ?? '').replace(/\D/g, ''), 10);
+    this.cantidad.set(Number.isFinite(numero) && numero >= 0 ? numero : 0);
+  }
+
   async confirmar(): Promise<void> {
     const cantidad = this.cantidad();
-    if (cantidad === null || cantidad <= 0) {
+    if (cantidad <= 0) {
       this.error.set('Ingresá una cantidad mayor a cero.');
       return;
     }
@@ -36,11 +52,18 @@ export class IngresoEntradasModal {
 
     const resultado = await this.pendientes.ejecutar<Caja>({ tipo: 'INGRESO_ENTRADAS', payload: { cantidad } });
     this.registrando.set(false);
-    this.cantidad.set(null);
+
     if (resultado.confirmada) {
+      this.cantidad.set(0);
       this.ingresoRegistrado.emit(resultado.resultado);
-    } else {
-      this.ingresoEncolado.emit(cantidad);
+      return;
     }
+    // Rechazo real del servidor: no se guardó, no corresponde tratarlo como encolado.
+    if (resultado.rechazada) {
+      this.error.set(resultado.mensaje);
+      return;
+    }
+    this.cantidad.set(0);
+    this.ingresoEncolado.emit(cantidad);
   }
 }

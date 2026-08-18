@@ -1,17 +1,21 @@
-<app-modal (cerrar)="cerrar.emit()">
+<app-modal [cerrarAlTocarFondo]="false" (cerrar)="cerrar.emit()">
   <div class="panel-caja">
     <h3>Agregar entradas físicas</h3>
     <p class="subtitulo-apertura">Para cuando se termina el talonario y traen más a mitad de turno.</p>
 
     <label class="campo-apertura">
       Cantidad
-      <input
-        type="number"
-        min="1"
-        inputmode="numeric"
-        placeholder="0"
-        [ngModel]="cantidad()"
-        (ngModelChange)="cantidad.set($event)" />
+      <div class="stepper">
+        <button type="button" class="btn-cant" [disabled]="cantidad() === 0" (click)="decrementarCantidad()" aria-label="Restar uno">−</button>
+        <input
+          type="text"
+          inputmode="numeric"
+          class="stepper-input"
+          aria-label="Cantidad"
+          [ngModel]="cantidad()"
+          (ngModelChange)="setCantidad($event)" />
+        <button type="button" class="btn-cant" (click)="incrementarCantidad()" aria-label="Sumar uno">+</button>
+      </div>
     </label>
 
     @if (error()) {

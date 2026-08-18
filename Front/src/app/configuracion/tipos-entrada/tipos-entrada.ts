@@ -10,12 +10,13 @@ import { crearOrdenable } from '../../shared/ordenable';
 import { crearEstadoEdicion } from '../../shared/edicion.util';
 import { ColumnaOrdenable } from '../../shared/columna-ordenable/columna-ordenable';
 import { PesosPipe } from '../../shared/pesos.pipe';
+import { LucideArrowUp, LucideArrowDown } from '@lucide/angular';
 
-type CampoOrdenTipoEntrada = 'nombre' | 'tipo' | 'precio' | 'maximoPorDia' | 'estado';
+type CampoOrdenTipoEntrada = 'orden' | 'nombre' | 'tipo' | 'precio' | 'maximoPorDia' | 'estado';
 
 @Component({
   selector: 'app-configuracion-tipos-entrada',
-  imports: [FormsModule, PesosPipe, MoneyInputDirective, Spinner, ColumnaOrdenable],
+  imports: [FormsModule, PesosPipe, MoneyInputDirective, Spinner, ColumnaOrdenable, LucideArrowUp, LucideArrowDown],
   templateUrl: './tipos-entrada.html',
   styleUrls: ['../configuracion-shared.css', './tipos-entrada.css'],
 })
@@ -28,9 +29,15 @@ export class ConfiguracionTiposEntrada implements OnInit {
   errorTipos = signal<string | null>(null);
 
   mostrarInactivos = signal(false);
-  private orden = crearOrdenable<CampoOrdenTipoEntrada>('nombre');
+  /** "orden" (posición manual de venta) es el campo inicial: es la vista que corresponde a los botones subir/bajar de abajo. */
+  private orden = crearOrdenable<CampoOrdenTipoEntrada>('orden');
+  ordenarPor = this.orden.ordenarPor;
+  direccionOrden = this.orden.direccionOrden;
   ordenarColumna = this.orden.ordenarColumna;
   estadoOrden = this.orden.estadoOrden;
+
+  /** Los botones subir/bajar sólo tienen sentido mirando la posición manual en su orden natural. */
+  puedeReordenarManualmente = computed(() => this.ordenarPor() === 'orden' && this.direccionOrden() === 'ASC');
 
   tiposEntradaVisibles = computed(() => {
     const base = this.mostrarInactivos() ? this.tiposEntrada() : this.tiposEntrada().filter((t) => t.activo);
@@ -38,6 +45,8 @@ export class ConfiguracionTiposEntrada implements OnInit {
     const campo = this.orden.ordenarPor();
     return [...base].sort((a, b) => {
       switch (campo) {
+        case 'orden':
+          return compararNumero(a.orden, b.orden) * dir;
         case 'nombre':
           return compararTexto(a.nombre, b.nombre) * dir;
         case 'tipo':
@@ -51,6 +60,41 @@ export class ConfiguracionTiposEntrada implements OnInit {
       }
     });
   });
+
+  reordenandoId = signal<number | null>(null);
+
+  /** Intercambia este tipo con su vecino (arriba u abajo) dentro de la lista visible y persiste el nuevo orden. */
+  private moverEnVisibles(t: TipoEntrada, delta: -1 | 1): void {
+    if (this.reordenandoId()) return;
+    const visibles = this.tiposEntradaVisibles();
+    const i = visibles.findIndex((x) => x.id === t.id);
+    const j = i + delta;
+    if (i < 0 || j < 0 || j >= visibles.length) return;
+
+    const reordenados = [...visibles];
+    [reordenados[i], reordenados[j]] = [reordenados[j], reordenados[i]];
+
+    this.reordenandoId.set(t.id);
+    this.tipoEntradaService.reordenar(reordenados.map((x) => x.id)).subscribe({
+      next: (ts) => {
+        this.tiposEntrada.set(ts);
+        this.reordenandoId.set(null);
+      },
+      error: (err) => {
+        console.error('Error al reordenar los tipos de entrada:', err);
+        this.errorTipos.set('No se pudo guardar el nuevo orden.');
+        this.reordenandoId.set(null);
+      },
+    });
+  }
+
+  moverArriba(t: TipoEntrada): void {
+    this.moverEnVisibles(t, -1);
+  }
+
+  moverAbajo(t: TipoEntrada): void {
+    this.moverEnVisibles(t, 1);
+  }
 
   private edicionTipo = crearEstadoEdicion<number>();
   tipoEditandoId = this.edicionTipo.editandoId;

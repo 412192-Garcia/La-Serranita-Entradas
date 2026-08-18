@@ -30,6 +30,7 @@
 
 .barra-caja-acciones {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 

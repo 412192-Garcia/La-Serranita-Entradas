@@ -23,6 +23,15 @@ public interface CompraService {
     /** Búsqueda paginada de boletería: texto libre, fecha, boletería/anticipada, estado(s) y forma de pago. */
     Page<Compra> buscar(BusquedaComprasFiltroDTO filtro, Pageable pageable);
 
+    /**
+     * Días distintos (fechaVisita) con al menos una compra que matchee los mismos filtros que
+     * `buscar`, paginados por cantidad de días (no de compras). Lo usa la vista agrupada por
+     * día de Boletería para paginar sin partir un día a la mitad entre dos páginas: primero se
+     * pide la página de días con este método, y después se trae todo lo de esos días con
+     * `buscar` (fechaDesde/fechaHasta = primer/último día de la página).
+     */
+    Page<LocalDate> fechasDistintas(BusquedaComprasFiltroDTO filtro, Pageable pageable);
+
     Compra create(CompraRequestDTO Compra);
     Compra marcarEntradasComoUsadas(Long compraId, Long usuarioValidadorId);
     Compra confirmarPagoEfectivo(Long compraId, Long usuarioValidadorId);

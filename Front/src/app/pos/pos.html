@@ -2,7 +2,8 @@
 
   <app-cabecera-interna
     titulo="Venta en Boletería"
-    descripcion="Cobrá y registra la compra." />
+    descripcion="Cobrá y registra la compra."
+    [pasosTutorial]="pasosTutorial" />
 
   @if (cargandoCaja()) {
     <app-spinner />
@@ -11,17 +12,13 @@
   } @else {
 
     <app-barra-caja
+      data-tour="barra-caja"
       [caja]="caja()!"
-      (validarReserva)="mostrarBusquedaReserva.set(true)"
       (retirarEfectivo)="mostrarRetiro.set(true)"
       (agregarEntradas)="mostrarIngresoEntradas.set(true)" />
 
-    <!-- Los tres son modales: no empujan el mostrador de venta, y al taparlo de paso
+    <!-- Los dos son modales: no empujan el mostrador de venta, y al taparlo de paso
          evitan seguir cobrando hacia una caja que se está por retirar. -->
-    @if (mostrarBusquedaReserva()) {
-      <app-validar-reserva-modal (cerrar)="mostrarBusquedaReserva.set(false)" />
-    }
-
     @if (mostrarRetiro()) {
       <app-retiro-efectivo-modal
         [retiros]="caja()!.retiros"
@@ -60,15 +57,17 @@
           <!-- ============ CATÁLOGO ============ -->
           <section class="catalogo">
             <app-catalogo-entradas
+              data-tour="catalogo"
               [entradas]="tiposEntrada()"
               [cantidades]="cantidades()"
               (cantidadesChange)="cantidades.set($event)" />
 
-            <app-agregar-articulo [catalogo]="articulosCatalogo()" (articuloAgregado)="onArticuloAgregado($event)" />
+            <app-agregar-articulo data-tour="agregar-articulo" [catalogo]="articulosCatalogo()" (articuloAgregado)="onArticuloAgregado($event)" />
           </section>
 
           <!-- ============ CARRITO Y COBRO ============ -->
           <app-carrito-venta
+            data-tour="carrito"
             [tiposEntrada]="tiposEntrada()"
             [cantidades]="cantidades()"
             [articulosCarrito]="articulosCarrito()"

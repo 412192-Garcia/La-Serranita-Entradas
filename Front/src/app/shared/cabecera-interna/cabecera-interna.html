@@ -17,6 +17,13 @@
       </span>
     }
 
+    @if (pasosTutorial.length > 0) {
+      <button type="button" class="btn-tutorial" (click)="tourActivo.set(true)" aria-label="Ver tutorial de esta pantalla">
+        <svg lucideCircleHelp [strokeWidth]="2"></svg>
+        Tutorial
+      </button>
+    }
+
     <button type="button" class="btn-hamburguesa" (click)="toggleMenu()" [attr.aria-expanded]="menuAbierto()" aria-label="Abrir menú">
       @if (operador(); as usuario) {
         @if (usuario.fotoPerfil) {
@@ -64,3 +71,7 @@
     </button>
   }
 </aside>
+
+@if (pasosTutorial.length > 0) {
+  <app-tour [pasos]="pasosTutorial" [(activo)]="tourActivo" />
+}

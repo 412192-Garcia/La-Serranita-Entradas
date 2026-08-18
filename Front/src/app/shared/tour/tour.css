@@ -1,0 +1,140 @@
+.tour-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 998;
+}
+
+/* Un solo div con box-shadow gigante genera el "agujero" resaltado sobre el elemento real, sin SVG ni máscaras. */
+.tour-spotlight {
+  position: fixed;
+  border-radius: 10px;
+  box-shadow: 0 0 0 9999px rgba(15, 23, 42, 0.65);
+  pointer-events: none;
+  transition: top 0.25s ease, left 0.25s ease, width 0.25s ease, height 0.25s ease;
+}
+
+.tour-popover {
+  position: fixed;
+  box-sizing: border-box;
+  width: min(320px, calc(100vw - 28px));
+  max-height: calc(100vh - 28px);
+  overflow-y: auto;
+  background-color: var(--color-card-bg);
+  color: var(--color-text);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card-lg);
+  padding: 20px 22px;
+  z-index: 999;
+  transition: top 0.25s ease, left 0.25s ease;
+}
+
+.tour-popover:focus {
+  outline: none;
+}
+
+.tour-popover-arriba {
+  transform: translateY(-100%);
+}
+
+.tour-cerrar {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  border-radius: 50%;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.tour-cerrar svg {
+  width: 16px;
+  height: 16px;
+}
+
+.tour-cerrar:hover { background-color: var(--color-bg-soft); }
+
+.tour-contador {
+  margin: 0 0 6px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-primary-dark);
+}
+
+.tour-popover h3 {
+  margin: 0 0 8px;
+  padding-right: 24px;
+  font-family: var(--font-heading);
+  font-size: 1.05rem;
+}
+
+.tour-texto {
+  margin: 0 0 18px;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+
+.tour-acciones {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.tour-nav {
+  display: flex;
+  gap: 8px;
+}
+
+.tour-btn-saltar {
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 8px 4px;
+  text-decoration: underline;
+}
+
+.tour-btn-secundario,
+.tour-btn-primario {
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.tour-btn-secundario {
+  border: 1.5px solid var(--color-border);
+  background-color: var(--color-card-bg);
+  color: var(--color-text-secondary);
+}
+
+.tour-btn-secundario:hover { border-color: var(--color-primary); }
+
+.tour-btn-primario {
+  border: none;
+  background-color: var(--color-primary);
+  color: #fff;
+}
+
+.tour-btn-primario:hover { background-color: var(--color-primary-dark); }
+
+.tour-cerrar:focus-visible,
+.tour-btn-saltar:focus-visible,
+.tour-btn-secundario:focus-visible,
+.tour-btn-primario:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(57, 169, 53, 0.35);
+}

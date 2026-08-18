@@ -26,4 +26,8 @@ export class TipoEntradaService {
   eliminar(id: number): Observable<void> {
     return this.http.delete<void>(`${this.apiUrl}/${id}`);
   }
+
+  reordenar(idsEnOrden: number[]): Observable<TipoEntrada[]> {
+    return this.http.put<TipoEntrada[]>(`${this.apiUrl}/reordenar`, idsEnOrden);
+  }
 }

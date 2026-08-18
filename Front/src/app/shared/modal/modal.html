@@ -1,4 +1,4 @@
-<div class="modal-overlay" (click)="cerrar.emit()">
+<div class="modal-overlay" (click)="cerrarAlTocarFondo() && cerrar.emit()">
   <div class="modal-panel-wrapper" (click)="$event.stopPropagation()">
     <ng-content />
   </div>

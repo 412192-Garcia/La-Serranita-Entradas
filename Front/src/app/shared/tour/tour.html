@@ -1,0 +1,47 @@
+@if (activo()) {
+  <div class="tour-overlay">
+    @if (rectObjetivo(); as r) {
+      <div
+        class="tour-spotlight"
+        [style.top.px]="r.top - 6"
+        [style.left.px]="r.left - 6"
+        [style.width.px]="r.width + 12"
+        [style.height.px]="r.height + 12"></div>
+    }
+
+    @if (posicionPopover(); as pos) {
+      <div
+        #popover
+        class="tour-popover"
+        [class.tour-popover-arriba]="pos.arriba"
+        [style.top.px]="pos.top"
+        [style.left.px]="pos.left"
+        tabindex="-1"
+        role="dialog"
+        aria-modal="true"
+        [attr.aria-label]="'Tutorial, paso ' + (pasoActual() + 1) + ' de ' + pasos().length">
+        <button type="button" class="tour-cerrar" (click)="cerrar()" aria-label="Cerrar tutorial">
+          <svg lucideX [strokeWidth]="2"></svg>
+        </button>
+
+        @if (pasoInfo(); as paso) {
+          <p class="tour-contador">Paso {{ pasoActual() + 1 }} de {{ pasos().length }}</p>
+          <h3>{{ paso.titulo }}</h3>
+          <p class="tour-texto">{{ paso.texto }}</p>
+        }
+
+        <div class="tour-acciones">
+          <button type="button" class="tour-btn-saltar" (click)="cerrar()">Saltar tutorial</button>
+          <div class="tour-nav">
+            @if (pasoActual() > 0) {
+              <button type="button" class="tour-btn-secundario" (click)="anterior()">Anterior</button>
+            }
+            <button type="button" class="tour-btn-primario" (click)="siguiente()">
+              {{ esUltimoPaso() ? 'Finalizar' : 'Siguiente' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+  </div>
+}

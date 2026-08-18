@@ -199,6 +199,54 @@
   padding: 8px 14px;
 }
 
+/* ---------- Botón colapsable de regalos (fechaVisita null) ----------
+   Vive junto a los controles fijos (buscador/selector de fecha) en vez de adentro de los
+   resultados: los regalos no tienen fecha propia, así que no encajan en ninguna paginación
+   de arriba, y este botón no depende de qué modo/búsqueda esté activa. Directamente ausente
+   cuando no hay ninguno. El panel expandido es su propio bloque, más abajo (ver .tabla-regalos). */
+.btn-regalos {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 8px;
+  padding: 10px 16px;
+  border: 1.5px solid var(--color-border);
+  background-color: var(--color-card-bg);
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  font-family: inherit;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.btn-regalos:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary-dark);
+}
+
+.btn-regalos.activo {
+  border-color: var(--color-primary);
+  background-color: var(--color-primary);
+  color: #fff;
+}
+
+.icono-regalos {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  transition: transform 0.18s ease;
+}
+
+.btn-regalos.activo .icono-regalos {
+  transform: rotate(180deg);
+}
+
+.tabla-regalos {
+  margin-bottom: 20px;
+}
+
 /* ---------- Panel de filtros (listado, estado y forma de pago) ---------- */
 .panel-filtros {
   display: flex;
@@ -231,6 +279,60 @@
   gap: 6px;
 }
 
+/* "Estado"/"Forma de pago" quedan colapsados por defecto: este botón es lo único que se ve
+   además de "Listado" hasta que se lo toca. Mismo alto/forma de píldora que .btn-filtro (su
+   vecino en la fila) para que se lea como parte del mismo grupo y no como un elemento suelto;
+   align-self: flex-end lo alinea con la fila de chips en vez de centrarse contra todo el alto
+   de "Listado" (etiqueta + chips), que antes lo dejaba visiblemente más arriba que ellos. */
+.btn-mas-filtros {
+  align-self: flex-end;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 11px 16px;
+  border: 1.5px solid var(--color-border);
+  background-color: var(--color-card-bg);
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-family: inherit;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.btn-mas-filtros:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary-dark);
+}
+
+/* Relleno sólido al expandir, igual que .btn-filtro.activo: antes sólo cambiaba de color de
+   borde/texto, una diferencia demasiado sutil para leerse como "abierto". */
+.btn-mas-filtros.activo {
+  border-color: var(--color-primary);
+  background-color: var(--color-primary);
+  color: #fff;
+}
+
+.icono-mas-filtros {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  transition: transform 0.18s ease;
+}
+
+.btn-mas-filtros.activo .icono-mas-filtros {
+  transform: rotate(180deg);
+}
+
+/* Avisa que hay un filtro no-default aplicado aunque el panel esté colapsado. */
+.punto-filtro-activo {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: var(--color-primary);
+}
+
 .btn-restablecer {
   margin-left: auto;
   align-self: center;
@@ -249,7 +351,7 @@
 .btn-restablecer:hover { border-color: var(--color-primary); color: var(--color-primary-dark); }
 
 .btn-filtro {
-  padding: 6px 12px;
+  padding: 11px 16px;
   border: 1.5px solid var(--color-border);
   border-radius: 999px;
   background-color: var(--color-card-bg);
@@ -332,6 +434,139 @@
 .sin-resultados small { color: var(--color-text-muted); }
 
 /* ==========================================================================
+   VISTA AGRUPADA POR DÍA ("Ver todas las fechas")
+   Cada día es su propio "contenedor": una franja con el nombre del día pegada
+   arriba de la tabla de esa fecha, como si fueran el mismo bloque.
+   ========================================================================== */
+.grupo-dia {
+  margin-bottom: 18px;
+}
+
+.grupo-dia:last-child { margin-bottom: 0; }
+
+.separador-dia {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  background-color: var(--color-bg-soft);
+  border: 1px solid var(--color-border);
+  border-bottom: none;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  padding: 10px 20px;
+}
+
+.etiqueta-dia {
+  font-family: var(--font-heading);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.conteo-dia {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+/* El día de hoy es el ancla visual de la lista: se destaca con el color primario. */
+.grupo-dia-hoy .separador-dia {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.grupo-dia-hoy .etiqueta-dia,
+.grupo-dia-hoy .conteo-dia {
+  color: #fff;
+}
+
+/* Pegada directamente abajo de .separador-dia: entre las dos arman una sola tarjeta. Arriba no
+   hace falta redondear (el radio de acá es 0 0 arriba, igual que el de .separador-dia abajo:
+   var(--radius-lg) var(--radius-lg) 0 0) — la única punta redonda real es la de abajo, y de esa
+   ya se encarga .fila-reserva:last-child con su propio border-radius. Sin overflow: hidden a
+   propósito: lo tuvo antes, pero recortaba el menú "⋮" (position: absolute) de las filas de
+   cada día.
+   Selector con las dos clases (no sólo .tabla-reservas-agrupada) a propósito: mismo puntaje de
+   especificidad que .tabla-reservas sola no alcanza para pisarla de forma confiable — quién
+   gana termina dependiendo del orden en la hoja de estilos en vez de la regla más específica.
+   .tabla-reservas-conectada es la misma idea para "Ver esa fecha": ese modo sí tiene una fila
+   de encabezado (.fila-header) arriba de las filas de datos, que por su cuenta se redondea a sí
+   misma arriba (pensada para cuando NO hay separador-dia encima) — hay que aplanarla también. */
+.tabla-reservas.tabla-reservas-agrupada,
+.tabla-reservas.tabla-reservas-conectada {
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+
+.tabla-reservas-conectada .fila-header {
+  border-radius: 0;
+}
+
+/* Números relativos a "hoy" (0), en vez de "Página X de Y": para este listado importa más
+   saber "cuántos días para atrás/adelante estoy" que un número de página absoluto. Toda la
+   barra es una sola píldora (fondo + sombra suave) en vez de botones sueltos, con las
+   flechas como círculos a los costados. */
+.paginador-dias {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  width: fit-content;
+  max-width: 100%;
+  margin: 10px auto;
+  padding: 5px;
+  background-color: var(--color-card-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  box-shadow: var(--shadow-card);
+}
+
+.btn-flecha-pagina {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  border-radius: 50%;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.btn-flecha-pagina svg { width: 16px; height: 16px; }
+.btn-flecha-pagina:hover:not(:disabled) { background-color: var(--color-bg-soft); color: var(--color-primary-dark); }
+.btn-flecha-pagina:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.btn-pagina-dia {
+  flex-shrink: 0;
+  min-width: 38px;
+  height: 32px;
+  padding: 0 10px;
+  border: none;
+  background-color: transparent;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.18s ease;
+}
+
+.btn-pagina-dia:hover:not(:disabled):not(.activo) { background-color: var(--color-bg-soft); color: var(--color-primary-dark); }
+.btn-pagina-dia:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-pagina-dia.activo {
+  background-color: var(--color-primary);
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(57, 169, 53, 0.35);
+}
+
+/* ==========================================================================
    TABLA DE RESERVAS (horizontal — pensada para pantalla completa)
    ========================================================================== */
 .tabla-reservas {
@@ -342,7 +577,7 @@
 
 .fila {
   display: grid;
-  grid-template-columns: minmax(220px, 2fr) 140px 110px 150px 220px 44px;
+  grid-template-columns: minmax(220px, 2fr) 110px 150px 220px 44px;
   align-items: center;
   gap: 12px;
   padding: 10px 20px;
@@ -459,6 +694,15 @@
   font-weight: 600 !important;
 }
 
+/* Regalo: el nombre de arriba es quien compró, no quien viene a usarlo — este renglón, en el
+   color de acento que ya identifica "regalo" en la columna de fecha, marca a quién hay que
+   pedirle el DNI en la puerta. */
+.titular-receptor {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--color-accent-dark);
+}
+
 /* Un renglón por tipo de pase, en vez de todo corrido en una sola línea: con
    varios tipos (ej. Pase General + Pase Menor + un extra) antes quedaba
    ilegible apretado en un solo párrafo. */
@@ -473,26 +717,6 @@
 }
 
 .titular-detalle .extra { color: var(--color-accent-dark); }
-
-.celda-fecha {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  font-size: 0.88rem;
-  font-weight: 600;
-}
-
-.badge-otro-dia {
-  align-self: flex-start;
-  background-color: var(--color-accent-light);
-  color: var(--color-accent-dark);
-  font-size: 0.65rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-  padding: 2px 7px;
-  border-radius: 999px;
-}
 
 .celda-codigo {
   font-size: 0.85rem;
@@ -656,8 +880,8 @@
 }
 
 .btn-menu {
-  width: 32px;
-  height: 32px;
+  width: 40px;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -678,7 +902,7 @@
 
 .menu-dropdown {
   position: absolute;
-  top: 36px;
+  top: 44px;
   right: 0;
   z-index: 10;
   background-color: var(--color-card-bg);
@@ -793,10 +1017,31 @@
 
 @keyframes girar { to { transform: rotate(360deg); } }
 
+/* ---------- Foco de teclado ----------
+   Botones que sólo tenían :hover (nada visible al navegar con Tab): mismo anillo que ya
+   usan los inputs de esta misma pantalla (.buscador-input:focus / .buscador-dia-input:focus). */
+.btn-filtro:focus-visible,
+.btn-vista:focus-visible,
+.btn-mas-filtros:focus-visible,
+.btn-regalos:focus-visible,
+.btn-restablecer:focus-visible,
+.btn-buscar:focus-visible,
+.btn-limpiar:focus-visible,
+.btn-accion:focus-visible,
+.btn-menu:focus-visible,
+.btn-deshacer:focus-visible,
+.btn-pagina-dia:focus-visible,
+.btn-flecha-pagina:focus-visible,
+.col-ordenable:focus-visible,
+.indicador-caja:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(57, 169, 53, 0.35);
+}
+
 /* ---------- Responsive ---------- */
 @media (max-width: 1100px) {
   .fila {
-    grid-template-columns: minmax(180px, 2fr) 120px 90px 130px 170px 40px;
+    grid-template-columns: minmax(180px, 2fr) 90px 130px 170px 40px;
   }
 }
 
@@ -805,6 +1050,11 @@
 
   .buscador { flex-wrap: wrap; max-width: none; }
   .buscador-input { flex: 1 1 100%; }
+
+  .selector-vista { flex-wrap: wrap; }
+  .buscador-dia-input { flex: 1 1 100%; }
+  .btn-vista { flex: 1 1 auto; }
+  .btn-regalos { flex: 1 1 100%; justify-content: center; }
 
   /* Por debajo de este ancho la tabla deja de tener sentido: volvemos a
      tarjetas apiladas para no romper el layout en pantallas angostas. */
@@ -818,7 +1068,7 @@
     padding: 14px 16px;
   }
 
-  .col-fecha, .col-codigo, .col-estado {
+  .col-codigo, .col-estado {
     display: flex;
     justify-content: space-between;
   }
@@ -829,6 +1079,6 @@
 
   .menu-dropdown {
     top: auto;
-    bottom: 36px;
+    bottom: 44px;
   }
 }

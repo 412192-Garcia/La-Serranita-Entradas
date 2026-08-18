@@ -10,4 +10,6 @@ export interface TipoEntrada {
   maximoPorDia: number | null;
   /** Si es true, vender este tipo consume talonario físico (ej: Pase General adulto). */
   entregaEntrada: boolean;
+  /** Posición manual en los listados de venta (POS, compra online). Null = todavía sin asignar, va al final. */
+  orden: number | null;
 }

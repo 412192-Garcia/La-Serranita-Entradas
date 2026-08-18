@@ -2,11 +2,12 @@
 
   <app-cabecera-interna
     titulo="Cajas"
-    descripcion="Cajas cerradas por turno: faltantes, sobrantes, y detalle completo de cada una." />
+    descripcion="Cajas cerradas por turno: faltantes, sobrantes, y detalle completo de cada una."
+    [pasosTutorial]="pasosTutorial" />
 
   <div class="seccion">
 
-  <div class="tarjeta">
+  <div class="tarjeta" data-tour="cajas-abiertas">
     <h2>Cajas abiertas ahora</h2>
     @if (cargandoCajasAbiertas()) {
       <app-spinner />
@@ -32,6 +33,7 @@
   </div>
 
   <app-filtro-rango-fechas
+    data-tour="filtro-cajas"
     [(desde)]="desde"
     [(hasta)]="hasta"
     subtitulo="Filtra por fecha de cierre de la caja. Por defecto muestra los últimos 30 días."
@@ -41,6 +43,7 @@
     <p class="alerta-error">{{ error() }}</p>
   }
 
+  <div data-tour="cajas-cerradas">
   @if (cargando()) {
     <div class="tarjeta">
       <app-spinner />
@@ -140,6 +143,7 @@
       }
     </div>
   }
+  </div>
 
   </div>
 

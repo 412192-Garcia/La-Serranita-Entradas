@@ -56,10 +56,22 @@
   grid-column: 1 / -1;
 }
 
+/* auto-fit en vez de un fijo repeat(4, 1fr): 4 columnas iguales y angostas a la fuerza
+   terminaban partiendo números normales de 7-11 caracteres a la mitad de un grupo de dígitos
+   (con word-break: break-all, ilegible). Con minmax(200px, 1fr) cada KPI conserva un ancho
+   razonable para su número en una sola línea, y si no entran los 4 en la fila, baja a 2 (o a
+   1, ya cubierto por el media query de abajo) en vez de apretarlos. */
 .tarjeta-kpis {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 20px;
+}
+
+/* Sin esto, un ítem de grid no encoge más allá del ancho de su contenido (min-width: auto):
+   un número más largo que el mínimo de la columna la seguiría empujando más ancha que las
+   demás — mismo motivo que .fila-simple > * en configuracion-shared.css. */
+.tarjeta-kpis > * {
+  min-width: 0;
 }
 
 .kpi-numero {
@@ -68,6 +80,11 @@
   font-weight: 800;
   color: var(--color-primary-dark);
   margin: 4px 0;
+  /* Sólo como red de contención para un valor realmente fuera de lo común: rompe en el
+     espacio después del "$" (que el pipe "pesos" ya deja) antes que forzar la columna más
+     ancha. Sin word-break: break-all a propósito — partía cualquier número normal a la mitad
+     de un grupo de dígitos, ilegible. */
+  overflow-wrap: break-word;
 }
 
 .kpi-numero-secundario {

@@ -34,6 +34,11 @@ export type CampoOrdenCompras = 'fechaVisita' | 'codigoReserva' | 'estado' | 'mo
 export interface FiltroBusquedaCompras {
   texto?: string;
   fecha?: string;
+  /** Rango (alternativa a `fecha`, usada por la vista agrupada por día): uno solo alcanza para un rango abierto. */
+  fechaDesde?: string;
+  fechaHasta?: string;
+  /** Sólo los regalos (fechaVisita null). Mutuamente excluyente con fecha/fechaDesde/fechaHasta. */
+  sinFecha?: boolean;
   tipo?: TipoListadoCompra;
   estados?: EstadoCompra[];
   formaPago?: FormaPagoType;
@@ -67,6 +72,11 @@ export interface Reserva {
   fechaValidacion: string | null;
   /** Usuario de boletería que validó el ingreso. */
   usuarioValidador: string | null;
+  /** Datos de quien recibe el regalo: sólo vienen cargados cuando fechaVisita es null. */
+  receptorNombre: string | null;
+  receptorEmail: string | null;
+  receptorDni: string | null;
+  receptorTelefono: string | null;
 }
 
 export interface EditarContactoRequest {
@@ -134,6 +144,9 @@ export class BoleteriaService {
     let params = new HttpParams();
     if (filtro.texto) params = params.set('texto', filtro.texto);
     if (filtro.fecha) params = params.set('fecha', filtro.fecha);
+    if (filtro.fechaDesde) params = params.set('fechaDesde', filtro.fechaDesde);
+    if (filtro.fechaHasta) params = params.set('fechaHasta', filtro.fechaHasta);
+    if (filtro.sinFecha) params = params.set('sinFecha', 'true');
     if (filtro.tipo) params = params.set('tipo', filtro.tipo);
     for (const estado of filtro.estados ?? []) params = params.append('estados', estado);
     if (filtro.formaPago) params = params.set('formaPago', filtro.formaPago);
@@ -141,6 +154,30 @@ export class BoleteriaService {
     if (filtro.direccion) params = params.set('direccion', filtro.direccion);
     params = params.set('page', filtro.page ?? 0).set('size', filtro.size ?? 50);
     return this.http.get<Pagina<Reserva>>(`${this.comprasUrl}/buscar`, { params });
+  }
+
+  /**
+   * Mismos filtros que `buscar` (sin orden, que siempre es por fecha ascendente), pero
+   * devuelve los días distintos (fechaVisita) con al menos una compra, paginados por
+   * cantidad de días en vez de por cantidad de compras. Lo usa la vista agrupada por día
+   * para no partir un día a la mitad entre dos páginas: primero se pide la página de días
+   * acá, y con el primer/último día de esa página se vuelve a llamar a `buscar` (con
+   * fechaDesde/fechaHasta) para traer todas las compras de esos días completos. Los regalos
+   * (fechaVisita null) quedan afuera de esta enumeración: tienen su propio bloque en
+   * Boletería (filtro `sinFecha` de `buscar`), independiente de esta paginación por día.
+   */
+  buscarFechasDistintas(
+    filtro: Omit<FiltroBusquedaCompras, 'fecha' | 'sinFecha' | 'ordenarPor' | 'direccion'>
+  ): Observable<Pagina<string>> {
+    let params = new HttpParams();
+    if (filtro.texto) params = params.set('texto', filtro.texto);
+    if (filtro.fechaDesde) params = params.set('fechaDesde', filtro.fechaDesde);
+    if (filtro.fechaHasta) params = params.set('fechaHasta', filtro.fechaHasta);
+    if (filtro.tipo) params = params.set('tipo', filtro.tipo);
+    for (const estado of filtro.estados ?? []) params = params.append('estados', estado);
+    if (filtro.formaPago) params = params.set('formaPago', filtro.formaPago);
+    params = params.set('page', filtro.page ?? 0).set('size', filtro.size ?? 20);
+    return this.http.get<Pagina<string>>(`${this.comprasUrl}/fechas-visita`, { params });
   }
 
   // Quién valida o cobra lo resuelve el backend a partir del JWT, así que estas

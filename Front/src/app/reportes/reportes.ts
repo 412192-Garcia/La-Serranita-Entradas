@@ -8,6 +8,35 @@ import { CabeceraInterna } from '../shared/cabecera-interna/cabecera-interna';
 import { FiltroRangoFechas } from '../shared/filtro-rango-fechas/filtro-rango-fechas';
 import { aFechaISO, restarUnAnio } from '../shared/fecha.util';
 import { PesosPipe } from '../shared/pesos.pipe';
+import { TourStep } from '../shared/tour/tour';
+
+/** Cada pestaña (Resumen/Comparación) tiene su propio recorrido, igual que en Configuración:
+ * son bloques de contenido distintos y no tiene sentido un único tutorial para las dos. */
+const PASOS_RESUMEN: TourStep[] = [
+  {
+    selector: '[data-tour="filtro-fechas-reportes"]',
+    titulo: 'Elegí el rango',
+    texto: 'Elegí el rango de fechas y tocá Aplicar para traer los números de ese período.',
+  },
+  {
+    selector: '[data-tour="kpis-reportes"]',
+    titulo: 'Números principales',
+    texto: 'Recaudación total, anticipada, en puerta y personas que entraron, para el rango elegido.',
+  },
+  {
+    selector: '[data-tour="graficos-reportes"]',
+    titulo: 'Gráficos y desgloses',
+    texto: 'Más abajo hay gráficos con el detalle: afluencia diaria, desglose por tipo, forma de pago, horarios y más.',
+  },
+];
+
+const PASOS_COMPARACION: TourStep[] = [
+  {
+    selector: '[data-tour="comparar-periodos"]',
+    titulo: 'Comparar períodos',
+    texto: 'Agregá los rangos que quieras comparar (por ejemplo años o temporadas distintas), ponele una etiqueta a cada uno y tocá Comparar. Los resultados y gráficos aparecen debajo.',
+  },
+];
 
 /** Un período elegido a mano para la pestaña "Comparación": no se asume "un año antes" a
  * ciegas porque fechas móviles (Semana Santa, feriados largos) no caen el mismo día todos los
@@ -109,6 +138,7 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
   resumen = signal<ReporteResumen | null>(null);
 
   vista = signal<'resumen' | 'comparacion'>('resumen');
+  pasosTutorial = computed(() => (this.vista() === 'resumen' ? PASOS_RESUMEN : PASOS_COMPARACION));
 
   /** Arranca con el rango principal y ese mismo rango un año antes, como punto de partida
    * cómodo: el admin corrige las fechas de cualquier fila (o agrega más) antes de comparar. */
