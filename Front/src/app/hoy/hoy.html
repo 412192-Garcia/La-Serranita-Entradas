@@ -2,12 +2,14 @@
 
   <app-cabecera-interna
     titulo="Hoy"
-    descripcion="Un vistazo rápido a cómo viene el día." />
+    descripcion="Un vistazo rápido a cómo viene el día."
+    [pasosTutorial]="pasosTutorial" />
 
   @if (error()) {
     <p class="alerta-error">{{ error() }}</p>
   }
 
+  <div data-tour="resumen-hoy">
   @if (cargando()) {
     <div class="tarjeta">
       <app-spinner />
@@ -50,8 +52,9 @@
       </div>
     }
   }
+  </div>
 
-  <div class="tarjeta">
+  <div class="tarjeta" data-tour="cajas-abiertas">
     <h2>Cajas abiertas ahora</h2>
     <p class="ayuda">Quién está trabajando en este momento.</p>
     @if (cargandoCajas()) {

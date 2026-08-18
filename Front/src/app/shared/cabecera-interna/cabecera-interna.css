@@ -61,6 +61,35 @@
   flex-shrink: 0;
 }
 
+.btn-tutorial {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 1.5px solid var(--color-border);
+  border-radius: 999px;
+  background-color: var(--color-card-bg);
+  color: var(--color-text-secondary);
+  font-size: 0.82rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-tutorial svg {
+  width: 16px;
+  height: 16px;
+}
+
+.btn-tutorial:hover { border-color: var(--color-primary); color: var(--color-primary-dark); }
+
+.btn-tutorial:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(57, 169, 53, 0.35);
+}
+
 .btn-hamburguesa {
   flex-shrink: 0;
   display: flex;

@@ -2,7 +2,8 @@
 
   <app-cabecera-interna
     titulo="Configuración del Parque"
-    descripcion="Días abiertos, horarios y cupones de descuento." />
+    descripcion="Días abiertos, horarios y cupones de descuento."
+    [pasosTutorial]="pasosTutorial()" />
 
   <nav class="tabs">
     <button type="button" class="tab" [class.activo]="tab() === 'dias'" (click)="tab.set('dias')">
@@ -22,13 +23,13 @@
   @if (tab() === 'dias') {
     <app-configuracion-dias-horarios />
   } @else if (tab() === 'descuentos') {
-    <app-configuracion-promociones />
-    <app-configuracion-cupones />
+    <app-configuracion-promociones data-tour="promociones" />
+    <app-configuracion-cupones data-tour="cupones" />
   } @else if (tab() === 'catalogo') {
-    <app-configuracion-tipos-entrada />
-    <app-configuracion-articulos />
+    <app-configuracion-tipos-entrada data-tour="tipos-entrada" />
+    <app-configuracion-articulos data-tour="articulos-varios" />
   } @else if (tab() === 'usuarios') {
-    <app-configuracion-usuarios />
+    <app-configuracion-usuarios data-tour="usuarios" />
   }
 
 </div>

@@ -13,6 +13,23 @@
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card);
   padding: 20px 24px;
+  box-sizing: border-box;
+  /* .tarjeta vive como ítem de flex (.seccion) o de grid (ej. .seccion-cupones) según la
+     pantalla; en ambos casos el default min-width:auto evita que se achique más allá del
+     contenido de sus hijos (ej. una tabla con columnas 1fr) — eso empuja toda la tarjeta,
+     y con ella la página entera, más ancha que la pantalla en mobile. */
+  min-width: 0;
+}
+
+/* Para cuando .tarjeta vive en un grid de 2 columnas (ej. .seccion-reportes) y necesita ocupar
+   las dos en vez de una — sin efecto si el padre no es grid, así que es seguro tenerla acá
+   aunque no todas las pantallas que importan este archivo usen grid.
+   IMPORTANTE: <app-filtro-rango-fechas> depende de esta regla estando ACÁ (no sólo en el CSS
+   de cada pantalla) para que su input [ancho]="true" funcione — por la encapsulación de
+   estilos de Angular, el .tarjeta-ancha que arma internamente sólo ve las reglas que importa
+   su propio filtro-rango-fechas.css, no las de la pantalla que lo usa. */
+.tarjeta-ancha {
+  grid-column: 1 / -1;
 }
 
 /* Cada pestaña mezcla tarjetas de "cargar algo" con tarjetas de "ver lo que ya existe", y a
@@ -152,6 +169,7 @@ input:focus, select:focus {
 .tabla-simple {
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .fila-simple {
@@ -162,6 +180,14 @@ input:focus, select:focus {
   align-items: center;
   border-bottom: 1px solid var(--color-border);
   font-size: 0.85rem;
+  min-width: 0;
+}
+
+/* Por defecto un ítem de grid no encoge más allá del ancho de su contenido (min-width:
+   auto): con columnas 1fr eso hace que textos largos (códigos de cupón, nombres) empujen
+   la fila entera fuera de una pantalla angosta en vez de recortarse/ajustarse. */
+.fila-simple > * {
+  min-width: 0;
 }
 
 .fila-simple:last-child { border-bottom: none; }

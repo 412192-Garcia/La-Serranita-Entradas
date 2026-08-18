@@ -12,6 +12,25 @@ import { CierreCajaModal } from './cierre-caja-modal/cierre-caja-modal';
 import { ResumenCierre } from './resumen-cierre/resumen-cierre';
 import { Modal } from '../shared/modal/modal';
 import { PesosPipe } from '../shared/pesos.pipe';
+import { TourStep } from '../shared/tour/tour';
+
+const PASOS_TUTORIAL: TourStep[] = [
+  {
+    selector: '[data-tour="cajas-abiertas"]',
+    titulo: 'Cajas abiertas ahora',
+    texto: 'Quién tiene una caja abierta en este momento, y el botón para cerrarla desde acá si hace falta.',
+  },
+  {
+    selector: '[data-tour="filtro-cajas"]',
+    titulo: 'Elegí el rango',
+    texto: 'Filtra por fecha de cierre. Por defecto muestra los últimos 30 días.',
+  },
+  {
+    selector: '[data-tour="cajas-cerradas"]',
+    titulo: 'Cajas cerradas',
+    texto: 'Faltantes, sobrantes y ranking de boleteros para el rango elegido. Tocá una fila para ver el detalle completo.',
+  },
+];
 
 @Component({
   selector: 'app-configuracion-cajas',
@@ -22,6 +41,8 @@ import { PesosPipe } from '../shared/pesos.pipe';
 export class ConfiguracionCajas implements OnInit {
   private reporteService = inject(ReporteService);
   private cajaService = inject(CajaService);
+
+  readonly pasosTutorial = PASOS_TUTORIAL;
 
   // ---------- Cajas abiertas ahora mismo ----------
   cajasAbiertas = signal<CajaAbierta[]>([]);

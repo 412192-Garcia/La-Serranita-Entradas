@@ -55,6 +55,22 @@ export class AgregarArticulo {
     this.catalogoPrecio.set(articulo?.precioSugerido ?? null);
   }
 
+  incrementarCantidad(): void {
+    this.cantidad.update((c) => c + 1);
+  }
+
+  /** No baja de 1: sacar el artículo entero se hace con la "✕" del carrito, no llevando esto a 0. */
+  decrementarCantidad(): void {
+    this.cantidad.update((c) => Math.max(1, c - 1));
+  }
+
+  /** El +/- alcanza para la mayoría (souvenirs de a poco), pero a veces también se cargan de a
+   * varias docenas — hace falta poder escribir el número directo, no sólo tocar de a uno. */
+  setCantidad(valor: string | number | null): void {
+    const numero = typeof valor === 'number' ? valor : parseInt(String(valor ?? '').replace(/\D/g, ''), 10);
+    this.cantidad.set(Number.isFinite(numero) && numero >= 1 ? numero : 1);
+  }
+
   confirmar(): void {
     const cantidad = this.cantidad();
     if (cantidad === null || cantidad < 1) return;

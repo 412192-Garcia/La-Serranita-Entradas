@@ -40,10 +40,14 @@ interface EntradaCola {
   mensajeError?: string;
 }
 
-/** Lo que devuelve ejecutar(): o el servidor confirmó, o quedó guardada para sincronizar sola. */
+/** Lo que devuelve ejecutar(): el servidor confirmó, quedó guardada para sincronizar sola (sin
+ * conexión / timeout — no es culpa de la operación en sí), o el servidor la rechazó de una
+ * (dato inválido, caja ya cerrada) — este último caso NO se reintenta solo, y el llamador no
+ * debería tratarlo como si hubiera salido bien. */
 export type ResultadoOperacion<T> =
   | { confirmada: true; resultado: T }
-  | { confirmada: false };
+  | { confirmada: false; rechazada: false }
+  | { confirmada: false; rechazada: true; mensaje: string };
 
 /**
  * Cola local de las operaciones del POS que tienen que sobrevivir a un corte de conexión:
@@ -101,8 +105,9 @@ export class OperacionesPendientesService {
       this.quitar(entrada.idempotencyKey);
       return { confirmada: true, resultado: resultado as T };
     } catch (error) {
-      this.registrarFallo(entrada.idempotencyKey, error);
-      return { confirmada: false };
+      const mensajeRechazo = this.registrarFallo(entrada.idempotencyKey, error);
+      if (mensajeRechazo !== null) return { confirmada: false, rechazada: true, mensaje: mensajeRechazo };
+      return { confirmada: false, rechazada: false };
     }
   }
 
@@ -155,9 +160,11 @@ export class OperacionesPendientesService {
    * Un rechazo del servidor (4xx de negocio: la caja ya se cerró, datos inválidos) no se
    * reintenta solo — reintentarlo va a fallar igual. Cualquier otra cosa (timeout, sin red,
    * 5xx) sí queda pendiente: es un problema de momento, no de la operación.
+   * Devuelve el mensaje de rechazo (para mostrárselo ya mismo al que hizo la operación) o null
+   * si no fue un rechazo real, sino un problema de conexión.
    */
-  private registrarFallo(idempotencyKey: string, error: unknown): void {
-    if (!this.esRechazoDelServidor(error)) return;
+  private registrarFallo(idempotencyKey: string, error: unknown): string | null {
+    if (!this.esRechazoDelServidor(error)) return null;
     const mensaje = error instanceof HttpErrorResponse && typeof error.error === 'string'
       ? error.error
       : 'El servidor rechazó la operación';
@@ -166,6 +173,7 @@ export class OperacionesPendientesService {
         e.idempotencyKey === idempotencyKey ? { ...e, estado: 'error' as const, mensajeError: mensaje } : e
       )
     );
+    return mensaje;
   }
 
   private esRechazoDelServidor(error: unknown): boolean {

@@ -108,6 +108,9 @@ export class CarritoVenta {
 
   total = computed(() => this.cotizacion()?.subtotal ?? this.subtotalLista());
   ahorro = computed(() => this.cotizacion()?.ahorro ?? 0);
+  /** Tope del descuento manual en $: no tiene sentido descontar más que la suma de lo que hay
+   * en el carrito. Expuesto para mostrar el máximo como pista en el input (ver setDescuentoManualMonto). */
+  montoMaximoDescuento = computed(() => this.subtotalLista());
 
   vuelto = computed(() => {
     const pagaCon = this.pagaCon();
@@ -231,9 +234,12 @@ export class CarritoVenta {
     if (valor !== null) this.descuentoManualMonto.set(null);
   }
 
+  /** No deja cargar un descuento mayor a lo que hay en el carrito — sin esto, nada evitaba
+   * escribir de más y que el total diera negativo hasta que lo rechazara el backend. */
   setDescuentoManualMonto(valor: number | null): void {
-    this.descuentoManualMonto.set(valor);
-    if (valor !== null) this.descuentoManualPorcentaje.set(null);
+    const acotado = valor === null ? null : Math.min(valor, this.montoMaximoDescuento());
+    this.descuentoManualMonto.set(acotado);
+    if (acotado !== null) this.descuentoManualPorcentaje.set(null);
   }
 
   private limpiarDescuento(): void {
@@ -274,11 +280,20 @@ export class CarritoVenta {
     }));
   }
 
+  /** Confirmación liviana: es una sola línea y se puede volver a agregar fácil, pero un toque
+   * de más en la "✕" (al lado del precio, fácil de rozar) no debería sacarla sin avisar. */
   onQuitarArticulo(index: number): void {
+    const articulo = this.articulosCarrito()[index];
+    if (articulo && !window.confirm(`¿Quitar "${articulo.nombre}" del carrito?`)) return;
     this.quitarArticulo.emit(index);
   }
 
+  /** A diferencia de sacar un solo artículo, esto vacía TODA la venta en curso — entradas y
+   * artículos — sin forma de deshacerlo, así que pide confirmación (sólo si hay algo que perder). */
   onLimpiar(): void {
+    if (this.hayItems() && !window.confirm('¿Vaciar el carrito? Se pierden las entradas y artículos ya agregados.')) {
+      return;
+    }
     this.pagaCon.set(null);
     this.limpiarPagoDolares();
     this.error.set(null);
@@ -325,6 +340,14 @@ export class CarritoVenta {
       return;
     }
 
+    // Rechazo real del servidor (no un problema de conexión): la venta NO se registró, así que
+    // mostrarla como "cobrada sin conexión" sería engañoso — el carrito queda intacto para
+    // revisar y reintentar, con el motivo bien visible.
+    if (resultado.rechazada) {
+      this.error.set(resultado.mensaje);
+      return;
+    }
+
     // Sin confirmación del servidor se arma un comprobante con lo calculado en el navegador:
     // el cliente ya pagó y está entrando, no se lo puede hacer esperar a que vuelva la señal.
     const ventaLocal: Reserva = {
@@ -341,6 +364,10 @@ export class CarritoVenta {
       detalles: null,
       fechaValidacion: new Date().toISOString(),
       usuarioValidador: null,
+      receptorNombre: null,
+      receptorEmail: null,
+      receptorDni: null,
+      receptorTelefono: null,
     };
     this.ventaRegistrada.emit({ venta: ventaLocal, formaPago, vuelto, items, pagoEnDolares, pendiente: true });
   }

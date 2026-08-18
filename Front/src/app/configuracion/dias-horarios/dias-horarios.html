@@ -1,6 +1,6 @@
 <div class="seccion seccion-dias">
 
-  <div class="tarjeta tarjeta-horario-general">
+  <div class="tarjeta tarjeta-horario-general" data-tour="horario-general">
     <h2>Horario general</h2>
     <p class="ayuda">Rige todos los días abiertos salvo que definas un horario especial puntual.</p>
     <div class="fila-horario">
@@ -21,7 +21,7 @@
     }
   </div>
 
-  <div class="tarjeta tarjeta-mes">
+  <div class="tarjeta tarjeta-mes" data-tour="calendario-dias">
     <div class="mes-header">
       <button type="button" class="btn-mes" (click)="cambiarMes(-1)">‹</button>
       <h2>{{ nombreMes() }} {{ anioMes() }}</h2>
@@ -67,7 +67,7 @@
     }
   </div>
 
-  <div class="tarjeta tarjeta-dia-detalle">
+  <div class="tarjeta tarjeta-dia-detalle" data-tour="detalle-dia">
     @if (diasSeleccionados().size === 0) {
       <h2>Configuración del día</h2>
       <p class="ayuda">Tocá un día del calendario para ver su estado o definirle un horario especial.</p>

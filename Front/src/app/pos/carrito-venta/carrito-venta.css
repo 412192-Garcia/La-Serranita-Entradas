@@ -28,6 +28,24 @@
   font-size: 0.9rem;
 }
 
+/* Chica y discreta a propósito, lejos de .btn-cobrar (ver comentario en el html): que vaciar
+   el carrito no compita visualmente con la acción principal de la pantalla. */
+.btn-vaciar-carrito {
+  align-self: flex-end;
+  margin-bottom: 4px;
+  padding: 4px 2px;
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.btn-vaciar-carrito:hover { color: var(--color-danger-dark); }
+
 /* Sólo detalle: la cantidad se elige en el catálogo, acá no hay controles. */
 .linea {
   display: flex;
@@ -120,6 +138,13 @@
 
 .btn-forma-pago:hover { border-color: var(--color-primary); }
 
+.btn-forma-pago:focus-visible,
+.btn-modo-descuento:focus-visible,
+.btn-vaciar-carrito:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(57, 169, 53, 0.35);
+}
+
 .btn-forma-pago.activo {
   border-color: var(--color-primary);
   background-color: var(--color-primary);
@@ -178,6 +203,11 @@
   outline: none;
 }
 
+.bloque-descuento select:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(57, 169, 53, 0.15);
+}
+
 .fila-descuento-manual {
   display: flex;
   gap: 8px;
@@ -193,6 +223,11 @@
   color: var(--color-text-secondary);
 }
 
+.hint-descuento-maximo {
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
 .fila-descuento-manual input {
   padding: 10px 12px;
   font-size: 0.95rem;
@@ -202,6 +237,11 @@
   outline: none;
   background-color: var(--color-input-bg);
   color: var(--color-text);
+}
+
+.fila-descuento-manual input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(57, 169, 53, 0.15);
 }
 
 .fila-total {

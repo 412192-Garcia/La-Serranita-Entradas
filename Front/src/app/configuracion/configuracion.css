@@ -51,4 +51,9 @@
 /* ---------- Responsive ---------- */
 @media (max-width: 600px) {
   .panel { padding: 20px 16px 32px; }
+
+  /* Las 4 pestañas no entran en una fila angosta: en vez de partirlas en dos líneas
+     (se ve raro con el subrayado activo), se desliza horizontalmente. */
+  .tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .tab { white-space: nowrap; flex-shrink: 0; }
 }

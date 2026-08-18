@@ -2,7 +2,8 @@
 
   <app-cabecera-interna
     titulo="Reportes"
-    descripcion="Recaudación, afluencia y desgloses del parque." />
+    descripcion="Recaudación, afluencia y desgloses del parque."
+    [pasosTutorial]="pasosTutorial()" />
 
   <div class="tabs-reportes">
     <button type="button" class="tab-reportes" [class.activo]="vista() === 'resumen'" (click)="vista.set('resumen')">Resumen</button>
@@ -13,6 +14,7 @@
   <div class="seccion seccion-reportes">
 
   <app-filtro-rango-fechas
+    data-tour="filtro-fechas-reportes"
     [(desde)]="desde"
     [(hasta)]="hasta"
     subtitulo="Filtra por fecha de visita. Por defecto muestra los últimos 30 días."
@@ -23,6 +25,7 @@
     <p class="alerta-error">{{ error() }}</p>
   }
 
+  <div class="tarjeta-ancha" data-tour="kpis-reportes">
   @if (resumen(); as r) {
     <div class="tarjeta tarjeta-ancha tarjeta-kpis">
       <div>
@@ -55,8 +58,9 @@
       </div>
     </div>
   }
+  </div>
 
-  <div class="tarjeta tarjeta-ancha" [class.oculta]="!resumen()">
+  <div class="tarjeta tarjeta-ancha" data-tour="graficos-reportes" [class.oculta]="!resumen()">
     <h2>Afluencia diaria</h2>
     <p class="ayuda">Entradas anticipadas vendidas por día vs. personas que entraron.</p>
     <div class="grafico-contenedor grafico-contenedor-grande">
@@ -220,7 +224,7 @@
   }
 
   @if (vista() === 'comparacion') {
-    <div class="tarjeta tarjeta-ancha">
+    <div class="tarjeta tarjeta-ancha" data-tour="comparar-periodos">
       <h2>Comparar períodos</h2>
       <p class="ayuda">Agregá los rangos que quieras comparar (años, temporadas, fechas móviles como Semana Santa) y compará sus números lado a lado.</p>
 

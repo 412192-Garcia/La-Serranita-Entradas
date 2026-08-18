@@ -1,4 +1,4 @@
-<app-modal (cerrar)="cerrar.emit()">
+<app-modal [cerrarAlTocarFondo]="false" (cerrar)="cerrar.emit()">
   <div class="panel-caja">
     <h3>{{ tipo() === 'APORTE' ? 'Agregar plata' : 'Retirar efectivo' }}</h3>
 

@@ -6,6 +6,20 @@ import { ReporteResumen } from '../models/reporte';
 import { CabeceraInterna } from '../shared/cabecera-interna/cabecera-interna';
 import { Spinner } from '../shared/spinner/spinner';
 import { PesosPipe } from '../shared/pesos.pipe';
+import { TourStep } from '../shared/tour/tour';
+
+const PASOS_TUTORIAL: TourStep[] = [
+  {
+    selector: '[data-tour="resumen-hoy"]',
+    titulo: 'Cómo viene el día',
+    texto: 'Recaudación, personas que entraron y entradas vendidas hoy, actualizado en vivo.',
+  },
+  {
+    selector: '[data-tour="cajas-abiertas"]',
+    titulo: 'Quién está trabajando',
+    texto: 'Vés qué boleteros tienen caja abierta ahora mismo y cuánto llevan vendido.',
+  },
+];
 
 function hoyISO(): string {
   const d = new Date();
@@ -22,6 +36,8 @@ function hoyISO(): string {
 export class DashboardHoy implements OnInit {
   private reporteService = inject(ReporteService);
   private cajaService = inject(CajaService);
+
+  readonly pasosTutorial = PASOS_TUTORIAL;
 
   cargando = signal(false);
   error = signal<string | null>(null);

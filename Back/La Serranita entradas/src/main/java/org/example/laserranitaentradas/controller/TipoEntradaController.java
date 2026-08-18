@@ -83,6 +83,13 @@ public class TipoEntradaController {
         return ResponseEntity.notFound().build();
     }
 
+    @PutMapping("/reordenar")
+    @Operation(summary = "Reordenar tipos de entrada", description = "Asigna el orden manual de venta según la lista de ids recibida")
+    @ApiResponse(responseCode = "200", description = "Tipos de entrada reordenados exitosamente")
+    public ResponseEntity<List<TipoEntrada>> reordenarTiposEntrada(@RequestBody List<Long> idsEnOrden) {
+        return ResponseEntity.ok(tipoEntradaService.reordenar(idsEnOrden));
+    }
+
     @DeleteMapping("/{id}")
     @Operation(summary = "Eliminar tipo de entrada", description = "Borra de manera logica un tipo de entrada del sistema")
     @ApiResponses(value = {

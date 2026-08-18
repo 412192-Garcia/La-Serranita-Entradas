@@ -65,12 +65,21 @@ export class RetiroEfectivoModal {
 
     const payload: PayloadRetiroAporte = { monto, motivo, tipo };
     const resultado = await this.pendientes.ejecutar<Caja>({ tipo: 'RETIRO_APORTE', payload });
-    this.limpiarCampos();
+
     if (resultado.confirmada) {
+      this.limpiarCampos();
       this.retiroRegistrado.emit(resultado.resultado);
-    } else {
-      this.retiroEncolado.emit(payload);
+      return;
     }
+    // Rechazo real del servidor: no se guardó, así que no corresponde tratarlo como encolado —
+    // se deja el formulario tal cual estaba para poder corregir y reintentar.
+    if (resultado.rechazada) {
+      this.registrando.set(false);
+      this.error.set(resultado.mensaje);
+      return;
+    }
+    this.limpiarCampos();
+    this.retiroEncolado.emit(payload);
   }
 
   private limpiarCampos(): void {

@@ -8,7 +8,38 @@
 }
 
 .fila-simple-tipos {
-  grid-template-columns: 1.4fr 1fr 1fr 0.8fr 0.7fr 0.8fr 1.6fr;
+  grid-template-columns: 0.6fr 1.4fr 1fr 1fr 0.8fr 0.7fr 0.8fr 1.6fr;
+}
+
+.acciones-orden {
+  display: flex;
+  gap: 4px;
+}
+
+.btn-reordenar {
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-card-bg);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-reordenar svg {
+  width: 16px;
+  height: 16px;
+}
+
+.btn-reordenar:hover:not(:disabled) { border-color: var(--color-primary); color: var(--color-primary-dark); }
+
+.btn-reordenar:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 
 .fila-simple-descuentos {

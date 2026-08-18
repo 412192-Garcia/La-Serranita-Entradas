@@ -62,4 +62,12 @@ public class TipoEntrada extends BaseEntity {
     @Column(nullable = false, length = 50)
     private Tipo tipo;
 
+    /**
+     * Posición manual en los listados de venta (POS, compra online). Sin nullable=false a
+     * propósito, mismo motivo que entregaEntrada: agregar una columna NOT NULL con Hibernate
+     * ddl-auto=update falla contra una tabla que ya tiene filas. Los tipos existentes quedan
+     * con orden=null (Postgres los ordena al final en ASC) hasta que se reordenen a mano.
+     */
+    private Integer orden;
+
 }

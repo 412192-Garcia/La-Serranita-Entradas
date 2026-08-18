@@ -2,7 +2,8 @@
 
   <app-cabecera-interna
     titulo="Generar reserva"
-    descripcion="Una entrada normal, con su fecha, sólo que no se cobra por acá (invitados, ventas por agencia, etc)." />
+    descripcion="Una entrada normal, con su fecha, sólo que no se cobra por acá (invitados, ventas por agencia, etc)."
+    [pasosTutorial]="pasosTutorial" />
 
   @if (resultado(); as r) {
     <div class="tarjeta tarjeta-resultado">
@@ -13,9 +14,9 @@
     </div>
   } @else {
     <div class="layout-crear-reserva">
-      <app-calendario [mostrarOpcionRegalo]="false" (fechaSeleccionadaChange)="onFecha($event)" />
+      <app-calendario data-tour="calendario" [mostrarOpcionRegalo]="false" (fechaSeleccionadaChange)="onFecha($event)" />
 
-      <div class="panel-paso">
+      <div class="panel-paso" data-tour="panel-paso">
         @switch (etapa()) {
           @case (etapaReserva.SELECCION) {
             <app-seleccion-entradas

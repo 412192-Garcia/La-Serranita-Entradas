@@ -1,8 +1,9 @@
 import { Component, Input, computed, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
-import { LucideMenu, LucideX, LucideLogOut, LucideWifiOff } from '@lucide/angular';
+import { LucideMenu, LucideX, LucideLogOut, LucideWifiOff, LucideCircleHelp } from '@lucide/angular';
 import { SesionService } from '../../services/sesion.service';
 import { ConectividadService } from '../../services/conectividad.service';
+import { Tour, TourStep } from '../tour/tour';
 
 interface EnlaceCabecera {
   texto: string;
@@ -33,7 +34,7 @@ const TODOS_LOS_ENLACES: EnlaceCabecera[] = [
  */
 @Component({
   selector: 'app-cabecera-interna',
-  imports: [RouterLink, LucideMenu, LucideX, LucideLogOut, LucideWifiOff],
+  imports: [RouterLink, Tour, LucideMenu, LucideX, LucideLogOut, LucideWifiOff, LucideCircleHelp],
   templateUrl: './cabecera-interna.html',
   styleUrl: './cabecera-interna.css',
 })
@@ -43,6 +44,11 @@ export class CabeceraInterna {
 
   @Input({ required: true }) titulo = '';
   @Input() descripcion = '';
+  /** Cuando la pantalla define pasos, se muestra el botón "Tutorial" acá — centralizado en
+   * la cabecera común para no repetir el botón + <app-tour> en cada pantalla. Vacío = sin tutorial. */
+  @Input() pasosTutorial: TourStep[] = [];
+
+  tourActivo = signal(false);
 
   readonly operador = this.sesion.usuario;
 

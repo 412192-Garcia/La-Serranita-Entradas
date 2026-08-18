@@ -17,5 +17,8 @@ public interface TipoEntradaService {
     TipoEntrada update(TipoEntrada tipoEntrada);
 
     void delete(Long id);
+
+    /** Asigna orden=índice a cada id de la lista, en el orden en que aparecen; devuelve todo ordenado. */
+    List<TipoEntrada> reordenar(List<Long> idsEnOrden);
 }
 

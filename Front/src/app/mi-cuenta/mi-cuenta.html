@@ -2,10 +2,11 @@
 
   <app-cabecera-interna
     titulo="Mi cuenta"
-    descripcion="Configuración personal." />
+    descripcion="Configuración personal."
+    [pasosTutorial]="pasosTutorial" />
 
   <div class="seccion">
-    <div class="tarjeta tarjeta-formulario tarjeta-mi-cuenta">
+    <div class="tarjeta tarjeta-formulario tarjeta-mi-cuenta" data-tour="foto-perfil">
       <h2>Foto de perfil</h2>
 
       @if (errorFoto()) {
@@ -32,7 +33,7 @@
       </div>
     </div>
 
-    <div class="tarjeta tarjeta-formulario tarjeta-mi-cuenta">
+    <div class="tarjeta tarjeta-formulario tarjeta-mi-cuenta" data-tour="cambiar-password">
       <h2>Cambiar contraseña</h2>
       @if (operador(); as u) {
         <p class="ayuda">Conectado como {{ u.nombre }} ({{ u.username }}).</p>
@@ -80,7 +81,7 @@
       </form>
     </div>
 
-    <div class="tarjeta tarjeta-formulario tarjeta-mi-cuenta">
+    <div class="tarjeta tarjeta-formulario tarjeta-mi-cuenta" data-tour="apariencia">
       <h2>Apariencia</h2>
       <p class="ayuda">Elegí los colores de la interfaz. Se guardan en tu usuario.</p>
 

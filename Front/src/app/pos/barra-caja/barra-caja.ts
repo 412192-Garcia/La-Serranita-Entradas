@@ -20,7 +20,6 @@ export class BarraCaja {
 
   caja = input.required<Caja>();
 
-  validarReserva = output<void>();
   retirarEfectivo = output<void>();
   agregarEntradas = output<void>();
 }

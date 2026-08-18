@@ -8,6 +8,7 @@ import org.example.laserranitaentradas.repository.ArticuloVarioRepository;
 import org.example.laserranitaentradas.repository.CompraRepository;
 import org.example.laserranitaentradas.repository.PromocionRepository;
 import org.example.laserranitaentradas.service.*;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -50,6 +51,7 @@ class CompraServiceImplTest {
     @Mock private PagoService mercadoPagoEstrategia;
     @Mock private PagoService efectivoEstrategia;
     @Mock private PagoService reservaAdminEstrategia;
+    @Mock private EntityManager em;
 
     private CompraServiceImpl service;
 
@@ -62,7 +64,7 @@ class CompraServiceImplTest {
 
         service = new CompraServiceImpl(compraRepository, tipoEntradaService, cuponService, diaAperturaService,
                 clienteService, usuarioService, calculoPrecioService, emailService, cajaService, promocionRepository,
-                articuloVarioRepository, List.of(mercadoPagoEstrategia, efectivoEstrategia, reservaAdminEstrategia));
+                articuloVarioRepository, List.of(mercadoPagoEstrategia, efectivoEstrategia, reservaAdminEstrategia), em);
     }
 
     // ---------- RESERVA_ADMIN: no cobra nada por acá, sin importar el precio de lista ----------

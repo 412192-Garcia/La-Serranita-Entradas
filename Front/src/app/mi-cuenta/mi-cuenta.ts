@@ -5,6 +5,25 @@ import { UsuarioService } from '../services/usuario.service';
 import { SesionService } from '../services/sesion.service';
 import { PALETAS_PREARMADAS, PALETAS_FONDO, PALETAS_TARJETA, PALETAS_BORDE, DISENIOS_PREARMADOS, DisenioPrearmado, ThemeService } from '../services/theme.service';
 import { CabeceraInterna } from '../shared/cabecera-interna/cabecera-interna';
+import { TourStep } from '../shared/tour/tour';
+
+const PASOS_TUTORIAL: TourStep[] = [
+  {
+    selector: '[data-tour="foto-perfil"]',
+    titulo: 'Foto de perfil',
+    texto: 'Se ve en la cabecera y en el menú, para identificarte rápido entre varios usuarios.',
+  },
+  {
+    selector: '[data-tour="cambiar-password"]',
+    titulo: 'Contraseña',
+    texto: 'Cambiá tu propia contraseña acá cuando quieras.',
+  },
+  {
+    selector: '[data-tour="apariencia"]',
+    titulo: 'Apariencia',
+    texto: 'Elegí los colores de la interfaz para tu usuario: un diseño prearmado, o cada color por separado.',
+  },
+];
 
 const PRIMARIO_POR_DEFECTO = '#39a935';
 const FONDO_POR_DEFECTO = '#f4f5f7';
@@ -31,6 +50,7 @@ export class MiCuenta {
   private theme = inject(ThemeService);
 
   readonly operador = this.sesion.usuario;
+  readonly pasosTutorial = PASOS_TUTORIAL;
 
   // ---------- Foto de perfil ----------
   fotoPerfil = signal<string | null>(this.operador()?.fotoPerfil ?? null);

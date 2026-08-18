@@ -141,7 +141,8 @@ INSERT INTO clientes (
 ALTER TABLE clientes ALTER COLUMN id RESTART WITH 25;
 
 -- Variedad de estados/fechas para poder probar Boletería y Configuración sin tener que
--- crear compras a mano: RESERVADO_EFECTIVO, APROBADO, USADO, PENDIENTE_PAGO, CANCELADO y un regalo (sin fecha).
+-- crear compras a mano: RESERVADO_EFECTIVO, APROBADO, USADO, PENDIENTE_PAGO, CANCELADO.
+-- Los regalos (sin fecha, con datos de receptor) van en el INSERT de abajo.
 INSERT INTO compras (
     id, id_cliente, contact_email, contact_phone, fecha_visita, codigo_reserva, monto_total, descuento_aplicado, estado, forma_pago,
     id_usuario_validador, fecha_validacion,
@@ -158,9 +159,23 @@ INSERT INTO compras (
     (1005, 5, 'pedro.ramirez@gmail.com', '351-5555678', '2026-08-01', '260801-1', 34300.00, 0.00, 'PENDIENTE_PAGO', 'MERCADO_PAGO',
      NULL, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'WEB_GUEST', 'WEB_GUEST'),
     (1006, 6, 'valentina.suarez@gmail.com', '351-5556789', '2026-08-02', '260802-1', 126900.00, 10300.00, 'CANCELADO', 'MERCADO_PAGO',
-     NULL, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'WEB_GUEST', 'WEB_GUEST'),
-    (1007, 2, 'laura.fernandez@gmail.com', '351-5552345', NULL, 'REGALO-1', 68600.00, 0.00, 'APROBADO', 'MERCADO_PAGO',
      NULL, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'WEB_GUEST', 'WEB_GUEST');
+
+-- Regalos (fechaVisita null): quien compra no es quien se presenta en la puerta, así que
+-- llevan además los datos de contacto del receptor. Dos ejemplos —uno ya pagado, uno a
+-- cobrar en caja— para poder probar ambos estados sin tener que cargarlos a mano.
+INSERT INTO compras (
+    id, id_cliente, contact_email, contact_phone, fecha_visita, codigo_reserva, monto_total, descuento_aplicado, estado, forma_pago,
+    id_usuario_validador, fecha_validacion,
+    receptor_nombre, receptor_dni, receptor_email, receptor_telefono,
+    fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion
+) VALUES
+    (1007, 2, 'laura.fernandez@gmail.com', '351-5552345', NULL, 'REGALO-1', 68600.00, 0.00, 'APROBADO', 'MERCADO_PAGO',
+     NULL, NULL, 'Mateo Fernández', '41777222', 'mateo.receptor@gmail.com', '351-5559999',
+     CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'WEB_GUEST', 'WEB_GUEST'),
+    (1050, 9, 'camila.torres@gmail.com', '351-5559000', NULL, 'REGALO-2', 34300.00, 0.00, 'RESERVADO_EFECTIVO', 'EFECTIVO_BOLETERIA',
+     NULL, NULL, 'Bautista Ferreyra', '43666111', 'bautista.receptor@gmail.com', '351-5558888',
+     CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'WEB_GUEST', 'WEB_GUEST');
 
 INSERT INTO compras_detalle (
     id_compra, id_tipo_entrada, cantidad,
@@ -177,7 +192,8 @@ INSERT INTO compras_detalle (
       (1005, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'WEB_GUEST', 'WEB_GUEST'),
       (1005, 2, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'WEB_GUEST', 'WEB_GUEST'),
       (1006, 1, 4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'WEB_GUEST', 'WEB_GUEST'),
-      (1007, 1, 2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'WEB_GUEST', 'WEB_GUEST');
+      (1007, 1, 2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'WEB_GUEST', 'WEB_GUEST'),
+      (1050, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'WEB_GUEST', 'WEB_GUEST');
 
 -- -----------------------------------------------------------------------------
 -- 7. CAJAS (turnos de boletería) YA CERRADAS, con sus retiros, para poblar el
@@ -279,7 +295,7 @@ INSERT INTO compras (
 
 -- Sin esto, cuando la app crea una compra en tiempo real (POS o reserva online) podría
 -- chocar contra alguno de los ids insertados a mano de esta tanda de datos de muestra.
-ALTER TABLE compras ALTER COLUMN id RESTART WITH 1050;
+ALTER TABLE compras ALTER COLUMN id RESTART WITH 1051;
 
 INSERT INTO compras_detalle (
     id_compra, id_tipo_entrada, cantidad,

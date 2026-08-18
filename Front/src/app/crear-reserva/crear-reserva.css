@@ -26,6 +26,12 @@
 }
 
 .panel-paso {
+  /* app-seleccion-entradas y app-form-cliente son del módulo de compra pública y ajustan su
+     layout mirando un contenedor ancestro llamado "modulo" (@container, no @media — ver el
+     comentario en compra/entradas/entradas.css). Ese contenedor lo declara :host de esa
+     pantalla; acá, reutilizando esos mismos componentes, hay que declararlo de nuevo o sus
+     media queries de mobile nunca se disparan y las filas quedan sin achicar. */
+  container: modulo / inline-size;
   min-width: 0;
 }
 

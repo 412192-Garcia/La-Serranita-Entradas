@@ -49,6 +49,12 @@
   text-align: left;
 }
 
+/* Mismo motivo que .fila-simple > * en configuracion-shared.css: sin esto, un nombre de
+   lote largo empuja toda la fila fuera de una pantalla angosta. */
+.lote-resumen > * {
+  min-width: 0;
+}
+
 .lote-nombre {
   display: flex;
   flex-direction: column;
@@ -97,5 +103,6 @@
 
 /* ---------- Responsive ---------- */
 @media (max-width: 900px) {
+  .seccion-cupones { grid-template-columns: 1fr; }
   .lote-resumen { grid-template-columns: 1fr 1fr; }
 }
