@@ -1,0 +1,26 @@
+<div class="panel">
+
+  <app-cabecera-interna
+    titulo="Acciones de admin"
+    descripcion="Herramientas puntuales del administrador: generar una reserva manual o resolver operaciones rechazadas."
+    [pasosTutorial]="pasosTutorial()" />
+
+  <nav class="tabs">
+    <button type="button" class="tab" [class.activo]="tab() === 'reserva'" (click)="tab.set('reserva')">
+      Generar reserva
+    </button>
+    <button type="button" class="tab" [class.activo]="tab() === 'rechazos'" (click)="tab.set('rechazos')">
+      Operaciones rechazadas
+      @if (hayRechazosPendientes()) {
+        <span class="punto-notificacion-tab" aria-label="Hay operaciones rechazadas pendientes"></span>
+      }
+    </button>
+  </nav>
+
+  @if (tab() === 'reserva') {
+    <app-crear-reserva />
+  } @else {
+    <app-rechazos-operaciones />
+  }
+
+</div>

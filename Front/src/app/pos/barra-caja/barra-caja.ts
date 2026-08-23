@@ -30,7 +30,7 @@ export class BarraCaja {
     return (this.caja().entradasFisicasInicial ?? 0) + this.caja().totalIngresosEntradas;
   }
 
-  /** El rechazo ya quedó guardado del lado del servidor (ver "Operaciones rechazadas" en Cajas):
+  /** El rechazo ya quedó guardado del lado del servidor (ver "Operaciones rechazadas" en Acciones):
    * descartarlo acá sólo saca el cartel de este navegador, no borra el registro que puede ver
    * un admin desde cualquier otra máquina. */
   descartarErrores(): void {

@@ -35,6 +35,9 @@
       } @else {
         <svg lucideMenu [strokeWidth]="2"></svg>
       }
+      @if (hayRechazosPendientes() && !esRutaActual('/acciones')) {
+        <span class="punto-notificacion-boton" aria-label="Hay operaciones rechazadas pendientes"></span>
+      }
     </button>
   </div>
 </header>
@@ -60,7 +63,12 @@
 
   <nav class="menu-slider-nav">
     @for (e of enlacesVisibles(); track e.ruta) {
-      <a class="menu-slider-item" [routerLink]="e.ruta" (click)="cerrarMenu()">{{ e.texto }}</a>
+      <a class="menu-slider-item" [class.activo]="esRutaActual(e.ruta)" [routerLink]="e.ruta" (click)="cerrarMenu()">
+        {{ e.texto }}
+        @if (e.ruta === '/acciones' && hayRechazosPendientes() && !esRutaActual('/acciones')) {
+          <span class="punto-notificacion-item" aria-label="Hay operaciones rechazadas pendientes"></span>
+        }
+      </a>
     }
   </nav>
 

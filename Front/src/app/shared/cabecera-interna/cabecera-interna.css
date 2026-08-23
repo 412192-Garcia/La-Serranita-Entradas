@@ -91,6 +91,7 @@
 }
 
 .btn-hamburguesa {
+  position: relative;
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -105,6 +106,19 @@
   cursor: pointer;
   font-family: inherit;
   transition: all 0.18s ease;
+}
+
+/* Aviso de operaciones rechazadas pendientes (ver Acciones › Operaciones rechazadas): flotando
+   en la esquina del botón para que se note incluso con el menú cerrado. */
+.punto-notificacion-boton {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: var(--color-danger);
+  border: 1.5px solid var(--color-card-bg);
 }
 
 .btn-hamburguesa:hover,
@@ -216,10 +230,11 @@
   align-items: center;
   gap: 10px;
   border: none;
+  border-left: 3px solid transparent;
   background: none;
   color: var(--color-text);
   border-radius: var(--radius-sm);
-  padding: 14px 12px;
+  padding: 14px 12px 14px 9px;
   font-size: 0.95rem;
   font-weight: 700;
   text-decoration: none;
@@ -232,6 +247,23 @@
 .menu-slider-item:hover {
   background-color: var(--color-primary-light);
   color: var(--color-primary-dark);
+}
+
+/* La pantalla en la que ya estás parado: resaltada, no sacada de la lista (ver comentario en
+   cabecera-interna.ts). El borde a la izquierda es a propósito, no sólo color — mismo criterio
+   de accesibilidad que el resto de la app (no depender sólo del color para transmitir estado). */
+.menu-slider-item.activo {
+  background-color: var(--color-primary-light);
+  color: var(--color-primary-dark);
+  border-left-color: var(--color-primary);
+}
+
+.punto-notificacion-item {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--color-danger);
+  flex-shrink: 0;
 }
 
 .menu-slider-item svg {

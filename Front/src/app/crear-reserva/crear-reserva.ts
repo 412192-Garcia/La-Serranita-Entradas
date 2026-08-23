@@ -5,26 +5,8 @@ import { Calendario } from '../compra/calendario/calendario';
 import { SeleccionEntradas } from '../compra/seleccion-entradas/seleccion-entradas';
 import { FormCliente } from '../compra/form-cliente/form-cliente';
 import { CompraService, CompraResponseDTO } from '../services/compra.service';
-import { CabeceraInterna } from '../shared/cabecera-interna/cabecera-interna';
 import { Modal } from '../shared/modal/modal';
 import { PesosPipe } from '../shared/pesos.pipe';
-import { TourStep } from '../shared/tour/tour';
-
-/** Sólo 2 pasos a propósito: es un wizard de 3 pantallas y sólo la primera existe siempre
- * en el DOM (las otras dos sólo aparecen al avanzar), así que no hay selector estable para
- * apuntarles con el tour. */
-const PASOS_TUTORIAL: TourStep[] = [
-  {
-    selector: '[data-tour="calendario"]',
-    titulo: 'Elegí la fecha',
-    texto: 'Seleccioná el día de la visita antes de cargar las entradas.',
-  },
-  {
-    selector: '[data-tour="panel-paso"]',
-    titulo: 'Tres pasos',
-    texto: 'Acá se completa la reserva: primero las entradas, después los datos del cliente y por último confirmar. Se genera aprobada, sin cobro.',
-  },
-];
 
 enum EtapaReserva {
   SELECCION,
@@ -55,7 +37,7 @@ function datosVacios(): DatosReserva {
 
 @Component({
   selector: 'app-crear-reserva',
-  imports: [FormsModule, PesosPipe, DatePipe, Calendario, SeleccionEntradas, FormCliente, CabeceraInterna, Modal],
+  imports: [FormsModule, PesosPipe, DatePipe, Calendario, SeleccionEntradas, FormCliente, Modal],
   templateUrl: './crear-reserva.html',
   styleUrl: './crear-reserva.css',
 })
@@ -67,7 +49,6 @@ export class CrearReserva {
   }
 
   readonly etapaReserva = EtapaReserva;
-  readonly pasosTutorial = PASOS_TUTORIAL;
 
   etapa = signal(EtapaReserva.SELECCION);
   datos: DatosReserva = datosVacios();
