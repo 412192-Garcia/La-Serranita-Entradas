@@ -16,6 +16,7 @@ import { ConectividadService } from '../../services/conectividad.service';
 import { DescuentoEfectivo } from '../../services/configuracion.service';
 import { cotizarLocalmente } from '../../shared/calculo-precio.util';
 import { PesosPipe } from '../../shared/pesos.pipe';
+import { LucideTrash2 } from '@lucide/angular';
 
 export interface ItemVentaResumen {
   cantidad: number;
@@ -36,7 +37,7 @@ export interface VentaPosConfirmada {
 
 @Component({
   selector: 'app-carrito-venta',
-  imports: [PesosPipe, DecimalPipe, FormsModule, MoneyInputDirective],
+  imports: [PesosPipe, DecimalPipe, FormsModule, MoneyInputDirective, LucideTrash2],
   templateUrl: './carrito-venta.html',
   styleUrl: './carrito-venta.css',
 })
@@ -51,8 +52,12 @@ export class CarritoVenta {
   promociones = input<Promocion[]>([]);
   /** Escalones de precio por grupo, para poder cotizar sin conexión. */
   descuentosEfectivo = input<DescuentoEfectivo[]>([]);
+  /** Caja propia del boletero: viaja en el payload por si esto se rechaza, para que un admin
+   * sepa exactamente qué caja reabrir y reintentar. */
+  cajaId = input.required<number>();
 
   quitarArticulo = output<number>();
+  quitarEntrada = output<number>();
   limpiar = output<void>();
   ventaRegistrada = output<VentaPosConfirmada>();
 
@@ -288,6 +293,12 @@ export class CarritoVenta {
     this.quitarArticulo.emit(index);
   }
 
+  /** Sin confirmación, a diferencia de un artículo: volver a agregar esta entrada es un solo
+   * toque en el catálogo, no hay nada que reconstruir. */
+  onQuitarEntrada(tipoEntradaId: number): void {
+    this.quitarEntrada.emit(tipoEntradaId);
+  }
+
   /** A diferencia de sacar un solo artículo, esto vacía TODA la venta en curso — entradas y
    * artículos — sin forma de deshacerlo, así que pide confirmación (sólo si hay algo que perder). */
   onLimpiar(): void {
@@ -326,6 +337,7 @@ export class CarritoVenta {
       formaPago,
       entradas,
       articulos,
+      cajaId: this.cajaId(),
       ...this.descuentoPayload(),
       ...dolaresPayload,
     };

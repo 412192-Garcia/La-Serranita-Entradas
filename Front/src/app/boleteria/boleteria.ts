@@ -38,12 +38,12 @@ const PASOS_TUTORIAL: TourStep[] = [
   {
     selector: '[data-tour="estado"]',
     titulo: 'Pagadas o a cobrar',
-    texto: 'Estos chips son los que más se usan: filtrá entre lo ya pagado online y lo que falta cobrar en caja, para ver de un vistazo cuánto queda por llegar.',
+    texto: 'Filtrá entre lo ya pagado online y lo que falta cobrar en caja.',
   },
   {
     selector: '[data-tour="mas-filtros"]',
     titulo: 'Más filtros',
-    texto: 'Acá encontrás el resto de los estados (ya utilizada, pago pendiente, cancelada, reembolsada), el tipo de listado (Anticipada o venta de Boletería) y la forma de pago, por si necesitás afinar todavía más la búsqueda.',
+    texto: 'Acá encontrás el resto de los estados (ya utilizada, pago pendiente, cancelada, reembolsada), el tipo de listado (Anticipada o venta de Boletería) y la forma de pago, por si necesitás afinar más la búsqueda.',
   },
   {
     selector: '[data-tour="resultados"]',
@@ -482,6 +482,10 @@ export class Boleteria implements OnInit {
 
   @HostListener('window:keydown', ['$event'])
   onKeydownGlobal(event: KeyboardEvent): void {
+    if (event.key === 'Escape' && this.menuAbiertoId() !== null) {
+      this.menuAbiertoId.set(null);
+      return;
+    }
     this.detectorEscaneo.procesarTecla(event);
   }
 
@@ -858,9 +862,17 @@ export class Boleteria implements OnInit {
   }
 
   editando = signal<Reserva | null>(null);
-  formEdit = { nombre: '', apellido: '', email: '', telefono: '' };
+  /** dni/receptorDni: cuál de los dos aplica depende de esRegaloDe(reserva) — un titular normal
+   * usa dni, un regalo usa receptorDni (es el que se presenta en la puerta para ingresar). */
+  formEdit = { nombre: '', apellido: '', dni: '', email: '', telefono: '', receptorDni: '' };
   guardandoEdit = signal(false);
   errorEdit = signal<string | null>(null);
+
+  /** Sin fecha de visita = regalo: el DNI que vale para entrar es el de quien lo recibe, no el
+   * del comprador (ver receptorDni en Compra). */
+  esRegaloDe(reserva: Reserva): boolean {
+    return reserva.fechaVisita == null;
+  }
 
   abrirEdicion(reserva: Reserva, event: MouseEvent): void {
     event.stopPropagation();
@@ -869,8 +881,10 @@ export class Boleteria implements OnInit {
     this.formEdit = {
       nombre: reserva.cliente?.nombre ?? '',
       apellido: reserva.cliente?.apellido ?? '',
+      dni: reserva.cliente?.dni ?? '',
       email: reserva.contactEmail ?? '',
       telefono: reserva.contactPhone ?? '',
+      receptorDni: reserva.receptorDni ?? '',
     };
     this.editando.set(reserva);
   }
@@ -883,6 +897,17 @@ export class Boleteria implements OnInit {
   guardarEdicion(): void {
     const reserva = this.editando();
     if (!reserva || this.guardandoEdit()) return;
+
+    // El DNI es lo que se compara contra el documento real en la puerta: si se está por
+    // cambiar, mejor confirmar — no es un dato de contacto cualquiera como el teléfono.
+    const dniTitularCambio = !this.esRegaloDe(reserva) && this.formEdit.dni.trim() !== (reserva.cliente?.dni ?? '');
+    const dniReceptorCambio = this.esRegaloDe(reserva) && this.formEdit.receptorDni.trim() !== (reserva.receptorDni ?? '');
+    if (dniTitularCambio || dniReceptorCambio) {
+      const confirmado = window.confirm(
+        'Estás por cambiar el DNI de esta reserva: es lo que se compara contra el documento real al validar el ingreso. ¿Confirmás?'
+      );
+      if (!confirmado) return;
+    }
 
     this.guardandoEdit.set(true);
     this.errorEdit.set(null);

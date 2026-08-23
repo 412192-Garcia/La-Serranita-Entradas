@@ -55,8 +55,8 @@ export class CierreCajaModal {
   conteoEfectivo = signal<Record<number, number>>({});
   /** Total en billetes chicos (50, 20, etc.), cargado de una vez en vez de billete por billete. */
   cambioContado = signal<number | null>(null);
-  /** Por separado (default) o juntos: sólo cambia cómo se cargan los cierres de posnet, no lo esperado (que sigue viniendo de las ventas reales). */
-  modoPosnet = signal<ModoPosnet>('SEPARADO');
+  /** Juntos (default) o por separado: sólo cambia cómo se cargan los cierres de posnet, no lo esperado (que sigue viniendo de las ventas reales). La mayoría de las cajas cierran el posnet como un solo lote, sin discriminar tarjeta de QR. */
+  modoPosnet = signal<ModoPosnet>('COMBINADO');
   /** Arrancan con una fila vacía cada una: lo normal es tener al menos un cierre de cada posnet. */
   cierresTarjeta = signal<FilaMontoNota[]>([{ monto: null, nota: '' }]);
   cierresQr = signal<FilaMontoNota[]>([{ monto: null, nota: '' }]);
@@ -124,7 +124,7 @@ export class CierreCajaModal {
   private resetearEstado(): void {
     this.conteoEfectivo.set({});
     this.cambioContado.set(null);
-    this.modoPosnet.set('SEPARADO');
+    this.modoPosnet.set('COMBINADO');
     this.cierresTarjeta.set([{ monto: null, nota: '' }]);
     this.cierresQr.set([{ monto: null, nota: '' }]);
     this.cierresCombinados.set([{ monto: null, nota: '' }]);

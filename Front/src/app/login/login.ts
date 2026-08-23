@@ -23,15 +23,12 @@ export class Login {
   ingresando = signal(false);
   error = signal<string | null>(null);
 
-  /** Precarga el usuario. La contraseña sólo se precarga si es una cuenta de BOLETERO (se guarda
-   *  para agilizar el cambio de turno en el dispositivo compartido); para ADMIN nunca se guarda,
-   *  así que el foco pasa a esa contraseña para que la tipee. */
+  /** Precarga sólo el usuario: la contraseña nunca se guarda (ver CuentaReciente), así que
+   *  el foco pasa directo ahí para que la tipee. */
   elegirCuenta(cuenta: CuentaReciente): void {
     this.username.set(cuenta.username);
-    this.password.set(cuenta.password ?? '');
-    if (!cuenta.password) {
-      this.inputPassword?.nativeElement.focus();
-    }
+    this.password.set('');
+    this.inputPassword?.nativeElement.focus();
   }
 
   quitarCuenta(username: string, evento: Event): void {

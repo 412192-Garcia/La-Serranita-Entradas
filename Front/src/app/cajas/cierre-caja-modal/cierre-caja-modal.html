@@ -44,11 +44,11 @@
               <p class="subtitulo-apertura">Ingresa los datos del cierre del posnet.</p>
             </div>
             <div class="grupo-toggle-pill">
-              <button type="button" class="btn-toggle-pill" [class.activo]="modoPosnet() === 'SEPARADO'" (click)="modoPosnet.set('SEPARADO')">
-                Por separado
-              </button>
               <button type="button" class="btn-toggle-pill" [class.activo]="modoPosnet() === 'COMBINADO'" (click)="modoPosnet.set('COMBINADO')">
                 Juntos
+              </button>
+              <button type="button" class="btn-toggle-pill" [class.activo]="modoPosnet() === 'SEPARADO'" (click)="modoPosnet.set('SEPARADO')">
+                Por separado
               </button>
             </div>
           </div>

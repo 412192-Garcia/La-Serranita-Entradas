@@ -1,12 +1,12 @@
 import { Component, input, output, signal } from '@angular/core';
 import { DatePipe, DecimalPipe } from '@angular/common';
-import { Caja, OperacionCaja } from '../../services/caja.service';
-import { etiquetaFormaPago } from '../../models/forma-pago';
+import { Caja, etiquetaTipoOperacion } from '../../services/caja.service';
 import { PesosPipe } from '../../shared/pesos.pipe';
+import { LucideShoppingCart, LucideArrowDownRight, LucideArrowUpRight, LucideTicketPlus, LucideTicketMinus } from '@lucide/angular';
 
 @Component({
   selector: 'app-resumen-cierre',
-  imports: [PesosPipe, DatePipe, DecimalPipe],
+  imports: [PesosPipe, DatePipe, DecimalPipe, LucideShoppingCart, LucideArrowDownRight, LucideArrowUpRight, LucideTicketPlus, LucideTicketMinus],
   templateUrl: './resumen-cierre.html',
   styleUrl: './resumen-cierre.css',
 })
@@ -27,13 +27,7 @@ export class ResumenCierre {
   /** Desplegado del conteo billete por billete, para controlar rápido si algo no cierra. */
   mostrarBilletes = signal(false);
 
-  /** Nombre corto para el detalle de caja: la forma de pago cruda del backend es un enum, no algo para mostrar tal cual. */
-  etiquetaTipoOperacion(op: OperacionCaja): string {
-    if (op.tipo === 'VENTA') return etiquetaFormaPago(op.formaPago);
-    if (op.tipo === 'INGRESO_ENTRADAS') return 'Entradas';
-    if (op.tipo === 'APORTE') return 'Aporte';
-    return 'Retiro';
-  }
+  readonly etiquetaTipoOperacion = etiquetaTipoOperacion;
 
   claseDiferenciaValor(v: number | null | undefined): string {
     if (v === null || v === undefined) return '';

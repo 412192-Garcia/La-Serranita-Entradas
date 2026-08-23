@@ -833,11 +833,34 @@ public class CompraServiceImpl implements CompraService {
                 .orElseThrow(() -> new IllegalArgumentException("Compra no encontrada ID: " + compraId));
 
         if (compra.getCliente() != null) {
-            if (!esBlanco(request.getNombre())) compra.getCliente().setNombre(request.getNombre());
-            if (!esBlanco(request.getApellido())) compra.getCliente().setApellido(request.getApellido());
+            Cliente cliente = compra.getCliente();
+            String dniNuevo = esBlanco(request.getDni()) ? null : request.getDni().trim();
+            if (dniNuevo != null && !dniNuevo.equals(cliente.getDni())) {
+                // El Cliente se comparte entre compras (se reutiliza por similitud de nombre al
+                // comprar, ver create()): pisar el DNI ahí afectaría también cualquier otra
+                // compra que apunte al mismo registro. Se crea uno propio de ESTA compra en vez
+                // de tocar el compartido.
+                cliente = clienteService.create(Cliente.builder()
+                        .dni(dniNuevo)
+                        .nombre(!esBlanco(request.getNombre()) ? request.getNombre() : cliente.getNombre())
+                        .apellido(!esBlanco(request.getApellido()) ? request.getApellido() : cliente.getApellido())
+                        .edad(cliente.getEdad())
+                        .localidad(cliente.getLocalidad())
+                        .build());
+                compra.setCliente(cliente);
+            } else {
+                if (!esBlanco(request.getNombre())) cliente.setNombre(request.getNombre());
+                if (!esBlanco(request.getApellido())) cliente.setApellido(request.getApellido());
+            }
         }
         if (!esBlanco(request.getEmail())) compra.setContactEmail(request.getEmail());
         if (!esBlanco(request.getTelefono())) compra.setContactPhone(request.getTelefono());
+
+        // El DNI de quien recibe un regalo vive directo en la Compra, no en un Cliente
+        // compartido: no hace falta ningún desacople, se pisa nomás.
+        if (compra.getFechaVisita() == null && !esBlanco(request.getReceptorDni())) {
+            compra.setReceptorDni(request.getReceptorDni().trim());
+        }
 
         return compraRepository.save(compra);
     }
@@ -956,6 +979,115 @@ public class CompraServiceImpl implements CompraService {
         }
 
         compra.setEstado(EstadoCompra.REEMBOLSADA);
+        return compraRepository.save(compra);
+    }
+
+    @Transactional
+    @Override
+    public Compra cancelarVenta(Long compraId) {
+        Compra compra = compraRepository.findById(compraId)
+                .orElseThrow(() -> new IllegalArgumentException("Compra no encontrada ID: " + compraId));
+        if (compra.getCaja() == null) {
+            throw new IllegalArgumentException("Esta compra no pasó por una caja: no se cancela desde acá.");
+        }
+        if (compra.getEstado() == EstadoCompra.CANCELADO) {
+            throw new IllegalStateException("Esta venta ya está cancelada.");
+        }
+        compra.setEstado(EstadoCompra.CANCELADO);
+        return compraRepository.save(compra);
+    }
+
+    @Transactional
+    @Override
+    public Compra editarVenta(Long compraId, EditarVentaRequestDTO request) {
+        Compra compra = compraRepository.findById(compraId)
+                .orElseThrow(() -> new IllegalArgumentException("Compra no encontrada ID: " + compraId));
+        if (compra.getCaja() == null) {
+            throw new IllegalArgumentException("Esta compra no pasó por una caja: no se edita desde acá.");
+        }
+        if (compra.getEstado() == EstadoCompra.CANCELADO) {
+            throw new IllegalStateException("Esta venta está cancelada: no se puede editar, hay que cargarla de nuevo.");
+        }
+        if (request.getFormaPago() == null) {
+            throw new IllegalArgumentException("Falta indicar la forma de pago.");
+        }
+
+        LocalDate fechaVisita = compra.getFechaVisita();
+        // Cupo diario: se cuenta contra todas las compras del día MENOS esta misma (se está
+        // reemplazando lo que ya tenía, no sumando encima — ver construirDetalles, mismo criterio).
+        Map<Long, Integer> cantidadVendidaPorTipo = new HashMap<>();
+        if (fechaVisita != null) {
+            for (Compra otra : compraRepository.findAllByFechaVisitaOrderByCodigoReservaAsc(fechaVisita)) {
+                if (otra.getId().equals(compraId) || otra.getEstado() == EstadoCompra.CANCELADO || otra.getDetalles() == null) continue;
+                for (CompraDetalle det : otra.getDetalles()) {
+                    if (det.getTipoEntrada() == null) continue;
+                    cantidadVendidaPorTipo.merge(det.getTipoEntrada().getId(), det.getCantidad(), Integer::sum);
+                }
+            }
+        }
+
+        BigDecimal montoEntradas = BigDecimal.ZERO;
+        List<CompraDetalle> nuevasEntradas = new ArrayList<>();
+        if (request.getEntradas() != null) {
+            for (DetalleCompraDTO d : request.getEntradas()) {
+                if (d == null || d.getTipoEntradaId() == null || d.getCantidad() == null || d.getCantidad() <= 0) continue;
+                TipoEntrada tipoEntrada = tipoEntradaService.findById(d.getTipoEntradaId())
+                        .orElseThrow(() -> new IllegalArgumentException("TipoEntrada no encontrada para id: " + d.getTipoEntradaId()));
+                if (tipoEntrada.getMaximoPorDia() != null) {
+                    int nuevoTotal = cantidadVendidaPorTipo.merge(d.getTipoEntradaId(), d.getCantidad(), Integer::sum);
+                    if (nuevoTotal > tipoEntrada.getMaximoPorDia()) {
+                        throw new IllegalArgumentException("Se alcanzó el cupo diario de " + tipoEntrada.getNombre()
+                                + " (máximo " + tipoEntrada.getMaximoPorDia() + " por día).");
+                    }
+                }
+                montoEntradas = montoEntradas.add(calculoPrecioService.calcularTotal(tipoEntrada, d.getCantidad(), request.getFormaPago()));
+                nuevasEntradas.add(CompraDetalle.builder().tipoEntrada(tipoEntrada).cantidad(d.getCantidad()).compra(compra).build());
+            }
+        }
+
+        // Los artículos varios (souvenirs) no se tocan acá: si el error está ahí, se cancela la
+        // venta entera y se vuelve a cargar (ver EditarVentaRequestDTO).
+        List<CompraDetalle> detallesArticulos = compra.getDetalles().stream()
+                .filter(det -> det.getTipoEntrada() == null)
+                .toList();
+        BigDecimal montoArticulos = detallesArticulos.stream()
+                .map(det -> det.getPrecioUnitario() != null ? det.getPrecioUnitario().multiply(BigDecimal.valueOf(det.getCantidad())) : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        List<CompraDetalle> todosLosDetalles = new ArrayList<>(nuevasEntradas);
+        todosLosDetalles.addAll(detallesArticulos);
+        if (todosLosDetalles.isEmpty()) {
+            throw new IllegalArgumentException("La venta no puede quedar sin entradas ni artículos.");
+        }
+        validarPaseObligatorio(todosLosDetalles);
+
+        BigDecimal montoBruto = montoEntradas.add(montoArticulos);
+        // El descuento ya aplicado (promo o manual) se mantiene como monto fijo: no se
+        // vuelve a evaluar elegibilidad de promo acá, sólo se lo re-acota si el nuevo bruto
+        // quedó más chico que el descuento original.
+        BigDecimal descuento = compra.getDescuentoAplicado() != null ? compra.getDescuentoAplicado() : BigDecimal.ZERO;
+        if (descuento.compareTo(montoBruto) > 0) descuento = montoBruto;
+        BigDecimal montoFinal = montoBruto.subtract(descuento);
+
+        if (compra.getCotizacionDolar() != null) {
+            if (request.getFormaPago() != FormaPago.EFECTIVO_BOLETERIA) {
+                // Ya no tiene sentido seguir marcada como cobrada en dólares si deja de ser efectivo.
+                compra.setCotizacionDolar(null);
+                compra.setDolaresRecibidos(null);
+            } else if (compra.getDolaresRecibidos().multiply(compra.getCotizacionDolar()).compareTo(montoFinal) < 0) {
+                throw new IllegalArgumentException(
+                        "Los dólares que había recibido el cajero ya no alcanzan para cubrir el nuevo total: cancelá esta venta y cargala de nuevo.");
+            }
+        }
+
+        // orphanRemoval en Compra.detalles: sacar las líneas de entrada viejas de la colección
+        // alcanza para que Hibernate las borre; las de artículo quedan intactas.
+        compra.getDetalles().removeIf(det -> det.getTipoEntrada() != null);
+        compra.getDetalles().addAll(nuevasEntradas);
+        compra.setFormaPago(request.getFormaPago());
+        compra.setMontoTotal(montoFinal);
+        compra.setDescuentoAplicado(descuento);
+
         return compraRepository.save(compra);
     }
 }

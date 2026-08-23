@@ -315,7 +315,7 @@ public class ReporteServiceImpl implements ReporteService {
 
         // Las cajas se filtran por cuándo se cerraron, no por fechaVisita: es un concepto
         // de turno de trabajo, no de día de visita del parque.
-        List<Caja> cajasCerradas = cajaRepository.findAllByFechaCierreBetweenOrderByFechaCierreAsc(
+        List<Caja> cajasCerradas = cajaRepository.findAllByFechaCierreBetweenOrderByFechaCierreDesc(
                 desde.atStartOfDay(), hasta.atTime(LocalTime.MAX));
 
         List<CajaResumenReporteDTO> cajas = new ArrayList<>();

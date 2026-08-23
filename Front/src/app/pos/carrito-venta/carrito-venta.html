@@ -5,12 +5,18 @@
     } @else {
       <!-- Lejos de "Cobrar" a propósito: vaciar el carrito es irreversible, no debería
            quedar al lado del botón que se toca todo el tiempo. -->
-      <button type="button" class="btn-vaciar-carrito" (click)="onLimpiar()">Vaciar carrito</button>
+      <button type="button" class="btn-vaciar-carrito" (click)="onLimpiar()">
+        <svg lucideTrash2 [strokeWidth]="2"></svg>
+        Vaciar carrito
+      </button>
       @for (l of lineas(); track l.tipo.id) {
-        <!-- Sólo detalle: la cantidad se elige en el catálogo, acá no se modifica. -->
+        <!-- La cantidad se elige en el catálogo, acá no se ajusta de a uno: la ✕ saca todo el tipo de una. -->
         <div class="linea">
           <span class="linea-nombre">{{ l.cantidad }}× {{ l.tipo.nombre }}</span>
-          <span class="linea-subtotal">{{ l.tipo.precio * l.cantidad | pesos }}</span>
+          <span class="linea-subtotal">
+            {{ l.tipo.precio * l.cantidad | pesos }}
+            <button type="button" class="btn-quitar-cierre" (click)="onQuitarEntrada(l.tipo.id)" aria-label="Quitar">✕</button>
+          </span>
         </div>
       }
       @for (a of articulosCarrito(); track $index) {

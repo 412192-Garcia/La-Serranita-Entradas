@@ -6,6 +6,7 @@ import org.example.laserranitaentradas.model.dto.CompraResponseDTO;
 import org.example.laserranitaentradas.model.dto.CotizacionRequestDTO;
 import org.example.laserranitaentradas.model.dto.CotizacionResponseDTO;
 import org.example.laserranitaentradas.model.dto.EditarContactoRequest;
+import org.example.laserranitaentradas.model.dto.EditarVentaRequestDTO;
 import org.example.laserranitaentradas.model.dto.VentaPosRequestDTO;
 import org.example.laserranitaentradas.model.entity.Compra;
 import org.example.laserranitaentradas.model.entity.EstadoCompra;
@@ -80,4 +81,24 @@ public interface CompraService {
      * REEMBOLSADA. Sólo válido en estado APROBADO.
      */
     Compra reembolsarCompra(Long compraId);
+
+    /**
+     * Cancela una venta de puerta mal cargada (ADMIN, desde el detalle de una caja): la marca
+     * CANCELADO en vez de borrarla, para no perder el rastro por si hay que auditar el error
+     * después. Al quedar CANCELADO, deja de contar para el cupo diario, los totales de caja y
+     * los reportes (ver construirDetalles/CajaServiceImpl/ReporteServiceImpl, que ya excluyen
+     * este estado). Sólo para compras que pasaron por una caja (compra.caja != null); una
+     * reserva online no se cancela por acá.
+     */
+    Compra cancelarVenta(Long compraId);
+
+    /**
+     * Corrige las entradas y/o la forma de pago de una venta de puerta ya cargada (ADMIN, desde
+     * el detalle de una caja) — ej. el cajero tocó 3 en vez de 2, o cobró Efectivo en vez de
+     * Tarjeta. Revalida el cupo diario contra las nuevas cantidades (sin contar dos veces lo que
+     * esta misma compra ya tenía) y recalcula el monto de las entradas con el motor de precios
+     * real; el descuento ya aplicado se mantiene como estaba. No toca artículos varios: si el
+     * error está ahí, se cancela la venta y se vuelve a cargar entera.
+     */
+    Compra editarVenta(Long compraId, EditarVentaRequestDTO request);
 }

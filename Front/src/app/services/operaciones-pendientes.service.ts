@@ -3,7 +3,7 @@ import { Observable, firstValueFrom } from 'rxjs';
 import { timeout } from 'rxjs/operators';
 import { HttpErrorResponse } from '@angular/common/http';
 import { BoleteriaService, Reserva, VentaPosRequest } from './boleteria.service';
-import { Caja, CajaService, TipoMovimientoCaja } from './caja.service';
+import { Caja, CajaService, TipoMovimientoCaja, TipoMovimientoEntradas } from './caja.service';
 import { ConectividadService } from './conectividad.service';
 
 const COLA_KEY = 'serranita.pos.operacionesPendientes';
@@ -18,10 +18,16 @@ export interface PayloadRetiroAporte {
   monto: number;
   motivo: string;
   tipo: TipoMovimientoCaja;
+  /** Caja propia del boletero al momento de hacer el movimiento: si esto se rechaza porque esa
+   * caja ya no está abierta, queda guardado para que un admin sepa cuál reabrir y reintentar. */
+  cajaId: number;
 }
 
 export interface PayloadIngresoEntradas {
   cantidad: number;
+  tipo: TipoMovimientoEntradas;
+  motivo?: string;
+  cajaId: number;
 }
 
 export type OperacionPendiente =
@@ -100,13 +106,28 @@ export class OperacionesPendientesService {
     // operación no se pierde.
     this.guardar([...this.cola(), entrada]);
 
+    // Si ya sabemos (por el chequeo periódico de ConectividadService, o por el evento `offline`
+    // del navegador) que no hay señal, ni vale la pena intentar mandarla: sin esto, cada
+    // operación se quedaba esperando el timeout completo (8s) — o, peor, lo que tarde en volver
+    // un 502 del proxy cuando el que está caído es el backend y no la red del dispositivo — antes
+    // de caer a la cola. Con la señal ya conocida como caída, se encola al toque.
+    if (!this.conectividad.enLinea()) {
+      return { confirmada: false, rechazada: false };
+    }
+
     try {
-      const resultado = await this.enviar(entrada);
+      // false: es el primer intento, en vivo — si el servidor lo rechaza, la persona que lo
+      // tipeó lo ve ahí mismo (ver enviar()) y no hace falta guardarlo aparte para un admin.
+      const resultado = await this.enviar(entrada, false);
       this.quitar(entrada.idempotencyKey);
       return { confirmada: true, resultado: resultado as T };
     } catch (error) {
-      const mensajeRechazo = this.registrarFallo(entrada.idempotencyKey, error);
+      const mensajeRechazo = this.registrarFallo(entrada.idempotencyKey, error, false);
       if (mensajeRechazo !== null) return { confirmada: false, rechazada: true, mensaje: mensajeRechazo };
+      // No fue un rechazo de negocio: probablemente se acaba de caer la señal. Se refresca el
+      // estado ya mismo (sin esperar el próximo chequeo periódico, hasta 15s) para que la
+      // PRÓXIMA operación que se intente ya sepa que hay que encolar directo, sin repetir la espera.
+      this.conectividad.verificar();
       return { confirmada: false, rechazada: false };
     }
   }
@@ -122,10 +143,12 @@ export class OperacionesPendientesService {
       // Se recorre una copia: la cola se va modificando a medida que cada una sale bien.
       for (const entrada of this.cola().filter((e) => e.estado === 'pendiente')) {
         try {
-          await this.enviar(entrada);
+          // true: esto ya es un reintento en segundo plano — si el servidor lo rechaza acá,
+          // nadie lo está mirando en vivo, así que sí amerita quedar registrado para un admin.
+          await this.enviar(entrada, true);
           this.quitar(entrada.idempotencyKey);
         } catch (error) {
-          this.registrarFallo(entrada.idempotencyKey, error);
+          this.registrarFallo(entrada.idempotencyKey, error, true);
           // Si se cayó la señal otra vez, no tiene sentido seguir intentando el resto ahora.
           if (!this.esRechazoDelServidor(error)) break;
         }
@@ -140,18 +163,20 @@ export class OperacionesPendientesService {
     this.quitar(idempotencyKey);
   }
 
-  private enviar(entrada: EntradaCola): Promise<Reserva | Caja> {
+  /** esReintento: false = primer intento en vivo (el que lo tipeó lo ve al toque); true = un
+   * reintento en segundo plano de la cola, sin nadie mirando. Ver registrarFallo. */
+  private enviar(entrada: EntradaCola, esReintento: boolean): Promise<Reserva | Caja> {
     const { idempotencyKey, fechaOriginal } = entrada;
     let peticion: Observable<Reserva | Caja>;
     if (entrada.tipo === 'VENTA') {
       const p = entrada.payload as VentaPosRequest;
-      peticion = this.boleteriaService.registrarVentaPos({ ...p, idempotencyKey, fechaOriginal });
+      peticion = this.boleteriaService.registrarVentaPos({ ...p, idempotencyKey, fechaOriginal, esReintentoEncolado: esReintento });
     } else if (entrada.tipo === 'RETIRO_APORTE') {
       const p = entrada.payload as PayloadRetiroAporte;
-      peticion = this.cajaService.registrarRetiro(p.monto, p.motivo, p.tipo, idempotencyKey, fechaOriginal);
+      peticion = this.cajaService.registrarRetiro(p.monto, p.motivo, p.tipo, idempotencyKey, fechaOriginal, esReintento, p.cajaId);
     } else {
       const p = entrada.payload as PayloadIngresoEntradas;
-      peticion = this.cajaService.registrarIngresoEntradas(p.cantidad, idempotencyKey, fechaOriginal);
+      peticion = this.cajaService.registrarIngresoEntradas(p.cantidad, p.tipo, p.motivo, idempotencyKey, fechaOriginal, esReintento, p.cajaId);
     }
     return firstValueFrom(peticion.pipe(timeout(TIMEOUT_ENVIO_MS)));
   }
@@ -160,19 +185,30 @@ export class OperacionesPendientesService {
    * Un rechazo del servidor (4xx de negocio: la caja ya se cerró, datos inválidos) no se
    * reintenta solo — reintentarlo va a fallar igual. Cualquier otra cosa (timeout, sin red,
    * 5xx) sí queda pendiente: es un problema de momento, no de la operación.
+   *
+   * En el primer intento en vivo (esReintento=false), un rechazo no deja ningún rastro: la
+   * persona que lo tipeó ya lo ve en el modal (vía el mensaje que se devuelve acá) y lo corrige
+   * ahí mismo — guardar igual un cartel de "error" que después hay que descartar a mano sería
+   * ruido de algo que ya se resolvió solo. Sólo en un reintento en segundo plano (nadie mirando)
+   * vale la pena dejarlo marcado para que alguien lo note después.
+   *
    * Devuelve el mensaje de rechazo (para mostrárselo ya mismo al que hizo la operación) o null
    * si no fue un rechazo real, sino un problema de conexión.
    */
-  private registrarFallo(idempotencyKey: string, error: unknown): string | null {
+  private registrarFallo(idempotencyKey: string, error: unknown, esReintento: boolean): string | null {
     if (!this.esRechazoDelServidor(error)) return null;
     const mensaje = error instanceof HttpErrorResponse && typeof error.error === 'string'
       ? error.error
       : 'El servidor rechazó la operación';
-    this.guardar(
-      this.cola().map((e) =>
-        e.idempotencyKey === idempotencyKey ? { ...e, estado: 'error' as const, mensajeError: mensaje } : e
-      )
-    );
+    if (esReintento) {
+      this.guardar(
+        this.cola().map((e) =>
+          e.idempotencyKey === idempotencyKey ? { ...e, estado: 'error' as const, mensajeError: mensaje } : e
+        )
+      );
+    } else {
+      this.quitar(idempotencyKey);
+    }
     return mensaje;
   }
 

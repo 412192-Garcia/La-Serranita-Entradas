@@ -17,3 +17,9 @@
   font-size: 0.85rem;
   color: var(--color-text-secondary);
 }
+
+/* Mismo criterio que .lista-retiros li.item-retiro (pos-caja.css): el "+"/"−" del texto solo
+   no se nota lo suficiente para distinguir de un vistazo. */
+.lista-ingresos li.item-retiro {
+  color: var(--color-danger-dark);
+}

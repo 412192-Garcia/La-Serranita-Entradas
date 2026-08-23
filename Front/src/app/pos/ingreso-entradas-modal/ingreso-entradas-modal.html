@@ -1,7 +1,14 @@
 <app-modal [cerrarAlTocarFondo]="false" (cerrar)="cerrar.emit()">
   <div class="panel-caja">
-    <h3>Agregar entradas físicas</h3>
-    <p class="subtitulo-apertura">Para cuando se termina el talonario y traen más a mitad de turno.</p>
+    <h3>{{ tipo() === 'RETIRO' ? 'Retirar entradas físicas' : 'Agregar entradas físicas' }}</h3>
+    <p class="subtitulo-apertura">
+      {{ tipo() === 'RETIRO' ? 'Para sacarle entradas al talonario y dárselas a otro boletero.' : 'Para cuando se termina el talonario y traen más a mitad de turno.' }}
+    </p>
+
+    <div class="grupo-toggle-pill">
+      <button type="button" class="btn-toggle-pill" [class.activo]="tipo() === 'INGRESO'" (click)="tipo.set('INGRESO')">Ingreso</button>
+      <button type="button" class="btn-toggle-pill" [class.activo]="tipo() === 'RETIRO'" (click)="tipo.set('RETIRO')">Retiro</button>
+    </div>
 
     <label class="campo-apertura">
       Cantidad
@@ -12,11 +19,23 @@
           inputmode="numeric"
           class="stepper-input"
           aria-label="Cantidad"
+          appSeleccionarAlFoco
           [ngModel]="cantidad()"
           (ngModelChange)="setCantidad($event)" />
         <button type="button" class="btn-cant" (click)="incrementarCantidad()" aria-label="Sumar uno">+</button>
       </div>
     </label>
+
+    @if (tipo() === 'RETIRO') {
+      <label class="campo-apertura">
+        Motivo (opcional)
+        <input
+          type="text"
+          placeholder="Ej: darselas a otro boletero"
+          [ngModel]="motivo()"
+          (ngModelChange)="motivo.set($event)" />
+      </label>
+    }
 
     @if (error()) {
       <p class="alerta-error">{{ error() }}</p>
@@ -24,14 +43,21 @@
     <div class="acciones">
       <button type="button" class="btn-limpiar" (click)="cerrar.emit()">Cancelar</button>
       <button type="button" class="btn-cobrar" [disabled]="registrando()" (click)="confirmar()">
-        {{ registrando() ? 'Registrando…' : 'Confirmar ingreso' }}
+        @if (registrando()) {
+          Registrando…
+        } @else {
+          {{ tipo() === 'RETIRO' ? 'Confirmar retiro' : 'Confirmar ingreso' }}
+        }
       </button>
     </div>
 
     @if (ingresos().length) {
       <ul class="lista-ingresos">
         @for (i of ingresos(); track i.id) {
-          <li><span>{{ i.fecha | date: 'HH:mm' }}</span><span>+{{ i.cantidad }}</span></li>
+          <li [class.item-retiro]="i.tipo === 'RETIRO'">
+            <span>{{ i.fecha | date: 'HH:mm' }}{{ i.motivo ? ' — ' + i.motivo : '' }}</span>
+            <span>{{ i.tipo === 'RETIRO' ? '−' : '+' }}{{ i.cantidad }}</span>
+          </li>
         }
       </ul>
     }

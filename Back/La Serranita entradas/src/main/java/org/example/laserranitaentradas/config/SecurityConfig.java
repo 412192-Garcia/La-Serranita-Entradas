@@ -67,13 +67,18 @@ public class SecurityConfig {
                 // usa la primera regla que matchea, así que el orden acá importa.
                 .requestMatchers(HttpMethod.POST, "/api/interno/compras/generar-reserva").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.GET, "/api/interno/caja/*/detalle").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.GET, "/api/interno/caja/*/operaciones").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.GET, "/api/interno/caja/abiertas").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.GET, "/api/interno/caja/cerradas").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.PUT, "/api/interno/compras/*/cancelar-venta").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.PUT, "/api/interno/compras/*/editar-venta").hasRole("ADMIN")
                 // Cerrar caja (y corregir un cierre ya hecho) dejó de ser self-service: ahora
                 // lo dispara un ADMIN desde la pantalla de Cajas, nunca el boletero desde el
                 // POS — por eso estas van ADMIN-only en vez de caer en el catch-all de abajo.
                 .requestMatchers(HttpMethod.POST, "/api/interno/caja/*/cerrar").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/interno/caja/*/retiros").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/api/interno/caja/*/cierre").hasRole("ADMIN")
+                .requestMatchers("/api/interno/rechazos/**").hasRole("ADMIN")
 
                 // ---------- Boletería (BOLETERO o ADMIN) ----------
                 // Antes que la regla general de /api/usuarios/** (ADMIN-only, más abajo): cualquier

@@ -22,4 +22,15 @@ public class RetiroCajaRequestDTO {
 
     /** Cuándo se hizo de verdad el movimiento, si estuvo encolado sin conexión. Null = ahora. */
     private LocalDateTime fechaOriginal;
+
+    /** Ver el mismo campo en VentaPosRequestDTO: sólo true en un reintento en segundo plano de
+     * la cola offline, para decidir si el rechazo amerita quedar registrado para un admin. */
+    private Boolean esReintentoEncolado;
+
+    /** Caja del boletero en el momento de hacer el movimiento (la conoce siempre: es la que
+     * tiene abierta en su POS). No se usa para resolver a qué caja aplicar el movimiento — eso
+     * sigue siendo la caja abierta del usuario autenticado — pero si esto se rechaza porque esa
+     * caja ya no está abierta, queda guardado en el rechazo para que un admin sepa exactamente
+     * cuál reabrir y reintentar (ver RechazoOperacionService.reabrirYReintentar). */
+    private Long cajaId;
 }

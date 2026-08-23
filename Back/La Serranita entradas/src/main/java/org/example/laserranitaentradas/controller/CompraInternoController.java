@@ -4,10 +4,12 @@ import org.example.laserranitaentradas.config.UsuarioAutenticado;
 import org.example.laserranitaentradas.model.dto.CompraRequestDTO;
 import org.example.laserranitaentradas.model.dto.CompraResponseDTO;
 import org.example.laserranitaentradas.model.dto.EditarContactoRequest;
+import org.example.laserranitaentradas.model.dto.EditarVentaRequestDTO;
 import org.example.laserranitaentradas.model.dto.VentaPosRequestDTO;
 import org.example.laserranitaentradas.model.entity.Compra;
 import org.example.laserranitaentradas.model.entity.FormaPago;
 import org.example.laserranitaentradas.service.CompraService;
+import org.example.laserranitaentradas.service.RechazoOperacionService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -22,9 +24,11 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 public class CompraInternoController {
 
     private final CompraService compraService;
+    private final RechazoOperacionService rechazoService;
 
-    public CompraInternoController(CompraService compraService) {
+    public CompraInternoController(CompraService compraService, RechazoOperacionService rechazoService) {
         this.compraService = compraService;
+        this.rechazoService = rechazoService;
     }
 
     @PostMapping("/{id}/confirmar-pago-efectivo")
@@ -45,8 +49,17 @@ public class CompraInternoController {
             @RequestBody VentaPosRequestDTO request,
             @AuthenticationPrincipal UsuarioAutenticado operador) {
         // Quién vendió sale del token, no del cuerpo del request.
-        Compra venta = compraService.registrarVentaPos(request, operador.id());
-        return ResponseEntity.status(HttpStatus.CREATED).body(CompraController.entityToDto(venta));
+        try {
+            Compra venta = compraService.registrarVentaPos(request, operador.id());
+            return ResponseEntity.status(HttpStatus.CREATED).body(CompraController.entityToDto(venta));
+        } catch (IllegalArgumentException | IllegalStateException ex) {
+            // Ver el comentario en CajaController: sólo interesa si pasó en un reintento en
+            // segundo plano, no en el primer intento en vivo (ya lo ve la persona ahí mismo).
+            if (Boolean.TRUE.equals(request.getEsReintentoEncolado())) {
+                rechazoService.registrar("VENTA", request, ex.getMessage(), request.getIdempotencyKey());
+            }
+            throw ex;
+        }
     }
 
     @PostMapping("/generar-reserva")
@@ -72,6 +85,24 @@ public class CompraInternoController {
     public ResponseEntity<Void> reenviarMail(@PathVariable @Parameter(description = "ID de la compra") Long id) {
         compraService.reenviarComprobante(id);
         return ResponseEntity.ok().build();
+    }
+
+    @PutMapping("/{id}/cancelar-venta")
+    @Operation(summary = "Cancelar una venta de puerta mal cargada (ADMIN)",
+            description = "La marca CANCELADO en vez de borrarla (queda el registro para auditoría) y deja de contar para cupo diario, totales de caja y reportes. Sólo para ventas que pasaron por una caja.")
+    public ResponseEntity<CompraResponseDTO> cancelarVenta(@PathVariable @Parameter(description = "ID de la compra") Long id) {
+        Compra compra = compraService.cancelarVenta(id);
+        return ResponseEntity.ok(CompraController.entityToDto(compra));
+    }
+
+    @PutMapping("/{id}/editar-venta")
+    @Operation(summary = "Corregir las entradas y/o la forma de pago de una venta de puerta (ADMIN)",
+            description = "Ej. el cajero cargó de más o cobró con el método equivocado. No toca artículos varios ni el descuento ya aplicado; revalida cupo diario y recalcula el monto de las entradas.")
+    public ResponseEntity<CompraResponseDTO> editarVenta(
+            @PathVariable @Parameter(description = "ID de la compra") Long id,
+            @RequestBody EditarVentaRequestDTO request) {
+        Compra compra = compraService.editarVenta(id, request);
+        return ResponseEntity.ok(CompraController.entityToDto(compra));
     }
 
     @PostMapping("/{id}/reembolsar")

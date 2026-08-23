@@ -1,13 +1,14 @@
 import { Component, inject, input, output, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Caja, IngresoEntradas } from '../../services/caja.service';
-import { OperacionesPendientesService } from '../../services/operaciones-pendientes.service';
+import { Caja, IngresoEntradas, TipoMovimientoEntradas } from '../../services/caja.service';
+import { OperacionesPendientesService, PayloadIngresoEntradas } from '../../services/operaciones-pendientes.service';
 import { Modal } from '../../shared/modal/modal';
+import { SeleccionarAlFocoDirective } from '../../shared/seleccionar-al-foco.directive';
 
 @Component({
   selector: 'app-ingreso-entradas-modal',
-  imports: [FormsModule, DatePipe, Modal],
+  imports: [FormsModule, DatePipe, Modal, SeleccionarAlFocoDirective],
   templateUrl: './ingreso-entradas-modal.html',
   styleUrl: './ingreso-entradas-modal.css',
 })
@@ -15,13 +16,22 @@ export class IngresoEntradasModal {
   private pendientes = inject(OperacionesPendientesService);
 
   ingresos = input<IngresoEntradas[]>([]);
+  /** Entradas físicas que el boletero tiene ahora (inicial + ingresos netos hasta este momento):
+   * el mismo número que ya se ve en la barra de caja. Sirve para avisar acá mismo, sin red, si
+   * un retiro pide más de lo que hay — no tiene sentido mandarlo al servidor para enterarse. */
+  stockActual = input<number>(0);
+  /** Caja propia del boletero: viaja en el payload por si esto se rechaza, para que un admin
+   * sepa exactamente qué caja reabrir y reintentar. */
+  cajaId = input.required<number>();
 
   ingresoRegistrado = output<Caja>();
-  /** El ingreso quedó encolado sin conexión: el padre lo refleja en su propia caja hasta que sincronice. */
-  ingresoEncolado = output<number>();
+  /** El movimiento quedó encolado sin conexión: el padre lo refleja en su propia caja hasta que sincronice. */
+  ingresoEncolado = output<PayloadIngresoEntradas>();
   cerrar = output<void>();
 
+  tipo = signal<TipoMovimientoEntradas>('INGRESO');
   cantidad = signal(0);
+  motivo = signal('');
   registrando = signal(false);
   error = signal<string | null>(null);
 
@@ -43,18 +53,33 @@ export class IngresoEntradasModal {
 
   async confirmar(): Promise<void> {
     const cantidad = this.cantidad();
+    const tipo = this.tipo();
+    const motivo = this.motivo().trim();
     if (cantidad <= 0) {
       this.error.set('Ingresá una cantidad mayor a cero.');
       return;
     }
+    if (tipo === 'RETIRO' && cantidad > this.stockActual()) {
+      const resultante = this.stockActual() - cantidad;
+      const sigue = window.confirm(
+        `Tenés ${this.stockActual()} entradas y estás por retirar ${cantidad}: el conteo va a quedar en ${resultante}. ¿Confirmás igual?`
+      );
+      if (!sigue) return;
+    }
     this.registrando.set(true);
     this.error.set(null);
 
-    const resultado = await this.pendientes.ejecutar<Caja>({ tipo: 'INGRESO_ENTRADAS', payload: { cantidad } });
+    const payload: PayloadIngresoEntradas = {
+      cantidad,
+      tipo,
+      motivo: tipo === 'RETIRO' && motivo ? motivo : undefined,
+      cajaId: this.cajaId(),
+    };
+    const resultado = await this.pendientes.ejecutar<Caja>({ tipo: 'INGRESO_ENTRADAS', payload });
     this.registrando.set(false);
 
     if (resultado.confirmada) {
-      this.cantidad.set(0);
+      this.limpiarCampos();
       this.ingresoRegistrado.emit(resultado.resultado);
       return;
     }
@@ -63,7 +88,12 @@ export class IngresoEntradasModal {
       this.error.set(resultado.mensaje);
       return;
     }
+    this.limpiarCampos();
+    this.ingresoEncolado.emit(payload);
+  }
+
+  private limpiarCampos(): void {
     this.cantidad.set(0);
-    this.ingresoEncolado.emit(cantidad);
+    this.motivo.set('');
   }
 }

@@ -7,7 +7,7 @@ import { PromocionService } from '../services/promocion.service';
 import { ArticuloVarioService } from '../services/articulo-vario.service';
 import { ConfiguracionService, DescuentoEfectivo } from '../services/configuracion.service';
 import { PosCacheService } from '../services/pos-cache.service';
-import { PayloadRetiroAporte } from '../services/operaciones-pendientes.service';
+import { PayloadRetiroAporte, PayloadIngresoEntradas } from '../services/operaciones-pendientes.service';
 import { TipoEntrada } from '../models/tipo-entrada';
 import { Promocion } from '../models/promocion';
 import { ArticuloVario } from '../models/articulo-vario';
@@ -37,7 +37,7 @@ const PASOS_TUTORIAL: TourStep[] = [
   {
     selector: '[data-tour="catalogo"]',
     titulo: 'Catálogo de entradas',
-    texto: 'Tocá la cantidad de cada tipo para sumarla a la venta. El orden de las entradas se define desde Configuración → Catálogo.',
+    texto: 'Tocá la cantidad de cada tipo para sumarla a la venta.',
   },
   {
     selector: '[data-tour="agregar-articulo"]',
@@ -217,13 +217,17 @@ export class Pos implements OnInit {
   }
 
   /** Ver onRetiroEncolado. */
-  onIngresoEntradasEncolado(cantidad: number): void {
+  onIngresoEntradasEncolado(mov: PayloadIngresoEntradas): void {
     const actual = this.caja();
     if (actual) {
+      const signo = mov.tipo === 'RETIRO' ? -1 : 1;
       this.actualizarCaja({
         ...actual,
-        totalIngresosEntradas: actual.totalIngresosEntradas + cantidad,
-        ingresosEntradas: [...actual.ingresosEntradas, { id: 0, cantidad, fecha: new Date().toISOString() }],
+        totalIngresosEntradas: actual.totalIngresosEntradas + signo * mov.cantidad,
+        ingresosEntradas: [
+          ...actual.ingresosEntradas,
+          { id: 0, cantidad: mov.cantidad, motivo: mov.motivo ?? null, tipo: mov.tipo, fecha: new Date().toISOString() },
+        ],
       });
     }
     this.mostrarIngresoEntradas.set(false);
@@ -235,6 +239,10 @@ export class Pos implements OnInit {
 
   onQuitarArticulo(index: number): void {
     this.articulosCarrito.update((c) => c.filter((_, i) => i !== index));
+  }
+
+  onQuitarEntrada(tipoEntradaId: number): void {
+    this.cantidades.update((c) => ({ ...c, [tipoEntradaId]: 0 }));
   }
 
   onLimpiar(): void {

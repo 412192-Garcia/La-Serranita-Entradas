@@ -19,6 +19,9 @@ export class RetiroEfectivoModal {
   retiros = input<RetiroCaja[]>([]);
   /** Si viene seteada, el movimiento se registra en la caja de OTRO usuario vía admin (usado desde el cierre en Cajas); si no, en la propia caja abierta (uso normal en POS). */
   cajaId = input<number | null>(null);
+  /** La caja propia del boletero, para uso normal en POS (ver cajaId de arriba, que es para el
+   * camino de admin): viaja en el payload por si esto se rechaza, para saber qué caja reabrir. */
+  propiaCajaId = input<number | null>(null);
 
   retiroRegistrado = output<Caja>();
   /** El movimiento quedó encolado sin conexión: el padre lo refleja en su propia caja hasta que sincronice. */
@@ -63,7 +66,7 @@ export class RetiroEfectivoModal {
       return;
     }
 
-    const payload: PayloadRetiroAporte = { monto, motivo, tipo };
+    const payload: PayloadRetiroAporte = { monto, motivo, tipo, cajaId: this.propiaCajaId()! };
     const resultado = await this.pendientes.ejecutar<Caja>({ tipo: 'RETIRO_APORTE', payload });
 
     if (resultado.confirmada) {

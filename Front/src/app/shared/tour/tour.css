@@ -32,10 +32,6 @@
   outline: none;
 }
 
-.tour-popover-arriba {
-  transform: translateY(-100%);
-}
-
 .tour-cerrar {
   position: absolute;
   top: 10px;

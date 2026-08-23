@@ -1,6 +1,8 @@
 package org.example.laserranitaentradas.service.impl;
 
 import org.example.laserranitaentradas.model.dto.CompraRequestDTO;
+import org.example.laserranitaentradas.model.dto.EditarContactoRequest;
+import org.example.laserranitaentradas.model.entity.Cliente;
 import org.example.laserranitaentradas.model.entity.Compra;
 import org.example.laserranitaentradas.model.entity.EstadoCompra;
 import org.example.laserranitaentradas.model.entity.FormaPago;
@@ -12,6 +14,7 @@ import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -525,5 +528,76 @@ class CompraServiceImplTest {
         Compra resultado = service.registrarVentaPos(request, 9L);
 
         assertThat(resultado.getMontoTotal()).isEqualByComparingTo("200");
+    }
+
+    // ---------- actualizarContacto: el DNI del titular vive en un Cliente compartido entre
+    // compras (reutilizado por similitud de nombre al comprar, ver create()) — cambiarlo ahí
+    // pisaría el dato de cualquier otra compra que apunte al mismo registro. ----------
+
+    @Test
+    void actualizarContacto_cambiaElDniDelTitular_creaUnClienteNuevoYNoTocaElCompartido() {
+        Cliente clienteCompartido = Cliente.builder().id(1L).dni("30111222").nombre("Juan").apellido("Pérez").build();
+        Compra compra = new Compra();
+        compra.setId(7L);
+        compra.setCliente(clienteCompartido);
+        compra.setFechaVisita(LocalDate.now().plusDays(1)); // no es regalo
+        when(compraRepository.findById(7L)).thenReturn(Optional.of(compra));
+        when(clienteService.create(any(Cliente.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(compraRepository.save(any(Compra.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        EditarContactoRequest request = new EditarContactoRequest();
+        request.setDni("30999888");
+
+        Compra resultado = service.actualizarContacto(7L, request);
+
+        ArgumentCaptor<Cliente> captor = ArgumentCaptor.forClass(Cliente.class);
+        verify(clienteService).create(captor.capture());
+        assertThat(captor.getValue().getDni()).isEqualTo("30999888");
+        assertThat(captor.getValue().getNombre()).isEqualTo("Juan"); // se conserva lo que ya tenía
+        // El cliente compartido original queda exactamente como estaba: otras compras que lo
+        // usen no se ven afectadas por este cambio puntual.
+        assertThat(clienteCompartido.getDni()).isEqualTo("30111222");
+        assertThat(resultado.getCliente()).isNotSameAs(clienteCompartido);
+        assertThat(resultado.getCliente().getDni()).isEqualTo("30999888");
+    }
+
+    @Test
+    void actualizarContacto_conElMismoDniQueYaTenia_noCreaUnClienteNuevo() {
+        Cliente cliente = Cliente.builder().id(1L).dni("30111222").nombre("Juan").apellido("Pérez").build();
+        Compra compra = new Compra();
+        compra.setId(7L);
+        compra.setCliente(cliente);
+        compra.setFechaVisita(LocalDate.now().plusDays(1));
+        when(compraRepository.findById(7L)).thenReturn(Optional.of(compra));
+        when(compraRepository.save(any(Compra.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        EditarContactoRequest request = new EditarContactoRequest();
+        request.setDni("30111222"); // idéntico al que ya tenía
+        request.setApellido("González");
+
+        Compra resultado = service.actualizarContacto(7L, request);
+
+        verify(clienteService, never()).create(any());
+        assertThat(resultado.getCliente()).isSameAs(cliente);
+        assertThat(resultado.getCliente().getApellido()).isEqualTo("González");
+    }
+
+    @Test
+    void actualizarContacto_deUnRegalo_editaElReceptorDniDirectoSinTocarNingunCliente() {
+        Compra compra = new Compra();
+        compra.setId(7L);
+        compra.setCliente(null); // un regalo no necesariamente tiene un Cliente del comprador cargado
+        compra.setFechaVisita(null); // regalo
+        compra.setReceptorDni("40111222");
+        when(compraRepository.findById(7L)).thenReturn(Optional.of(compra));
+        when(compraRepository.save(any(Compra.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        EditarContactoRequest request = new EditarContactoRequest();
+        request.setReceptorDni("40999888");
+
+        Compra resultado = service.actualizarContacto(7L, request);
+
+        verify(clienteService, never()).create(any());
+        assertThat(resultado.getReceptorDni()).isEqualTo("40999888");
     }
 }

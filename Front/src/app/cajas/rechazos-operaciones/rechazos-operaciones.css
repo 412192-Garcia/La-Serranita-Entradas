@@ -1,0 +1,136 @@
+.filtro-boleteros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.chip-filtro {
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-soft);
+  color: var(--color-text);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.chip-filtro.activo {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+
+.lista-rechazos {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.item-rechazo {
+  border: 1.5px solid var(--color-border);
+  border-left: 4px solid var(--color-danger-dark);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  background-color: var(--color-bg-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.item-rechazo-resuelto {
+  border-left-color: var(--color-border);
+  opacity: 0.75;
+}
+
+.item-rechazo-cabecera {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.chip-tipo-rechazo {
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background-color: var(--color-card-bg);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+}
+
+.item-rechazo-usuario {
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.item-rechazo-fecha {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+}
+
+.chip-resuelto {
+  margin-left: auto;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--color-primary-dark);
+}
+
+.item-rechazo-motivo {
+  margin: 0;
+  font-weight: 700;
+  color: var(--color-danger-dark);
+}
+
+.item-rechazo-payload {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+}
+
+.item-rechazo-resolucion {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+.item-rechazo-sugerencia {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--color-text);
+  background-color: var(--color-card-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+}
+
+.item-rechazo-form-resolucion {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.item-rechazo-form-resolucion input {
+  flex: 1;
+  min-width: 220px;
+}
+
+.item-rechazo-acciones {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.btn-marcar-resuelto {
+  align-self: flex-start;
+}
