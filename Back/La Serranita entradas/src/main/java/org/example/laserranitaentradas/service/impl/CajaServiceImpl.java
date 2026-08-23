@@ -2,7 +2,10 @@ package org.example.laserranitaentradas.service.impl;
 
 import jakarta.transaction.Transactional;
 import org.example.laserranitaentradas.model.dto.CajaAbiertaDTO;
+import org.example.laserranitaentradas.model.dto.CajaDetalleAbiertaDTO;
 import org.example.laserranitaentradas.model.dto.CajaResponseDTO;
+import org.example.laserranitaentradas.model.dto.CajaResumenReporteDTO;
+import org.example.laserranitaentradas.model.dto.CajasCerradasResponseDTO;
 import org.example.laserranitaentradas.model.dto.CierrePosnetRequestDTO;
 import org.example.laserranitaentradas.model.dto.CierrePosnetResponseDTO;
 import org.example.laserranitaentradas.model.dto.ConteoDenominacionDTO;
@@ -21,18 +24,27 @@ import org.example.laserranitaentradas.model.entity.IngresoEntradas;
 import org.example.laserranitaentradas.model.entity.RetiroCaja;
 import org.example.laserranitaentradas.model.entity.Tipo;
 import org.example.laserranitaentradas.model.entity.TipoMovimientoCaja;
+import org.example.laserranitaentradas.model.entity.TipoMovimientoEntradas;
 import org.example.laserranitaentradas.model.entity.Usuario;
 import org.example.laserranitaentradas.repository.CajaRepository;
+import org.example.laserranitaentradas.repository.CajaSpecifications;
 import org.example.laserranitaentradas.repository.CierrePosnetRepository;
 import org.example.laserranitaentradas.repository.CompraRepository;
 import org.example.laserranitaentradas.repository.IngresoEntradasRepository;
 import org.example.laserranitaentradas.repository.RetiroCajaRepository;
 import org.example.laserranitaentradas.service.CajaService;
 import org.example.laserranitaentradas.service.UsuarioService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -163,7 +175,7 @@ public class CajaServiceImpl implements CajaService {
 
     @Transactional
     @Override
-    public CajaResponseDTO registrarIngresoEntradas(Long usuarioId, Integer cantidad,
+    public CajaResponseDTO registrarIngresoEntradas(Long usuarioId, Integer cantidad, String motivo, TipoMovimientoEntradas tipo,
                                                      String idempotencyKey, LocalDateTime fechaOriginal) {
         // Ver registrarRetiro: un reintento con la misma clave no vuelve a sumar entradas.
         if (idempotencyKey != null && !idempotencyKey.isBlank()) {
@@ -175,12 +187,19 @@ public class CajaServiceImpl implements CajaService {
         if (cantidad == null || cantidad <= 0) {
             throw new IllegalArgumentException("La cantidad de entradas tiene que ser mayor a cero");
         }
+        TipoMovimientoEntradas tipoFinal = tipo == null ? TipoMovimientoEntradas.INGRESO : tipo;
 
         Caja caja = getAbiertaOrThrow(usuarioId);
 
+        // Un retiro puede dejar el conteo en negativo (ej. el inicial estaba mal contado, o
+        // entran entradas por otro lado que no pasan por acá): el frontend ya avisa y pide
+        // confirmación antes de mandar esto (ver stockActual en el modal), así que del lado del
+        // servidor no hace falta bloquearlo — sólo estorbaría a un caso legítimo.
         IngresoEntradas ingreso = IngresoEntradas.builder()
                 .caja(caja)
                 .cantidad(cantidad)
+                .motivo(motivo == null ? null : motivo.trim())
+                .tipo(tipoFinal)
                 .fecha(fechaOriginal == null ? LocalDateTime.now() : fechaOriginal)
                 .idempotencyKey(idempotencyKey)
                 .build();
@@ -288,11 +307,143 @@ public class CajaServiceImpl implements CajaService {
         return toDto(guardada);
     }
 
+    @Transactional
+    @Override
+    public Caja reabrir(Long cajaId) {
+        Caja caja = cajaRepository.findById(cajaId)
+                .orElseThrow(() -> new IllegalArgumentException("Caja no encontrada para id: " + cajaId));
+        if (caja.getFechaCierre() == null) {
+            throw new IllegalStateException("Esta caja está abierta: no hace falta reabrirla, ya se puede reintentar directamente.");
+        }
+        // El conteo (denominaciones, posnet, entradas cortadas, cambio, dólares) queda tal cual
+        // estaba en la caja — no se toca acá — así que recerrarConElUltimoConteo lo puede releer
+        // después sin que nadie tenga que volver a cargarlo.
+        caja.setFechaCierre(null);
+        return cajaRepository.save(caja);
+    }
+
+    @Transactional
+    @Override
+    public CajaResponseDTO recerrarConElUltimoConteo(Long cajaId) {
+        Caja caja = cajaRepository.findById(cajaId)
+                .orElseThrow(() -> new IllegalArgumentException("Caja no encontrada para id: " + cajaId));
+        if (caja.getFechaCierre() != null) {
+            throw new IllegalStateException("Esta caja ya está cerrada");
+        }
+        List<ConteoDenominacionDTO> conteo = caja.getConteoEfectivo().stream()
+                .map(c -> {
+                    ConteoDenominacionDTO dto = new ConteoDenominacionDTO();
+                    dto.setDenominacion(c.getDenominacion());
+                    dto.setCantidad(c.getCantidad());
+                    return dto;
+                })
+                .toList();
+        List<CierrePosnetRequestDTO> posnet = cierrePosnetRepository.findAllByCajaIdOrderByIdAsc(cajaId).stream()
+                .map(c -> {
+                    CierrePosnetRequestDTO dto = new CierrePosnetRequestDTO();
+                    dto.setFormaPago(c.getFormaPago());
+                    dto.setMonto(c.getMonto());
+                    dto.setNota(c.getNota());
+                    return dto;
+                })
+                .toList();
+        // cerrarCaja vuelve a guardar los cierres de posnet tal cual se le pasen: sin borrar
+        // los viejos primero quedarían duplicados (mismo criterio que corregirCierre).
+        cierrePosnetRepository.deleteAllByCajaId(cajaId);
+        return cerrarCaja(caja, conteo, posnet, caja.getEntradasFisicasCortadas(), caja.getCambioContado(), caja.getDolaresContado());
+    }
+
     @Override
     public CajaResponseDTO getDetalle(Long cajaId) {
         Caja caja = cajaRepository.findById(cajaId)
                 .orElseThrow(() -> new IllegalArgumentException("Caja no encontrada para id: " + cajaId));
         return toDto(caja);
+    }
+
+    @Override
+    public CajaDetalleAbiertaDTO getOperacionesCaja(Long cajaId) {
+        Caja caja = cajaRepository.findById(cajaId)
+                .orElseThrow(() -> new IllegalArgumentException("Caja no encontrada para id: " + cajaId));
+        List<EntradasPorTipoDTO> entradasVendidasPorTipo = contarEntradasPorTipo(cajaId);
+
+        Integer entradasFisicasRestantes = null;
+        if (caja.getEntradasFisicasInicial() != null) {
+            int ingresosNetos = ingresoEntradasRepository.findAllByCajaIdOrderByFechaAsc(cajaId).stream()
+                    .mapToInt(i -> i.getTipo() == TipoMovimientoEntradas.RETIRO ? -i.getCantidad() : i.getCantidad())
+                    .sum();
+            entradasFisicasRestantes = caja.getEntradasFisicasInicial() + ingresosNetos - calcularEntradasEsperadas(caja);
+        }
+
+        return CajaDetalleAbiertaDTO.builder()
+                .operaciones(construirOperaciones(cajaId))
+                .totalVentasEfectivo(sumVentasPorFormaPago(cajaId, FormaPago.EFECTIVO_BOLETERIA))
+                .totalVentasTarjeta(sumVentasPorFormaPago(cajaId, FormaPago.TARJETA))
+                .totalVentasQr(sumVentasPorFormaPago(cajaId, FormaPago.MERCADO_PAGO_QR))
+                .totalEntradasVendidas(entradasVendidasPorTipo.stream().mapToInt(EntradasPorTipoDTO::getCantidad).sum())
+                .entradasVendidasPorTipo(entradasVendidasPorTipo)
+                .huboVentaDolares(huboVentaDolares(cajaId))
+                .entradasFisicasRestantes(entradasFisicasRestantes)
+                .build();
+    }
+
+    /** "usuarioNombre" pasa a ordenar por las dos columnas reales detrás (nombre, apellido);
+     * "totalRetiros" no tiene una columna propia en Caja (se computa con un JOIN + SUM), así
+     * que cae al valor por defecto en vez de fallar. */
+    private static Sort ordenCajasCerradas(String ordenarPor, String direccion) {
+        Sort.Direction sentido = "ASC".equalsIgnoreCase(direccion) ? Sort.Direction.ASC : Sort.Direction.DESC;
+        if ("usuarioNombre".equals(ordenarPor)) {
+            return Sort.by(sentido, "usuario.nombre").and(Sort.by(sentido, "usuario.apellido"));
+        }
+        Set<String> ordenables = Set.of("fechaApertura", "fechaCierre", "montoInicial", "montoEsperado", "montoContado", "diferencia");
+        String campo = ordenables.contains(ordenarPor) ? ordenarPor : "fechaCierre";
+        return Sort.by(sentido, campo);
+    }
+
+    @Override
+    public CajasCerradasResponseDTO getCajasCerradas(LocalDate desde, LocalDate hasta, String usuarioNombre,
+                                                       String ordenarPor, String direccion, int page, int size) {
+        LocalDateTime desdeDt = desde.atStartOfDay();
+        LocalDateTime hastaDt = hasta.atTime(LocalTime.MAX);
+        int tamanioPagina = Math.min(Math.max(size, 1), 100);
+        Pageable pageable = PageRequest.of(Math.max(page, 0), tamanioPagina, ordenCajasCerradas(ordenarPor, direccion));
+
+        Specification<Caja> spec = Specification.allOf(
+                CajaSpecifications.cerradaEntre(desdeDt, hastaDt),
+                CajaSpecifications.deUsuarioNombre(usuarioNombre)
+        );
+        Page<Caja> pagina = cajaRepository.findAll(spec, pageable);
+
+        // Sólo se calcula retiros por caja (N+1) para las de ESTA página, no para todo el rango —
+        // a diferencia de ReporteServiceImpl.getResumen, que hace este mismo loop sobre TODAS las
+        // cajas del rango de una porque necesita el ranking de boleteros completo.
+        List<CajaResumenReporteDTO> contenido = pagina.getContent().stream()
+                .map(caja -> new CajaResumenReporteDTO(
+                        caja.getId(),
+                        caja.getUsuario().getNombre() + " " + caja.getUsuario().getApellido(),
+                        caja.getFechaApertura(),
+                        caja.getFechaCierre(),
+                        caja.getMontoInicial(),
+                        sumRetiros(caja.getId()),
+                        caja.getMontoEsperado(),
+                        caja.getMontoContado(),
+                        caja.getDiferencia()
+                ))
+                .toList();
+
+        BigDecimal totalRetiros = retiroCajaRepository.sumRetirosDeCajasCerradas(desdeDt, hastaDt, usuarioNombre, TipoMovimientoCaja.APORTE);
+        BigDecimal totalFaltantes = cajaRepository.sumFaltantes(desdeDt, hastaDt, usuarioNombre);
+        BigDecimal totalSobrantes = cajaRepository.sumSobrantes(desdeDt, hastaDt, usuarioNombre);
+
+        return CajasCerradasResponseDTO.builder()
+                .content(contenido)
+                .totalElements(pagina.getTotalElements())
+                .totalPages(pagina.getTotalPages())
+                .number(pagina.getNumber())
+                .size(pagina.getSize())
+                .totalRetiros(totalRetiros)
+                .totalFaltantes(totalFaltantes)
+                .totalSobrantes(totalSobrantes)
+                .build();
     }
 
     @Override
@@ -460,12 +611,6 @@ public class CajaServiceImpl implements CajaService {
                 .sum();
     }
 
-    private int sumIngresosEntradas(Long cajaId) {
-        return ingresoEntradasRepository.findAllByCajaIdOrderByFechaAsc(cajaId).stream()
-                .mapToInt(IngresoEntradas::getCantidad)
-                .sum();
-    }
-
     /** Cuenta las unidades vendidas por tipo de entrada (ignora extras y artículos varios, y las compras canceladas). */
     private List<EntradasPorTipoDTO> contarEntradasPorTipo(Long cajaId) {
         Map<String, Integer> cantidadPorTipo = new LinkedHashMap<>();
@@ -510,6 +655,7 @@ public class CajaServiceImpl implements CajaService {
                     .monto(compra.getMontoTotal())
                     .formaPago(compra.getFormaPago())
                     .detalle(detalle)
+                    .compraId(compra.getId())
                     .build());
         }
 
@@ -523,11 +669,14 @@ public class CajaServiceImpl implements CajaService {
         }
 
         for (IngresoEntradas ingreso : ingresoEntradasRepository.findAllByCajaIdOrderByFechaAsc(cajaId)) {
+            boolean esRetiro = ingreso.getTipo() == TipoMovimientoEntradas.RETIRO;
+            String detalle = (esRetiro ? "-" : "+") + ingreso.getCantidad() + " entradas"
+                    + (ingreso.getMotivo() != null && !ingreso.getMotivo().isBlank() ? " — " + ingreso.getMotivo() : "");
             operaciones.add(OperacionCajaDTO.builder()
-                    .tipo("INGRESO_ENTRADAS")
+                    .tipo(esRetiro ? "RETIRO_ENTRADAS" : "INGRESO_ENTRADAS")
                     .fecha(ingreso.getFecha())
                     .monto(null)
-                    .detalle("+" + ingreso.getCantidad() + " entradas")
+                    .detalle(detalle)
                     .build());
         }
 
@@ -607,7 +756,13 @@ public class CajaServiceImpl implements CajaService {
 
             entradasFisicasEsperadas = calcularEntradasEsperadas(caja);
             if (caja.getEntradasFisicasCortadas() != null) {
-                diferenciaEntradas = caja.getEntradasFisicasCortadas() - entradasFisicasEsperadas;
+                // Mismo criterio que la diferencia de efectivo (contado − esperado): positivo es
+                // sobrante, negativo es faltante. Acá "lo esperado que quede en el talonario" es
+                // inicial − entradasFisicasEsperadas y "lo que quedó de verdad" es inicial −
+                // cortadas; restando el inicial de los dos lados queda esperadas − cortadas. Si
+                // cortó MÁS de lo que las ventas justifican (cortadas > esperadas), faltan
+                // entradas en el talonario — no sobran.
+                diferenciaEntradas = entradasFisicasEsperadas - caja.getEntradasFisicasCortadas();
             }
 
             operaciones = construirOperaciones(caja.getId());
@@ -637,10 +792,15 @@ public class CajaServiceImpl implements CajaService {
                 .map(i -> IngresoEntradasResponseDTO.builder()
                         .id(i.getId())
                         .cantidad(i.getCantidad())
+                        .motivo(i.getMotivo())
+                        .tipo(i.getTipo())
                         .fecha(i.getFecha())
                         .build())
                 .toList();
-        int totalIngresosEntradas = ingresosEntradas.stream().mapToInt(IngresoEntradasResponseDTO::getCantidad).sum();
+        // Neto: INGRESO suma, RETIRO resta (mismo criterio que totalRetiros con RETIRO/APORTE de efectivo).
+        int totalIngresosEntradas = ingresosEntradas.stream()
+                .mapToInt(i -> i.getTipo() == TipoMovimientoEntradas.RETIRO ? -i.getCantidad() : i.getCantidad())
+                .sum();
 
         List<ConteoDenominacionDTO> conteoDto = caja.getConteoEfectivo().stream()
                 .map(c -> {

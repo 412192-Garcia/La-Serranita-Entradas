@@ -1,22 +1,26 @@
 package org.example.laserranitaentradas.service.impl;
 
-import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import jakarta.transaction.Transactional;
 import org.example.laserranitaentradas.model.entity.Compra;
 import org.example.laserranitaentradas.model.entity.CompraDetalle;
 import org.example.laserranitaentradas.model.entity.EstadoCompra;
+import org.example.laserranitaentradas.model.entity.FormaPago;
 import org.example.laserranitaentradas.repository.CompraRepository;
 import org.example.laserranitaentradas.service.EmailService;
+import org.example.laserranitaentradas.service.RechazoOperacionService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.time.format.DateTimeFormatter;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 @Service
 public class EmailServiceImpl implements EmailService {
@@ -25,13 +29,22 @@ public class EmailServiceImpl implements EmailService {
 
     private final JavaMailSender mailSender;
     private final CompraRepository compraRepository;
+    private final RechazoOperacionService rechazoService;
 
     @Value("${spring.mail.username}")
     private String remitente;
 
-    public EmailServiceImpl(JavaMailSender mailSender, CompraRepository compraRepository) {
+    // @Lazy en rechazoService: RechazoOperacionServiceImpl ahora también depende de
+    // CompraService (para reintentar una VENTA rechazada), que a su vez depende de
+    // EmailService — sin el @Lazy acá se cierra un ciclo real en la construcción de los beans
+    // (EmailService → RechazoOperacionService → CompraService → EmailService). Con @Lazy, este
+    // constructor recibe un proxy que recién resuelve el bean real la primera vez que
+    // registrarRechazoEnvio() lo usa, momento en el que el contexto ya terminó de armarse.
+    public EmailServiceImpl(JavaMailSender mailSender, CompraRepository compraRepository,
+                             @Lazy RechazoOperacionService rechazoService) {
         this.mailSender = mailSender;
         this.compraRepository = compraRepository;
+        this.rechazoService = rechazoService;
     }
 
     @Async
@@ -63,8 +76,13 @@ public class EmailServiceImpl implements EmailService {
             // Se loguea el id de compra, no el correo, para no volcar datos de contacto al log.
             log.info("Email de confirmación enviado para la compra ID {}", compraId);
 
-        } catch (MessagingException e) {
+        } catch (Exception e) {
+            // mailSender.send(...) tira MailException (no checked) si falla el SMTP en sí, y
+            // MimeMessageHelper tira MessagingException al armar el mensaje: como esto corre
+            // @Async sin nadie mirando la pantalla, atrapar ambas acá es lo único que evita que
+            // el fallo se pierda en un log que nadie lee — por eso también se avisa al admin.
             log.error("Error al enviar el email de confirmación de la compra ID {}", compraId, e);
+            registrarRechazoEnvio(compra, "comprobante de compra", e);
         }
     }
 
@@ -92,9 +110,25 @@ public class EmailServiceImpl implements EmailService {
             mailSender.send(message);
             log.info("Email de aviso de regalo enviado para la compra ID {}", compraId);
 
-        } catch (MessagingException e) {
+        } catch (Exception e) {
             log.error("Error al enviar el email de aviso de regalo de la compra ID {}", compraId, e);
+            registrarRechazoEnvio(compra, "aviso de regalo", e);
         }
+    }
+
+    /** Ningún llamador de estos métodos (webhook, verificación de pago, "reenviar comprobante"
+     * desde Boletería) espera el resultado: al ser @Async, el fallo no vuelve a nadie que lo esté
+     * mirando, así que es esto o que se pierda para siempre en un log del servidor. */
+    private void registrarRechazoEnvio(Compra compra, String tipoEmail, Exception causa) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("compraId", compra.getId());
+        payload.put("codigoReserva", compra.getCodigoReserva());
+        payload.put("email", tipoEmail.equals("aviso de regalo") ? compra.getReceptorEmail() : compra.getContactEmail());
+        payload.put("tipoEmail", tipoEmail);
+        payload.put("detalleTecnico", causa.getMessage());
+        rechazoService.registrar("COMPROBANTE_EMAIL", payload,
+                "No se pudo enviar el email de " + tipoEmail + ". Reenvialo manualmente desde Boletería una vez resuelto.",
+                null);
     }
 
     private String construirHtmlAvisoRegalo(Compra compra) {
@@ -188,6 +222,15 @@ public class EmailServiceImpl implements EmailService {
             );
         }
 
+        // Una reserva RESERVA_ADMIN (invitados, o ventas por agencia donde el cobro real se
+        // hizo por fuera) no tiene un "monto pagado acá" honesto para mostrar: o es gratis, o
+        // lo cobró la agencia con su propio margen — mostrarle nuestro precio de lista al
+        // comprador filtraría esa comisión sin que venga al caso. Por eso esta línea se omite
+        // sólo para ese caso (ver ReservaAdminServiceImpl).
+        String filaTotalPagado = compra.getFormaPago() == FormaPago.RESERVA_ADMIN
+                ? ""
+                : "<p style=\"text-align: right; font-size: 1.1em;\"><strong>Total pagado:</strong> $%s</p>".formatted(compra.getMontoTotal());
+
         return """
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
                 <h2 style="color: #2e7d32; text-align: center;">¡Pago Confirmado! 🎉</h2>
@@ -214,7 +257,7 @@ public class EmailServiceImpl implements EmailService {
                     </tbody>
                 </table>
 
-                <p style="text-align: right; font-size: 1.1em;"><strong>Total pagado:</strong> $%s</p>
+                %s
 
                 <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
                 <p style="font-size: 0.85em; color: #777; text-align: center;">La Serranita Parque Recreativo - Te esperamos de 11:00 a 18:30 hs.</p>
@@ -225,7 +268,7 @@ public class EmailServiceImpl implements EmailService {
                 compra.getCodigoReserva(),
                 fechaVisitaStr,
                 detallesHtml.toString(),
-                compra.getMontoTotal()
+                filaTotalPagado
         );
     }
 }

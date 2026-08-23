@@ -29,22 +29,29 @@
 }
 
 /* Chica y discreta a propósito, lejos de .btn-cobrar (ver comentario en el html): que vaciar
-   el carrito no compita visualmente con la acción principal de la pantalla. */
+   el carrito no compita visualmente con la acción principal de la pantalla. Mismo tratamiento
+   de botón con borde que las ✕ de las líneas (ver .btn-quitar-cierre), para que no desentone
+   al lado suyo como un link suelto. */
 .btn-vaciar-carrito {
   align-self: flex-end;
   margin-bottom: 4px;
-  padding: 4px 2px;
-  background: none;
-  border: none;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  background-color: var(--color-card-bg);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
   font-family: inherit;
   font-size: 0.78rem;
   font-weight: 700;
   color: var(--color-text-muted);
-  text-decoration: underline;
   cursor: pointer;
 }
 
-.btn-vaciar-carrito:hover { color: var(--color-danger-dark); }
+.btn-vaciar-carrito svg { width: 14px; height: 14px; }
+
+.btn-vaciar-carrito:hover { border-color: var(--color-danger); color: var(--color-danger-dark); }
 
 /* Sólo detalle: la cantidad se elige en el catálogo, acá no hay controles. */
 .linea {

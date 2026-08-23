@@ -1,0 +1,110 @@
+<div class="tarjeta" data-tour="rechazos-operaciones">
+  <h2>Operaciones rechazadas</h2>
+  <p class="ayuda">
+    Ventas, retiros/aportes e ingresos o retiros de entradas que el servidor rechazó (dato inválido, caja ya cerrada, etc.).
+  </p>
+
+  <div class="filtro-boleteros">
+    <button type="button" class="chip-filtro" [class.activo]="filtro() === 'pendientes'" (click)="cambiarFiltro('pendientes')">Pendientes</button>
+    <button type="button" class="chip-filtro" [class.activo]="filtro() === 'resueltas'" (click)="cambiarFiltro('resueltas')">Resueltas</button>
+    <button type="button" class="chip-filtro" [class.activo]="filtro() === 'todas'" (click)="cambiarFiltro('todas')">Todas</button>
+  </div>
+
+  @if (cargando()) {
+    <app-spinner />
+  } @else if (error()) {
+    <p class="alerta-error">{{ error() }}</p>
+  } @else if (rechazos().length === 0) {
+    <p class="ayuda">
+      @if (filtro() === 'pendientes') {
+        No hay ninguna operación rechazada pendiente de revisión.
+      } @else {
+        No hay operaciones rechazadas en esta vista.
+      }
+    </p>
+  } @else {
+    <ul class="lista-rechazos">
+      @for (r of rechazos(); track r.id) {
+        <li class="item-rechazo" [class.item-rechazo-resuelto]="r.resuelto">
+          <div class="item-rechazo-cabecera">
+            <span class="chip-tipo-rechazo">{{ etiquetaTipo(r.tipoOperacion) }}</span>
+            <span class="item-rechazo-usuario">{{ r.usuario }}</span>
+            <span class="item-rechazo-fecha">{{ r.fecha | date: 'dd/MM HH:mm' }}</span>
+            @if (r.resuelto) {
+              <span class="chip-resuelto">Resuelto</span>
+            }
+          </div>
+
+          <p class="item-rechazo-motivo">{{ r.motivo }}</p>
+
+          @if (camposPayload(r).length > 0) {
+            <div class="item-rechazo-payload">
+              @for (campo of camposPayload(r); track campo.etiqueta) {
+                <span><strong>{{ campo.etiqueta }}:</strong> {{ campo.valor }}</span>
+              }
+            </div>
+          }
+
+          @if (!r.resuelto && sugerenciaAccion(r); as sugerencia) {
+            <p class="item-rechazo-sugerencia"><strong>Qué hacer:</strong> {{ sugerencia }}</p>
+          }
+
+          @if (r.resuelto) {
+            <p class="item-rechazo-resolucion">
+              Resuelto por {{ r.resueltoPor }} el {{ r.fechaResolucion | date: 'dd/MM HH:mm' }}
+              @if (r.notaResolucion) {
+                — {{ r.notaResolucion }}
+              }
+            </p>
+          } @else if (resolviendoId() === r.id) {
+            <div class="item-rechazo-form-resolucion">
+              <input
+                type="text"
+                placeholder="Nota (opcional): qué se hizo al respecto"
+                [ngModel]="notaResolucion()"
+                (ngModelChange)="notaResolucion.set($event)" />
+              <button type="button" class="btn-secundario" (click)="cancelarResolucion()">Cancelar</button>
+              <button type="button" class="btn-primario" [disabled]="guardandoResolucion()" (click)="confirmarResolucion(r.id)">
+                {{ guardandoResolucion() ? 'Guardando…' : 'Confirmar' }}
+              </button>
+            </div>
+          } @else {
+            <div class="item-rechazo-acciones">
+              @if (r.tipoOperacion === 'COMPROBANTE_EMAIL') {
+                <button
+                  type="button"
+                  class="btn-primario"
+                  [disabled]="reenviandoId() === r.id"
+                  (click)="reenviarMail(r)">
+                  {{ reenviandoId() === r.id ? 'Reenviando…' : 'Reenviar mail' }}
+                </button>
+              }
+              @if (esReabribleAutomaticamente(r) && tieneCajaGuardada(r)) {
+                <button
+                  type="button"
+                  class="btn-primario"
+                  [disabled]="reabriendoId() === r.id"
+                  (click)="reabrirYReintentar(r)">
+                  {{
+                    reabriendoId() === r.id
+                      ? 'Reabriendo…'
+                      : loteDeLaMismaCaja(r).length > 1
+                        ? 'Reabrir caja y reintentar (' + loteDeLaMismaCaja(r).length + ')'
+                        : 'Reabrir caja y reintentar'
+                  }}
+                </button>
+              }
+              <button type="button" class="btn-secundario btn-marcar-resuelto" (click)="abrirResolucion(r.id)">Marcar resuelto</button>
+            </div>
+            @if (errorReenvio()[r.id]) {
+              <p class="alerta-error">{{ errorReenvio()[r.id] }}</p>
+            }
+            @if (errorReabrir()[r.id]) {
+              <p class="alerta-error">{{ errorReabrir()[r.id] }}</p>
+            }
+          }
+        </li>
+      }
+    </ul>
+  }
+</div>

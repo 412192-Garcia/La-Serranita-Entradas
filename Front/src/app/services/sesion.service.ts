@@ -43,9 +43,6 @@ export interface CuentaReciente {
   nombre: string;
   rol: Rol;
   fotoPerfil: string | null;
-  /** Sólo se guarda para BOLETERO (dispositivo compartido de uso interno): permite elegir la
-   *  cuenta y entrar directo, sin re-tipear. Nunca se guarda para ADMIN (mayor acceso). */
-  password?: string;
 }
 
 const STORAGE_KEY = 'serranita.sesion';
@@ -87,30 +84,27 @@ export class SesionService {
   login(username: string, password: string): Observable<UsuarioSesion> {
     return this.http.post<LoginResponse>(this.loginUrl, { username, password }).pipe(
       tap((res) =>
-        this.iniciarSesion(
-          {
-            id: res.id,
-            username: res.username,
-            nombre: res.nombre,
-            rol: res.rol,
-            token: res.token,
-            colorTema: res.colorTema,
-            colorFondo: res.colorFondo,
-            colorTarjeta: res.colorTarjeta,
-            colorBorde: res.colorBorde,
-            fotoPerfil: res.fotoPerfil,
-          },
-          password
-        )
+        this.iniciarSesion({
+          id: res.id,
+          username: res.username,
+          nombre: res.nombre,
+          rol: res.rol,
+          token: res.token,
+          colorTema: res.colorTema,
+          colorFondo: res.colorFondo,
+          colorTarjeta: res.colorTarjeta,
+          colorBorde: res.colorBorde,
+          fotoPerfil: res.fotoPerfil,
+        })
       )
     );
   }
 
-  iniciarSesion(usuario: UsuarioSesion, password?: string): void {
+  iniciarSesion(usuario: UsuarioSesion): void {
     this.usuarioActual.set(usuario);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(usuario));
     this.aplicarTema(usuario);
-    this.recordarCuenta(usuario, password);
+    this.recordarCuenta(usuario);
   }
 
   /** Saca esa cuenta de la lista de "usados recientemente" en este dispositivo (botón "x" del login). */
@@ -120,14 +114,13 @@ export class SesionService {
     localStorage.setItem(CUENTAS_KEY, JSON.stringify(restantes));
   }
 
-  private recordarCuenta(usuario: UsuarioSesion, password?: string): void {
+  private recordarCuenta(usuario: UsuarioSesion): void {
     const otras = this.cuentasRecientesActual().filter((c) => c.username !== usuario.username);
     const nueva: CuentaReciente = {
       username: usuario.username,
       nombre: usuario.nombre,
       rol: usuario.rol,
       fotoPerfil: usuario.fotoPerfil,
-      password: usuario.rol === 'BOLETERO' ? password : undefined,
     };
     const actualizadas = [nueva, ...otras].slice(0, MAX_CUENTAS_RECIENTES);
     this.cuentasRecientesActual.set(actualizadas);

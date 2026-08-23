@@ -1,0 +1,145 @@
+@if (cargando()) {
+  <app-spinner />
+} @else if (error()) {
+  <p class="alerta-error">{{ error() }}</p>
+} @else if (detalle(); as d) {
+  <div class="tarjeta-kpis-detalle" [class.tarjeta-kpis-detalle-3]="d.entradasFisicasRestantes !== null">
+    <div>
+      <h2>Vendido hasta ahora</h2>
+      <p class="kpi-numero">{{ totalVendido() | pesos }}</p>
+    </div>
+    <div>
+      <h2>Personas ingresadas</h2>
+      <p class="kpi-numero kpi-numero-secundario">{{ d.totalEntradasVendidas }}</p>
+    </div>
+    @if (d.entradasFisicasRestantes !== null) {
+      <div>
+        <h2>Entradas que le quedan</h2>
+        <p class="kpi-numero kpi-numero-secundario">{{ d.entradasFisicasRestantes }}</p>
+      </div>
+    }
+  </div>
+
+  @if (d.entradasVendidasPorTipo.length > 0) {
+    <div class="chips-entradas-tipo">
+      @for (t of d.entradasVendidasPorTipo; track t.nombreTipo) {
+        <span class="chip-entrada-tipo">{{ t.nombreTipo }} <strong>{{ t.cantidad }}</strong></span>
+      }
+    </div>
+  }
+
+  <div class="tabla-simple tabla-detalle-formaspago">
+    <div class="fila-simple fila-simple-formaspago-abierta fila-simple-header">
+      <span>Forma de pago</span><span>Vendido</span>
+    </div>
+    <div class="fila-simple fila-simple-formaspago-abierta">
+      <span>Efectivo{{ d.huboVentaDolares ? ' (incluye dólares)' : '' }}</span>
+      <span>{{ d.totalVentasEfectivo | pesos }}</span>
+    </div>
+    <div class="fila-simple fila-simple-formaspago-abierta">
+      <span>Tarjeta</span>
+      <span>{{ d.totalVentasTarjeta | pesos }}</span>
+    </div>
+    <div class="fila-simple fila-simple-formaspago-abierta">
+      <span>QR</span>
+      <span>{{ d.totalVentasQr | pesos }}</span>
+    </div>
+  </div>
+
+  @if (d.operaciones.length === 0) {
+    <p class="ayuda">Todavía no hay ningún movimiento en esta caja.</p>
+  } @else {
+    <div class="filtro-tipo-operacion">
+      <button type="button" class="chip-filtro" [class.activo]="filtroTipo() === 'TODAS'" (click)="elegirFiltroTipo('TODAS')">Todas</button>
+      <button type="button" class="chip-filtro" [class.activo]="filtroTipo() === 'VENTAS'" (click)="elegirFiltroTipo('VENTAS')">Ventas</button>
+      <button type="button" class="chip-filtro" [class.activo]="filtroTipo() === 'MOVIMIENTOS'" (click)="elegirFiltroTipo('MOVIMIENTOS')">Retiros / entradas físicas</button>
+    </div>
+
+    @if (operacionesFiltradas().length === 0) {
+      <p class="ayuda">No hay ninguna operación de este tipo todavía.</p>
+    } @else {
+    <div class="tabla-simple tabla-detalle-operaciones">
+      <div class="fila-simple fila-simple-operaciones-admin fila-simple-header">
+        <span></span><span>Hora</span><span>Tipo</span><span>Detalle</span><span>Monto</span><span></span>
+      </div>
+      @for (op of operacionesPagina(); track $index) {
+        <div class="fila-simple fila-simple-operaciones-admin" [class.fila-operacion-retiro]="op.tipo === 'RETIRO' || op.tipo === 'RETIRO_ENTRADAS'" [class.fila-operacion-aporte]="op.tipo === 'APORTE'">
+          <span class="icono-tipo-operacion">
+            @switch (op.tipo) {
+              @case ('VENTA') { <svg lucideShoppingCart [strokeWidth]="2"></svg> }
+              @case ('RETIRO') { <svg lucideArrowDownRight [strokeWidth]="2"></svg> }
+              @case ('APORTE') { <svg lucideArrowUpRight [strokeWidth]="2"></svg> }
+              @case ('INGRESO_ENTRADAS') { <svg lucideTicketPlus [strokeWidth]="2"></svg> }
+              @case ('RETIRO_ENTRADAS') { <svg lucideTicketMinus [strokeWidth]="2"></svg> }
+            }
+          </span>
+          <span>{{ op.fecha | date: 'HH:mm' }}</span>
+          <span>{{ etiquetaTipoOperacion(op) }}</span>
+          <span>{{ op.detalle }}</span>
+          <span>{{ op.monto !== null ? (op.monto | pesos) : '' }}</span>
+          <span class="acciones-operacion">
+            @if (op.compraId !== null && editandoCompraId() !== op.compraId) {
+              <button type="button" class="btn-secundario" (click)="iniciarEdicion(op)">Editar</button>
+              <button type="button" class="btn-cancelar-venta" [disabled]="cancelandoId() === op.compraId" (click)="cancelar(op)">
+                {{ cancelandoId() === op.compraId ? 'Cancelando…' : 'Cancelar' }}
+              </button>
+            }
+          </span>
+        </div>
+        @if (op.compraId !== null && editandoCompraId() === op.compraId) {
+          <div class="form-edicion-venta">
+            @if (cargandoEdicion()) {
+              <app-spinner />
+            } @else {
+              @for (linea of lineasEdicion(); track $index) {
+                <div class="fila-edicion-linea">
+                  <select [ngModel]="linea.tipoEntradaId" (ngModelChange)="actualizarTipoLinea($index, $event)">
+                    <option [ngValue]="null">Elegí un tipo…</option>
+                    @for (t of tiposEntrada(); track t.id) {
+                      <option [ngValue]="t.id">{{ t.nombre }}</option>
+                    }
+                  </select>
+                  <input
+                    type="number"
+                    min="1"
+                    [ngModel]="linea.cantidad"
+                    (ngModelChange)="actualizarCantidadLinea($index, $event)" />
+                  <button type="button" class="btn-quitar-cierre" (click)="quitarLinea($index)" aria-label="Quitar línea">✕</button>
+                </div>
+              }
+              <button type="button" class="btn-secundario btn-agregar-linea-edicion" (click)="agregarLinea()">+ Agregar entrada</button>
+
+              <div class="grupo-toggle-pill">
+                @for (f of formasPago; track f.valor) {
+                  <button type="button" class="btn-toggle-pill" [class.activo]="formaPagoEdicion() === f.valor" (click)="formaPagoEdicion.set(f.valor)">
+                    {{ f.etiqueta }}
+                  </button>
+                }
+              </div>
+
+              @if (errorEdicion()) {
+                <p class="alerta-error">{{ errorEdicion() }}</p>
+              }
+
+              <div class="acciones">
+                <button type="button" class="btn-limpiar" (click)="cancelarEdicion()">Cancelar</button>
+                <button type="button" class="btn-cobrar" [disabled]="guardandoEdicion()" (click)="guardarEdicion()">
+                  {{ guardandoEdicion() ? 'Guardando…' : 'Guardar cambios' }}
+                </button>
+              </div>
+            }
+          </div>
+        }
+      }
+    </div>
+
+    @if (totalPaginas() > 1) {
+      <div class="paginador">
+        <button type="button" class="btn-limpiar" [disabled]="paginaActual() === 0" (click)="paginaAnterior()">Anterior</button>
+        <span>Página {{ paginaActual() + 1 }} de {{ totalPaginas() }}</span>
+        <button type="button" class="btn-limpiar" [disabled]="paginaActual() + 1 >= totalPaginas()" (click)="paginaSiguiente()">Siguiente</button>
+      </div>
+    }
+    }
+  }
+}

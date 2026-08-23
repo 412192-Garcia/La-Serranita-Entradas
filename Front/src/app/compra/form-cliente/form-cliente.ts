@@ -1,4 +1,4 @@
-import {Component, EventEmitter, Input, OnInit, Output, output} from '@angular/core';
+import {Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges, output} from '@angular/core';
 import {CurrencyPipe} from "@angular/common";
 import {AbstractControl, FormBuilder, FormGroup, ReactiveFormsModule, ValidationErrors, Validators} from '@angular/forms';
 import {Spinner} from '../../shared/spinner/spinner';
@@ -49,7 +49,7 @@ function confirmacionDniValidator(control: AbstractControl): ValidationErrors | 
   templateUrl: './form-cliente.html',
   styleUrl: './form-cliente.css',
 })
-export class FormCliente implements OnInit {
+export class FormCliente implements OnInit, OnChanges {
 
   constructor(private fb: FormBuilder) {
   }
@@ -78,15 +78,19 @@ export class FormCliente implements OnInit {
       // Opcionales: no llevan Validators.required.
       edad: [null, [Validators.min(0), Validators.max(120)]],
       localidad: [''],
+      // Los validators obligatorios del receptor se aplican después, en actualizarValidadoresReceptor
+      // (acá arrancan vacíos): el calendario con el toggle de regalo queda montado en el panel
+      // izquierdo todo el tiempo, así que esRegalo puede cambiar mientras este form ya está armado.
       receptor: this.fb.group({
-        nombre: ['', this.esRegalo ? [Validators.required, Validators.minLength(2)] : []],
-        dni: ['', this.esRegalo ? [Validators.required, dniValidator] : []],
-        dniConfirmacion: ['', this.esRegalo ? [Validators.required, confirmacionDniValidator] : []],
-        email: ['', this.esRegalo ? [Validators.required, Validators.email] : []],
-        // Opcional siempre.
+        nombre: [''],
+        dni: [''],
+        dniConfirmacion: [''],
+        email: [''],
+        // Opcional siempre, sin importar esRegalo.
         telefono: ['', telefonoValidator],
       }),
     });
+    this.actualizarValidadoresReceptor();
 
     if (this.datosPrevios) {
       this.formGroup.patchValue(this.datosPrevios);
@@ -102,6 +106,30 @@ export class FormCliente implements OnInit {
       this.formGroup.get('dniConfirmacion')!.updateValueAndValidity());
     this.formGroup.get('receptor.dni')!.valueChanges.subscribe(() =>
       this.formGroup.get('receptor.dniConfirmacion')!.updateValueAndValidity());
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    // El primer cambio (llegada del input inicial) lo procesa ngOnInit al armar el form; acá
+    // sólo interesa reaccionar si esRegalo cambia DESPUÉS, con el form ya armado — el calendario
+    // con el toggle de regalo queda visible en el panel izquierdo aunque ya se haya avanzado al
+    // paso de Datos, así que se puede activar/desactivar sin salir de esta pantalla.
+    if (changes['esRegalo'] && !changes['esRegalo'].firstChange && this.formGroup) {
+      this.actualizarValidadoresReceptor();
+    }
+  }
+
+  /** Los campos del receptor sólo son obligatorios mientras esRegalo esté activo; si se
+   * desactiva, hay que sacarles el validator (no sólo ocultarlos) — si no, quedan inválidos
+   * para siempre (vacíos + required) y bloquean "Siguiente" aunque ya no se vean. */
+  private actualizarValidadoresReceptor(): void {
+    const receptor = this.formGroup.get('receptor') as FormGroup;
+    receptor.get('nombre')!.setValidators(this.esRegalo ? [Validators.required, Validators.minLength(2)] : []);
+    receptor.get('dni')!.setValidators(this.esRegalo ? [Validators.required, dniValidator] : []);
+    receptor.get('dniConfirmacion')!.setValidators(this.esRegalo ? [Validators.required, confirmacionDniValidator] : []);
+    receptor.get('email')!.setValidators(this.esRegalo ? [Validators.required, Validators.email] : []);
+    for (const campo of ['nombre', 'dni', 'dniConfirmacion', 'email']) {
+      receptor.get(campo)!.updateValueAndValidity();
+    }
   }
   get f() {
     return this.formGroup.controls;

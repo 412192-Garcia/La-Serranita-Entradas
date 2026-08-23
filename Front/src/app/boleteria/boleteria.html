@@ -473,6 +473,12 @@
           Apellido
           <input type="text" [(ngModel)]="formEdit.apellido" name="editApellido" />
         </label>
+        @if (!esRegaloDe(reserva)) {
+          <label>
+            DNI
+            <input type="text" [(ngModel)]="formEdit.dni" name="editDni" />
+          </label>
+        }
         <label>
           Email
           <input type="email" [(ngModel)]="formEdit.email" name="editEmail" />
@@ -481,6 +487,13 @@
           Teléfono
           <input type="text" [(ngModel)]="formEdit.telefono" name="editTelefono" />
         </label>
+        @if (esRegaloDe(reserva)) {
+          <p class="ayuda-receptor">Es un regalo: el DNI de abajo es el de quien lo recibe — es el que vale para entrar.</p>
+          <label>
+            DNI de quien recibe el regalo
+            <input type="text" [(ngModel)]="formEdit.receptorDni" name="editReceptorDni" />
+          </label>
+        }
         <div class="modal-acciones">
           <button type="button" class="btn-limpiar" (click)="cancelarEdicion()">Cancelar</button>
           <button type="button" class="btn-buscar" [disabled]="guardandoEdit()" (click)="guardarEdicion()">

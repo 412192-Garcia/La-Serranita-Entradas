@@ -20,4 +20,6 @@ public class OperacionCajaDTO {
     private FormaPago formaPago;
     /** Venta: "2x Pase General, 1x Cuadrito recuerdo". Retiro: el motivo. Ingreso de entradas: "+50 entradas — motivo". */
     private String detalle;
+    /** Sólo para ventas: id de la Compra, para poder cancelarla o editarla desde el detalle de caja (ADMIN). Null en retiros/ingresos. */
+    private Long compraId;
 }

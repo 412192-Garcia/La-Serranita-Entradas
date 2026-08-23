@@ -42,4 +42,18 @@ public class VentaPosRequestDTO {
      * las 18:00 en el detalle de caja ni en los reportes por hora. Null = ahora.
      */
     LocalDateTime fechaOriginal;
+
+    /**
+     * True sólo cuando esta petición viene de un reintento en segundo plano de la cola offline
+     * (no del primer intento en vivo). Se usa para decidir si un rechazo del servidor amerita
+     * quedar registrado para que un admin lo revise (ver RechazoOperacionService): un rechazo en
+     * vivo ya lo ve y lo corrige la persona que lo tipeó ahí mismo — anotarlo también sería puro
+     * ruido. Un rechazo en un reintento en cambio pasa sin que nadie lo esté mirando.
+     */
+    Boolean esReintentoEncolado;
+
+    /** Caja del boletero al momento de cobrar: si esto se rechaza porque esa caja ya no está
+     * abierta, queda guardado en el rechazo para saber cuál reabrir y reintentar (ver
+     * RetiroCajaRequestDTO, mismo criterio). */
+    Long cajaId;
 }

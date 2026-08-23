@@ -4,7 +4,7 @@
   <div class="barra-caja-datos">
     <span class="barra-caja-item"><strong>Caja abierta</strong></span>
     <span class="barra-caja-item muted">Inicial {{ caja().montoInicial | pesos }} · Retiros {{ caja().totalRetiros | pesos }}</span>
-    <span class="barra-caja-item muted">Entradas: {{ caja().entradasFisicasInicial ?? '—' }}{{ caja().totalIngresosEntradas > 0 ? ' + ' + caja().totalIngresosEntradas + ' ingresadas' : '' }}</span>
+    <span class="barra-caja-item muted" [class.negativo]="stockEntradas() < 0">Entradas: {{ stockEntradas() }}</span>
 
     @if (pendientes() > 0) {
       <span class="chip-pendientes" title="Se registran solas cuando vuelva la señal">
@@ -15,8 +15,9 @@
     @if (conError().length > 0) {
       <span class="chip-error-sincro" [title]="conError()[0].mensajeError ?? ''">
         <svg lucideTriangleAlert [strokeWidth]="2"></svg>
-        {{ conError().length }} con error — avisale a un admin
+        {{ conError().length }} con error — queda registrado para el admin en Cajas
       </span>
+      <button type="button" class="btn-descartar-error" (click)="descartarErrores()">Descartar</button>
     }
   </div>
   <div class="barra-caja-acciones">

@@ -1,9 +1,13 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
+import { etiquetaFormaPago } from '../models/forma-pago';
+import { Pagina } from './boleteria.service';
 
 export type TipoMovimientoCaja = 'RETIRO' | 'APORTE';
+
+export type TipoMovimientoEntradas = 'INGRESO' | 'RETIRO';
 
 export interface RetiroCaja {
   id: number;
@@ -32,16 +36,29 @@ export interface CierrePosnet {
 export interface IngresoEntradas {
   id: number;
   cantidad: number;
+  motivo: string | null;
+  tipo: TipoMovimientoEntradas;
   fecha: string;
 }
 
 export interface OperacionCaja {
-  tipo: 'VENTA' | 'RETIRO' | 'APORTE' | 'INGRESO_ENTRADAS';
+  tipo: 'VENTA' | 'RETIRO' | 'APORTE' | 'INGRESO_ENTRADAS' | 'RETIRO_ENTRADAS';
   fecha: string;
   /** Null en los ingresos de entradas físicas: no mueven plata. */
   monto: number | null;
   formaPago: string | null;
   detalle: string;
+  /** Sólo en ventas: id de la Compra, para poder cancelarla o editarla. Null en retiros/ingresos. */
+  compraId: number | null;
+}
+
+/** Nombre corto para mostrar en el detalle de caja: la forma de pago cruda del backend es un enum, no algo para mostrar tal cual. */
+export function etiquetaTipoOperacion(op: OperacionCaja): string {
+  if (op.tipo === 'VENTA') return etiquetaFormaPago(op.formaPago);
+  if (op.tipo === 'INGRESO_ENTRADAS') return 'Ingreso entradas';
+  if (op.tipo === 'RETIRO_ENTRADAS') return 'Retiro entradas';
+  if (op.tipo === 'APORTE') return 'Aporte';
+  return 'Retiro';
 }
 
 /**
@@ -128,6 +145,40 @@ export interface CajaAbierta {
   totalEntradasVendidas: number;
 }
 
+/** Detalle de una caja todavía abierta (ADMIN) — ver obtenerOperaciones. */
+export interface CajaDetalleAbierta {
+  operaciones: OperacionCaja[];
+  totalVentasEfectivo: number;
+  totalVentasTarjeta: number;
+  totalVentasQr: number;
+  totalEntradasVendidas: number;
+  entradasVendidasPorTipo: EntradasPorTipo[];
+  huboVentaDolares: boolean;
+  /** Inicial + ingresos − retiros − ya cortadas vendiendo: cuántas le quedan al boletero en el talonario. Null si esta caja no tiene un inicial cargado. */
+  entradasFisicasRestantes: number | null;
+}
+
+/** Una caja ya cerrada, para el listado paginado de "Cajas cerradas" (ver obtenerCajasCerradas). */
+export interface CajaCerrada {
+  id: number;
+  usuarioNombre: string;
+  fechaApertura: string;
+  fechaCierre: string;
+  montoInicial: number;
+  totalRetiros: number;
+  montoEsperado: number;
+  montoContado: number;
+  diferencia: number;
+}
+
+/** Página de "Cajas cerradas": mismas propiedades que Pagina<T>, más los totales de retiros/
+ * faltantes/sobrantes de TODO lo que matchea el filtro (no sólo la página actual). */
+export interface CajasCerradasResponse extends Pagina<CajaCerrada> {
+  totalRetiros: number;
+  totalFaltantes: number;
+  totalSobrantes: number;
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -144,15 +195,21 @@ export class CajaService {
     return this.http.post<Caja>(`${this.cajaUrl}/abrir`, { montoInicial, entradasFisicasInicial });
   }
 
-  /** idempotencyKey/fechaOriginal sólo los manda la cola offline del POS (ver OperacionesPendientesService). */
+  /** idempotencyKey/fechaOriginal/esReintentoEncolado sólo los manda la cola offline del POS
+   * (ver OperacionesPendientesService). cajaId es la caja propia del boletero en ese momento:
+   * no se usa para resolver dónde aplicar el movimiento (eso lo sigue derivando el backend del
+   * usuario autenticado), sólo queda guardado en el rechazo si esto se rechaza, para saber
+   * exactamente qué caja reabrir y reintentar. */
   registrarRetiro(
     monto: number,
     motivo: string,
     tipo: TipoMovimientoCaja,
     idempotencyKey?: string,
-    fechaOriginal?: string
+    fechaOriginal?: string,
+    esReintentoEncolado?: boolean,
+    cajaId?: number
   ): Observable<Caja> {
-    return this.http.post<Caja>(`${this.cajaUrl}/retiros`, { monto, motivo, tipo, idempotencyKey, fechaOriginal });
+    return this.http.post<Caja>(`${this.cajaUrl}/retiros`, { monto, motivo, tipo, idempotencyKey, fechaOriginal, esReintentoEncolado, cajaId });
   }
 
   /** Igual que registrarRetiro, pero un ADMIN cargándolo en la caja de OTRO usuario (ej. mientras la está cerrando). */
@@ -160,8 +217,16 @@ export class CajaService {
     return this.http.post<Caja>(`${this.cajaUrl}/${cajaId}/retiros`, { monto, motivo, tipo });
   }
 
-  registrarIngresoEntradas(cantidad: number, idempotencyKey?: string, fechaOriginal?: string): Observable<Caja> {
-    return this.http.post<Caja>(`${this.cajaUrl}/ingresos-entradas`, { cantidad, idempotencyKey, fechaOriginal });
+  registrarIngresoEntradas(
+    cantidad: number,
+    tipo: TipoMovimientoEntradas,
+    motivo?: string,
+    idempotencyKey?: string,
+    fechaOriginal?: string,
+    esReintentoEncolado?: boolean,
+    cajaId?: number
+  ): Observable<Caja> {
+    return this.http.post<Caja>(`${this.cajaUrl}/ingresos-entradas`, { cantidad, tipo, motivo, idempotencyKey, fechaOriginal, esReintentoEncolado, cajaId });
   }
 
   /** Cerrar caja es ADMIN-only (ya no self-service): cierra la caja de cualquier usuario por id. */
@@ -190,6 +255,35 @@ export class CajaService {
   /** Todas las cajas abiertas ahora mismo (ADMIN), para el dashboard de hoy. */
   obtenerCajasAbiertas(): Observable<CajaAbierta[]> {
     return this.http.get<CajaAbierta[]>(`${this.cajaUrl}/abiertas`);
+  }
+
+  /** Ventas, retiros/aportes e ingresos de entradas de una caja, más un resumen de lo vendido
+   * (ADMIN) — a diferencia de obtenerDetalle, funciona con la caja todavía abierta. */
+  obtenerOperaciones(cajaId: number): Observable<CajaDetalleAbierta> {
+    return this.http.get<CajaDetalleAbierta>(`${this.cajaUrl}/${cajaId}/operaciones`);
+  }
+
+  /** Cajas cerradas dentro del rango, paginadas y opcionalmente filtradas por boletero (ADMIN):
+   * soporta boleteros con meses de turnos sin traerlos todos de una. ordenarPor admite cualquier
+   * campo de CajaCerrada salvo "totalRetiros" (no es una columna propia de Caja). */
+  obtenerCajasCerradas(
+    desde: string,
+    hasta: string,
+    usuarioNombre: string | null,
+    ordenarPor: string,
+    direccion: 'ASC' | 'DESC',
+    page: number,
+    size: number
+  ): Observable<CajasCerradasResponse> {
+    let params = new HttpParams()
+      .set('desde', desde)
+      .set('hasta', hasta)
+      .set('ordenarPor', ordenarPor)
+      .set('direccion', direccion)
+      .set('page', page)
+      .set('size', size);
+    if (usuarioNombre) params = params.set('usuarioNombre', usuarioNombre);
+    return this.http.get<CajasCerradasResponse>(`${this.cajaUrl}/cerradas`, { params });
   }
 
   /** Corrige un cierre ya hecho (ej. un billete mal contado). ADMIN-only, cualquier caja cerrada. */

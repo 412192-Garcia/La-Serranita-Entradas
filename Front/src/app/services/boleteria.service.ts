@@ -82,8 +82,12 @@ export interface Reserva {
 export interface EditarContactoRequest {
   nombre?: string;
   apellido?: string;
+  /** DNI del titular; no mandarlo (o vacío) deja el actual sin tocar. */
+  dni?: string;
   email?: string;
   telefono?: string;
+  /** Sólo aplica si la compra es un regalo (fechaVisita null). */
+  receptorDni?: string;
 }
 
 /** Una línea del carrito del POS, tal como la espera el backend. */
@@ -119,6 +123,17 @@ export interface VentaPosRequest extends DescuentoPos {
   idempotencyKey?: string;
   /** Cuándo se cobró de verdad, si la venta estuvo encolada sin conexión (ISO). */
   fechaOriginal?: string;
+  /** True sólo en un reintento en segundo plano de la cola offline (ver OperacionesPendientesService). */
+  esReintentoEncolado?: boolean;
+  /** Caja del boletero al momento de cobrar: si esto se rechaza porque esa caja ya no está
+   * abierta, queda guardado para que un admin sepa cuál reabrir y reintentar. */
+  cajaId?: number;
+}
+
+/** Corrección de una venta de puerta (ADMIN): reemplaza sólo las líneas de entrada y la forma de pago. */
+export interface EditarVentaRequest {
+  entradas: LineaVentaPos[];
+  formaPago: FormaPagoPos;
 }
 
 export interface CotizacionResponse {
@@ -180,6 +195,12 @@ export class BoleteriaService {
     return this.http.get<Pagina<string>>(`${this.comprasUrl}/fechas-visita`, { params });
   }
 
+  /** Una compra puntual, con sus líneas de detalle — lo usa el admin para precargar el
+   * formulario de "Editar venta" con lo que esa compra tiene cargado hoy. */
+  obtenerPorId(compraId: number): Observable<Reserva> {
+    return this.http.get<Reserva>(`${this.comprasUrl}/${compraId}`);
+  }
+
   // Quién valida o cobra lo resuelve el backend a partir del JWT, así que estas
   // dos operaciones no mandan el id del operador en el cuerpo.
 
@@ -233,5 +254,17 @@ export class BoleteriaService {
   /** Venta presencial: cobra y habilita el ingreso en un solo paso (queda USADO). */
   registrarVentaPos(venta: VentaPosRequest): Observable<Reserva> {
     return this.http.post<Reserva>(`${this.internoUrl}/venta-pos`, venta);
+  }
+
+  /** Cancela una venta de puerta mal cargada (ADMIN, desde el detalle de una caja). La marca
+   * CANCELADO: deja de contar para cupo diario, totales de caja y reportes. */
+  cancelarVenta(compraId: number): Observable<Reserva> {
+    return this.http.put<Reserva>(`${this.internoUrl}/${compraId}/cancelar-venta`, {});
+  }
+
+  /** Corrige las entradas y/o la forma de pago de una venta de puerta (ADMIN). No toca
+   * artículos varios ni el descuento ya aplicado. */
+  editarVenta(compraId: number, datos: EditarVentaRequest): Observable<Reserva> {
+    return this.http.put<Reserva>(`${this.internoUrl}/${compraId}/editar-venta`, datos);
   }
 }

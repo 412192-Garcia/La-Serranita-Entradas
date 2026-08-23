@@ -28,6 +28,13 @@
   color: var(--color-text-muted);
 }
 
+/* El talonario quedó en negativo (se retiraron más entradas de las que había): mismo criterio
+   de color que un rechazo, para que salte a la vista sin esperar al conteo del cierre. */
+.barra-caja-item.negativo {
+  color: var(--color-danger-dark);
+  font-weight: 700;
+}
+
 .barra-caja-acciones {
   display: flex;
   flex-wrap: wrap;
@@ -64,4 +71,20 @@
   width: 14px;
   height: 14px;
   flex-shrink: 0;
+}
+
+.btn-descartar-error {
+  margin-top: 4px;
+  padding: 4px 10px;
+  border: 1px solid var(--color-danger-dark);
+  background: transparent;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--color-danger-dark);
+  cursor: pointer;
+}
+
+.btn-descartar-error:hover {
+  background-color: var(--color-danger-light);
 }

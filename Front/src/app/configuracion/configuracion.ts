@@ -45,7 +45,7 @@ const PASOS_POR_TAB: Record<'dias' | 'descuentos' | 'catalogo' | 'usuarios', Tou
     {
       selector: '[data-tour="tipos-entrada"]',
       titulo: 'Tipos de entrada',
-      texto: 'Acá se crean los pases y extras que se venden, junto con su orden de venta en el POS (columna Orden, con flechas para reordenar).',
+      texto: 'Acá se crean los pases y extras que se venden, junto con su orden de venta en la pantalla de venta (columna Orden, con flechas para reordenar).',
     },
     {
       selector: '[data-tour="articulos-varios"]',

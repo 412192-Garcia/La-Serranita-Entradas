@@ -82,7 +82,13 @@
 }
 
 .btn-cant:hover { border-color: var(--color-primary); color: var(--color-primary-dark); }
-.btn-cant:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-cant:disabled,
+.btn-cant:disabled:hover {
+  opacity: 0.4;
+  cursor: not-allowed;
+  border-color: var(--color-border);
+  color: var(--color-text-secondary);
+}
 
 /* A diferencia de .stepper-cantidad (span, sólo lectura), este es un input real: hay pantallas
    donde el +/- de a uno no alcanza (reponer talonario, que se carga de a cientos) y hace falta

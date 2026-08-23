@@ -19,18 +19,30 @@
           <span>Boletero</span><span>Abrió</span><span>Inicial</span><span>Vendido hasta ahora</span><span>Entradas</span><span></span>
         </div>
         @for (c of cajasAbiertas(); track c.id) {
-          <div class="fila-simple fila-simple-cajas-abiertas">
+          <div
+            class="fila-simple fila-simple-cajas-abiertas fila-clickable"
+            [class.fila-expandida]="filaExpandidaAbiertaId() === c.id"
+            (click)="toggleOperaciones(c)">
             <span>{{ c.usuarioNombre }}</span>
             <span>{{ c.fechaApertura | date: 'dd/MM HH:mm' }}</span>
             <span>{{ c.montoInicial | pesos }}</span>
             <span>{{ c.totalVendido | pesos }}</span>
             <span>{{ c.totalEntradasVendidas }}</span>
-            <button type="button" class="btn-secundario" (click)="iniciarCierre(c.id)">Cerrar caja</button>
+            <span class="acciones-fila-caja-abierta">
+              <button type="button" class="btn-secundario" (click)="$event.stopPropagation(); iniciarCierre(c.id)">Cerrar caja</button>
+            </span>
           </div>
+          @if (filaExpandidaAbiertaId() === c.id) {
+            <div class="fila-detalle-expandida" (click)="$event.stopPropagation()">
+              <app-caja-operaciones [cajaId]="c.id" (cambios)="onCambiosOperaciones()" />
+            </div>
+          }
         }
       </div>
     }
   </div>
+
+  <app-rechazos-operaciones />
 
   <app-filtro-rango-fechas
     data-tour="filtro-cajas"
@@ -44,54 +56,82 @@
   }
 
   <div data-tour="cajas-cerradas">
-  @if (cargando()) {
-    <div class="tarjeta">
-      <app-spinner />
-    </div>
-  } @else if (resumen(); as r) {
     <div class="tarjeta">
       <h2>Cajas cerradas</h2>
       <p class="ayuda">
         Ordenadas por cuándo se cerraron. Sirve para detectar faltantes o sobrantes por boletero. Tocá una fila para ver el detalle completo.
       </p>
 
-      @if (boleterosDisponibles(r).length > 1) {
-        <div class="filtro-boleteros">
-          <button type="button" class="chip-filtro" [class.activo]="filtroBoletero() === ''" (click)="filtroBoletero.set('')">
-            Todos
-          </button>
-          @for (nombre of boleterosDisponibles(r); track nombre) {
-            <button type="button" class="chip-filtro" [class.activo]="filtroBoletero() === nombre" (click)="filtroBoletero.set(nombre)">
-              {{ nombre }}
+      @if (resumen(); as r) {
+        @if (boleterosDisponibles(r).length > 1) {
+          <div class="filtro-boleteros">
+            <button type="button" class="chip-filtro" [class.activo]="filtroBoletero() === ''" (click)="elegirFiltroBoletero('')">
+              Todos
             </button>
-          }
-        </div>
+            @for (nombre of boleterosDisponibles(r); track nombre) {
+              <button type="button" class="chip-filtro" [class.activo]="filtroBoletero() === nombre" (click)="elegirFiltroBoletero(nombre)">
+                {{ nombre }}
+              </button>
+            }
+          </div>
+        }
       }
 
-      @let totalesCajas = totalesCajasFiltradas(r);
       <div class="tarjeta-kpis tarjeta-kpis-cajas">
         <div>
           <h2>Retiros</h2>
-          <p class="kpi-numero kpi-numero-secundario">{{ totalesCajas.retiros | pesos }}</p>
+          <p class="kpi-numero kpi-numero-secundario">{{ totalesCerradas().retiros | pesos }}</p>
         </div>
         <div>
           <h2>Faltantes</h2>
-          <p class="kpi-numero kpi-numero-secundario kpi-numero-negativo">{{ totalesCajas.faltantes | pesos }}</p>
+          <p class="kpi-numero kpi-numero-secundario kpi-numero-negativo">{{ totalesCerradas().faltantes | pesos }}</p>
         </div>
         <div>
           <h2>Sobrantes</h2>
-          <p class="kpi-numero kpi-numero-secundario">{{ totalesCajas.sobrantes | pesos }}</p>
+          <p class="kpi-numero kpi-numero-secundario">{{ totalesCerradas().sobrantes | pesos }}</p>
         </div>
       </div>
 
-      @if (r.cajas.length === 0) {
-        <p class="ayuda">No se cerró ninguna caja en este rango.</p>
+      @if (cargandoCerradas()) {
+        <app-spinner />
+      } @else if (errorCerradas()) {
+        <p class="alerta-error">{{ errorCerradas() }}</p>
+      } @else if (cajasCerradas().length === 0) {
+        <p class="ayuda">No se cerró ninguna caja en este rango{{ filtroBoletero() ? ' para ' + filtroBoletero() : '' }}.</p>
       } @else {
         <div class="tabla-simple">
           <div class="fila-simple fila-simple-cajas fila-simple-header">
-            <span>Boletero</span><span>Apertura</span><span>Cierre</span><span>Inicial</span><span>Retiros</span><span>Esperado</span><span>Contado</span><span>Diferencia</span>
+            <button type="button" class="col-ordenable" (click)="ordenarColumnaCajas('usuarioNombre')">
+              Boletero
+              <app-columna-ordenable [estado]="estadoOrdenCajas('usuarioNombre')" />
+            </button>
+            <button type="button" class="col-ordenable" (click)="ordenarColumnaCajas('fechaApertura')">
+              Apertura
+              <app-columna-ordenable [estado]="estadoOrdenCajas('fechaApertura')" />
+            </button>
+            <button type="button" class="col-ordenable" (click)="ordenarColumnaCajas('fechaCierre')">
+              Cierre
+              <app-columna-ordenable [estado]="estadoOrdenCajas('fechaCierre')" />
+            </button>
+            <button type="button" class="col-ordenable" (click)="ordenarColumnaCajas('montoInicial')">
+              Inicial
+              <app-columna-ordenable [estado]="estadoOrdenCajas('montoInicial')" />
+            </button>
+            <span>Retiros</span>
+            <button type="button" class="col-ordenable" (click)="ordenarColumnaCajas('montoEsperado')">
+              Esperado
+              <app-columna-ordenable [estado]="estadoOrdenCajas('montoEsperado')" />
+            </button>
+            <button type="button" class="col-ordenable" (click)="ordenarColumnaCajas('montoContado')">
+              Contado
+              <app-columna-ordenable [estado]="estadoOrdenCajas('montoContado')" />
+            </button>
+            <button type="button" class="col-ordenable" (click)="ordenarColumnaCajas('diferencia')">
+              Diferencia
+              <app-columna-ordenable [estado]="estadoOrdenCajas('diferencia')" />
+            </button>
           </div>
-          @for (c of cajasFiltradas(r); track c.id) {
+          @for (c of cajasCerradas(); track c.id) {
             <div class="fila-simple fila-simple-cajas fila-clickable" [class.fila-expandida]="filaExpandidaId() === c.id" (click)="toggleDetalle(c.id)">
               <span>{{ c.usuarioNombre }}</span>
               <span>{{ c.fechaApertura | date: 'dd/MM HH:mm' }}</span>
@@ -115,34 +155,47 @@
             }
           }
         </div>
+
+        @if (totalPaginasCerradas() > 1) {
+          <div class="paginador">
+            <button type="button" class="btn-limpiar" [disabled]="paginaCerradas() === 0" (click)="paginaCerradasAnterior()">Anterior</button>
+            <span>Página {{ paginaCerradas() + 1 }} de {{ totalPaginasCerradas() }}</span>
+            <button type="button" class="btn-limpiar" [disabled]="paginaCerradas() + 1 >= totalPaginasCerradas()" (click)="paginaCerradasSiguiente()">Siguiente</button>
+          </div>
+        }
       }
     </div>
 
-    <div class="tarjeta">
-      <h2>Ranking de boleteros</h2>
-      <p class="ayuda">Desempeño acumulado por boletero en el rango: turnos trabajados, efectivo vendido en puerta, retiros y diferencia de caja.</p>
-      @if (rankingBoleteros(r).length === 0) {
-        <p class="ayuda">No se cerró ninguna caja en este rango.</p>
-      } @else {
-        <div class="tabla-simple">
-          <div class="fila-simple fila-simple-ranking fila-simple-header">
-            <span>Boletero</span><span>Turnos</span><span>Efectivo vendido</span><span>Retiros</span><span>Diferencia</span>
-          </div>
-          @for (b of rankingBoleteros(r); track b.nombre) {
-            <div class="fila-simple fila-simple-ranking">
-              <span>{{ b.nombre }}</span>
-              <span>{{ b.turnos }}</span>
-              <span>{{ b.efectivoVendido | pesos }}</span>
-              <span>{{ b.retiros | pesos }}</span>
-              <span [class]="b.diferencia < 0 ? 'diferencia-faltante' : b.diferencia > 0 ? 'diferencia-sobrante' : 'diferencia-exacta'">
-                {{ b.diferencia | pesos }}
-              </span>
+    @if (cargando()) {
+      <div class="tarjeta">
+        <app-spinner />
+      </div>
+    } @else if (resumen(); as r) {
+      <div class="tarjeta">
+        <h2>Ranking de boleteros</h2>
+        <p class="ayuda">Desempeño acumulado por boletero en el rango: turnos trabajados, efectivo vendido en puerta, retiros y diferencia de caja.</p>
+        @if (rankingBoleteros(r).length === 0) {
+          <p class="ayuda">No se cerró ninguna caja en este rango.</p>
+        } @else {
+          <div class="tabla-simple">
+            <div class="fila-simple fila-simple-ranking fila-simple-header">
+              <span>Boletero</span><span>Turnos</span><span>Efectivo vendido</span><span>Retiros</span><span>Diferencia</span>
             </div>
-          }
-        </div>
-      }
-    </div>
-  }
+            @for (b of rankingBoleteros(r); track b.nombre) {
+              <div class="fila-simple fila-simple-ranking">
+                <span>{{ b.nombre }}</span>
+                <span>{{ b.turnos }}</span>
+                <span>{{ b.efectivoVendido | pesos }}</span>
+                <span>{{ b.retiros | pesos }}</span>
+                <span [class]="b.diferencia < 0 ? 'diferencia-faltante' : b.diferencia > 0 ? 'diferencia-sobrante' : 'diferencia-exacta'">
+                  {{ b.diferencia | pesos }}
+                </span>
+              </div>
+            }
+          </div>
+        }
+      </div>
+    }
   </div>
 
   </div>

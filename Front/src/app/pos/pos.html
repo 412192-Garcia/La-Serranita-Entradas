@@ -22,6 +22,7 @@
     @if (mostrarRetiro()) {
       <app-retiro-efectivo-modal
         [retiros]="caja()!.retiros"
+        [propiaCajaId]="caja()!.id"
         (retiroRegistrado)="onRetiroRegistrado($event)"
         (retiroEncolado)="onRetiroEncolado($event)"
         (cerrar)="mostrarRetiro.set(false)" />
@@ -30,6 +31,8 @@
     @if (mostrarIngresoEntradas()) {
       <app-ingreso-entradas-modal
         [ingresos]="caja()!.ingresosEntradas"
+        [stockActual]="(caja()!.entradasFisicasInicial ?? 0) + caja()!.totalIngresosEntradas"
+        [cajaId]="caja()!.id"
         (ingresoRegistrado)="onIngresoEntradasRegistrado($event)"
         (ingresoEncolado)="onIngresoEntradasEncolado($event)"
         (cerrar)="mostrarIngresoEntradas.set(false)" />
@@ -60,6 +63,7 @@
               data-tour="catalogo"
               [entradas]="tiposEntrada()"
               [cantidades]="cantidades()"
+              [descuentosEfectivo]="descuentosEfectivo()"
               (cantidadesChange)="cantidades.set($event)" />
 
             <app-agregar-articulo data-tour="agregar-articulo" [catalogo]="articulosCatalogo()" (articuloAgregado)="onArticuloAgregado($event)" />
@@ -73,7 +77,9 @@
             [articulosCarrito]="articulosCarrito()"
             [promociones]="promociones()"
             [descuentosEfectivo]="descuentosEfectivo()"
+            [cajaId]="caja()!.id"
             (quitarArticulo)="onQuitarArticulo($event)"
+            (quitarEntrada)="onQuitarEntrada($event)"
             (limpiar)="onLimpiar()"
             (ventaRegistrada)="onVentaRegistrada($event)" />
 

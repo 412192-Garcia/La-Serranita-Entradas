@@ -53,6 +53,7 @@
             inputmode="numeric"
             class="stepper-input"
             aria-label="Cantidad"
+            appSeleccionarAlFoco
             [ngModel]="cantidad()"
             (ngModelChange)="setCantidad($event)" />
           <button type="button" class="btn-cant" (click)="incrementarCantidad()" aria-label="Sumar uno">+</button>

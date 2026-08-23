@@ -72,9 +72,35 @@
 }
 
 .stepper-custom {
-  margin-top: 2px;
-  padding: 8px 4px;
-  border-top: 1px dashed var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+/* A propósito lejos de los botones −/+ (ver comentario en decrementarCustom): pegado al lado
+ * del stepper era justo el tipo de vecindad que generaba clicks accidentales antes. */
+.btn-volver-numeros {
+  width: 40px;
+  height: 40px;
+  border: 1.5px solid transparent;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  font-size: 1.3rem;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.btn-volver-numeros:hover {
+  border-color: var(--color-border);
+  color: var(--color-primary-dark);
+}
+
+.btn-volver-numeros:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(57, 169, 53, 0.35);
 }
 
 /* Entradas sin cargo (ej. menores): no necesitan la grilla de números, alcanza un +/-. */

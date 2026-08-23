@@ -64,9 +64,25 @@
 }
 
 .fila-simple-cajas-abiertas .btn-secundario {
-  justify-self: end;
   padding: 6px 12px;
   font-size: 0.78rem;
+}
+
+.acciones-fila-caja-abierta {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.paginador {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 10px 0 4px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
 }
 
 .fila-simple-ranking {

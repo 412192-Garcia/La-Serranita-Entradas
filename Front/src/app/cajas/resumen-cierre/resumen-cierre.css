@@ -59,15 +59,34 @@
 }
 
 .fila-simple-operaciones {
-  grid-template-columns: 60px 100px 1fr 100px;
+  grid-template-columns: 22px 60px 100px 1fr 100px;
   font-size: 0.82rem;
+  align-items: center;
+}
+
+.icono-tipo-operacion {
+  display: flex;
+  color: var(--color-text-muted);
+}
+
+.icono-tipo-operacion svg {
+  width: 15px;
+  height: 15px;
 }
 
 .fila-operacion-retiro {
   color: var(--color-danger-dark);
 }
 
+.fila-operacion-retiro .icono-tipo-operacion {
+  color: var(--color-danger-dark);
+}
+
 .fila-operacion-aporte {
+  color: var(--color-primary-dark);
+}
+
+.fila-operacion-aporte .icono-tipo-operacion {
   color: var(--color-primary-dark);
 }
 
@@ -120,7 +139,8 @@
 
 .fila-entradas-fisicas {
   margin: 0 0 14px;
-  font-size: 0.85rem;
+  font-size: 1rem;
+  font-weight: 600;
   color: var(--color-text-secondary);
 }
 

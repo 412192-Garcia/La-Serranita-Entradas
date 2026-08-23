@@ -32,6 +32,17 @@ public class IngresoEntradas extends BaseEntity {
     @Column(nullable = false)
     private Integer cantidad;
 
+    /** Opcional: sólo tiene sentido completarlo en un RETIRO (ej. "se las doy a Fulano"), un
+     * ingreso normal no necesita explicación. */
+    private String motivo;
+
+    /** Default 'INGRESO' en la columna: permite que ddl-auto=update agregue esta columna NOT NULL
+     *  sobre las filas ya existentes en la base de prueba en uso (sin default, Postgres rechaza
+     *  el ALTER TABLE porque esas filas quedarían sin valor). Ver TipoMovimientoCaja/RetiroCaja. */
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20, columnDefinition = "varchar(20) default 'INGRESO'")
+    private TipoMovimientoEntradas tipo;
+
     @Column(nullable = false)
     private LocalDateTime fecha;
 

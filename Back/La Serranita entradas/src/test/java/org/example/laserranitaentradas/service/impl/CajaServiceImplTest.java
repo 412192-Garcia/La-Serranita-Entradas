@@ -13,6 +13,7 @@ import org.example.laserranitaentradas.model.entity.IngresoEntradas;
 import org.example.laserranitaentradas.model.entity.RetiroCaja;
 import org.example.laserranitaentradas.model.entity.TipoEntrada;
 import org.example.laserranitaentradas.model.entity.TipoMovimientoCaja;
+import org.example.laserranitaentradas.model.entity.TipoMovimientoEntradas;
 import org.example.laserranitaentradas.model.entity.Usuario;
 import org.example.laserranitaentradas.repository.CajaRepository;
 import org.example.laserranitaentradas.repository.CierrePosnetRepository;
@@ -151,8 +152,43 @@ class CajaServiceImplTest {
 
     @Test
     void registrarIngresoEntradas_conCantidadCero_rechaza() {
-        assertThatThrownBy(() -> service.registrarIngresoEntradas(USUARIO_ID, 0, null, null))
+        assertThatThrownBy(() -> service.registrarIngresoEntradas(USUARIO_ID, 0, null, null, null, null))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void registrarIngresoEntradas_retiroSinMotivo_seGuardaIgual() {
+        // El motivo es opcional también en un retiro de entradas (a diferencia del motivo de un
+        // retiro de efectivo, que sí es obligatorio).
+        Caja cajaAbierta = cajaAbierta(7L, "5000", 50);
+        when(cajaRepository.findByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(Optional.of(cajaAbierta));
+        when(compraRepository.findAllByCajaId(7L)).thenReturn(List.of());
+        when(retiroCajaRepository.findAllByCajaIdOrderByFechaAsc(7L)).thenReturn(List.of());
+        when(ingresoEntradasRepository.findAllByCajaIdOrderByFechaAsc(7L)).thenReturn(List.of());
+
+        service.registrarIngresoEntradas(USUARIO_ID, 10, null, TipoMovimientoEntradas.RETIRO, null, null);
+
+        ArgumentCaptor<IngresoEntradas> captor = ArgumentCaptor.forClass(IngresoEntradas.class);
+        verify(ingresoEntradasRepository).save(captor.capture());
+        assertThat(captor.getValue().getTipo()).isEqualTo(TipoMovimientoEntradas.RETIRO);
+        assertThat(captor.getValue().getMotivo()).isNull();
+    }
+
+    @Test
+    void registrarIngresoEntradas_retiroMayorAlStockActual_seGuardaIgual() {
+        // El servidor no bloquea un retiro que deja el conteo en negativo: el frontend ya avisó
+        // y pidió confirmación antes de mandarlo (ver stockActual en el modal).
+        Caja cajaAbierta = cajaAbierta(7L, "5000", 50);
+        when(cajaRepository.findByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(Optional.of(cajaAbierta));
+        when(compraRepository.findAllByCajaId(7L)).thenReturn(List.of());
+        when(retiroCajaRepository.findAllByCajaIdOrderByFechaAsc(7L)).thenReturn(List.of());
+        when(ingresoEntradasRepository.findAllByCajaIdOrderByFechaAsc(7L)).thenReturn(List.of());
+
+        service.registrarIngresoEntradas(USUARIO_ID, 51, null, TipoMovimientoEntradas.RETIRO, null, null);
+
+        ArgumentCaptor<IngresoEntradas> captor = ArgumentCaptor.forClass(IngresoEntradas.class);
+        verify(ingresoEntradasRepository).save(captor.capture());
+        assertThat(captor.getValue().getCantidad()).isEqualTo(51);
     }
 
     @Test
@@ -359,7 +395,7 @@ class CajaServiceImplTest {
         when(retiroCajaRepository.findAllByCajaIdOrderByFechaAsc(7L)).thenReturn(List.of());
         when(ingresoEntradasRepository.findAllByCajaIdOrderByFechaAsc(7L)).thenReturn(List.of(yaGuardado));
 
-        CajaResponseDTO dto = service.registrarIngresoEntradas(USUARIO_ID, 20, "clave-3", null);
+        CajaResponseDTO dto = service.registrarIngresoEntradas(USUARIO_ID, 20, null, null, "clave-3", null);
 
         assertThat(dto.getId()).isEqualTo(7L);
         verify(ingresoEntradasRepository, never()).save(any());
@@ -464,8 +500,10 @@ class CajaServiceImplTest {
 
         // esperadas = 25 (sólo el tipo que entrega entrada; el menor no cuenta, el inicial ya no influye)
         assertThat(respuesta.getEntradasFisicasEsperadas()).isEqualTo(25);
-        // diferencia = 20 (cortadas) - 25 (esperadas) = -5 (faltan 5 entradas físicas)
-        assertThat(respuesta.getDiferenciaEntradas()).isEqualTo(-5);
+        // diferencia = 25 (esperadas) - 20 (cortadas) = 5: cortó menos de lo que las ventas
+        // justificaban, así que sobran 5 entradas sin usar en el talonario (mismo criterio que
+        // la diferencia de efectivo: positivo es sobrante).
+        assertThat(respuesta.getDiferenciaEntradas()).isEqualTo(5);
     }
 
     @Test
@@ -510,9 +548,10 @@ class CajaServiceImplTest {
 
         var respuesta = service.cerrar(USUARIO_ID, List.of(), List.of(), 30, null, null);
 
-        // esperadas = 0 (no hubo ventas que entregaran entrada); cortó 30 igual = sobran 30.
+        // esperadas = 0 (no hubo ventas que entregaran entrada); cortó 30 sin que ninguna venta
+        // lo justifique = faltan 30 en el talonario (diferencia = 0 - 30 = -30).
         assertThat(respuesta.getEntradasFisicasEsperadas()).isEqualTo(0);
-        assertThat(respuesta.getDiferenciaEntradas()).isEqualTo(30);
+        assertThat(respuesta.getDiferenciaEntradas()).isEqualTo(-30);
     }
 
     @Test
@@ -740,6 +779,71 @@ class CajaServiceImplTest {
 
         assertThat(respuesta.getMontoContado()).isEqualByComparingTo("50000");
         verify(cierrePosnetRepository).deleteAllByCajaId(7L);
+    }
+
+    @Test
+    void reabrir_conCajaCerrada_leSacaLaFechaDeCierreYLaGuarda() {
+        Caja cajaCerrada = cajaCerradaDeUsuario(7L, USUARIO_ID);
+        when(cajaRepository.findById(7L)).thenReturn(Optional.of(cajaCerrada));
+        when(cajaRepository.save(any(Caja.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Caja resultado = service.reabrir(7L);
+
+        assertThat(resultado.getFechaCierre()).isNull();
+        verify(cajaRepository).save(cajaCerrada);
+    }
+
+    @Test
+    void reabrir_deCajaInexistente_rechaza() {
+        when(cajaRepository.findById(7L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.reabrir(7L)).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void reabrir_deCajaTodaviaAbierta_rechaza() {
+        Caja cajaAbierta = cajaAbierta(7L, "5000", 50); // sin fechaCierre
+        when(cajaRepository.findById(7L)).thenReturn(Optional.of(cajaAbierta));
+
+        assertThatThrownBy(() -> service.reabrir(7L)).isInstanceOf(IllegalStateException.class);
+        verify(cajaRepository, never()).save(any());
+    }
+
+    @Test
+    void recerrarConElUltimoConteo_reutilizaElConteoYaGuardadoEnLaCaja() {
+        // Simula una caja recién reabierta con reabrir(): fechaCierre null, pero el conteo de
+        // cuando se cerró la primera vez todavía está ahí (reabrir no lo toca).
+        Caja cajaReabierta = cajaAbierta(7L, "5000", 50);
+        cajaReabierta.setUsuario(usuarioConId(USUARIO_ID));
+        cajaReabierta.setEntradasFisicasCortadas(40);
+        cajaReabierta.getConteoEfectivo().add(new org.example.laserranitaentradas.model.entity.ConteoDenominacion(100, 500));
+        when(cajaRepository.findById(7L)).thenReturn(Optional.of(cajaReabierta));
+        when(cajaRepository.save(any(Caja.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(compraRepository.findAllByCajaId(7L)).thenReturn(List.of());
+        when(retiroCajaRepository.findAllByCajaIdOrderByFechaAsc(7L)).thenReturn(List.of());
+        when(cierrePosnetRepository.findAllByCajaIdOrderByIdAsc(7L)).thenReturn(List.of());
+
+        var respuesta = service.recerrarConElUltimoConteo(7L);
+
+        verify(cierrePosnetRepository).deleteAllByCajaId(7L);
+        assertThat(respuesta.getEstado()).isEqualTo("CERRADA");
+        assertThat(respuesta.getMontoContado()).isEqualByComparingTo("50000");
+    }
+
+    @Test
+    void recerrarConElUltimoConteo_deCajaInexistente_rechaza() {
+        when(cajaRepository.findById(7L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.recerrarConElUltimoConteo(7L)).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void recerrarConElUltimoConteo_deCajaYaCerrada_rechaza() {
+        Caja cajaCerrada = cajaCerradaDeUsuario(7L, USUARIO_ID);
+        when(cajaRepository.findById(7L)).thenReturn(Optional.of(cajaCerrada));
+
+        assertThatThrownBy(() -> service.recerrarConElUltimoConteo(7L)).isInstanceOf(IllegalStateException.class);
+        verify(cierrePosnetRepository, never()).deleteAllByCajaId(any());
     }
 
     @Test

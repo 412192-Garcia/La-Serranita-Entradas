@@ -1,0 +1,190 @@
+@import '../../shared/pos-caja.css';
+@import '../../configuracion/configuracion-shared.css';
+
+.tarjeta-kpis-detalle {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+  margin-bottom: 14px;
+}
+
+.tarjeta-kpis-detalle-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.kpi-numero {
+  font-family: var(--font-heading);
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: var(--color-primary-dark);
+  margin: 4px 0;
+}
+
+.kpi-numero-secundario {
+  color: var(--color-text);
+}
+
+.chips-entradas-tipo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.chip-entrada-tipo {
+  background-color: var(--color-card-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+}
+
+.chip-entrada-tipo strong {
+  margin-left: 4px;
+  color: var(--color-text);
+}
+
+.tabla-detalle-formaspago,
+.tabla-detalle-operaciones {
+  background-color: var(--color-bg-soft);
+  border-radius: var(--radius-sm);
+  padding: 4px 10px;
+  margin-bottom: 14px;
+}
+
+.fila-simple-formaspago-abierta {
+  grid-template-columns: 1fr 1fr;
+  font-size: 0.85rem;
+}
+
+.paginador {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 6px 0 4px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.filtro-tipo-operacion {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.chip-filtro {
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-soft);
+  color: var(--color-text);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.chip-filtro.activo {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+
+.fila-simple-operaciones-admin {
+  grid-template-columns: 22px 60px 100px 1fr 100px auto;
+  font-size: 0.8rem;
+  align-items: center;
+  /* Más compacta que una fila de tabla admin común: acá puede haber muchas ventas en una
+     sola caja, y el padding por defecto (10px) más un botón "Editar" de tamaño estándar
+     hacían que la lista ocupara mucho más alto de lo necesario. */
+  padding: 5px 4px;
+}
+
+.icono-tipo-operacion {
+  display: flex;
+  color: var(--color-text-muted);
+}
+
+.icono-tipo-operacion svg {
+  width: 15px;
+  height: 15px;
+}
+
+.fila-operacion-retiro {
+  color: var(--color-danger-dark);
+}
+
+.fila-operacion-retiro .icono-tipo-operacion {
+  color: var(--color-danger-dark);
+}
+
+.fila-operacion-aporte {
+  color: var(--color-primary-dark);
+}
+
+.fila-operacion-aporte .icono-tipo-operacion {
+  color: var(--color-primary-dark);
+}
+
+.acciones-operacion {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+/* "Editar" hereda .btn-secundario, pensado para formularios (9px 16px) — acá al lado de
+   "Cancelar" en una fila angosta se ve (y ocupa) de más, así se lo achica a la misma medida. */
+.acciones-operacion .btn-secundario {
+  padding: 4px 10px;
+  font-size: 0.8rem;
+}
+
+.btn-cancelar-venta {
+  border: 1px solid var(--color-danger-dark);
+  color: var(--color-danger-dark);
+  background: none;
+  border-radius: var(--radius-sm);
+  padding: 4px 10px;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.btn-cancelar-venta:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.form-edicion-venta {
+  background-color: var(--color-card-bg);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  margin: 4px 0 12px;
+}
+
+.fila-edicion-linea {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.fila-edicion-linea select {
+  flex: 1;
+}
+
+.fila-edicion-linea input {
+  width: 70px;
+}
+
+.btn-agregar-linea-edicion {
+  margin-bottom: 12px;
+}
+
+@media (max-width: 720px) {
+  .fila-simple-operaciones-admin { grid-template-columns: 1fr; font-size: 0.78rem; }
+  .tarjeta-kpis-detalle,
+  .tarjeta-kpis-detalle-3 { grid-template-columns: 1fr; }
+  .fila-simple-formaspago-abierta { grid-template-columns: 1fr; font-size: 0.8rem; }
+}
