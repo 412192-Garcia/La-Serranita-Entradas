@@ -31,7 +31,7 @@
         } @else {
           <svg lucideMenu [strokeWidth]="2"></svg>
         }
-        <span class="operador">{{ usuario.nombre }}</span>
+        <span class="operador">{{ usuario.username }}</span>
       } @else {
         <svg lucideMenu [strokeWidth]="2"></svg>
       }
@@ -53,7 +53,7 @@
         @if (usuario.fotoPerfil) {
           <img class="avatar-operador-slider" [src]="usuario.fotoPerfil" alt="" />
         }
-        <span class="operador-slider">{{ usuario.nombre }}</span>
+        <span class="operador-slider">{{ usuario.username }}</span>
       </div>
     }
     <button type="button" class="btn-cerrar-slider" (click)="cerrarMenu()" aria-label="Cerrar menú">
