@@ -13,8 +13,6 @@
 
 .carrito-lineas {
   padding: 16px 18px;
-  padding-top: 19px;
-  position: relative;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -30,29 +28,28 @@
   font-size: 0.9rem;
 }
 
-/* Chica y discreta a propósito, lejos de .btn-cobrar (ver comentario en el html): que vaciar
-   el carrito no compita visualmente con la acción principal de la pantalla. Ícono solo,
-   flotando en la esquina (position: absolute) en vez de ocupar su propia fila entera arriba
-   de la lista — con .carrito-lineas apenas más alto arriba (padding-top) alcanza. */
+/* Chico y sin bordes a propósito, lejos de .btn-cobrar (ver comentario en el html): que vaciar
+   el carrito no compita visualmente con la acción principal de la pantalla. Alineado a la
+   derecha, en su propia fila, pero de una sola línea de alto (sin padding de botón normal)
+   para no comerse espacio vertical de la lista de abajo. */
 .btn-vaciar-carrito {
-  position: absolute;
-  top: 3px;
-  right: 14px;
-  width: 16px;
-  height: 16px;
-  padding: 0;
+  align-self: flex-end;
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 4px;
+  padding: 2px 0;
   background: none;
   border: none;
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
   color: var(--color-text-muted);
   cursor: pointer;
 }
 
-.btn-vaciar-carrito svg { width: 12px; height: 12px; }
+.btn-vaciar-carrito svg { width: 13px; height: 13px; }
 
-.btn-vaciar-carrito:hover { border-color: var(--color-danger); color: var(--color-danger-dark); }
+.btn-vaciar-carrito:hover { color: var(--color-danger-dark); }
 
 /* Sólo detalle: la cantidad se elige en el catálogo, acá no hay controles. */
 .linea {

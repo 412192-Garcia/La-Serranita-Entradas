@@ -4,10 +4,11 @@
       <p class="carrito-vacio">Tocá una entrada para empezar la venta.</p>
     } @else {
       <!-- Lejos de "Cobrar" a propósito: vaciar el carrito es irreversible, no debería
-           quedar al lado del botón que se toca todo el tiempo. Ícono solo (sin ocupar una fila
-           propia): flotante en la esquina, sobre la primera línea. -->
-      <button type="button" class="btn-vaciar-carrito" (click)="onLimpiar()" aria-label="Vaciar carrito" title="Vaciar carrito">
+           quedar al lado del botón que se toca todo el tiempo. Chico y sin bordes para no
+           competir visualmente, pero con texto (no sólo ícono): más claro qué hace. -->
+      <button type="button" class="btn-vaciar-carrito" (click)="onLimpiar()">
         <svg lucideTrash2 [strokeWidth]="2"></svg>
+        Vaciar carrito
       </button>
       @for (l of lineas(); track l.tipo.id) {
         <!-- La cantidad se elige en el catálogo, acá no se ajusta de a uno: la ✕ saca todo el tipo de una. -->
