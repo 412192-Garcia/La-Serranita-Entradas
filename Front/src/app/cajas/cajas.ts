@@ -10,7 +10,6 @@ import { Spinner } from '../shared/spinner/spinner';
 import { aFechaISO } from '../shared/fecha.util';
 import { CierreCajaModal } from './cierre-caja-modal/cierre-caja-modal';
 import { ResumenCierre } from './resumen-cierre/resumen-cierre';
-import { RechazosOperaciones } from './rechazos-operaciones/rechazos-operaciones';
 import { CajaOperaciones } from './caja-operaciones/caja-operaciones';
 import { Modal } from '../shared/modal/modal';
 import { PesosPipe } from '../shared/pesos.pipe';
@@ -51,7 +50,7 @@ const PASOS_TUTORIAL: TourStep[] = [
 
 @Component({
   selector: 'app-configuracion-cajas',
-  imports: [FormsModule, PesosPipe, DatePipe, CabeceraInterna, FiltroRangoFechas, Spinner, CierreCajaModal, ResumenCierre, Modal, RechazosOperaciones, CajaOperaciones, ColumnaOrdenable],
+  imports: [FormsModule, PesosPipe, DatePipe, CabeceraInterna, FiltroRangoFechas, Spinner, CierreCajaModal, ResumenCierre, Modal, CajaOperaciones, ColumnaOrdenable],
   templateUrl: './cajas.html',
   styleUrls: ['../configuracion/configuracion-shared.css', './cajas.css'],
 })
