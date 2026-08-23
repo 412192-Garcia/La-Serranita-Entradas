@@ -30,11 +30,26 @@ export class App {
    *  el staff sí instala), no tiene sentido mostrárselo a un visitante comprando entradas. */
   rutaPublica = signal(false);
 
+  private readonly cargaInicial = Date.now();
+
+  /** Si el check de actualización (registerWhenStable:30000) encuentra versión nueva dentro de
+   *  este margen desde que se abrió la página, el usuario recién entró y todavía no hizo nada:
+   *  se actualiza sola en vez de tirarle el cartel. Pasado este margen ya puede estar a mitad de
+   *  una carga, así que ahí sí se avisa en vez de recargarle la página debajo. */
+  private static readonly MARGEN_RECIEN_ABIERTA_MS = 60_000;
+
   constructor() {
     if (this.swUpdate.isEnabled) {
       this.swUpdate.versionUpdates
         .pipe(filter((evt): evt is VersionReadyEvent => evt.type === 'VERSION_READY'))
-        .subscribe(() => this.actualizacionDisponible.set(true));
+        .subscribe(() => {
+          const reciénAbierta = Date.now() - this.cargaInicial < App.MARGEN_RECIEN_ABIERTA_MS;
+          if (reciénAbierta) {
+            this.swUpdate.activateUpdate().then(() => document.location.reload());
+          } else {
+            this.actualizacionDisponible.set(true);
+          }
+        });
     }
 
     // El tema personalizado es un beneficio del módulo interno (gestión): la compra pública de

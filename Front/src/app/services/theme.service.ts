@@ -144,6 +144,10 @@ export const DISENIOS_PREARMADOS: DisenioPrearmado[] = [
 
 const HEX_VALIDO = /^#[0-9a-fA-F]{6}$/;
 
+/** Mismo valor que el hardcodeado en el <meta name="theme-color"> de index.html: es el verde
+ * por defecto del parque, al que hay que volver cuando no hay color de usuario que aplicar. */
+const PRIMARIO_POR_DEFECTO = '#39a935';
+
 /** Debajo de esto se considera "oscuro" y hay que aclarar el texto que cae encima (fórmula de brillo percibido ITU-R BT.601). */
 const UMBRAL_OSCURO = 140;
 
@@ -174,14 +178,18 @@ const CONTRASTE_MUTED = 4.5;
   providedIn: 'root',
 })
 export class ThemeService {
-  /** Null o inválido = vuelve al verde por defecto de styles.css. */
+  /** Null o inválido = vuelve al verde por defecto de styles.css. También actualiza el
+   * <meta name="theme-color">: sin esto, el color de la barra del navegador/status bar en
+   * celulares quedaba siempre en el verde fijo de index.html, sin seguir el color elegido. */
   aplicarPrimario(colorTema: string | null | undefined): void {
     const root = document.documentElement.style;
-    if (colorTema && HEX_VALIDO.test(colorTema)) {
-      root.setProperty('--color-primary', colorTema);
+    const valido = !!colorTema && HEX_VALIDO.test(colorTema);
+    if (valido) {
+      root.setProperty('--color-primary', colorTema!);
     } else {
       root.removeProperty('--color-primary');
     }
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', valido ? colorTema! : PRIMARIO_POR_DEFECTO);
   }
 
   /**
