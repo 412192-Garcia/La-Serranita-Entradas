@@ -32,7 +32,7 @@
       <app-ingreso-entradas-modal
         [ingresos]="caja()!.ingresosEntradas"
         [stockActual]="(caja()!.entradasFisicasInicial ?? 0) + caja()!.totalIngresosEntradas"
-        [cajaId]="caja()!.id"
+        [propiaCajaId]="caja()!.id"
         (ingresoRegistrado)="onIngresoEntradasRegistrado($event)"
         (ingresoEncolado)="onIngresoEntradasEncolado($event)"
         (cerrar)="mostrarIngresoEntradas.set(false)" />

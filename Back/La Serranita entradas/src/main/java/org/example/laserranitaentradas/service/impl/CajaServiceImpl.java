@@ -187,9 +187,30 @@ public class CajaServiceImpl implements CajaService {
         if (cantidad == null || cantidad <= 0) {
             throw new IllegalArgumentException("La cantidad de entradas tiene que ser mayor a cero");
         }
-        TipoMovimientoEntradas tipoFinal = tipo == null ? TipoMovimientoEntradas.INGRESO : tipo;
-
         Caja caja = getAbiertaOrThrow(usuarioId);
+        guardarIngresoEntradas(caja, cantidad, motivo, tipo, idempotencyKey, fechaOriginal);
+        return toDto(caja);
+    }
+
+    @Transactional
+    @Override
+    public CajaResponseDTO registrarIngresoEntradasComoAdmin(Long cajaId, Integer cantidad, String motivo, TipoMovimientoEntradas tipo) {
+        if (cantidad == null || cantidad <= 0) {
+            throw new IllegalArgumentException("La cantidad de entradas tiene que ser mayor a cero");
+        }
+        Caja caja = cajaRepository.findById(cajaId)
+                .orElseThrow(() -> new IllegalArgumentException("Caja no encontrada para id: " + cajaId));
+        if (caja.getFechaCierre() != null) {
+            throw new IllegalStateException("Esta caja ya está cerrada");
+        }
+        guardarIngresoEntradas(caja, cantidad, motivo, tipo, null, null);
+        return toDto(caja);
+    }
+
+    /** Guarda un ingreso o retiro de entradas físicas sobre una caja y cantidad ya validadas (propia o ajena vía admin). */
+    private void guardarIngresoEntradas(Caja caja, Integer cantidad, String motivo, TipoMovimientoEntradas tipo,
+                                         String idempotencyKey, LocalDateTime fechaOriginal) {
+        TipoMovimientoEntradas tipoFinal = tipo == null ? TipoMovimientoEntradas.INGRESO : tipo;
 
         // Un retiro puede dejar el conteo en negativo (ej. el inicial estaba mal contado, o
         // entran entradas por otro lado que no pasan por acá): el frontend ya avisa y pide
@@ -204,8 +225,6 @@ public class CajaServiceImpl implements CajaService {
                 .idempotencyKey(idempotencyKey)
                 .build();
         ingresoEntradasRepository.save(ingreso);
-
-        return toDto(caja);
     }
 
     @Transactional

@@ -76,6 +76,14 @@ public interface CompraService {
     Compra registrarVentaPos(VentaPosRequestDTO request, Long usuarioVendedorId);
 
     /**
+     * Igual que registrarVentaPos, pero para que un ADMIN cargue una venta que le faltó
+     * registrar a un boletero, directamente en su caja por id (ADMIN-only, gateado en
+     * SecurityConfig) — ej. mientras revisa el detalle de una caja abierta y nota que falta
+     * una venta. Queda a nombre del dueño de esa caja, no del admin.
+     */
+    Compra registrarVentaPosComoAdmin(Long cajaId, VentaPosRequestDTO request);
+
+    /**
      * Reembolsa una compra pagada online (Mercado Pago) que todavía no fue utilizada:
      * llama a la API de reembolsos de Mercado Pago y, si funciona, pasa la compra a
      * REEMBOLSADA. Sólo válido en estado APROBADO.

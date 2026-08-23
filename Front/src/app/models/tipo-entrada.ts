@@ -12,4 +12,6 @@ export interface TipoEntrada {
   entregaEntrada: boolean;
   /** Posición manual en los listados de venta (POS, compra online). Null = todavía sin asignar, va al final. */
   orden: number | null;
+  /** Si es true, sólo se puede vender desde el POS (boletería) — no aparece en la compra pública online. */
+  soloPos: boolean;
 }

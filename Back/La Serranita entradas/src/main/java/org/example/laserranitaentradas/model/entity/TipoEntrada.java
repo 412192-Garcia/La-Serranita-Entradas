@@ -70,4 +70,14 @@ public class TipoEntrada extends BaseEntity {
      */
     private Integer orden;
 
+    /**
+     * Si es true, este tipo sólo se puede vender desde el POS (boletería) — no aparece en la
+     * compra pública online. Para entradas que se manejan de forma especial en persona (ej. un
+     * cupón físico, un tipo interno). Sin nullable=false a propósito, mismo motivo que
+     * entregaEntrada/orden. Se trata como false (visible en la compra pública) si es null.
+     */
+    @Column(name = "solo_pos")
+    @Builder.Default
+    private Boolean soloPos = false;
+
 }

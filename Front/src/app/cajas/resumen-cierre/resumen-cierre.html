@@ -100,8 +100,8 @@
         <span class="icono-tipo-operacion">
           @switch (op.tipo) {
             @case ('VENTA') { <svg lucideShoppingCart [strokeWidth]="2"></svg> }
-            @case ('RETIRO') { <svg lucideArrowDownRight [strokeWidth]="2"></svg> }
-            @case ('APORTE') { <svg lucideArrowUpRight [strokeWidth]="2"></svg> }
+            @case ('RETIRO') { <svg lucideArrowUpRight [strokeWidth]="2"></svg> }
+            @case ('APORTE') { <svg lucideArrowDownRight [strokeWidth]="2"></svg> }
             @case ('INGRESO_ENTRADAS') { <svg lucideTicketPlus [strokeWidth]="2"></svg> }
             @case ('RETIRO_ENTRADAS') { <svg lucideTicketMinus [strokeWidth]="2"></svg> }
           }

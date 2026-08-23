@@ -229,6 +229,11 @@ export class CajaService {
     return this.http.post<Caja>(`${this.cajaUrl}/ingresos-entradas`, { cantidad, tipo, motivo, idempotencyKey, fechaOriginal, esReintentoEncolado, cajaId });
   }
 
+  /** Igual que registrarIngresoEntradas, pero un ADMIN cargándolo en la caja de OTRO usuario por id. */
+  registrarIngresoEntradasComoAdmin(cajaId: number, cantidad: number, motivo: string | undefined, tipo: TipoMovimientoEntradas): Observable<Caja> {
+    return this.http.post<Caja>(`${this.cajaUrl}/${cajaId}/ingresos-entradas`, { cantidad, motivo, tipo });
+  }
+
   /** Cerrar caja es ADMIN-only (ya no self-service): cierra la caja de cualquier usuario por id. */
   cerrarComoAdmin(
     cajaId: number,

@@ -13,6 +13,8 @@
 
 .carrito-lineas {
   padding: 16px 18px;
+  padding-top: 19px;
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -29,27 +31,26 @@
 }
 
 /* Chica y discreta a propósito, lejos de .btn-cobrar (ver comentario en el html): que vaciar
-   el carrito no compita visualmente con la acción principal de la pantalla. Mismo tratamiento
-   de botón con borde que las ✕ de las líneas (ver .btn-quitar-cierre), para que no desentone
-   al lado suyo como un link suelto. */
+   el carrito no compita visualmente con la acción principal de la pantalla. Ícono solo,
+   flotando en la esquina (position: absolute) en vez de ocupar su propia fila entera arriba
+   de la lista — con .carrito-lineas apenas más alto arriba (padding-top) alcanza. */
 .btn-vaciar-carrito {
-  align-self: flex-end;
-  margin-bottom: 4px;
+  position: absolute;
+  top: 3px;
+  right: 14px;
+  width: 16px;
+  height: 16px;
+  padding: 0;
   display: flex;
   align-items: center;
-  gap: 5px;
-  padding: 5px 10px;
-  background-color: var(--color-card-bg);
-  border: 1.5px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  font-family: inherit;
-  font-size: 0.78rem;
-  font-weight: 700;
+  justify-content: center;
+  background: none;
+  border: none;
   color: var(--color-text-muted);
   cursor: pointer;
 }
 
-.btn-vaciar-carrito svg { width: 14px; height: 14px; }
+.btn-vaciar-carrito svg { width: 12px; height: 12px; }
 
 .btn-vaciar-carrito:hover { border-color: var(--color-danger); color: var(--color-danger-dark); }
 
@@ -228,11 +229,6 @@
   font-size: 0.78rem;
   font-weight: 700;
   color: var(--color-text-secondary);
-}
-
-.hint-descuento-maximo {
-  font-weight: 600;
-  color: var(--color-text-muted);
 }
 
 .fila-descuento-manual input {
