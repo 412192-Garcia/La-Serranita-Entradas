@@ -53,6 +53,12 @@ export interface DetalleReserva {
   cantidad: number;
   /** Subconjunto de TipoEntrada que devuelve el backend en el detalle de la compra. */
   tipoEntrada: Pick<TipoEntrada, 'id' | 'nombre' | 'precio' | 'tipo'> | null;
+  /** Sólo en líneas de artículo (de catálogo): tipoEntrada viene null en ese caso. */
+  articuloVario: { id: number; nombre: string; precioSugerido: number | null; activo: boolean } | null;
+  /** Sólo en líneas de artículo libre (sin catálogo): tipoEntrada y articuloVario vienen null. */
+  descripcionLibre: string | null;
+  /** Precio cargado al vender, congelado en la compra — sólo para líneas de artículo (de catálogo o libres). Null en líneas de entrada (ésas derivan el precio de tipoEntrada). */
+  precioUnitario: number | null;
 }
 
 export interface Reserva {
@@ -130,9 +136,10 @@ export interface VentaPosRequest extends DescuentoPos {
   cajaId?: number;
 }
 
-/** Corrección de una venta de puerta (ADMIN): reemplaza sólo las líneas de entrada y la forma de pago. */
+/** Corrección de una venta de puerta (ADMIN): reemplaza entradas, artículos y forma de pago por completo (mandar la lista final, no un diff). */
 export interface EditarVentaRequest {
   entradas: LineaVentaPos[];
+  articulos: LineaArticuloPos[];
   formaPago: FormaPagoPos;
 }
 
@@ -254,6 +261,12 @@ export class BoleteriaService {
   /** Venta presencial: cobra y habilita el ingreso en un solo paso (queda USADO). */
   registrarVentaPos(venta: VentaPosRequest): Observable<Reserva> {
     return this.http.post<Reserva>(`${this.internoUrl}/venta-pos`, venta);
+  }
+
+  /** Igual que registrarVentaPos, pero un ADMIN cargándola en la caja de OTRO usuario por id
+   * (ej. desde el detalle de una caja abierta, cuando falta registrar una venta). */
+  registrarVentaPosComoAdmin(cajaId: number, venta: VentaPosRequest): Observable<Reserva> {
+    return this.http.post<Reserva>(`${this.internoUrl}/caja/${cajaId}/venta-pos`, venta);
   }
 
   /** Cancela una venta de puerta mal cargada (ADMIN, desde el detalle de una caja). La marca

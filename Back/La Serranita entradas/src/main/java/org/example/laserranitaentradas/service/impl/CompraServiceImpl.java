@@ -25,6 +25,7 @@ import org.example.laserranitaentradas.model.entity.TipoEntrada;
 import org.example.laserranitaentradas.model.entity.Usuario;
 import org.example.laserranitaentradas.model.entity.EstadoCompra;
 import org.example.laserranitaentradas.repository.ArticuloVarioRepository;
+import org.example.laserranitaentradas.repository.CajaRepository;
 import org.example.laserranitaentradas.repository.CompraRepository;
 import org.example.laserranitaentradas.repository.CompraSpecifications;
 import org.example.laserranitaentradas.repository.PromocionRepository;
@@ -64,6 +65,7 @@ public class CompraServiceImpl implements CompraService {
     private final CalculoPrecioService calculoPrecioService;
     private final EmailService emailService;
     private final CajaService cajaService;
+    private final CajaRepository cajaRepository;
     private final PromocionRepository promocionRepository;
     private final ArticuloVarioRepository articuloVarioRepository;
     private final Map<FormaPago, PagoService> estrategiasPago;
@@ -79,6 +81,7 @@ public class CompraServiceImpl implements CompraService {
              CalculoPrecioService calculoPrecioService,
              EmailService emailService,
              CajaService cajaService,
+             CajaRepository cajaRepository,
              PromocionRepository promocionRepository,
              ArticuloVarioRepository articuloVarioRepository,
              List<PagoService> estrategiasDisponibles,
@@ -93,6 +96,7 @@ public class CompraServiceImpl implements CompraService {
         this.calculoPrecioService = calculoPrecioService;
         this.emailService = emailService;
         this.cajaService = cajaService;
+        this.cajaRepository = cajaRepository;
         this.promocionRepository = promocionRepository;
         this.articuloVarioRepository = articuloVarioRepository;
         this.estrategiasPago = estrategiasDisponibles.stream()
@@ -293,6 +297,7 @@ public class CompraServiceImpl implements CompraService {
         BigDecimal montoTotal = calculo.montoTotal();
 
         validarPaseObligatorio(detalles);
+        validarNingunoSoloPos(detalles);
 
         BigDecimal descuentoAplicado = BigDecimal.ZERO;
         if (cupon != null) {
@@ -703,6 +708,22 @@ public class CompraServiceImpl implements CompraService {
     }
 
     /**
+     * Defensa en profundidad para la compra pública online: un tipo "Solo POS" ya está
+     * filtrado del lado del frontend (seleccion-entradas.ts), pero acá se rechaza igual
+     * por si alguien arma el request a mano. No se usa desde crearVenta (POS): ahí vender
+     * un tipo "Solo POS" es exactamente el caso de uso que existe para.
+     */
+    private void validarNingunoSoloPos(List<CompraDetalle> detalles) {
+        boolean haySoloPos = detalles.stream()
+                .anyMatch(d -> d.getTipoEntrada() != null && Boolean.TRUE.equals(d.getTipoEntrada().getSoloPos()));
+        if (haySoloPos) {
+            throw new IllegalArgumentException(
+                    "Uno de los tipos de entrada seleccionados no está disponible para la compra online."
+            );
+        }
+    }
+
+    /**
      * Código visible yyMMdd-N: N es el orden de esta reserva entre todas las que ya
      * existen para ese mismo día de visita. Para regalos (sin fecha) se usa REGALO-N.
      */
@@ -728,6 +749,34 @@ public class CompraServiceImpl implements CompraService {
                 return yaRegistrada.get();
             }
         }
+
+        Usuario vendedor = usuarioService.obtenerUsuarioPorId(usuarioVendedorId)
+                .orElseThrow(() -> new IllegalArgumentException("Usuario vendedor no encontrado para id: " + usuarioVendedorId));
+
+        // Toda venta de puerta se hace contra una caja abierta, sea cual sea la forma de
+        // pago: es la que después se cierra y concilia al final del turno.
+        Caja caja = cajaService.getAbiertaOrThrow(usuarioVendedorId);
+
+        return crearVenta(request, caja, vendedor, idempotencyKey);
+    }
+
+    @Transactional
+    @Override
+    public Compra registrarVentaPosComoAdmin(Long cajaId, VentaPosRequestDTO request) {
+        Caja caja = cajaRepository.findById(cajaId)
+                .orElseThrow(() -> new IllegalArgumentException("Caja no encontrada para id: " + cajaId));
+        if (caja.getFechaCierre() != null) {
+            throw new IllegalStateException("Esta caja ya está cerrada");
+        }
+        // Queda a nombre del boletero dueño de la caja (no del admin que la carga): es una
+        // venta que le faltó registrar a esa persona, no una del admin.
+        return crearVenta(request, caja, caja.getUsuario(), null);
+    }
+
+    /** Arma y guarda la venta contra una caja y un vendedor ya resueltos (turno propio o, vía
+     * admin, el de otro boletero). Único idempotencyKey no nulo: el propio POS, contra su cola
+     * offline — un admin corrigiendo una caja siempre está conectado. */
+    private Compra crearVenta(VentaPosRequestDTO request, Caja caja, Usuario vendedor, String idempotencyKey) {
         if (request.getFormaPago() == null) {
             throw new IllegalArgumentException("Debe indicar la forma de pago del cobro");
         }
@@ -736,13 +785,6 @@ public class CompraServiceImpl implements CompraService {
         if (sinEntradas && sinArticulos) {
             throw new IllegalArgumentException("La venta no tiene entradas ni artículos cargados");
         }
-
-        Usuario vendedor = usuarioService.obtenerUsuarioPorId(usuarioVendedorId)
-                .orElseThrow(() -> new IllegalArgumentException("Usuario vendedor no encontrado para id: " + usuarioVendedorId));
-
-        // Toda venta de puerta se hace contra una caja abierta, sea cual sea la forma de
-        // pago: es la que después se cierra y concilia al final del turno.
-        Caja caja = cajaService.getAbiertaOrThrow(usuarioVendedorId);
 
         // El visitante está entrando en este momento, así que la fecha de visita es hoy.
         // A diferencia de la compra online no se valida que el día esté marcado como
@@ -1045,17 +1087,12 @@ public class CompraServiceImpl implements CompraService {
             }
         }
 
-        // Los artículos varios (souvenirs) no se tocan acá: si el error está ahí, se cancela la
-        // venta entera y se vuelve a cargar (ver EditarVentaRequestDTO).
-        List<CompraDetalle> detallesArticulos = compra.getDetalles().stream()
-                .filter(det -> det.getTipoEntrada() == null)
-                .toList();
-        BigDecimal montoArticulos = detallesArticulos.stream()
-                .map(det -> det.getPrecioUnitario() != null ? det.getPrecioUnitario().multiply(BigDecimal.valueOf(det.getCantidad())) : BigDecimal.ZERO)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        DetallesCalculados calculoArticulos = construirLineasArticulos(request.getArticulos());
+        List<CompraDetalle> nuevosArticulos = calculoArticulos.detalles();
+        BigDecimal montoArticulos = calculoArticulos.montoTotal();
 
         List<CompraDetalle> todosLosDetalles = new ArrayList<>(nuevasEntradas);
-        todosLosDetalles.addAll(detallesArticulos);
+        todosLosDetalles.addAll(nuevosArticulos);
         if (todosLosDetalles.isEmpty()) {
             throw new IllegalArgumentException("La venta no puede quedar sin entradas ni artículos.");
         }
@@ -1080,10 +1117,13 @@ public class CompraServiceImpl implements CompraService {
             }
         }
 
-        // orphanRemoval en Compra.detalles: sacar las líneas de entrada viejas de la colección
-        // alcanza para que Hibernate las borre; las de artículo quedan intactas.
-        compra.getDetalles().removeIf(det -> det.getTipoEntrada() != null);
-        compra.getDetalles().addAll(nuevasEntradas);
+        // orphanRemoval en Compra.detalles: vaciar la colección entera alcanza para que
+        // Hibernate borre todas las líneas viejas (entradas y artículos) antes de cargar las nuevas.
+        compra.getDetalles().clear();
+        compra.getDetalles().addAll(todosLosDetalles);
+        for (CompraDetalle det : todosLosDetalles) {
+            det.setCompra(compra);
+        }
         compra.setFormaPago(request.getFormaPago());
         compra.setMontoTotal(montoFinal);
         compra.setDescuentoAplicado(descuento);

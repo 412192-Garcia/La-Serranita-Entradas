@@ -44,6 +44,9 @@ public interface CajaService {
     CajaResponseDTO registrarIngresoEntradas(Long usuarioId, Integer cantidad, String motivo, TipoMovimientoEntradas tipo,
                                               String idempotencyKey, LocalDateTime fechaOriginal);
 
+    /** Igual que registrarIngresoEntradas, pero para que un ADMIN lo cargue en la caja de OTRO usuario por id (ADMIN-only, gateado en SecurityConfig). Sin cola offline. */
+    CajaResponseDTO registrarIngresoEntradasComoAdmin(Long cajaId, Integer cantidad, String motivo, TipoMovimientoEntradas tipo);
+
     CajaResponseDTO cerrar(Long usuarioId, List<ConteoDenominacionDTO> conteoEfectivo,
                             List<CierrePosnetRequestDTO> cierresPosnet, Integer entradasFisicasCortadas,
                             BigDecimal cambioContado, BigDecimal dolaresContado);

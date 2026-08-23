@@ -62,6 +62,16 @@ public class CompraInternoController {
         }
     }
 
+    @PostMapping("/caja/{cajaId}/venta-pos")
+    @Operation(summary = "Cargar una venta que le faltó registrar a un boletero (ADMIN)",
+            description = "Igual que /venta-pos, pero el admin la carga directamente en la caja indicada por id (no la propia): para cuando revisa el detalle de una caja abierta y nota que falta una venta. Queda a nombre del dueño de esa caja.")
+    public ResponseEntity<CompraResponseDTO> registrarVentaPosComoAdmin(
+            @PathVariable @Parameter(description = "ID de la caja") Long cajaId,
+            @RequestBody VentaPosRequestDTO request) {
+        Compra venta = compraService.registrarVentaPosComoAdmin(cajaId, request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(CompraController.entityToDto(venta));
+    }
+
     @PostMapping("/generar-reserva")
     @Operation(summary = "Generar una reserva a mano, sin cobrar nada por acá", description = "Sólo ADMIN: para invitados o ventas por agencia (el cobro real, si lo hay, se resolvió por fuera). La forma de pago del cuerpo se ignora, siempre queda como RESERVA_ADMIN.")
     public ResponseEntity<CompraResponseDTO> generarReserva(@RequestBody @Parameter(description = "Datos de la reserva") CompraRequestDTO request) throws Exception {
@@ -96,8 +106,8 @@ public class CompraInternoController {
     }
 
     @PutMapping("/{id}/editar-venta")
-    @Operation(summary = "Corregir las entradas y/o la forma de pago de una venta de puerta (ADMIN)",
-            description = "Ej. el cajero cargó de más o cobró con el método equivocado. No toca artículos varios ni el descuento ya aplicado; revalida cupo diario y recalcula el monto de las entradas.")
+    @Operation(summary = "Corregir las entradas, artículos y/o la forma de pago de una venta de puerta (ADMIN)",
+            description = "Ej. el cajero cargó de más o cobró con el método equivocado. Reemplaza entradas y artículos por completo (mandá la lista final, no un diff); el descuento ya aplicado queda igual. Revalida cupo diario y recalcula el monto.")
     public ResponseEntity<CompraResponseDTO> editarVenta(
             @PathVariable @Parameter(description = "ID de la compra") Long id,
             @RequestBody EditarVentaRequestDTO request) {

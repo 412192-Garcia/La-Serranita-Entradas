@@ -1,7 +1,7 @@
 import { Component, inject, input, output, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Caja, IngresoEntradas, TipoMovimientoEntradas } from '../../services/caja.service';
+import { Caja, CajaService, IngresoEntradas, TipoMovimientoEntradas } from '../../services/caja.service';
 import { OperacionesPendientesService, PayloadIngresoEntradas } from '../../services/operaciones-pendientes.service';
 import { Modal } from '../../shared/modal/modal';
 import { SeleccionarAlFocoDirective } from '../../shared/seleccionar-al-foco.directive';
@@ -14,15 +14,19 @@ import { SeleccionarAlFocoDirective } from '../../shared/seleccionar-al-foco.dir
 })
 export class IngresoEntradasModal {
   private pendientes = inject(OperacionesPendientesService);
+  private cajaService = inject(CajaService);
 
   ingresos = input<IngresoEntradas[]>([]);
   /** Entradas físicas que el boletero tiene ahora (inicial + ingresos netos hasta este momento):
    * el mismo número que ya se ve en la barra de caja. Sirve para avisar acá mismo, sin red, si
    * un retiro pide más de lo que hay — no tiene sentido mandarlo al servidor para enterarse. */
   stockActual = input<number>(0);
-  /** Caja propia del boletero: viaja en el payload por si esto se rechaza, para que un admin
-   * sepa exactamente qué caja reabrir y reintentar. */
-  cajaId = input.required<number>();
+  /** Si viene seteada, el movimiento se registra en la caja de OTRO usuario vía admin (usado desde el detalle de una caja abierta en Cajas); si no, en la propia caja abierta (uso normal en POS). */
+  cajaId = input<number | null>(null);
+  /** Caja propia del boletero, para uso normal en POS (ver cajaId de arriba, que es para el
+   * camino de admin): viaja en el payload por si esto se rechaza, para que un admin sepa
+   * exactamente qué caja reabrir y reintentar. */
+  propiaCajaId = input<number | null>(null);
 
   ingresoRegistrado = output<Caja>();
   /** El movimiento quedó encolado sin conexión: el padre lo refleja en su propia caja hasta que sincronice. */
@@ -69,11 +73,28 @@ export class IngresoEntradasModal {
     this.registrando.set(true);
     this.error.set(null);
 
+    // El admin cargando en la caja de otro siempre opera con conexión (es desde el detalle de
+    // una caja abierta en Cajas): no pasa por la cola offline, que es exclusiva del boletero en la puerta.
+    const cajaIdAdmin = this.cajaId();
+    if (cajaIdAdmin !== null) {
+      this.cajaService.registrarIngresoEntradasComoAdmin(cajaIdAdmin, cantidad, motivo || undefined, tipo).subscribe({
+        next: (c) => {
+          this.limpiarCampos();
+          this.ingresoRegistrado.emit(c);
+        },
+        error: (err) => {
+          this.error.set(typeof err?.error === 'string' ? err.error : 'No se pudo registrar el movimiento. Reintentá.');
+          this.registrando.set(false);
+        },
+      });
+      return;
+    }
+
     const payload: PayloadIngresoEntradas = {
       cantidad,
       tipo,
       motivo: tipo === 'RETIRO' && motivo ? motivo : undefined,
-      cajaId: this.cajaId(),
+      cajaId: this.propiaCajaId()!,
     };
     const resultado = await this.pendientes.ejecutar<Caja>({ tipo: 'INGRESO_ENTRADAS', payload });
     this.registrando.set(false);
@@ -93,6 +114,7 @@ export class IngresoEntradasModal {
   }
 
   private limpiarCampos(): void {
+    this.registrando.set(false);
     this.cantidad.set(0);
     this.motivo.set('');
   }

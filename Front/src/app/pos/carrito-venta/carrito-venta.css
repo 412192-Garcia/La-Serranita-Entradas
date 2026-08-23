@@ -28,30 +28,28 @@
   font-size: 0.9rem;
 }
 
-/* Chica y discreta a propósito, lejos de .btn-cobrar (ver comentario en el html): que vaciar
-   el carrito no compita visualmente con la acción principal de la pantalla. Mismo tratamiento
-   de botón con borde que las ✕ de las líneas (ver .btn-quitar-cierre), para que no desentone
-   al lado suyo como un link suelto. */
+/* Chico y sin bordes a propósito, lejos de .btn-cobrar (ver comentario en el html): que vaciar
+   el carrito no compita visualmente con la acción principal de la pantalla. Alineado a la
+   derecha, en su propia fila, pero de una sola línea de alto (sin padding de botón normal)
+   para no comerse espacio vertical de la lista de abajo. */
 .btn-vaciar-carrito {
   align-self: flex-end;
-  margin-bottom: 4px;
   display: flex;
   align-items: center;
-  gap: 5px;
-  padding: 5px 10px;
-  background-color: var(--color-card-bg);
-  border: 1.5px solid var(--color-border);
-  border-radius: var(--radius-sm);
+  gap: 4px;
+  padding: 2px 0;
+  background: none;
+  border: none;
   font-family: inherit;
   font-size: 0.78rem;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--color-text-muted);
   cursor: pointer;
 }
 
-.btn-vaciar-carrito svg { width: 14px; height: 14px; }
+.btn-vaciar-carrito svg { width: 13px; height: 13px; }
 
-.btn-vaciar-carrito:hover { border-color: var(--color-danger); color: var(--color-danger-dark); }
+.btn-vaciar-carrito:hover { color: var(--color-danger-dark); }
 
 /* Sólo detalle: la cantidad se elige en el catálogo, acá no hay controles. */
 .linea {
@@ -228,11 +226,6 @@
   font-size: 0.78rem;
   font-weight: 700;
   color: var(--color-text-secondary);
-}
-
-.hint-descuento-maximo {
-  font-weight: 600;
-  color: var(--color-text-muted);
 }
 
 .fila-descuento-manual input {

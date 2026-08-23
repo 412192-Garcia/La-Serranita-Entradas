@@ -46,6 +46,19 @@
     </div>
   </div>
 
+  <div class="acciones-caja-abierta">
+    <button type="button" class="btn-secundario" [disabled]="formularioVentaAbierto()" (click)="iniciarAgregarVenta()">+ Agregar venta</button>
+    <button type="button" class="btn-secundario" (click)="mostrarRetiro.set(true)">Retiro / Aporte</button>
+    <button type="button" class="btn-secundario" (click)="mostrarIngresoEntradas.set(true)">Entradas físicas</button>
+  </div>
+
+  @if (agregandoVenta()) {
+    <div class="form-edicion-venta">
+      <h3 class="titulo-form-venta">Nueva venta</h3>
+      <ng-container [ngTemplateOutlet]="formularioVentaTpl" />
+    </div>
+  }
+
   @if (d.operaciones.length === 0) {
     <p class="ayuda">Todavía no hay ningún movimiento en esta caja.</p>
   } @else {
@@ -67,8 +80,8 @@
           <span class="icono-tipo-operacion">
             @switch (op.tipo) {
               @case ('VENTA') { <svg lucideShoppingCart [strokeWidth]="2"></svg> }
-              @case ('RETIRO') { <svg lucideArrowDownRight [strokeWidth]="2"></svg> }
-              @case ('APORTE') { <svg lucideArrowUpRight [strokeWidth]="2"></svg> }
+              @case ('RETIRO') { <svg lucideArrowUpRight [strokeWidth]="2"></svg> }
+              @case ('APORTE') { <svg lucideArrowDownRight [strokeWidth]="2"></svg> }
               @case ('INGRESO_ENTRADAS') { <svg lucideTicketPlus [strokeWidth]="2"></svg> }
               @case ('RETIRO_ENTRADAS') { <svg lucideTicketMinus [strokeWidth]="2"></svg> }
             }
@@ -79,7 +92,7 @@
           <span>{{ op.monto !== null ? (op.monto | pesos) : '' }}</span>
           <span class="acciones-operacion">
             @if (op.compraId !== null && editandoCompraId() !== op.compraId) {
-              <button type="button" class="btn-secundario" (click)="iniciarEdicion(op)">Editar</button>
+              <button type="button" class="btn-secundario" [disabled]="agregandoVenta()" (click)="iniciarEdicion(op)">Editar</button>
               <button type="button" class="btn-cancelar-venta" [disabled]="cancelandoId() === op.compraId" (click)="cancelar(op)">
                 {{ cancelandoId() === op.compraId ? 'Cancelando…' : 'Cancelar' }}
               </button>
@@ -88,46 +101,7 @@
         </div>
         @if (op.compraId !== null && editandoCompraId() === op.compraId) {
           <div class="form-edicion-venta">
-            @if (cargandoEdicion()) {
-              <app-spinner />
-            } @else {
-              @for (linea of lineasEdicion(); track $index) {
-                <div class="fila-edicion-linea">
-                  <select [ngModel]="linea.tipoEntradaId" (ngModelChange)="actualizarTipoLinea($index, $event)">
-                    <option [ngValue]="null">Elegí un tipo…</option>
-                    @for (t of tiposEntrada(); track t.id) {
-                      <option [ngValue]="t.id">{{ t.nombre }}</option>
-                    }
-                  </select>
-                  <input
-                    type="number"
-                    min="1"
-                    [ngModel]="linea.cantidad"
-                    (ngModelChange)="actualizarCantidadLinea($index, $event)" />
-                  <button type="button" class="btn-quitar-cierre" (click)="quitarLinea($index)" aria-label="Quitar línea">✕</button>
-                </div>
-              }
-              <button type="button" class="btn-secundario btn-agregar-linea-edicion" (click)="agregarLinea()">+ Agregar entrada</button>
-
-              <div class="grupo-toggle-pill">
-                @for (f of formasPago; track f.valor) {
-                  <button type="button" class="btn-toggle-pill" [class.activo]="formaPagoEdicion() === f.valor" (click)="formaPagoEdicion.set(f.valor)">
-                    {{ f.etiqueta }}
-                  </button>
-                }
-              </div>
-
-              @if (errorEdicion()) {
-                <p class="alerta-error">{{ errorEdicion() }}</p>
-              }
-
-              <div class="acciones">
-                <button type="button" class="btn-limpiar" (click)="cancelarEdicion()">Cancelar</button>
-                <button type="button" class="btn-cobrar" [disabled]="guardandoEdicion()" (click)="guardarEdicion()">
-                  {{ guardandoEdicion() ? 'Guardando…' : 'Guardar cambios' }}
-                </button>
-              </div>
-            }
+            <ng-container [ngTemplateOutlet]="formularioVentaTpl" />
           </div>
         }
       }
@@ -142,4 +116,77 @@
     }
     }
   }
+
+  @if (mostrarRetiro()) {
+    <app-retiro-efectivo-modal [cajaId]="cajaId()" (retiroRegistrado)="onMovimientoRegistrado()" (cerrar)="mostrarRetiro.set(false)" />
+  }
+  @if (mostrarIngresoEntradas()) {
+    <app-ingreso-entradas-modal
+      [stockActual]="d.entradasFisicasRestantes ?? 0"
+      [cajaId]="cajaId()"
+      (ingresoRegistrado)="onMovimientoRegistrado()"
+      (cerrar)="mostrarIngresoEntradas.set(false)" />
+  }
 }
+
+<ng-template #formularioVentaTpl>
+  @if (cargandoFormulario()) {
+    <app-spinner />
+  } @else {
+    @if (lineasEdicion().length > 0) {
+      <div class="lineas-edicion-entradas">
+        @for (linea of lineasEdicion(); track $index) {
+          <div class="fila-edicion-linea">
+            <select [ngModel]="linea.tipoEntradaId" (ngModelChange)="actualizarTipoLinea($index, $event)">
+              <option [ngValue]="null">Elegí un tipo…</option>
+              @for (t of tiposEntrada(); track t.id) {
+                <option [ngValue]="t.id">{{ t.nombre }}</option>
+              }
+            </select>
+            <input
+              type="number"
+              min="1"
+              [ngModel]="linea.cantidad"
+              (ngModelChange)="actualizarCantidadLinea($index, $event)" />
+            <button type="button" class="btn-quitar-cierre" (click)="quitarLinea($index)" aria-label="Quitar línea">✕</button>
+          </div>
+        }
+      </div>
+    }
+    <button type="button" class="btn-secundario btn-agregar-linea-edicion" (click)="agregarLinea()">+ Agregar entrada</button>
+
+    @if (articulosEdicion().length > 0) {
+      <div class="lista-articulos-edicion">
+        @for (a of articulosEdicion(); track $index) {
+          <div class="fila-articulo-edicion">
+            <span>{{ a.cantidad }}× {{ a.nombre }}</span>
+            <span>
+              {{ a.precioUnitario * a.cantidad | pesos }}
+              <button type="button" class="btn-quitar-cierre" (click)="quitarArticuloEdicion($index)" aria-label="Quitar artículo">✕</button>
+            </span>
+          </div>
+        }
+      </div>
+    }
+    <app-agregar-articulo [catalogo]="catalogoArticulos()" (articuloAgregado)="onArticuloAgregado($event)" />
+
+    <div class="grupo-toggle-pill">
+      @for (f of formasPago; track f.valor) {
+        <button type="button" class="btn-toggle-pill" [class.activo]="formaPagoEdicion() === f.valor" (click)="formaPagoEdicion.set(f.valor)">
+          {{ f.etiqueta }}
+        </button>
+      }
+    </div>
+
+    @if (errorFormulario()) {
+      <p class="alerta-error">{{ errorFormulario() }}</p>
+    }
+
+    <div class="acciones">
+      <button type="button" class="btn-limpiar" (click)="cancelarFormulario()">Cancelar</button>
+      <button type="button" class="btn-cobrar" [disabled]="guardandoFormulario()" (click)="guardarFormulario()">
+        {{ guardandoFormulario() ? 'Guardando…' : (editandoCompraId() !== null ? 'Guardar cambios' : 'Registrar venta') }}
+      </button>
+    </div>
+  }
+</ng-template>

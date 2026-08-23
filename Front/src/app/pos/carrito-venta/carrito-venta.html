@@ -4,7 +4,8 @@
       <p class="carrito-vacio">Tocá una entrada para empezar la venta.</p>
     } @else {
       <!-- Lejos de "Cobrar" a propósito: vaciar el carrito es irreversible, no debería
-           quedar al lado del botón que se toca todo el tiempo. -->
+           quedar al lado del botón que se toca todo el tiempo. Chico y sin bordes para no
+           competir visualmente, pero con texto (no sólo ícono): más claro qué hace. -->
       <button type="button" class="btn-vaciar-carrito" (click)="onLimpiar()">
         <svg lucideTrash2 [strokeWidth]="2"></svg>
         Vaciar carrito
@@ -82,7 +83,7 @@
                 (ngModelChange)="setDescuentoManualPorcentaje($event)" />
             </label>
             <label>
-              $ <span class="hint-descuento-maximo">(máx. {{ montoMaximoDescuento() | pesos }})</span>
+              $
               <input
                 type="text"
                 inputmode="numeric"

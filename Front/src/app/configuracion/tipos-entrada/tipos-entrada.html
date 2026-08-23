@@ -49,6 +49,13 @@
         </span>
       </label>
     }
+    <label class="fila-checkbox">
+      <input type="checkbox" [ngModel]="soloPosTipo()" (ngModelChange)="soloPosTipo.set($event)" />
+      <span>
+        Solo Boleteria: no aparece en la compra pública online, sólo se puede vender en boletería
+        <span class="opcional">(ej: Bonificadas)</span>
+      </span>
+    </label>
     <div class="fila-horario">
       <button type="button" class="btn-primario" [disabled]="guardandoTipo()" (click)="guardarTipo()">
         {{ guardandoTipo() ? 'Guardando…' : (tipoEditandoId() ? 'Guardar cambios' : 'Crear tipo de entrada') }}
@@ -165,7 +172,12 @@
                 <span class="ayuda">—</span>
               }
             </span>
-            <span>{{ t.nombre }}</span>
+            <span>
+              {{ t.nombre }}
+              @if (t.soloPos) {
+                <span class="badge badge-inactivo">Solo POS</span>
+              }
+            </span>
             <span>{{ t.tipo === 'ENTRADA' ? 'Entrada' : 'Extra' }}</span>
             <span>{{ t.precio | pesos }}</span>
             <span>

@@ -34,7 +34,7 @@ export class SeleccionEntradas implements OnInit {
   ngOnInit() {
     this.tipoEntradaService.getTiposEntrada().subscribe({
       next: (data) => {
-        this.tiposEntrada = data.filter(t => t.activo);
+        this.tiposEntrada = data.filter(t => t.activo && !t.soloPos);
 
         this.tiposEntrada.forEach(t => this.cantidades[t.id] = 0);
 

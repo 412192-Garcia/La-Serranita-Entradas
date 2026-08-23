@@ -7,6 +7,7 @@ import org.example.laserranitaentradas.model.entity.Compra;
 import org.example.laserranitaentradas.model.entity.EstadoCompra;
 import org.example.laserranitaentradas.model.entity.FormaPago;
 import org.example.laserranitaentradas.repository.ArticuloVarioRepository;
+import org.example.laserranitaentradas.repository.CajaRepository;
 import org.example.laserranitaentradas.repository.CompraRepository;
 import org.example.laserranitaentradas.repository.PromocionRepository;
 import org.example.laserranitaentradas.service.*;
@@ -49,6 +50,7 @@ class CompraServiceImplTest {
     @Mock private CalculoPrecioService calculoPrecioService;
     @Mock private EmailService emailService;
     @Mock private CajaService cajaService;
+    @Mock private CajaRepository cajaRepository;
     @Mock private PromocionRepository promocionRepository;
     @Mock private ArticuloVarioRepository articuloVarioRepository;
     @Mock private PagoService mercadoPagoEstrategia;
@@ -66,7 +68,7 @@ class CompraServiceImplTest {
         lenient().when(reservaAdminEstrategia.getEstadoInicial()).thenReturn(EstadoCompra.APROBADO);
 
         service = new CompraServiceImpl(compraRepository, tipoEntradaService, cuponService, diaAperturaService,
-                clienteService, usuarioService, calculoPrecioService, emailService, cajaService, promocionRepository,
+                clienteService, usuarioService, calculoPrecioService, emailService, cajaService, cajaRepository, promocionRepository,
                 articuloVarioRepository, List.of(mercadoPagoEstrategia, efectivoEstrategia, reservaAdminEstrategia), em);
     }
 
@@ -97,6 +99,35 @@ class CompraServiceImplTest {
         assertThat(resultado.getEstado()).isEqualTo(EstadoCompra.APROBADO);
         // No se le pide precio a calculoPrecioService para nada: es gratis, no hay "precio de grupo" que calcular.
         verify(calculoPrecioService, never()).calcularTotal(any(), org.mockito.ArgumentMatchers.anyInt(), any());
+    }
+
+    // ---------- Un tipo "Solo POS" no se puede comprar por la vía pública, aunque el request lo pida a mano ----------
+
+    @Test
+    void create_conTipoSoloPos_rechaza() {
+        org.example.laserranitaentradas.model.entity.TipoEntrada cuponFisico = org.example.laserranitaentradas.model.entity.TipoEntrada.builder()
+                .id(1L).nombre("Cupón físico").tipo(org.example.laserranitaentradas.model.entity.Tipo.ENTRADA)
+                .obligatorio(true).precio(new java.math.BigDecimal("100")).soloPos(true).build();
+        when(tipoEntradaService.findById(1L)).thenReturn(Optional.of(cuponFisico));
+        when(diaAperturaService.getAbiertoByDate(any())).thenReturn(true);
+        when(compraRepository.findAllByFechaVisitaOrderByCodigoReservaAsc(any())).thenReturn(List.of());
+        when(calculoPrecioService.calcularTotal(any(), org.mockito.ArgumentMatchers.anyInt(), any()))
+                .thenReturn(new java.math.BigDecimal("100"));
+
+        org.example.laserranitaentradas.model.dto.DetalleCompraDTO detalle = new org.example.laserranitaentradas.model.dto.DetalleCompraDTO();
+        detalle.setTipoEntradaId(1L);
+        detalle.setCantidad(1);
+
+        CompraRequestDTO request = new CompraRequestDTO();
+        request.setFecha(LocalDate.now().plusDays(1));
+        request.setFormaPago(FormaPago.MERCADO_PAGO);
+        request.setEntradas(List.of(detalle));
+
+        assertThatThrownBy(() -> service.create(request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("no está disponible");
+
+        verify(compraRepository, never()).save(any());
     }
 
     // ---------- Regalo no puede reservarse en efectivo ----------

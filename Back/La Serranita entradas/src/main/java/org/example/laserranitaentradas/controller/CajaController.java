@@ -95,6 +95,12 @@ public class CajaController {
         return ResponseEntity.ok(cajaService.registrarRetiroComoAdmin(id, request.getMonto(), request.getMotivo(), request.getTipo()));
     }
 
+    @PostMapping("/{id}/ingresos-entradas")
+    @Operation(summary = "Registrar un ingreso o retiro de entradas físicas en la caja de otro usuario (ADMIN)", description = "Mismo caso de uso que /{id}/retiros pero para el talonario físico.")
+    public ResponseEntity<CajaResponseDTO> registrarIngresoEntradasComoAdmin(@PathVariable Long id, @RequestBody IngresoEntradasRequestDTO request) {
+        return ResponseEntity.ok(cajaService.registrarIngresoEntradasComoAdmin(id, request.getCantidad(), request.getMotivo(), request.getTipo()));
+    }
+
     @GetMapping("/abiertas")
     @Operation(summary = "Cajas abiertas ahora mismo (ADMIN)", description = "Todas las cajas en curso, sin importar de qué boletero — para el dashboard de hoy")
     public ResponseEntity<List<CajaAbiertaDTO>> getCajasAbiertas() {

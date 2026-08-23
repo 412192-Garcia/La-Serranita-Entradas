@@ -72,11 +72,13 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/interno/caja/cerradas").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/api/interno/compras/*/cancelar-venta").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/api/interno/compras/*/editar-venta").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.POST, "/api/interno/compras/caja/*/venta-pos").hasRole("ADMIN")
                 // Cerrar caja (y corregir un cierre ya hecho) dejó de ser self-service: ahora
                 // lo dispara un ADMIN desde la pantalla de Cajas, nunca el boletero desde el
                 // POS — por eso estas van ADMIN-only en vez de caer en el catch-all de abajo.
                 .requestMatchers(HttpMethod.POST, "/api/interno/caja/*/cerrar").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/interno/caja/*/retiros").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.POST, "/api/interno/caja/*/ingresos-entradas").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/api/interno/caja/*/cierre").hasRole("ADMIN")
                 .requestMatchers("/api/interno/rechazos/**").hasRole("ADMIN")
 

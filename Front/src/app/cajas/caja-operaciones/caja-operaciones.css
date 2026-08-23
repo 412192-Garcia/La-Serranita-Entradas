@@ -158,16 +158,20 @@
 
 .form-edicion-venta {
   background-color: var(--color-card-bg);
-  border-radius: var(--radius-sm);
-  padding: 12px;
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  padding: 16px;
   margin: 4px 0 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .fila-edicion-linea {
   display: flex;
   gap: 8px;
   align-items: center;
-  margin-bottom: 8px;
 }
 
 .fila-edicion-linea select {
@@ -178,8 +182,55 @@
   width: 70px;
 }
 
+/* Mismo ancho que "+ Agregar artículo" de abajo (app-agregar-articulo, que sí ocupa todo el
+   ancho por el flex-column con stretch de .bloque-agregar-articulo): sin esto quedaba angosto
+   y pegado a la izquierda, dando una sensación desprolija al lado del botón de abajo. */
 .btn-agregar-linea-edicion {
+  width: 100%;
+}
+
+.lineas-edicion-entradas {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.acciones-caja-abierta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   margin-bottom: 12px;
+}
+
+.titulo-form-venta {
+  margin: 0 0 10px;
+  font-family: var(--font-heading);
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.lista-articulos-edicion {
+  margin-bottom: 8px;
+}
+
+.fila-articulo-edicion {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 0.85rem;
+}
+
+.fila-articulo-edicion:last-child {
+  border-bottom: none;
+}
+
+.fila-articulo-edicion span:last-child {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
 }
 
 @media (max-width: 720px) {

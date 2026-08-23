@@ -114,7 +114,7 @@ export class CarritoVenta {
   total = computed(() => this.cotizacion()?.subtotal ?? this.subtotalLista());
   ahorro = computed(() => this.cotizacion()?.ahorro ?? 0);
   /** Tope del descuento manual en $: no tiene sentido descontar más que la suma de lo que hay
-   * en el carrito. Expuesto para mostrar el máximo como pista en el input (ver setDescuentoManualMonto). */
+   * en el carrito (ver setDescuentoManualMonto). */
   montoMaximoDescuento = computed(() => this.subtotalLista());
 
   vuelto = computed(() => {
@@ -285,26 +285,15 @@ export class CarritoVenta {
     }));
   }
 
-  /** Confirmación liviana: es una sola línea y se puede volver a agregar fácil, pero un toque
-   * de más en la "✕" (al lado del precio, fácil de rozar) no debería sacarla sin avisar. */
   onQuitarArticulo(index: number): void {
-    const articulo = this.articulosCarrito()[index];
-    if (articulo && !window.confirm(`¿Quitar "${articulo.nombre}" del carrito?`)) return;
     this.quitarArticulo.emit(index);
   }
 
-  /** Sin confirmación, a diferencia de un artículo: volver a agregar esta entrada es un solo
-   * toque en el catálogo, no hay nada que reconstruir. */
   onQuitarEntrada(tipoEntradaId: number): void {
     this.quitarEntrada.emit(tipoEntradaId);
   }
 
-  /** A diferencia de sacar un solo artículo, esto vacía TODA la venta en curso — entradas y
-   * artículos — sin forma de deshacerlo, así que pide confirmación (sólo si hay algo que perder). */
   onLimpiar(): void {
-    if (this.hayItems() && !window.confirm('¿Vaciar el carrito? Se pierden las entradas y artículos ya agregados.')) {
-      return;
-    }
     this.pagaCon.set(null);
     this.limpiarPagoDolares();
     this.error.set(null);
