@@ -1,0 +1,80 @@
+<div class="panel-anticipadas">
+  <div class="cabecera-anticipadas">
+    <div>
+      <h2>Anticipadas</h2>
+      <p class="subtitulo-anticipadas">DNI {{ dni() }}</p>
+    </div>
+    <button type="button" class="btn-cerrar-anticipadas" (click)="cerrar.emit()" aria-label="Volver a la venta">
+      <svg lucideX [strokeWidth]="2"></svg>
+    </button>
+  </div>
+
+  @if (cargando()) {
+    <app-spinner />
+  } @else if (error()) {
+    <p class="alerta-error">No se pudo buscar. Revisá la conexión.</p>
+    <button type="button" class="btn-secundario-caja" (click)="buscar()">Reintentar</button>
+  } @else if (reservas().length === 0) {
+    <div class="sin-anticipadas">
+      <p>No hay anticipadas pendientes a nombre de este DNI.</p>
+      <a class="btn-secundario-caja" routerLink="/boleteria" [queryParams]="{ dni: dni() }">
+        Buscar en Control de Accesos
+      </a>
+    </div>
+  } @else {
+    @if (errorAccion()) {
+      <p class="alerta-error">{{ errorAccion() }}</p>
+    }
+    <ul class="lista-anticipadas">
+      @for (r of reservas(); track r.id) {
+        <li class="fila-anticipada" [class.fila-usada]="r.estado === 'USADO'">
+          <div class="datos-anticipada">
+            <strong>
+              @if (r.cliente) {
+                {{ r.cliente.nombre }} {{ r.cliente.apellido }}
+              } @else if (r.receptorNombre) {
+                Regalo para {{ r.receptorNombre }}
+              } @else {
+                Anticipada
+              }
+            </strong>
+            <span class="meta-anticipada">
+              #{{ r.codigoReserva }}
+              ·
+              @if (r.fechaVisita) {
+                {{ r.fechaVisita | date: 'dd/MM' }}
+              } @else {
+                Regalo — cualquier día
+              }
+              @if (pases(r) > 0) {
+                · {{ pases(r) }} {{ pases(r) === 1 ? 'entrada' : 'entradas' }}
+              }
+            </span>
+          </div>
+
+          <div class="accion-anticipada">
+            @switch (r.estado) {
+              @case ('APROBADO') {
+                <button type="button" class="btn-cobrar" [disabled]="procesando(r)" (click)="validar(r)">
+                  {{ procesando(r) ? 'Validando…' : 'Validar ingreso' }}
+                </button>
+              }
+              @case ('RESERVADO_EFECTIVO') {
+                <span class="monto-anticipada">{{ r.montoTotal | pesos }}</span>
+                <button type="button" class="btn-cobrar" (click)="cobrarEnPos.emit(r)">Cobrar en el POS</button>
+              }
+              @case ('USADO') {
+                <span class="texto-ingreso">
+                  Ingresó
+                  @if (r.fechaValidacion) {
+                    {{ r.fechaValidacion | date: 'HH:mm' }}
+                  }
+                </span>
+              }
+            }
+          </div>
+        </li>
+      }
+    </ul>
+  }
+</div>

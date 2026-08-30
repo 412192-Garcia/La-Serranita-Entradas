@@ -24,6 +24,14 @@ public class VentaPosRequestDTO {
     BigDecimal descuentoManualPorcentaje;
     /** Excluyente con promocionId y con descuentoManualPorcentaje. */
     BigDecimal descuentoManualMonto;
+
+    /**
+     * Si viene seteado, esta "venta" en realidad cierra la reserva RESERVADO_EFECTIVO de ese id
+     * (el boletero la cargó en el POS desde el panel de anticipadas y la cobra como una venta
+     * normal): no se crea una compra nueva, se reprecia y valida la existente. Null en una venta
+     * de puerta común.
+     */
+    Long compraReservadaId;
     /** Cotización usada (ARS por USD). Presente sólo si el boletero cobró en dólares (sigue siendo EFECTIVO_BOLETERIA). */
     BigDecimal cotizacionDolar;
     /** Dólares que entregó el cliente. Obligatorio si se manda cotizacionDolar. */

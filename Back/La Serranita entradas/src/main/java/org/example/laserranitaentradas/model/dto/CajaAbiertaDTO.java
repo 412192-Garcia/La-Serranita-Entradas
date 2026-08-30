@@ -16,5 +16,6 @@ public class CajaAbiertaDTO {
     private BigDecimal montoInicial;
     /** Vendido hasta el momento (efectivo + tarjeta + QR), en vivo. */
     private BigDecimal totalVendido;
-    private Integer totalEntradasVendidas;
+    /** Unidades vendidas de tipos de entrada con precio > 0 (excluye gratis, extras y artículos). */
+    private Integer totalEntradasPagas;
 }

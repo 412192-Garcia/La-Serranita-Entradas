@@ -63,6 +63,10 @@
 
 .linea:last-child { border-bottom: none; padding-bottom: 0; }
 
+/* Línea fija de una reserva: se cobra pero no se toca desde el carrito. */
+.linea-fija .linea-nombre { color: var(--color-text-secondary); font-weight: 600; }
+.linea-fija .linea-nombre::after { content: ' · de la reserva'; font-size: 0.78rem; color: var(--color-text-muted); font-weight: 500; }
+
 .linea-nombre {
   font-size: 0.95rem;
   font-weight: 700;
@@ -164,6 +168,38 @@
   background-color: var(--color-primary-light);
   border-radius: var(--radius-sm);
   padding: 8px 12px;
+}
+
+.aviso-reserva {
+  margin: 0 0 10px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--color-accent-dark);
+  background-color: var(--color-accent-light);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.btn-cancelar-reserva {
+  flex-shrink: 0;
+  border: 1.5px solid var(--color-accent-dark);
+  background-color: transparent;
+  color: var(--color-accent-dark);
+  border-radius: var(--radius-sm);
+  padding: 5px 12px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.btn-cancelar-reserva:hover {
+  background-color: var(--color-accent-dark);
+  color: #fff;
 }
 
 .bloque-descuento {

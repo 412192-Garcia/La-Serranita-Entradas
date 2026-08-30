@@ -4,8 +4,8 @@
     <p class="kpi-numero">{{ totalVendido() | pesos }}</p>
   </div>
   <div>
-    <h2>Personas ingresadas</h2>
-    <p class="kpi-numero kpi-numero-secundario">{{ caja().totalEntradasVendidas ?? 0 }}</p>
+    <h2>Entradas vendidas</h2>
+    <p class="kpi-numero kpi-numero-secundario">{{ caja().totalEntradasPagas ?? 0 }}</p>
   </div>
 </div>
 

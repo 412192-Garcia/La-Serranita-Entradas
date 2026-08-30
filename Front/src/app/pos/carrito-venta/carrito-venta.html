@@ -1,4 +1,13 @@
 <aside class="carrito">
+  @if (compraReservada(); as reserva) {
+    <div class="aviso-reserva">
+      <span>
+        Cobrando la reserva #{{ reserva.codigoReserva }}@if (reserva.cliente) { de {{ reserva.cliente.nombre }} {{ reserva.cliente.apellido }}}. Al cobrar queda validada.
+      </span>
+      <button type="button" class="btn-cancelar-reserva" (click)="onLimpiar()">Cancelar</button>
+    </div>
+  }
+
   <div class="carrito-lineas">
     @if (!hayItems()) {
       <p class="carrito-vacio">Tocá una entrada para empezar la venta.</p>
@@ -18,6 +27,13 @@
             {{ l.tipo.precio * l.cantidad | pesos }}
             <button type="button" class="btn-quitar-cierre" (click)="onQuitarEntrada(l.tipo.id)" aria-label="Quitar">✕</button>
           </span>
+        </div>
+      }
+      @for (e of entradasFijas(); track e.tipoEntradaId) {
+        <!-- Viene fija de la reserva (extra, o tipo fuera del catálogo): no se edita acá. -->
+        <div class="linea linea-fija">
+          <span class="linea-nombre">{{ e.cantidad }}× {{ e.nombre }}</span>
+          <span class="linea-subtotal">{{ e.precioUnitario * e.cantidad | pesos }}</span>
         </div>
       }
       @for (a of articulosCarrito(); track $index) {
@@ -179,7 +195,7 @@
 
     <div class="acciones">
       <button type="button" class="btn-cobrar" [disabled]="!puedeCobrar()" (click)="cobrar()">
-        {{ cobrando() ? 'Registrando…' : 'Cobrar' }}
+        {{ cobrando() ? 'Registrando…' : (compraReservada() ? 'Cobrar reserva' : 'Cobrar') }}
       </button>
     </div>
   </div>

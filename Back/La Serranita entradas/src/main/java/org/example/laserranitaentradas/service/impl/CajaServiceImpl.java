@@ -398,7 +398,7 @@ public class CajaServiceImpl implements CajaService {
                 .totalVentasEfectivo(sumVentasPorFormaPago(cajaId, FormaPago.EFECTIVO_BOLETERIA))
                 .totalVentasTarjeta(sumVentasPorFormaPago(cajaId, FormaPago.TARJETA))
                 .totalVentasQr(sumVentasPorFormaPago(cajaId, FormaPago.MERCADO_PAGO_QR))
-                .totalEntradasVendidas(entradasVendidasPorTipo.stream().mapToInt(EntradasPorTipoDTO::getCantidad).sum())
+                .totalEntradasPagas(contarEntradasPagas(cajaId))
                 .entradasVendidasPorTipo(entradasVendidasPorTipo)
                 .huboVentaDolares(huboVentaDolares(cajaId))
                 .entradasFisicasRestantes(entradasFisicasRestantes)
@@ -477,16 +477,13 @@ public class CajaServiceImpl implements CajaService {
                     BigDecimal totalVendido = sumVentasPorFormaPago(caja.getId(), FormaPago.EFECTIVO_BOLETERIA)
                             .add(sumVentasPorFormaPago(caja.getId(), FormaPago.TARJETA))
                             .add(sumVentasPorFormaPago(caja.getId(), FormaPago.MERCADO_PAGO_QR));
-                    int totalEntradas = contarEntradasPorTipo(caja.getId()).stream()
-                            .mapToInt(EntradasPorTipoDTO::getCantidad)
-                            .sum();
                     return CajaAbiertaDTO.builder()
                             .id(caja.getId())
                             .usuarioNombre(caja.getUsuario().getNombre() + " " + caja.getUsuario().getApellido())
                             .fechaApertura(caja.getFechaApertura())
                             .montoInicial(caja.getMontoInicial())
                             .totalVendido(totalVendido)
-                            .totalEntradasVendidas(totalEntradas)
+                            .totalEntradasPagas(contarEntradasPagas(caja.getId()))
                             .build();
                 })
                 .toList();
@@ -630,6 +627,19 @@ public class CajaServiceImpl implements CajaService {
                 .sum();
     }
 
+    /** Unidades vendidas de tipos de entrada con precio > 0 (excluye las gratis, los extras y los artículos, y las compras canceladas). */
+    private int contarEntradasPagas(Long cajaId) {
+        return compraRepository.findAllByCajaId(cajaId).stream()
+                .filter(c -> c.getEstado() != EstadoCompra.CANCELADO)
+                .flatMap(c -> c.getDetalles().stream())
+                .filter(d -> d.getTipoEntrada() != null
+                        && d.getTipoEntrada().getTipo() == Tipo.ENTRADA
+                        && d.getTipoEntrada().getPrecio() != null
+                        && d.getTipoEntrada().getPrecio().compareTo(BigDecimal.ZERO) > 0)
+                .mapToInt(CompraDetalle::getCantidad)
+                .sum();
+    }
+
     /** Cuenta las unidades vendidas por tipo de entrada (ignora extras y artículos varios, y las compras canceladas). */
     private List<EntradasPorTipoDTO> contarEntradasPorTipo(Long cajaId) {
         Map<String, Integer> cantidadPorTipo = new LinkedHashMap<>();
@@ -725,7 +735,7 @@ public class CajaServiceImpl implements CajaService {
         Integer entradasFisicasEsperadas = null;
         Integer diferenciaEntradas = null;
         List<OperacionCajaDTO> operaciones = null;
-        Integer totalEntradasVendidas = null;
+        Integer totalEntradasPagas = null;
         List<EntradasPorTipoDTO> entradasVendidasPorTipo = null;
         BigDecimal dolaresEsperado = null;
         BigDecimal diferenciaDolares = null;
@@ -787,7 +797,7 @@ public class CajaServiceImpl implements CajaService {
             operaciones = construirOperaciones(caja.getId());
 
             entradasVendidasPorTipo = contarEntradasPorTipo(caja.getId());
-            totalEntradasVendidas = entradasVendidasPorTipo.stream().mapToInt(EntradasPorTipoDTO::getCantidad).sum();
+            totalEntradasPagas = contarEntradasPagas(caja.getId());
 
             if (huboVentaDolares) {
                 dolaresEsperado = sumDolaresEsperados(caja.getId());
@@ -861,7 +871,7 @@ public class CajaServiceImpl implements CajaService {
                 .totalIngresosEntradas(totalIngresosEntradas)
                 .ingresosEntradas(ingresosEntradas)
                 .operaciones(operaciones)
-                .totalEntradasVendidas(totalEntradasVendidas)
+                .totalEntradasPagas(totalEntradasPagas)
                 .entradasVendidasPorTipo(entradasVendidasPorTipo)
                 .huboVentaDolares(huboVentaDolares)
                 .dolaresEsperado(dolaresEsperado)

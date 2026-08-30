@@ -20,6 +20,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -349,6 +350,85 @@ class CompraServiceImplTest {
 
         assertThat(resultado.getDescuentoAplicado()).isEqualByComparingTo("0");
         assertThat(resultado.getMontoTotal()).isEqualByComparingTo("200");
+    }
+
+    // ---------- Cobrar una anticipada RESERVADO_EFECTIVO cargada en el POS ----------
+
+    private Compra reservaEfectivo(Long id) {
+        org.example.laserranitaentradas.model.entity.TipoEntrada general = org.example.laserranitaentradas.model.entity.TipoEntrada.builder()
+                .id(1L).nombre("General").tipo(org.example.laserranitaentradas.model.entity.Tipo.ENTRADA)
+                .obligatorio(true).precio(new java.math.BigDecimal("100")).build();
+        org.example.laserranitaentradas.model.entity.CompraDetalle det = org.example.laserranitaentradas.model.entity.CompraDetalle.builder()
+                .tipoEntrada(general).cantidad(2).build();
+        return Compra.builder()
+                .id(id)
+                .estado(EstadoCompra.RESERVADO_EFECTIVO)
+                .formaPago(FormaPago.EFECTIVO_BOLETERIA)
+                .fechaVisita(LocalDate.now())
+                .codigoReserva("260101-9")
+                .montoTotal(new java.math.BigDecimal("200"))
+                .descuentoAplicado(java.math.BigDecimal.ZERO)
+                .detalles(new ArrayList<>(List.of(det)))
+                .cliente(Cliente.builder().dni("30111222").nombre("Ana").apellido("Gómez").build())
+                .build();
+    }
+
+    @Test
+    void registrarVentaPos_conCompraReservada_cierraLaReservaExistenteSinCrearOtra() {
+        mockearVentaPosBasica();
+        Compra reserva = reservaEfectivo(50L);
+        when(compraRepository.findById(50L)).thenReturn(Optional.of(reserva));
+
+        var request = ventaPosBasica();
+        request.setCompraReservadaId(50L);
+        request.setFormaPago(FormaPago.EFECTIVO_BOLETERIA);
+
+        Compra resultado = service.registrarVentaPos(request, 9L);
+
+        assertThat(resultado.getId()).isEqualTo(50L);
+        assertThat(resultado.getCodigoReserva()).isEqualTo("260101-9"); // no se genera uno nuevo
+        assertThat(resultado.getEstado()).isEqualTo(EstadoCompra.USADO);
+        assertThat(resultado.getCaja()).isNotNull();
+        assertThat(resultado.getFechaValidacion()).isNotNull();
+        assertThat(resultado.getCliente()).isNotNull();
+        assertThat(resultado.getMontoTotal()).isEqualByComparingTo("200");
+    }
+
+    @Test
+    void registrarVentaPos_conCompraReservada_queNoEstaReservadoEfectivo_rechaza() {
+        mockearVentaPosBasica();
+        Compra reserva = reservaEfectivo(50L);
+        reserva.setEstado(EstadoCompra.APROBADO);
+        when(compraRepository.findById(50L)).thenReturn(Optional.of(reserva));
+
+        var request = ventaPosBasica();
+        request.setCompraReservadaId(50L);
+
+        assertThatThrownBy(() -> service.registrarVentaPos(request, 9L))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void registrarVentaPos_conCompraReservada_repreciaSegunLaFormaDePagoElegida() {
+        mockearVentaPosBasica();
+        // Al pasar a tarjeta, el precio deja de tener el descuento de grupo: calcularTotal
+        // devuelve más para esa forma de pago.
+        org.example.laserranitaentradas.model.entity.TipoEntrada general = org.example.laserranitaentradas.model.entity.TipoEntrada.builder()
+                .id(1L).nombre("General").tipo(org.example.laserranitaentradas.model.entity.Tipo.ENTRADA)
+                .obligatorio(true).precio(new java.math.BigDecimal("100")).build();
+        lenient().when(tipoEntradaService.findById(1L)).thenReturn(Optional.of(general));
+        when(calculoPrecioService.calcularTotal(any(), org.mockito.ArgumentMatchers.eq(2), org.mockito.ArgumentMatchers.eq(FormaPago.TARJETA)))
+                .thenReturn(new java.math.BigDecimal("260"));
+        when(compraRepository.findById(50L)).thenReturn(Optional.of(reservaEfectivo(50L)));
+
+        var request = ventaPosBasica();
+        request.setCompraReservadaId(50L);
+        request.setFormaPago(FormaPago.TARJETA);
+
+        Compra resultado = service.registrarVentaPos(request, 9L);
+
+        assertThat(resultado.getFormaPago()).isEqualTo(FormaPago.TARJETA);
+        assertThat(resultado.getMontoTotal()).isEqualByComparingTo("260");
     }
 
     // ---------- Cola offline: reintentar no puede cobrar dos veces ----------

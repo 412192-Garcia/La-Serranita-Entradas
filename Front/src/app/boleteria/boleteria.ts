@@ -1,4 +1,4 @@
-import { Component, HostListener, computed, inject, OnInit, signal } from '@angular/core';
+import { Component, HostListener, computed, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { DatePipe, NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -15,7 +15,7 @@ import { crearOrdenable } from '../shared/ordenable';
 import { ColumnaOrdenable } from '../shared/columna-ordenable/columna-ordenable';
 import { PesosPipe } from '../shared/pesos.pipe';
 import { TourStep } from '../shared/tour/tour';
-import { DetectorEscaneoDni, extraerDniDeEscaneo } from '../shared/escaner-dni.util';
+import { DetectorEscaneoDni, esEscaneoDocumento, extraerDniDeEscaneo } from '../shared/escaner-dni.util';
 
 /** ~6 pasos, todos apuntando a elementos siempre presentes en el DOM (nada detrás de "Más
  * filtros" ni de una fila de resultado puntual, que dependen de los datos del momento). */
@@ -230,7 +230,7 @@ const TAMANIO_MAXIMO_VENTANA_AGRUPADA = 200;
   templateUrl: './boleteria.html',
   styleUrl: './boleteria.css',
 })
-export class Boleteria implements OnInit {
+export class Boleteria implements OnInit, OnDestroy {
   private boleteriaService = inject(BoleteriaService);
   private cajaService = inject(CajaService);
   private route = inject(ActivatedRoute);
@@ -489,6 +489,10 @@ export class Boleteria implements OnInit {
     this.detectorEscaneo.procesarTecla(event);
   }
 
+  ngOnDestroy(): void {
+    this.detectorEscaneo.destruir();
+  }
+
   /** Un único campo sirve para DNI, código de reserva, nombre o email: el backend prueba los cuatro. */
   buscar(): void {
     const crudo = this.texto().trim();
@@ -496,7 +500,7 @@ export class Boleteria implements OnInit {
 
     // Si lo que llegó es un escaneo PDF417 (lector de DNI), extraemos el DNI puro antes de
     // buscar; para texto libre esto no aplica (se perderían los caracteres no numéricos).
-    const query = crudo.includes('@') ? extraerDniDeEscaneo(crudo) : crudo;
+    const query = esEscaneoDocumento(crudo) ? extraerDniDeEscaneo(crudo) : crudo;
     if (query !== crudo) this.texto.set(query);
 
     this.todasLasFechas.set(true);

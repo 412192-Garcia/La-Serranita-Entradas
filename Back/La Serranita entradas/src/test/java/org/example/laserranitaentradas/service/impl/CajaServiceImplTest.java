@@ -561,12 +561,15 @@ class CajaServiceImplTest {
 
         TipoEntrada general = new TipoEntrada();
         general.setNombre("General");
+        general.setPrecio(new BigDecimal("15000"));
         general.setTipo(org.example.laserranitaentradas.model.entity.Tipo.ENTRADA);
         TipoEntrada nino = new TipoEntrada();
         nino.setNombre("Niño");
+        nino.setPrecio(BigDecimal.ZERO);
         nino.setTipo(org.example.laserranitaentradas.model.entity.Tipo.ENTRADA);
         TipoEntrada almuerzo = new TipoEntrada();
         almuerzo.setNombre("Almuerzo");
+        almuerzo.setPrecio(new BigDecimal("8000"));
         almuerzo.setTipo(org.example.laserranitaentradas.model.entity.Tipo.EXTRA);
 
         CompraDetalle detalleGeneral = new CompraDetalle();
@@ -595,7 +598,9 @@ class CajaServiceImplTest {
 
         var respuesta = service.cerrar(USUARIO_ID, List.of(conteo(1000, 50)), List.of(), 50, null, null);
 
-        assertThat(respuesta.getTotalEntradasVendidas()).isEqualTo(5);
+        // totalEntradasPagas cuenta sólo tipos ENTRADA con precio > 0: General x3.
+        // Niño (precio 0) y Almuerzo (EXTRA) quedan afuera.
+        assertThat(respuesta.getTotalEntradasPagas()).isEqualTo(3);
         assertThat(respuesta.getEntradasVendidasPorTipo()).hasSize(2);
         assertThat(respuesta.getEntradasVendidasPorTipo())
                 .anySatisfy(e -> {
@@ -888,6 +893,7 @@ class CajaServiceImplTest {
 
         TipoEntrada general = new TipoEntrada();
         general.setNombre("General");
+        general.setPrecio(new BigDecimal("10000"));
         general.setTipo(org.example.laserranitaentradas.model.entity.Tipo.ENTRADA);
         CompraDetalle detalle = new CompraDetalle();
         detalle.setTipoEntrada(general);
@@ -907,12 +913,12 @@ class CajaServiceImplTest {
             assertThat(c.getUsuarioNombre()).isEqualTo("Marta Gómez");
             assertThat(c.getMontoInicial()).isEqualByComparingTo("5000");
             assertThat(c.getTotalVendido()).isEqualByComparingTo("55000");
-            assertThat(c.getTotalEntradasVendidas()).isEqualTo(4);
+            assertThat(c.getTotalEntradasPagas()).isEqualTo(4);
         });
         assertThat(respuesta).anySatisfy(c -> {
             assertThat(c.getUsuarioNombre()).isEqualTo("Juan Pérez");
             assertThat(c.getTotalVendido()).isEqualByComparingTo("0");
-            assertThat(c.getTotalEntradasVendidas()).isEqualTo(0);
+            assertThat(c.getTotalEntradasPagas()).isEqualTo(0);
         });
     }
 

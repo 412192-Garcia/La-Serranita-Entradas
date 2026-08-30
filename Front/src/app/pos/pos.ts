@@ -1,6 +1,5 @@
-import { Component, HostListener, OnInit, inject, signal } from '@angular/core';
-import { Router } from '@angular/router';
-import { BoleteriaService } from '../services/boleteria.service';
+import { Component, HostListener, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import { BoleteriaService, Reserva } from '../services/boleteria.service';
 import { TipoEntradaService } from '../services/tipo-entrada.service';
 import { CajaService, Caja } from '../services/caja.service';
 import { PromocionService } from '../services/promocion.service';
@@ -11,9 +10,10 @@ import { PayloadRetiroAporte, PayloadIngresoEntradas } from '../services/operaci
 import { TipoEntrada } from '../models/tipo-entrada';
 import { Promocion } from '../models/promocion';
 import { ArticuloVario } from '../models/articulo-vario';
-import { FilaArticuloCarrito } from '../models/venta-pos';
+import { FilaArticuloCarrito, LineaEntradaFija } from '../models/venta-pos';
 import { CabeceraInterna } from '../shared/cabecera-interna/cabecera-interna';
 import { Spinner } from '../shared/spinner/spinner';
+import { Modal } from '../shared/modal/modal';
 import { AperturaCaja } from './apertura-caja/apertura-caja';
 import { BarraCaja } from './barra-caja/barra-caja';
 import { RetiroEfectivoModal } from '../shared/retiro-efectivo-modal/retiro-efectivo-modal';
@@ -22,6 +22,7 @@ import { CatalogoEntradas } from './catalogo-entradas/catalogo-entradas';
 import { AgregarArticulo } from './agregar-articulo/agregar-articulo';
 import { CarritoVenta, VentaPosConfirmada } from './carrito-venta/carrito-venta';
 import { ComprobanteVenta } from './comprobante-venta/comprobante-venta';
+import { ValidarAnticipadaPos } from './validar-anticipada-pos/validar-anticipada-pos';
 import { TourStep } from '../shared/tour/tour';
 import { DetectorEscaneoDni, extraerDniDeEscaneo } from '../shared/escaner-dni.util';
 
@@ -32,7 +33,7 @@ const PASOS_TUTORIAL: TourStep[] = [
   {
     selector: '[data-tour="barra-caja"]',
     titulo: 'Tu caja',
-    texto: 'Acá ves el estado de tu caja y accedés a Retiro/Aporte y Reponer talonario. Para validar el ingreso de alguien que ya tiene una entrada, escaneá su DNI en cualquier momento: te lleva directo a Control de Accesos con la búsqueda hecha.',
+    texto: 'Acá ves el estado de tu caja y accedés a Retiro/Aporte y Reponer talonario. Para validar el ingreso de alguien que ya tiene una entrada, escaneá su DNI en cualquier momento: se abre acá mismo la lista de sus anticipadas para validarlas sin salir del POS.',
   },
   {
     selector: '[data-tour="catalogo"]',
@@ -56,6 +57,7 @@ const PASOS_TUTORIAL: TourStep[] = [
   imports: [
     CabeceraInterna,
     Spinner,
+    Modal,
     AperturaCaja,
     BarraCaja,
     RetiroEfectivoModal,
@@ -64,11 +66,12 @@ const PASOS_TUTORIAL: TourStep[] = [
     AgregarArticulo,
     CarritoVenta,
     ComprobanteVenta,
+    ValidarAnticipadaPos,
   ],
   templateUrl: './pos.html',
   styleUrl: './pos.css',
 })
-export class Pos implements OnInit {
+export class Pos implements OnInit, OnDestroy {
   private boleteriaService = inject(BoleteriaService);
   private tipoEntradaService = inject(TipoEntradaService);
   private cajaService = inject(CajaService);
@@ -76,7 +79,6 @@ export class Pos implements OnInit {
   private articuloVarioService = inject(ArticuloVarioService);
   private configuracionService = inject(ConfiguracionService);
   private cache = inject(PosCacheService);
-  private router = inject(Router);
 
   readonly pasosTutorial = PASOS_TUTORIAL;
 
@@ -101,6 +103,20 @@ export class Pos implements OnInit {
 
   /** Venta recién cerrada: mientras esté seteada se muestra el comprobante en pantalla. */
   ultimaVenta = signal<VentaPosConfirmada | null>(null);
+
+  /** DNI recién escaneado: mientras esté seteado, el panel de anticipadas tapa (sin destruir)
+   * el catálogo/carrito para validar los ingresos de esa persona sin salir del POS. */
+  dniAnticipada = signal<string | null>(null);
+
+  /** DNI escaneado que quedó a la espera de que el boletero decida si dejar la compra en curso
+   * (ver el diálogo en pos.html). Null = no hay decisión pendiente. */
+  escaneoPendiente = signal<string | null>(null);
+
+  /** Reserva RESERVADO_EFECTIVO cargada en el carrito desde el panel de anticipadas: al cobrarla
+   * se cierra esa reserva en vez de crear una venta nueva. Null en una venta de puerta común. */
+  compraReservada = signal<Reserva | null>(null);
+  /** Líneas de la reserva cargada que no se editan desde el carrito (extras, tipos fuera del catálogo). */
+  entradasReserva = signal<LineaEntradaFija[]>([]);
 
   ngOnInit(): void {
     // Cada carga se cachea al salir bien, y al fallar cae al último snapshot conocido: sin
@@ -248,6 +264,10 @@ export class Pos implements OnInit {
   onLimpiar(): void {
     this.cantidades.set({});
     this.articulosCarrito.set([]);
+    // Vaciar el carrito también cancela el cobro de una reserva en curso (la reserva no se
+    // tocó del lado del servidor: sigue pendiente, se puede volver a escanear).
+    this.compraReservada.set(null);
+    this.entradasReserva.set([]);
   }
 
   onVentaRegistrada(venta: VentaPosConfirmada): void {
@@ -265,38 +285,88 @@ export class Pos implements OnInit {
   /** Cierra el comprobante y deja la pantalla lista para el próximo cliente. */
   nuevaVenta(): void {
     this.ultimaVenta.set(null);
+    this.compraReservada.set(null);
     this.onLimpiar();
   }
 
   // ---------- Escaneo de DNI de fondo: reemplaza el viejo botón "Validar reserva" ----------
-  // Al escanear el DNI de alguien que ya tiene una entrada, en vez de un modal de búsqueda acá
-  // mismo, se navega directo a Control de Accesos (Boletería) con la búsqueda ya hecha — un
-  // paso menos, y reutiliza la pantalla que ya sabe validar/cobrar.
+  // Al escanear el DNI de alguien que ya tiene una entrada, se abre acá mismo el panel de
+  // anticipadas (ver dniAnticipada / ValidarAnticipadaPos) en vez de navegar a Control de
+  // Accesos: el boletero valida o cobra sin salir del POS.
   private detectorEscaneo = new DetectorEscaneoDni((escaneo) => {
-    // Con un modal de retiro/ingreso abierto no se pregunta nada: interrumpirlo a mitad de
-    // tipeo con un confirm() encima sería peor que directamente ignorar el escaneo acá — ese
-    // DNI habrá que buscarlo a mano en Boletería después.
+    // Con un modal de retiro/ingreso abierto no se hace nada: ese DNI se escanea de nuevo
+    // cuando se cierre el modal.
     if (this.mostrarRetiro() || this.mostrarIngresoEntradas()) return;
-
-    // Mientras se ve el comprobante el carrito ya quedó "viejo" (se limpia recién al tocar
-    // "Nueva venta"), así que no cuenta como venta en curso para este chequeo.
-    const ventaEnCurso = !this.ultimaVenta() && this.hayCarritoEnCurso();
-    if (ventaEnCurso) {
-      const seguir = window.confirm(
-        'Hay una venta sin cobrar en el carrito. ¿La cancelás para ir a validar este DNI en Control de Accesos?'
-      );
-      if (!seguir) return;
-    }
-
-    // Al navegar se destruye esta pantalla (y con ella el carrito en curso): no hace falta
-    // limpiarlo a mano antes de irse.
     const dni = extraerDniDeEscaneo(escaneo);
-    this.router.navigate(['/boleteria'], { queryParams: { dni } });
+    // Si hay una compra a medio cargar (y no se está viendo un comprobante), primero se
+    // pregunta: pasar al panel descarta ese carrito.
+    if (!this.ultimaVenta() && this.hayCarritoEnCurso()) {
+      this.escaneoPendiente.set(dni);
+      return;
+    }
+    this.dniAnticipada.set(dni);
   });
+
+  /** El boletero eligió dejar la compra en curso e ir al panel de anticipadas de ese DNI. */
+  confirmarIrAAnticipadas(): void {
+    const dni = this.escaneoPendiente();
+    this.escaneoPendiente.set(null);
+    if (dni === null) return;
+    this.compraReservada.set(null);
+    this.onLimpiar();
+    this.dniAnticipada.set(dni);
+  }
+
+  /** Una anticipada APROBADO se validó desde el panel: se cierra y el POS queda limpio. */
+  onAnticipadaValidada(): void {
+    this.dniAnticipada.set(null);
+    this.nuevaVenta();
+  }
+
+  /** Una anticipada RESERVADO_EFECTIVO: se carga en el carrito para cobrarla como venta normal.
+   * Las entradas que están en el catálogo del POS quedan editables; los extras y cualquier tipo
+   * fuera del catálogo se cargan fijos (se cobran igual, pero sin poder cambiarlos). */
+  onCargarAnticipada(reserva: Reserva): void {
+    const idsCatalogo = new Set(this.tiposEntrada().map((t) => t.id));
+    const cantidades: Record<number, number> = {};
+    const fijas: LineaEntradaFija[] = [];
+    const articulos: FilaArticuloCarrito[] = [];
+    for (const d of reserva.detalles ?? []) {
+      if (d.tipoEntrada) {
+        if (d.tipoEntrada.tipo === 'ENTRADA' && idsCatalogo.has(d.tipoEntrada.id)) {
+          cantidades[d.tipoEntrada.id] = d.cantidad;
+        } else {
+          fijas.push({
+            tipoEntradaId: d.tipoEntrada.id,
+            nombre: d.tipoEntrada.nombre,
+            precioUnitario: d.tipoEntrada.precio,
+            cantidad: d.cantidad,
+          });
+        }
+      } else if (d.articuloVario || d.descripcionLibre) {
+        articulos.push({
+          articuloVarioId: d.articuloVario?.id ?? null,
+          descripcionLibre: d.descripcionLibre,
+          nombre: d.articuloVario?.nombre ?? d.descripcionLibre ?? 'Artículo',
+          precioUnitario: d.precioUnitario ?? 0,
+          cantidad: d.cantidad,
+        });
+      }
+    }
+    this.cantidades.set(cantidades);
+    this.entradasReserva.set(fijas);
+    this.articulosCarrito.set(articulos);
+    this.compraReservada.set(reserva);
+    this.dniAnticipada.set(null);
+  }
 
   @HostListener('window:keydown', ['$event'])
   onKeydownGlobal(event: KeyboardEvent): void {
     this.detectorEscaneo.procesarTecla(event);
+  }
+
+  ngOnDestroy(): void {
+    this.detectorEscaneo.destruir();
   }
 
   private hayCarritoEnCurso(): boolean {

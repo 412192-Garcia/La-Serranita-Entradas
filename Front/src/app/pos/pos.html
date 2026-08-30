@@ -38,7 +38,28 @@
         (cerrar)="mostrarIngresoEntradas.set(false)" />
     }
 
-    @if (ultimaVenta(); as venta) {
+    @if (escaneoPendiente(); as dni) {
+      <app-modal (cerrar)="escaneoPendiente.set(null)">
+        <div class="dialogo-escaneo">
+          <h3>Hay una compra sin cobrar</h3>
+          <p>Tenés una compra a medio cargar en el carrito. Si pasás a validar la anticipada del DNI {{ dni }}, ese carrito se descarta.</p>
+          <div class="dialogo-escaneo-acciones">
+            <button type="button" class="btn-seguir-compra" (click)="escaneoPendiente.set(null)">Seguir con la compra</button>
+            <button type="button" class="btn-ver-anticipadas" (click)="confirmarIrAAnticipadas()">Ver anticipadas</button>
+          </div>
+        </div>
+      </app-modal>
+    }
+
+    @if (dniAnticipada(); as dni) {
+      <!-- Escaneo de DNI: tapa el catálogo/carrito sin destruirlos (al cerrar con la X vuelve
+           todo como estaba). barra-caja queda arriba, visible. -->
+      <app-validar-anticipada-pos
+        [dni]="dni"
+        (cerrar)="dniAnticipada.set(null)"
+        (validada)="onAnticipadaValidada()"
+        (cobrarEnPos)="onCargarAnticipada($event)" />
+    } @else if (ultimaVenta(); as venta) {
       <app-comprobante-venta
         [venta]="venta.venta"
         [formaPago]="venta.formaPago"
@@ -78,6 +99,8 @@
             [promociones]="promociones()"
             [descuentosEfectivo]="descuentosEfectivo()"
             [cajaId]="caja()!.id"
+            [compraReservada]="compraReservada()"
+            [entradasFijas]="entradasReserva()"
             (quitarArticulo)="onQuitarArticulo($event)"
             (quitarEntrada)="onQuitarEntrada($event)"
             (limpiar)="onLimpiar()"

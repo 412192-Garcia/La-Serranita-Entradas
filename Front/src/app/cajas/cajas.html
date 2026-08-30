@@ -27,7 +27,7 @@
             <span>{{ c.fechaApertura | date: 'dd/MM HH:mm' }}</span>
             <span>{{ c.montoInicial | pesos }}</span>
             <span>{{ c.totalVendido | pesos }}</span>
-            <span>{{ c.totalEntradasVendidas }}</span>
+            <span>{{ c.totalEntradasPagas }}</span>
             <span class="acciones-fila-caja-abierta">
               <button type="button" class="btn-secundario" (click)="$event.stopPropagation(); iniciarCierre(c.id)">Cerrar caja</button>
             </span>

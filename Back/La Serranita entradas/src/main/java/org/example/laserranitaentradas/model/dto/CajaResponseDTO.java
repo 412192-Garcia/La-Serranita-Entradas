@@ -70,7 +70,7 @@ public class CajaResponseDTO {
     /** Ventas + retiros en orden cronológico. Null mientras sigue ABIERTA (mismo motivo anti-trampa que los totales esperados). */
     private List<OperacionCajaDTO> operaciones;
 
-    /** Unidades de entrada vendidas (no extras ni artículos), sin importar la forma de pago. Null mientras sigue ABIERTA. */
-    private Integer totalEntradasVendidas;
+    /** Unidades vendidas de tipos de entrada con precio > 0 (excluye las gratis, los extras y los artículos), sin importar la forma de pago. Null mientras sigue ABIERTA. */
+    private Integer totalEntradasPagas;
     private List<EntradasPorTipoDTO> entradasVendidasPorTipo;
 }
