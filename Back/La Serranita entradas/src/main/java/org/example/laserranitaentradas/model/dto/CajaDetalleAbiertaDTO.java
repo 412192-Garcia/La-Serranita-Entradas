@@ -20,7 +20,8 @@ public class CajaDetalleAbiertaDTO {
     private BigDecimal totalVentasEfectivo;
     private BigDecimal totalVentasTarjeta;
     private BigDecimal totalVentasQr;
-    private Integer totalEntradasVendidas;
+    /** Unidades vendidas de tipos de entrada con precio > 0 (excluye gratis, extras y artículos). */
+    private Integer totalEntradasPagas;
     private List<EntradasPorTipoDTO> entradasVendidasPorTipo;
     private boolean huboVentaDolares;
     /** Inicial + ingresos − retiros de entradas físicas − las que ya se cortaron vendiendo hasta

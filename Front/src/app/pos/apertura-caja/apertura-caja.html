@@ -1,18 +1,37 @@
-<div class="comprobante">
+<div class="comprobante comprobante-apertura">
   <svg lucideLockOpen class="comprobante-icono" [strokeWidth]="1.5"></svg>
   <h2>Abrir caja</h2>
-  <p class="subtitulo-apertura">Cargá con cuánto efectivo arranca el turno.</p>
+  <p class="subtitulo-apertura">Contá los billetes con los que arranca el turno.</p>
 
-  <label class="campo-apertura">
-    Efectivo inicial
-    <input
-      type="text"
-      inputmode="numeric"
-      placeholder="0"
-      appMoneyInput
-      [ngModel]="montoApertura()"
-      (ngModelChange)="montoApertura.set($event)" />
-  </label>
+  <div class="lista-denominaciones lista-denominaciones-apertura">
+    @for (d of denominaciones; track d) {
+      <label class="fila-denominacion">
+        <span>{{ d | pesos }}</span>
+        <input
+          type="number"
+          min="0"
+          inputmode="numeric"
+          placeholder="0"
+          [ngModel]="conteoEfectivo()[d]"
+          (ngModelChange)="setConteoEfectivo(d, $event ?? 0)" />
+      </label>
+    }
+    <label class="fila-denominacion fila-cambio">
+      <span>Cambio</span>
+      <input
+        type="text"
+        inputmode="numeric"
+        placeholder="0"
+        appMoneyInput
+        [ngModel]="cambioApertura()"
+        (ngModelChange)="cambioApertura.set($event)" />
+    </label>
+  </div>
+
+  <div class="total-efectivo-contado total-efectivo-apertura">
+    <span>Efectivo inicial</span>
+    <strong>{{ montoAperturaCalculado() | pesos }}</strong>
+  </div>
 
   <label class="campo-apertura">
     ¿Con cuántas entradas empieza?

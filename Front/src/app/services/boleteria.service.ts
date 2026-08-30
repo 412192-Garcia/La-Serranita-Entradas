@@ -134,6 +134,9 @@ export interface VentaPosRequest extends DescuentoPos {
   /** Caja del boletero al momento de cobrar: si esto se rechaza porque esa caja ya no está
    * abierta, queda guardado para que un admin sepa cuál reabrir y reintentar. */
   cajaId?: number;
+  /** Si viene seteado, esta "venta" cierra la reserva RESERVADO_EFECTIVO de ese id (cargada en
+   * el POS desde el panel de anticipadas) en vez de crear una compra nueva. */
+  compraReservadaId?: number;
 }
 
 /** Corrección de una venta de puerta (ADMIN): reemplaza entradas, artículos y forma de pago por completo (mandar la lista final, no un diff). */

@@ -1,0 +1,150 @@
+@import '../../shared/pos-caja.css';
+
+.panel-anticipadas {
+  background-color: var(--color-card-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cabecera-anticipadas {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cabecera-anticipadas h2 {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--color-text);
+}
+
+.subtitulo-anticipadas {
+  margin: 2px 0 0;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+}
+
+.btn-cerrar-anticipadas {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 1.5px solid var(--color-border);
+  background-color: var(--color-card-bg);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.btn-cerrar-anticipadas:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary-dark);
+}
+
+.btn-cerrar-anticipadas svg {
+  width: 18px;
+  height: 18px;
+}
+
+.sin-anticipadas {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 0;
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+}
+
+.lista-anticipadas {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fila-anticipada {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-soft);
+}
+
+.fila-anticipada.fila-usada {
+  opacity: 0.6;
+}
+
+.datos-anticipada {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.datos-anticipada strong {
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.meta-anticipada {
+  font-size: 0.82rem;
+  color: var(--color-text-secondary);
+}
+
+.accion-anticipada {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.monto-anticipada {
+  font-weight: 800;
+  color: var(--color-text);
+  white-space: nowrap;
+}
+
+/* El .btn-cobrar de pos-caja.css es un botón de cobro a pantalla completa: acá es una acción
+   de fila, así que se compacta. */
+.accion-anticipada .btn-cobrar {
+  flex: 0 0 auto;
+  padding: 10px 16px;
+  font-size: 0.9rem;
+}
+
+.texto-ingreso {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--color-primary-dark);
+  white-space: nowrap;
+}
+
+@media (max-width: 520px) {
+  .fila-anticipada {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .accion-anticipada {
+    justify-content: space-between;
+  }
+
+  .accion-anticipada .btn-cobrar {
+    flex: 1;
+  }
+}

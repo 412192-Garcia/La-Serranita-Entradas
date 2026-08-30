@@ -1,6 +1,7 @@
 import { DescuentoEfectivo } from '../services/configuracion.service';
 import { CotizacionResponse, DescuentoPos, LineaArticuloPos, LineaVentaPos } from '../services/boleteria.service';
 import { TipoEntrada } from '../models/tipo-entrada';
+import { LineaEntradaFija } from '../models/venta-pos';
 import { Promocion } from '../models/promocion';
 import { FormaPagoPos } from '../models/compra';
 
@@ -21,7 +22,8 @@ export function cotizarLocalmente(
   descuento: DescuentoPos,
   tiposEntrada: TipoEntrada[],
   descuentosEfectivo: DescuentoEfectivo[],
-  promociones: Promocion[]
+  promociones: Promocion[],
+  entradasFijas: LineaEntradaFija[] = []
 ): CotizacionResponse {
   let totalLista = 0;
   let totalConPromo = 0;
@@ -31,6 +33,14 @@ export function cotizarLocalmente(
     if (!tipo) continue;
     totalLista += tipo.precio * linea.cantidad;
     totalConPromo += totalPorTipo(tipo, linea.cantidad, formaPago, descuentosEfectivo);
+  }
+
+  // Las líneas fijas de una reserva (extras, tipos fuera del catálogo) van a precio de lista:
+  // no tienen escalón de grupo y el boletero no puede cambiarlas.
+  for (const fija of entradasFijas) {
+    const monto = fija.precioUnitario * fija.cantidad;
+    totalLista += monto;
+    totalConPromo += monto;
   }
 
   // Los artículos varios no tienen precio de grupo: van siempre a precio unitario × cantidad.

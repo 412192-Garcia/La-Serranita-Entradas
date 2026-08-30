@@ -8,7 +8,7 @@ import { BoleteriaService, CotizacionResponse, DescuentoPos, LineaArticuloPos, L
 import { OperacionesPendientesService } from '../../services/operaciones-pendientes.service';
 import { TipoEntrada } from '../../models/tipo-entrada';
 import { Promocion } from '../../models/promocion';
-import { FilaArticuloCarrito } from '../../models/venta-pos';
+import { FilaArticuloCarrito, LineaEntradaFija } from '../../models/venta-pos';
 import { FormaPagoPos } from '../../models/compra';
 import { FORMAS_PAGO } from '../../models/forma-pago';
 import { MoneyInputDirective } from '../../shared/money-input/money-input.directive';
@@ -55,6 +55,12 @@ export class CarritoVenta {
   /** Caja propia del boletero: viaja en el payload por si esto se rechaza, para que un admin
    * sepa exactamente qué caja reabrir y reintentar. */
   cajaId = input.required<number>();
+  /** Si viene seteada, este cobro no crea una venta nueva: cierra esta reserva
+   * RESERVADO_EFECTIVO (cargada en el POS desde el panel de anticipadas). */
+  compraReservada = input<Reserva | null>(null);
+  /** Líneas de la reserva que no se editan desde el carrito (extras, tipos fuera del catálogo):
+   * se muestran, suman al total y viajan en el cobro, pero sin +/- ni ✕. */
+  entradasFijas = input<LineaEntradaFija[]>([]);
 
   quitarArticulo = output<number>();
   quitarEntrada = output<number>();
@@ -103,12 +109,21 @@ export class CarritoVenta {
       .map((t) => ({ tipo: t, cantidad: cants[t.id] }));
   });
 
-  hayItems = computed(() => this.lineas().length > 0 || this.articulosCarrito().length > 0);
+  hayItems = computed(
+    () => this.lineas().length > 0 || this.articulosCarrito().length > 0 || this.entradasFijas().length > 0
+  );
+
+  /** {tipoEntradaId, cantidad} de las líneas fijas de la reserva, para cotizar y cobrar. */
+  private entradasFijasPayload(): LineaVentaPos[] {
+    return this.entradasFijas().map((e) => ({ tipoEntradaId: e.tipoEntradaId, cantidad: e.cantidad }));
+  }
 
   /** Precio de lista, sin promociones: sirve de fallback mientras llega la cotización. */
-  private subtotalLista = computed(() =>
-    this.lineas().reduce((acc, l) => acc + l.tipo.precio * l.cantidad, 0) +
-    this.articulosCarrito().reduce((acc, a) => acc + a.precioUnitario * a.cantidad, 0)
+  private subtotalLista = computed(
+    () =>
+      this.lineas().reduce((acc, l) => acc + l.tipo.precio * l.cantidad, 0) +
+      this.articulosCarrito().reduce((acc, a) => acc + a.precioUnitario * a.cantidad, 0) +
+      this.entradasFijas().reduce((acc, e) => acc + e.precioUnitario * e.cantidad, 0)
   );
 
   total = computed(() => this.cotizacion()?.subtotal ?? this.subtotalLista());
@@ -168,7 +183,10 @@ export class CarritoVenta {
     // así que no hace falta recotizar al tocar ese checkbox. switchMap descarta respuestas
     // viejas si el boletero sigue tocando botones rápido.
     effect(() => {
-      const entradas = this.lineas().map((l) => ({ tipoEntradaId: l.tipo.id, cantidad: l.cantidad }));
+      const entradas = [
+        ...this.lineas().map((l) => ({ tipoEntradaId: l.tipo.id, cantidad: l.cantidad })),
+        ...this.entradasFijasPayload(),
+      ];
       const articulos = this.articulosCarritoPayload();
       const formaPago = this.formaPago();
       const descuento = this.descuentoPayload();
@@ -208,7 +226,8 @@ export class CarritoVenta {
       descuento,
       this.tiposEntrada(),
       this.descuentosEfectivo(),
-      this.promociones()
+      this.promociones(),
+      this.entradasFijas()
     );
   }
 
@@ -307,7 +326,10 @@ export class CarritoVenta {
     this.cobrando.set(true);
     this.error.set(null);
 
-    const entradas = this.lineas().map((l) => ({ tipoEntradaId: l.tipo.id, cantidad: l.cantidad }));
+    const entradas = [
+      ...this.lineas().map((l) => ({ tipoEntradaId: l.tipo.id, cantidad: l.cantidad })),
+      ...this.entradasFijasPayload(),
+    ];
     const articulos = this.articulosCarritoPayload();
     const formaPago = this.formaPago();
     const pagoEnDolares = this.pagoEnDolares();
@@ -315,6 +337,7 @@ export class CarritoVenta {
     const total = this.total();
     const items: ItemVentaResumen[] = [
       ...this.lineas().map((l) => ({ cantidad: l.cantidad, nombre: l.tipo.nombre })),
+      ...this.entradasFijas().map((e) => ({ cantidad: e.cantidad, nombre: e.nombre })),
       ...this.articulosCarrito().map((a) => ({ cantidad: a.cantidad, nombre: a.nombre })),
     ];
 
@@ -322,11 +345,14 @@ export class CarritoVenta {
       ? { cotizacionDolar: this.cotizacionDolar(), dolaresRecibidos: this.pagaConDolares() }
       : {};
 
+    const reservaId = this.compraReservada()?.id;
+
     const payload: VentaPosRequest = {
       formaPago,
       entradas,
       articulos,
       cajaId: this.cajaId(),
+      ...(reservaId ? { compraReservadaId: reservaId } : {}),
       ...this.descuentoPayload(),
       ...dolaresPayload,
     };
@@ -351,16 +377,17 @@ export class CarritoVenta {
 
     // Sin confirmación del servidor se arma un comprobante con lo calculado en el navegador:
     // el cliente ya pagó y está entrando, no se lo puede hacer esperar a que vuelva la señal.
+    const reserva = this.compraReservada();
     const ventaLocal: Reserva = {
-      id: 0,
-      codigoReserva: 'PENDIENTE',
-      cliente: null,
+      id: reserva?.id ?? 0,
+      codigoReserva: reserva?.codigoReserva ?? 'PENDIENTE',
+      cliente: reserva?.cliente ?? null,
       contactEmail: null,
       contactPhone: null,
-      fechaVisita: new Date().toISOString().slice(0, 10),
+      fechaVisita: reserva?.fechaVisita ?? new Date().toISOString().slice(0, 10),
       montoTotal: total,
       descuentoAplicado: 0,
-      estado: 'VENDIDO_EN_PUERTA',
+      estado: reserva ? 'USADO' : 'VENDIDO_EN_PUERTA',
       formaPago,
       detalles: null,
       fechaValidacion: new Date().toISOString(),

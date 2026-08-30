@@ -5,7 +5,8 @@
       "name": "frontend-serranita",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "start", "--prefix", "Front"],
-      "port": 4200
+      "port": 4200,
+      "autoPort": false
     },
     {
       "name": "frontend-serranita-dev",

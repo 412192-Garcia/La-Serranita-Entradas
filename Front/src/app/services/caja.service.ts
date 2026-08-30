@@ -105,8 +105,8 @@ export interface Caja {
 
   operaciones: OperacionCaja[] | null;
 
-  /** Unidades de entrada vendidas (no extras ni artículos), sin importar la forma de pago. Null hasta el cierre. */
-  totalEntradasVendidas: number | null;
+  /** Unidades vendidas de tipos de entrada con precio > 0 (excluye las gratis, los extras y los artículos), sin importar la forma de pago. Null hasta el cierre. */
+  totalEntradasPagas: number | null;
   entradasVendidasPorTipo: EntradasPorTipo[] | null;
 
   /**
@@ -142,7 +142,8 @@ export interface CajaAbierta {
   montoInicial: number;
   /** Vendido hasta el momento (efectivo + tarjeta + QR), en vivo. */
   totalVendido: number;
-  totalEntradasVendidas: number;
+  /** Entradas vendidas de tipos con precio > 0 (excluye gratis, extras y artículos). */
+  totalEntradasPagas: number;
 }
 
 /** Detalle de una caja todavía abierta (ADMIN) — ver obtenerOperaciones. */
@@ -151,7 +152,8 @@ export interface CajaDetalleAbierta {
   totalVentasEfectivo: number;
   totalVentasTarjeta: number;
   totalVentasQr: number;
-  totalEntradasVendidas: number;
+  /** Entradas vendidas de tipos con precio > 0 (excluye gratis, extras y artículos). */
+  totalEntradasPagas: number;
   entradasVendidasPorTipo: EntradasPorTipo[];
   huboVentaDolares: boolean;
   /** Inicial + ingresos − retiros − ya cortadas vendiendo: cuántas le quedan al boletero en el talonario. Null si esta caja no tiene un inicial cargado. */

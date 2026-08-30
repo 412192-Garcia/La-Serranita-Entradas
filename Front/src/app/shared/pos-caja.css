@@ -251,6 +251,8 @@
   align-items: center;
   text-align: center;
   gap: 6px;
+  max-height: 90vh;
+  overflow-y: auto;
 }
 
 .comprobante-icono {
@@ -314,6 +316,66 @@
 .campo-apertura input:focus {
   border-color: var(--color-primary);
   box-shadow: 0 0 0 3px rgba(57, 169, 53, 0.15);
+}
+
+/* ---------- Conteo de efectivo billete por billete (apertura y cierre de caja) ---------- */
+.lista-denominaciones {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fila-denominacion {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+}
+
+.fila-denominacion input {
+  width: 84px;
+  padding: 8px 10px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  outline: none;
+  background-color: var(--color-input-bg);
+  color: var(--color-text);
+}
+
+.fila-denominacion input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(57, 169, 53, 0.15);
+}
+
+/* No es un billete real, es la suma de los chicos: se separa un poco del resto de la lista. */
+.fila-cambio {
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--color-border);
+  font-style: italic;
+}
+
+.total-efectivo-contado {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background-color: var(--color-primary-light);
+  color: var(--color-primary-dark);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.total-efectivo-contado strong {
+  font-family: var(--font-heading);
+  font-size: 1.3rem;
+  font-weight: 800;
 }
 
 .btn-quitar-cierre {

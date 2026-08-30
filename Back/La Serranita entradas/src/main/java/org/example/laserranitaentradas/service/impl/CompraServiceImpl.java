@@ -465,10 +465,11 @@ public class CompraServiceImpl implements CompraService {
             throw new IllegalStateException("Ya pasó el tiempo para deshacer esta validación.");
         }
 
-        // Vuelve al estado del que salió: RESERVADO_EFECTIVO si era una reserva a cobrar en
-        // caja, APROBADO si ya estaba paga online. Si había entrado a una caja (efectivo), se
-        // saca: el cierre de caja no debe seguir contándola.
-        compra.setEstado(compra.getFormaPago() == FormaPago.EFECTIVO_BOLETERIA
+        // Vuelve al estado del que salió: RESERVADO_EFECTIVO si el ingreso se cobró en una caja
+        // (reserva a pagar en boletería, sea en efectivo, tarjeta o QR), APROBADO si ya estaba
+        // paga online (nunca tocó una caja). Al deshacer se saca de la caja: el cierre no debe
+        // seguir contándola.
+        compra.setEstado(compra.getCaja() != null
                 ? EstadoCompra.RESERVADO_EFECTIVO
                 : EstadoCompra.APROBADO);
         compra.setUsuarioValidador(null);
@@ -592,13 +593,24 @@ public class CompraServiceImpl implements CompraService {
      * efectivo) y verificando contra el cupo diario de cada tipo.
      */
     private DetallesCalculados construirDetalles(List<DetalleCompraDTO> entradas, FormaPago formaPago, LocalDate fechaVisita) {
+        return construirDetalles(entradas, formaPago, fechaVisita, null);
+    }
+
+    /**
+     * `excluirCompraId`: cuando se está reconstruyendo una compra ya existente (cobrar una
+     * reserva en el POS), sus líneas actuales NO cuentan para el cupo del día — se están
+     * reemplazando, no sumando encima (mismo criterio que editarVenta).
+     */
+    private DetallesCalculados construirDetalles(List<DetalleCompraDTO> entradas, FormaPago formaPago,
+                                                 LocalDate fechaVisita, Long excluirCompraId) {
         // Cupo diario por tipo: se suma lo ya vendido ese día (sin contar lo cancelado)
         // más lo que se está agregando ahora. Los regalos no tienen fecha todavía, así
         // que no hay contra qué día chequear el cupo.
         Map<Long, Integer> cantidadVendidaPorTipo = new HashMap<>();
         if (fechaVisita != null) {
             for (Compra otra : compraRepository.findAllByFechaVisitaOrderByCodigoReservaAsc(fechaVisita)) {
-                if (otra.getEstado() == EstadoCompra.CANCELADO || otra.getDetalles() == null) continue;
+                if ((excluirCompraId != null && excluirCompraId.equals(otra.getId()))
+                        || otra.getEstado() == EstadoCompra.CANCELADO || otra.getDetalles() == null) continue;
                 for (CompraDetalle det : otra.getDetalles()) {
                     // Las líneas de artículo vario (venta en puerta) no tienen tipoEntrada: no cuentan para el cupo diario.
                     if (det.getTipoEntrada() == null) continue;
@@ -757,6 +769,12 @@ public class CompraServiceImpl implements CompraService {
         // pago: es la que después se cierra y concilia al final del turno.
         Caja caja = cajaService.getAbiertaOrThrow(usuarioVendedorId);
 
+        // Si el boletero cargó una anticipada RESERVADO_EFECTIVO en el POS, esto no crea una
+        // compra nueva: reprecia y cierra la reserva existente.
+        if (request.getCompraReservadaId() != null) {
+            return cobrarReservaComoVentaPos(request, caja, vendedor, idempotencyKey);
+        }
+
         return crearVenta(request, caja, vendedor, idempotencyKey);
     }
 
@@ -866,6 +884,89 @@ public class CompraServiceImpl implements CompraService {
         }
 
         return compraRepository.save(venta);
+    }
+
+    /**
+     * Cierra una reserva RESERVADO_EFECTIVO que el boletero cargó y cobró en el POS (desde el
+     * panel de anticipadas): reprecia sus líneas según la forma de pago elegida
+     * (efectivo/tarjeta/QR o dólares), aplica el descuento que haya cargado el boletero y la
+     * marca USADO contra su caja. No crea una compra nueva — mantiene cliente, código y fecha
+     * de visita de la reserva.
+     */
+    private Compra cobrarReservaComoVentaPos(VentaPosRequestDTO request, Caja caja, Usuario vendedor, String idempotencyKey) {
+        Compra reserva = compraRepository.findById(request.getCompraReservadaId())
+                .orElseThrow(() -> new IllegalArgumentException("Reserva no encontrada ID: " + request.getCompraReservadaId()));
+        if (reserva.getEstado() != EstadoCompra.RESERVADO_EFECTIVO) {
+            throw new IllegalStateException("La reserva ID " + reserva.getId()
+                    + " no está pendiente de cobro en boletería (estado actual: " + reserva.getEstado() + ")");
+        }
+        if (request.getFormaPago() == null) {
+            throw new IllegalArgumentException("Debe indicar la forma de pago del cobro");
+        }
+
+        LocalDateTime momentoVenta = request.getFechaOriginal() == null ? LocalDateTime.now() : request.getFechaOriginal();
+
+        // Cupo del día contra la fecha de visita de la reserva, sin contar sus propias líneas
+        // actuales (se están reemplazando, no sumando encima).
+        DetallesCalculados calculoEntradas = construirDetalles(
+                request.getEntradas(), request.getFormaPago(), reserva.getFechaVisita(), reserva.getId());
+        DetallesCalculados calculoArticulos = construirLineasArticulos(request.getArticulos());
+
+        List<CompraDetalle> todosLosDetalles = new ArrayList<>(calculoEntradas.detalles());
+        todosLosDetalles.addAll(calculoArticulos.detalles());
+        if (todosLosDetalles.isEmpty()) {
+            throw new IllegalArgumentException("La venta no tiene entradas ni artículos cargados");
+        }
+        validarPaseObligatorio(todosLosDetalles);
+
+        BigDecimal montoBruto = calculoEntradas.montoTotal().add(calculoArticulos.montoTotal());
+        BigDecimal descuento = calcularDescuentoPos(montoBruto, request.getPromocionId(),
+                request.getDescuentoManualPorcentaje(), request.getDescuentoManualMonto());
+        BigDecimal montoFinal = montoBruto.subtract(descuento);
+        Promocion promocionUsada = request.getPromocionId() != null
+                ? promocionRepository.findById(request.getPromocionId()).orElse(null)
+                : null;
+
+        BigDecimal cotizacionDolar = request.getCotizacionDolar();
+        BigDecimal dolaresRecibidos = null;
+        if (cotizacionDolar != null) {
+            if (request.getFormaPago() != FormaPago.EFECTIVO_BOLETERIA) {
+                throw new IllegalArgumentException("El pago en dólares sólo está disponible cobrando en efectivo");
+            }
+            if (cotizacionDolar.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalArgumentException("La cotización del dólar tiene que ser mayor a cero");
+            }
+            dolaresRecibidos = request.getDolaresRecibidos();
+            if (dolaresRecibidos == null || dolaresRecibidos.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalArgumentException("Indicá cuántos dólares entregó el cliente");
+            }
+            if (dolaresRecibidos.multiply(cotizacionDolar).compareTo(montoFinal) < 0) {
+                throw new IllegalArgumentException("Los dólares recibidos no alcanzan para cubrir el total");
+            }
+        }
+
+        // orphanRemoval en Compra.detalles: vaciar la colección alcanza para que Hibernate
+        // borre las líneas viejas antes de cargar las nuevas (mismo criterio que editarVenta).
+        reserva.getDetalles().clear();
+        reserva.getDetalles().addAll(todosLosDetalles);
+        for (CompraDetalle det : todosLosDetalles) {
+            det.setCompra(reserva);
+        }
+        reserva.setMontoTotal(montoFinal);
+        reserva.setDescuentoAplicado(descuento);
+        reserva.setPromocion(promocionUsada);
+        reserva.setFormaPago(request.getFormaPago());
+        reserva.setCotizacionDolar(cotizacionDolar);
+        reserva.setDolaresRecibidos(dolaresRecibidos);
+        reserva.setEstado(EstadoCompra.USADO);
+        reserva.setCaja(caja);
+        reserva.setUsuarioValidador(vendedor);
+        reserva.setFechaValidacion(momentoVenta);
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            reserva.setIdempotencyKey(idempotencyKey);
+        }
+
+        return compraRepository.save(reserva);
     }
 
     @Transactional

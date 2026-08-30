@@ -1,1 +1,40 @@
 @import '../../shared/pos-caja.css';
+
+/* Apertura carga 7 denominaciones + cambio: en una sola columna el modal queda larguísimo.
+   Se ensancha la tarjeta y los billetes van en grilla de dos columnas. */
+.comprobante-apertura {
+  max-width: 560px;
+  padding: 28px 32px;
+}
+
+.lista-denominaciones-apertura,
+.total-efectivo-apertura {
+  width: 100%;
+}
+
+.lista-denominaciones-apertura {
+  margin-top: 4px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 20px;
+}
+
+/* Son 7 billetes + cambio = 8 celdas justas en la grilla de 2×4: el cambio va en la última
+   celda (si no, deja un hueco). Mantiene la cursiva para marcar que no es un billete, pero
+   sin la línea divisoria (no tendría dónde apoyarse en media fila). */
+.lista-denominaciones-apertura .fila-cambio {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+.total-efectivo-apertura {
+  box-sizing: border-box;
+  text-align: left;
+}
+
+@media (max-width: 480px) {
+  .lista-denominaciones-apertura {
+    grid-template-columns: 1fr;
+  }
+}

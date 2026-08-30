@@ -79,3 +79,66 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ---------- Diálogo "hay una compra sin cobrar" al escanear un DNI ---------- */
+.dialogo-escaneo {
+  background-color: var(--color-card-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card-lg);
+  padding: 22px 24px;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dialogo-escaneo h3 {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
+.dialogo-escaneo p {
+  margin: 0;
+  font-size: 0.92rem;
+  color: var(--color-text-secondary);
+}
+
+.dialogo-escaneo-acciones {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.dialogo-escaneo-acciones button {
+  flex: 1;
+  padding: 14px 16px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-heading);
+  font-size: 0.95rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.btn-seguir-compra {
+  border: 1.5px solid var(--color-border);
+  background-color: var(--color-card-bg);
+  color: var(--color-text-secondary);
+}
+
+.btn-seguir-compra:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary-dark);
+}
+
+.btn-ver-anticipadas {
+  border: none;
+  background-color: var(--color-primary);
+  color: #fff;
+}
+
+.btn-ver-anticipadas:hover {
+  background-color: var(--color-primary-dark);
+}
