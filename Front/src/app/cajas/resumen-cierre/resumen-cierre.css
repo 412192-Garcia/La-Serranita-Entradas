@@ -648,8 +648,18 @@
   font-family: inherit;
 }
 
+.titulo-totales-revision {
+  margin: 4px 0 6px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--color-text-muted);
+}
+
 .tabla-totales-revision {
   background-color: var(--color-bg-soft);
+  border: 1px solid var(--color-primary);
   border-radius: var(--radius-sm);
   padding: 4px 10px;
   margin-bottom: 12px;
@@ -662,9 +672,13 @@
 }
 
 .fila-entradas-revision {
-  margin: -4px 0 12px;
-  font-size: 0.83rem;
-  color: var(--color-text-secondary);
+  margin: 0 0 16px;
+  font-size: 1rem;
+  color: var(--color-text);
+}
+
+.fila-entradas-revision strong {
+  font-weight: 800;
 }
 
 .linea-articulos {

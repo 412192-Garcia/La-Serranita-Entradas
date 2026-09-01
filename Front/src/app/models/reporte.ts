@@ -57,8 +57,10 @@ export interface CajaResumen {
   totalRetiros: number;
   montoEsperado: number;
   montoContado: number;
-  /** montoContado − montoEsperado: positivo es sobrante, negativo es faltante. */
+  /** montoContado − montoEsperado: positivo es sobrante, negativo es faltante. Sólo efectivo. */
   diferencia: number;
+  /** Tarjeta + QR combinados: lo cerrado en el/los posnet − lo vendido con tarjeta y QR. 0 si no hubo posnet. */
+  diferenciaPosnet: number;
 }
 
 /** articuloVarioId null = líneas sin catálogo (descripción libre tipeada en el POS). */

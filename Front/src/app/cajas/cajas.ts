@@ -17,16 +17,10 @@ import { TourStep } from '../shared/tour/tour';
 import { crearOrdenable } from '../shared/ordenable';
 import { ColumnaOrdenable } from '../shared/columna-ordenable/columna-ordenable';
 
-/** "totalRetiros" queda afuera a propósito: no es una columna propia de Caja (se computa con un
- * JOIN + SUM), así que el backend no la admite para ordenar (ver CajaServiceImpl.ordenCajasCerradas). */
-type CampoOrdenCajaCerrada =
-  | 'usuarioNombre'
-  | 'fechaApertura'
-  | 'fechaCierre'
-  | 'montoInicial'
-  | 'montoEsperado'
-  | 'montoContado'
-  | 'diferencia';
+/** Sólo las columnas que la tabla deja ordenar. "totalRetiros" y "Dif. posnet" quedan afuera
+ * a propósito: no son columnas propias de Caja (se computan con JOIN + SUM / a mano), así que el
+ * backend no las admite para ordenar (ver CajaServiceImpl.ordenCajasCerradas). */
+type CampoOrdenCajaCerrada = 'usuarioNombre' | 'fechaCierre' | 'montoEsperado' | 'diferencia';
 
 const CAJAS_CERRADAS_POR_PAGINA = 20;
 
@@ -91,7 +85,6 @@ export class ConfiguracionCajas implements OnInit {
   errorCerradas = signal<string | null>(null);
   paginaCerradas = signal(0);
   totalPaginasCerradas = signal(1);
-  totalesCerradas = signal({ retiros: 0, faltantes: 0, sobrantes: 0 });
 
   /** Orden de "Cajas cerradas": por defecto la más reciente primero (mismo criterio que ya trae el backend). */
   private ordenCajas = crearOrdenable<CampoOrdenCajaCerrada>('fechaCierre');
@@ -161,7 +154,6 @@ export class ConfiguracionCajas implements OnInit {
         next: (r) => {
           this.cajasCerradas.set(r.content);
           this.totalPaginasCerradas.set(Math.max(1, r.totalPages));
-          this.totalesCerradas.set({ retiros: r.totalRetiros, faltantes: r.totalFaltantes, sobrantes: r.totalSobrantes });
           this.cargandoCerradas.set(false);
         },
         error: (err) => {
@@ -267,10 +259,10 @@ export class ConfiguracionCajas implements OnInit {
     this.cargarCajasCerradas();
   }
 
-  /** Para colorear la fila de la caja en la tabla: rojo si faltó plata, verde si sobró o cerró justo. */
-  claseDiferencia(caja: CajaCerrada): string {
-    if (caja.diferencia < 0) return 'diferencia-faltante';
-    if (caja.diferencia > 0) return 'diferencia-sobrante';
+  /** Rojo si faltó plata, verde si sobró o cerró justo. Sirve para cualquier diferencia (efectivo o posnet). */
+  claseDiferencia(valor: number): string {
+    if (valor < 0) return 'diferencia-faltante';
+    if (valor > 0) return 'diferencia-sobrante';
     return 'diferencia-exacta';
   }
 
@@ -324,15 +316,29 @@ export class ConfiguracionCajas implements OnInit {
     return [...new Set(r.cajas.map((c) => c.usuarioNombre))].sort();
   }
 
-  /** Desempeño acumulado por boletero: turnos trabajados, efectivo vendido, retiros y diferencia total. */
-  rankingBoleteros(r: ReporteResumen): { nombre: string; turnos: number; efectivoVendido: number; retiros: number; diferencia: number }[] {
-    const porBoletero = new Map<string, { turnos: number; efectivoVendido: number; retiros: number; diferencia: number }>();
+  /** Desempeño acumulado por boletero: turnos, efectivo vendido, retiros y las diferencias de
+   * efectivo y de Tarjeta+QR por separado (juntarlas escondería un faltante contra un sobrante). */
+  rankingBoleteros(r: ReporteResumen): {
+    nombre: string;
+    turnos: number;
+    efectivoVendido: number;
+    retiros: number;
+    diferencia: number;
+    diferenciaPosnet: number;
+  }[] {
+    const porBoletero = new Map<
+      string,
+      { turnos: number; efectivoVendido: number; retiros: number; diferencia: number; diferenciaPosnet: number }
+    >();
     for (const c of r.cajas) {
-      const acumulado = porBoletero.get(c.usuarioNombre) ?? { turnos: 0, efectivoVendido: 0, retiros: 0, diferencia: 0 };
+      const acumulado =
+        porBoletero.get(c.usuarioNombre) ??
+        { turnos: 0, efectivoVendido: 0, retiros: 0, diferencia: 0, diferenciaPosnet: 0 };
       acumulado.turnos += 1;
       acumulado.efectivoVendido += c.montoEsperado - c.montoInicial + c.totalRetiros;
       acumulado.retiros += c.totalRetiros;
       acumulado.diferencia += c.diferencia;
+      acumulado.diferenciaPosnet += c.diferenciaPosnet ?? 0;
       porBoletero.set(c.usuarioNombre, acumulado);
     }
     return [...porBoletero.entries()]
