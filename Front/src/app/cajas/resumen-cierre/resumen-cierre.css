@@ -767,6 +767,93 @@
   margin-bottom: 14px;
 }
 
+/* ---------- Desplegable de operaciones del turno ---------- */
+
+.acordeon-operaciones {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.acordeon-operaciones-cabecera {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  border: none;
+  background-color: var(--color-bg-soft);
+  color: var(--color-text);
+  font-family: var(--font-heading);
+  font-size: 0.9rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.acordeon-operaciones-cabecera:hover {
+  background-color: var(--color-primary-light);
+}
+
+.acordeon-operaciones-contador {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background-color: var(--color-border);
+  color: var(--color-text-secondary);
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.acordeon-operaciones-chevron {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  transition: transform 0.18s ease;
+}
+
+.acordeon-operaciones.abierto .acordeon-operaciones-chevron {
+  transform: rotate(180deg);
+}
+
+.acordeon-operaciones-cuerpo {
+  padding: 12px 14px 14px;
+  border-top: 1px solid var(--color-border);
+}
+
+.filtro-tipo-operacion {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.chip-filtro {
+  border: 1px solid var(--color-border);
+  background-color: var(--color-card-bg);
+  color: var(--color-text-secondary);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.chip-filtro.activo {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+
+.acordeon-operaciones-cuerpo .tabla-detalle-operaciones {
+  margin-bottom: 0;
+}
+
 @media (max-width: 500px) {
   .tarjeta-kpis-detalle { grid-template-columns: 1fr; }
   .fila-simple-formaspago { grid-template-columns: 1fr; font-size: 0.8rem; }

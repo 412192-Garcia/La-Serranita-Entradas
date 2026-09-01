@@ -11,7 +11,9 @@ import { cotizarLocalmente } from '../../shared/calculo-precio.util';
 import { MoneyInputDirective } from '../../shared/money-input/money-input.directive';
 import { Modal } from '../../shared/modal/modal';
 import { PesosPipe } from '../../shared/pesos.pipe';
-import { LucideShoppingCart, LucideArrowDownRight, LucideArrowUpRight, LucideTicketPlus, LucideTicketMinus } from '@lucide/angular';
+import { LucideShoppingCart, LucideArrowDownRight, LucideArrowUpRight, LucideTicketPlus, LucideTicketMinus, LucideChevronDown } from '@lucide/angular';
+
+type FiltroOperaciones = 'TODAS' | 'VENTAS' | 'MOVIMIENTOS';
 
 type ColumnaClave = FormaPagoPos; // 'EFECTIVO_BOLETERIA' | 'TARJETA' | 'MERCADO_PAGO_QR'
 
@@ -96,7 +98,7 @@ const COLUMNAS: ColumnaDesglose[] = [
 
 @Component({
   selector: 'app-resumen-cierre',
-  imports: [PesosPipe, DatePipe, DecimalPipe, FormsModule, MoneyInputDirective, Modal, LucideShoppingCart, LucideArrowDownRight, LucideArrowUpRight, LucideTicketPlus, LucideTicketMinus],
+  imports: [PesosPipe, DatePipe, DecimalPipe, FormsModule, MoneyInputDirective, Modal, LucideShoppingCart, LucideArrowDownRight, LucideArrowUpRight, LucideTicketPlus, LucideTicketMinus, LucideChevronDown],
   templateUrl: './resumen-cierre.html',
   styleUrl: './resumen-cierre.css',
 })
@@ -172,6 +174,18 @@ export class ResumenCierre {
 
   mostrarBilletes = signal(false);
   mostrarOperaciones = signal(false);
+
+  /** Ventas y movimientos (retiros/aportes/entradas físicas) mezclados hacen difícil encontrar
+   * algo puntual: mismo filtro que el detalle de una caja abierta (ver CajaOperaciones). */
+  filtroOperaciones = signal<FiltroOperaciones>('TODAS');
+
+  operacionesFiltradas = computed<OperacionCaja[]>(() => {
+    const ops = this.caja().operaciones ?? [];
+    const filtro = this.filtroOperaciones();
+    if (filtro === 'VENTAS') return ops.filter((o) => o.tipo === 'VENTA');
+    if (filtro === 'MOVIMIENTOS') return ops.filter((o) => o.tipo !== 'VENTA');
+    return ops;
+  });
 
   claseDiferenciaValor(v: number | null | undefined): string {
     if (v === null || v === undefined) return '';

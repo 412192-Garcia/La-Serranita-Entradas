@@ -65,7 +65,7 @@
     <div class="filtro-tipo-operacion">
       <button type="button" class="chip-filtro" [class.activo]="filtroTipo() === 'TODAS'" (click)="elegirFiltroTipo('TODAS')">Todas</button>
       <button type="button" class="chip-filtro" [class.activo]="filtroTipo() === 'VENTAS'" (click)="elegirFiltroTipo('VENTAS')">Ventas</button>
-      <button type="button" class="chip-filtro" [class.activo]="filtroTipo() === 'MOVIMIENTOS'" (click)="elegirFiltroTipo('MOVIMIENTOS')">Retiros / entradas físicas</button>
+      <button type="button" class="chip-filtro" [class.activo]="filtroTipo() === 'MOVIMIENTOS'" (click)="elegirFiltroTipo('MOVIMIENTOS')">Retiros / entradas</button>
     </div>
 
     @if (operacionesFiltradas().length === 0) {
