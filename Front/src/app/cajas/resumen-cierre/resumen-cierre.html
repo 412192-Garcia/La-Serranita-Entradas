@@ -96,7 +96,7 @@
 <!-- ---------- Ventas por forma de pago ---------- -->
 <div class="bloque-desglose-ventas">
   <div class="cabecera-desglose-ventas">
-    <h3>Ventas por forma de pago</h3>
+    <h3>Resumen de ventas</h3>
   </div>
 
   @if (!modoRevision()) {
@@ -122,14 +122,11 @@
       <p class="sin-datos-desglose">No hubo ventas en este turno.</p>
     }
   } @else {
-    <p class="ayuda-revision">
-      Una matriz por tipo de entrada. Cada fila es un tamaño de grupo. <strong>−</strong> saca una venta
-      de esa forma de pago, <strong>+</strong> agrega una. Sacar de una y agregar en otra = la venta se
-      cobró distinto de lo que se tocó. Sacar sin agregar = venta fantasma. Agregar sin sacar = venta
-      que no se registró. Las diferencias de abajo se recalculan en vivo.
-    </p>
+
     @if (caja().huboVentaDolares) {
-      <p class="alerta-dolares">Esta caja tuvo ventas en dólares: no se pueden sacar entradas de la columna Efectivo.</p>
+      <p class="alerta-dolares">
+        Las ventas cobradas en dólares (marcadas <strong>US$</strong>) no se pueden mover
+      </p>
     }
 
     @for (m of matrices(); track m.tipoId) {
@@ -150,6 +147,9 @@
                 <span class="valor-celda">
                   <strong>
                     {{ celda.cantidad }}
+                    @if (celda.dolares > 0) {
+                      <span class="badge-dolares" [title]="celda.dolares + (celda.dolares === 1 ? ' venta cobrada en dólares — no se puede mover' : ' ventas cobradas en dólares — no se pueden mover')">US$</span>
+                    }
                     @if (celda.aplicado !== 0) {
                       <span class="badge-aplicado" title="Ya ajustado en una corrección anterior">{{ celda.aplicado > 0 ? '+' + celda.aplicado : celda.aplicado }}</span>
                     }

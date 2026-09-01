@@ -60,6 +60,8 @@ export interface OperacionCaja {
   montoArticulos?: number | null;
   /** Sólo en ventas: una entrada por cada línea de entrada paga (tipo + cantidad + su parte del monto). */
   segmentosEntrada?: SegmentoEntrada[] | null;
+  /** Sólo en ventas: true si se cobró en efectivo-dólares. Ese monto no se puede reubicar entre formas de pago. */
+  pagoEnDolares?: boolean | null;
   formaPago: string | null;
   detalle: string;
   /** Sólo en ventas: id de la Compra, para poder cancelarla o editarla. Null en retiros/ingresos. */

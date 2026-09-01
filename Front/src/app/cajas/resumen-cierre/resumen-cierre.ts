@@ -38,6 +38,8 @@ interface CeldaVista {
   aplicado: number;
   /** El cambio de esta sesión en la celda es (todo) un traslado a/desde otra columna (badge amarillo). */
   esTraslado: boolean;
+  /** Cuántas de las ventas de la celda se cobraron en dólares (no se pueden mover). */
+  dolares: number;
   puedeQuitar: boolean;
   puedeAgregar: boolean;
 }
@@ -80,6 +82,8 @@ interface SegView {
   cantidad: number;
   monto: number;
   formaOriginal: ColumnaClave;
+  /** Venta cobrada en efectivo-dólares: no se puede sacar de su forma (entró otra moneda, no pesos). */
+  esDolar: boolean;
 }
 
 const ORDEN_LECTURA = ['EFECTIVO', 'TARJETA', 'QR'];
@@ -289,8 +293,6 @@ export class ResumenCierre {
     this.tiposEntrada().filter((t) => t.tipo === 'ENTRADA' && t.precio > 0).sort((a, b) => a.nombre.localeCompare(b.nombre))
   );
 
-  private efectivoBloqueado = computed(() => this.caja().huboVentaDolares);
-
   /** Todos los segmentos de entrada de ventas reales, con su forma normalizada. */
   private segmentos = computed<SegView[]>(() => {
     const out: SegView[] = [];
@@ -306,6 +308,7 @@ export class ResumenCierre {
           cantidad: s.cantidad,
           monto: s.monto,
           formaOriginal: col,
+          esDolar: !!op.pagoEnDolares,
         });
       });
     }
@@ -425,7 +428,10 @@ export class ResumenCierre {
           const aplicado = this.aplicadoPorCelda().get(`${tipoId}:${size}:${col.clave}`) ?? 0;
           const cantidad = staying.length + extrasAqui + aplicado;
           const ajuste = extrasAqui - removedAqui;
-          const bloqueada = col.clave === 'EFECTIVO_BOLETERIA' && this.efectivoBloqueado();
+          // Las ventas en dólares no se pueden sacar (entró otra moneda, no pesos): sólo bloquean
+          // ESA venta, no la columna entera.
+          const dolares = staying.filter((s) => s.esDolar).length;
+          const movibles = staying.length - dolares;
           const tarifa = this.montoTarifa(tipoId, size, col.clave);
           // partes de esta celda que son un traslado (un − de acá que tiene su + en otra columna, o viceversa)
           const movidoDesde = reubAqui.filter((p) => p.seg.formaOriginal === col.clave && p.extra.forma !== col.clave).length;
@@ -446,7 +452,8 @@ export class ResumenCierre {
             ajuste,
             aplicado,
             esTraslado,
-            puedeQuitar: (staying.length > 0 || extrasAqui > 0) && !bloqueada,
+            dolares,
+            puedeQuitar: movibles > 0 || extrasAqui > 0,
             puedeAgregar: true,
           };
         });
@@ -617,7 +624,12 @@ export class ResumenCierre {
       return;
     }
     const reales = this.segmentos().filter(
-      (s) => s.tipoId === tipoId && s.cantidad === size && s.formaOriginal === col && !this.removidos().has(s.id)
+      (s) =>
+        s.tipoId === tipoId &&
+        s.cantidad === size &&
+        s.formaOriginal === col &&
+        !s.esDolar &&
+        !this.removidos().has(s.id)
     );
     if (reales.length) {
       const r = new Set(this.removidos());

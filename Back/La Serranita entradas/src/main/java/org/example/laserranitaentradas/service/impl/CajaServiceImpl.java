@@ -939,6 +939,7 @@ public class CajaServiceImpl implements CajaService {
                     .montoArticulos(montoArticulos(compra))
                     .segmentosEntrada(segmentosEntrada(compra))
                     .formaPago(compra.getFormaPago())
+                    .pagoEnDolares(compra.getCotizacionDolar() != null)
                     .detalle(detalle)
                     .compraId(compra.getId())
                     .build());

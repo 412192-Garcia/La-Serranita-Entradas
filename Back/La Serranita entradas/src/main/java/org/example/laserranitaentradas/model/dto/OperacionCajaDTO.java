@@ -23,6 +23,8 @@ public class OperacionCajaDTO {
     private List<SegmentoEntradaDTO> segmentosEntrada;
     /** Sólo para ventas. */
     private FormaPago formaPago;
+    /** Sólo para ventas: true si se cobró en efectivo-dólares (entró otra moneda, no pesos al cajón). Ese monto no se puede reasignar entre formas de pago. */
+    private Boolean pagoEnDolares;
     /** Venta: "2x Pase General, 1x Cuadrito recuerdo". Retiro: el motivo. Ingreso de entradas: "+50 entradas — motivo". */
     private String detalle;
     /** Sólo para ventas: id de la Compra, para poder cancelarla o editarla desde el detalle de caja (ADMIN). Null en retiros/ingresos. */

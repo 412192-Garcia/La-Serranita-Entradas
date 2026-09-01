@@ -489,6 +489,18 @@
   color: var(--color-text-muted);
 }
 
+/* Marca que en esa celda hay ventas cobradas en dólares (no se pueden mover). */
+.badge-dolares {
+  margin-left: 4px;
+  font-size: 0.62rem;
+  font-weight: 800;
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 0 3px;
+  cursor: help;
+}
+
 .form-nueva-composicion {
   display: flex;
   flex-wrap: wrap;
