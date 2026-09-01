@@ -62,13 +62,6 @@ function hoyComoFechaInput(): string {
   return fechaComoInput(new Date());
 }
 
-/** El día calendario anterior a `fecha` (string yyyy-MM-dd), como límite superior de "el pasado". */
-function diaAnterior(fecha: string): string {
-  const d = new Date(fecha + 'T00:00:00');
-  d.setDate(d.getDate() - 1);
-  return fechaComoInput(d);
-}
-
 /** "Hoy"/"Mañana"/"Ayer" cuando aplica; null para el resto, que se muestra como día de semana + fecha corta. */
 function etiquetaRelativaFecha(fechaVisita: string, hoy: string): string | null {
   if (fechaVisita === hoy) return 'Hoy';
@@ -200,13 +193,40 @@ function aVista(reserva: Reserva, hoy: string): ReservaVista {
 }
 
 const TAMANIO_PAGINA = 50;
-/** Días (no filas) por página en la vista agrupada: para que la lista se sienta corta
- * (pedido explícito: "es demasiado larga la lista") sin arriesgarse a partir un día a la
- * mitad entre dos páginas — ver `ubicarPaginaDeHoy`/`ejecutarBusquedaAgrupada`. */
-const DIAS_POR_PAGINA_AGRUPADA = 7;
 /** Techo duro del backend para /buscar (ver CompraController): alcanza de sobra para todas
- * las compras de una tanda de `DIAS_POR_PAGINA_AGRUPADA` días en un parque de este tamaño. */
+ * las compras de una semana calendario en un parque de este tamaño. */
 const TAMANIO_MAXIMO_VENTANA_AGRUPADA = 200;
+/** Techo duro del backend para /fechas-visita (ver CompraController). La vista agrupada trae
+ * de una todos los días con actividad y arma las páginas en memoria; en el horizonte útil de
+ * este parque no se llega a 200 días distintos con reservas anticipadas. */
+const TAMANIO_MAXIMO_DIAS_AGRUPADOS = 200;
+
+const MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+
+/** Etiqueta compacta de un rango de fechas para los botones del paginador por semana:
+ * "25–31 ago" (mismo mes), "28 ago – 3 sep" (cruza mes). */
+function rangoFechasCorto(desde: string, hasta: string): string {
+  const d = new Date(desde + 'T00:00:00');
+  const h = new Date(hasta + 'T00:00:00');
+  if (desde === hasta) return `${d.getDate()} ${MESES_CORTOS[d.getMonth()]}`;
+  if (d.getMonth() === h.getMonth()) return `${d.getDate()}–${h.getDate()} ${MESES_CORTOS[h.getMonth()]}`;
+  return `${d.getDate()} ${MESES_CORTOS[d.getMonth()]} – ${h.getDate()} ${MESES_CORTOS[h.getMonth()]}`;
+}
+
+function sumarDias(fecha: string, dias: number): string {
+  const d = new Date(fecha + 'T00:00:00');
+  d.setDate(d.getDate() + dias);
+  return fechaComoInput(d);
+}
+
+/** El lunes de la semana calendario de `fecha` (yyyy-MM-dd). Las páginas de la vista agrupada
+ * son semanas fijas lunes–domingo, no ventanas móviles ancladas en "hoy": así el rango de una
+ * página no cambia porque entró o salió una reserva. */
+function lunesDeLaSemana(fecha: string): string {
+  const d = new Date(fecha + 'T00:00:00');
+  const diaSemana = (d.getDay() + 6) % 7; // 0 = lunes … 6 = domingo
+  return sumarDias(fecha, -diaSemana);
+}
 
 @Component({
   selector: 'app-boleteria',
@@ -315,40 +335,49 @@ export class Boleteria implements OnInit, OnDestroy {
   totalPasesPagina = computed(() => (this.visibles() ?? []).reduce((acc, v) => acc + v.totalPases, 0));
 
   // ---------- Vista agrupada por día ("Ver todas las fechas") ----------
-  // Paginada por DÍA (no por fila): ver `ejecutarBusquedaAgrupada`, que primero pide la
-  // página de días distintos y recién después trae las compras de esos días completos —
-  // así un día nunca queda partido a la mitad entre dos páginas. La página inicial no es
-  // la 0 (que arrancaría en el día pendiente más viejo) sino la que contiene "hoy" — ver
-  // `ubicarPaginaDeHoy`. Los números de página que ve el boletero son relativos a esa
-  // ancla: 0 = hoy, negativo = para atrás, positivo = para adelante.
-  paginaHoy = signal<number | null>(null);
-  /** Total de páginas de DÍAS (distinto de `totalPaginas()`, que en este modo cuenta filas
-   * dentro de la ventana de días ya traída, no la cantidad real de páginas para navegar). */
-  totalPaginasAgrupado = signal(0);
+  // Paginada por SEMANA CALENDARIO (lunes–domingo), no por fila ni por ventana móvil:
+  // `ejecutarBusquedaAgrupada` trae de una todos los días con actividad (`diasConActividad`)
+  // y arma una página por cada semana que tenga al menos un día con compras (`paginasDias`).
+  // El rango de una página es fijo (no se corre porque entró o salió una reserva); la semana
+  // que contiene "hoy" (`paginaHoy`) es el punto de partida y queda marcada, y hay un botón
+  // "Hoy" para volver desde cualquier lado.
+  private diasConActividad = signal<string[]>([]);
 
-  paginaRelativa = computed(() => {
-    const ancla = this.paginaHoy();
-    return ancla === null ? 0 : this.pagina() - ancla;
+  /** Una página por cada semana calendario (lunes–domingo) con al menos un día con compras.
+   * `desde`/`hasta` son el lunes y el domingo de esa semana, para etiquetar el botón. */
+  paginasDias = computed<{ indice: number; desde: string; hasta: string }[]>(() => {
+    const lunes = [...new Set(this.diasConActividad().map(lunesDeLaSemana))].sort();
+    return lunes.map((desde, indice) => ({ indice, desde, hasta: sumarDias(desde, 6) }));
   });
 
-  /** Ventana de hasta 5 páginas relativas para los botones numerados, recortada a los límites reales. */
-  paginasVisibles = computed<number[]>(() => {
-    const ancla = this.paginaHoy();
-    if (ancla === null) return [];
-    const min = -ancla;
-    const max = this.totalPaginasAgrupado() - 1 - ancla;
-    const actual = this.paginaRelativa();
-    const paginas: number[] = [];
-    for (let p = Math.max(min, actual - 2); p <= Math.min(max, actual + 2); p++) paginas.push(p);
-    return paginas;
+  totalPaginasAgrupado = computed(() => this.paginasDias().length);
+
+  /** Índice de la semana que contiene "hoy"; si esa semana no tiene actividad, la primera que
+   * termina en hoy o después (o la última si ya pasaron todas). 0 si todavía no cargó nada. */
+  paginaHoy = computed<number>(() => {
+    const paginas = this.paginasDias();
+    if (paginas.length === 0) return 0;
+    const hoy = hoyComoFechaInput();
+    const idx = paginas.findIndex((p) => p.hasta >= hoy);
+    return idx === -1 ? paginas.length - 1 : idx;
   });
 
-  irAPaginaRelativa(relativa: number): void {
-    const ancla = this.paginaHoy();
-    if (ancla === null || this.buscando()) return;
-    const objetivo = ancla + relativa;
-    if (objetivo === this.pagina()) return;
-    this.pagina.set(objetivo);
+  /** Siempre 3 ranuras (semana anterior · actual · siguiente), con `null` en los bordes de la
+   * lista: así la barra tiene ancho fijo y no se sacude al navegar (los botones también son de
+   * ancho fijo, ver .btn-pagina-dia). */
+  paginasVisibles = computed<({ indice: number; desde: string; hasta: string } | null)[]>(() => {
+    const todas = this.paginasDias();
+    const actual = this.pagina();
+    return [-1, 0, 1].map((offset) => todas[actual + offset] ?? null);
+  });
+
+  etiquetaRangoPagina(pagina: { desde: string; hasta: string }): string {
+    return rangoFechasCorto(pagina.desde, pagina.hasta);
+  }
+
+  irAPagina(indice: number): void {
+    if (this.buscando() || indice === this.pagina()) return;
+    this.pagina.set(indice);
     this.buscando.set(true);
     this.errorBusqueda.set(null);
     this.limpiarOcultamientosPorValidacion();
@@ -602,87 +631,63 @@ export class Boleteria implements OnInit, OnDestroy {
   }
 
   /**
-   * Vista agrupada: primero ubica qué página de DÍAS le toca —la que contiene "hoy" si
-   * `reubicar` (recién se activó "todas las fechas", o cambió algún filtro), o la actual si
-   * se está navegando con `irAPaginaRelativa`/Anterior/Siguiente— y con el primer/último día
-   * de esa página trae todas sus compras vía `buscar` (fechaDesde/fechaHasta), garantizando
-   * que ningún día quede partido a la mitad entre dos páginas.
+   * Vista agrupada. Si `reubicar` (recién se activó "todas las fechas" o cambió un filtro),
+   * primero refresca la lista de días con actividad y se planta en la página que contiene
+   * "hoy"; si sólo se está navegando (`irAPagina`/Anterior/Siguiente), la lista de días ya
+   * está en memoria y sólo trae las compras de la página actual. Cada página cubre el rango
+   * `desde`/`hasta` de su trozo de `paginasDias`, así ningún día queda partido entre dos.
    */
   private ejecutarBusquedaAgrupada(reubicar: boolean): void {
-    if (reubicar) {
-      this.ubicarPaginaDeHoyYBuscar();
-    } else {
-      this.buscarDiasDeLaPaginaActual();
+    if (!reubicar) {
+      this.buscarComprasDeLaPaginaActual();
+      return;
     }
-  }
-
-  /**
-   * Ubica qué página (0-based) contiene "hoy": cuenta cuántos días distintos hay antes de
-   * hoy —mismos filtros, `fechaHasta` = ayer, page 0 y size 1 sólo para leer `totalElements`
-   * de /fechas-visita— y calcula el número de página a partir de esa cantidad de días.
-   */
-  private ubicarPaginaDeHoyYBuscar(): void {
-    const hoy = hoyComoFechaInput();
     this.boleteriaService
-      .buscarFechasDistintas({ ...this.construirFiltroBase(), fechaHasta: diaAnterior(hoy), page: 0, size: 1 })
+      .buscarFechasDistintas({ ...this.construirFiltroBase(), page: 0, size: TAMANIO_MAXIMO_DIAS_AGRUPADOS })
       .subscribe({
-        next: (conteo) => {
-          const ancla = Math.floor(conteo.totalElements / DIAS_POR_PAGINA_AGRUPADA);
-          this.paginaHoy.set(ancla);
-          this.pagina.set(ancla);
-          this.buscarDiasDeLaPaginaActual();
+        next: (paginaFechas) => {
+          this.diasConActividad.set(paginaFechas.content);
+          this.pagina.set(this.paginaHoy());
+          this.buscarComprasDeLaPaginaActual();
         },
         error: (err) => {
-          console.error('No se pudo ubicar la página de hoy:', err);
-          this.paginaHoy.set(0);
+          console.error('No se pudieron traer los días con actividad:', err);
+          this.diasConActividad.set([]);
           this.pagina.set(0);
-          this.buscarDiasDeLaPaginaActual();
+          this.errorBusqueda.set('No se pudo buscar. Revisá la conexión y reintentá.');
+          this.buscando.set(false);
         },
       });
   }
 
-  /** Trae los días de `pagina()` y, con ese rango, todas sus compras. Los regalos (sin fecha)
-   * no aparecen acá — /fechas-visita ya los excluye, ver su propio bloque colapsable aparte. */
-  private buscarDiasDeLaPaginaActual(): void {
-    const filtroBase = this.construirFiltroBase();
+  /** Trae todas las compras del rango de fechas de la página actual (`paginasDias`). Los
+   * regalos (sin fecha) no aparecen acá — /fechas-visita ya los excluye, ver su propio
+   * bloque colapsable aparte. */
+  private buscarComprasDeLaPaginaActual(): void {
+    const paginaActual = this.paginasDias()[this.pagina()];
+    if (!paginaActual) {
+      this.resultado.set({ content: [], totalElements: 0, totalPages: 0, number: 0, size: 0 });
+      this.buscando.set(false);
+      return;
+    }
     this.boleteriaService
-      .buscarFechasDistintas({ ...filtroBase, page: this.pagina(), size: DIAS_POR_PAGINA_AGRUPADA })
+      .buscar({
+        ...this.construirFiltroBase(),
+        fechaDesde: paginaActual.desde,
+        fechaHasta: paginaActual.hasta,
+        ordenarPor: 'fechaVisita',
+        direccion: 'ASC',
+        page: 0,
+        size: TAMANIO_MAXIMO_VENTANA_AGRUPADA,
+      })
       .subscribe({
-        next: (paginaFechas) => {
-          this.totalPaginasAgrupado.set(paginaFechas.totalPages);
-          const fechas = paginaFechas.content;
-
-          if (fechas.length === 0) {
-            this.resultado.set({ content: [], totalElements: 0, totalPages: 0, number: 0, size: 0 });
-            this.buscando.set(false);
-            return;
-          }
-
-          this.boleteriaService
-            .buscar({
-              ...filtroBase,
-              fechaDesde: fechas[0],
-              fechaHasta: fechas[fechas.length - 1],
-              ordenarPor: 'fechaVisita',
-              direccion: 'ASC',
-              page: 0,
-              size: TAMANIO_MAXIMO_VENTANA_AGRUPADA,
-            })
-            .subscribe({
-              next: (res) => {
-                this.resultado.set(res);
-                this.buscando.set(false);
-                queueMicrotask(() => this.centrarEnHoy());
-              },
-              error: (err) => {
-                console.error('No se pudo buscar:', err);
-                this.errorBusqueda.set('No se pudo buscar. Revisá la conexión y reintentá.');
-                this.buscando.set(false);
-              },
-            });
+        next: (res) => {
+          this.resultado.set(res);
+          this.buscando.set(false);
+          queueMicrotask(() => this.centrarEnHoy());
         },
         error: (err) => {
-          console.error('No se pudieron traer los días:', err);
+          console.error('No se pudo buscar:', err);
           this.errorBusqueda.set('No se pudo buscar. Revisá la conexión y reintentá.');
           this.buscando.set(false);
         },

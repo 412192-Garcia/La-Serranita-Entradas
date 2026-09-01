@@ -3,21 +3,21 @@
   <app-cabecera-interna
     titulo="Control de Accesos"
     descripcion="Buscá por DNI, por nombre, por email o por código de reserva, mirá un día puntual, o listá todas las reservas."
-    [pasosTutorial]="pasosTutorial" />
-
-  <div data-tour="caja">
-    @if (cajaActual() === null) {
-      <button type="button" class="indicador-caja indicador-caja-cerrada" (click)="mostrarAperturaCaja.set(true)">
-        <span class="punto-indicador-caja"></span>
-        Caja cerrada · Tocá para abrirla
-      </button>
-    } @else if (cajaActual()) {
-      <span class="indicador-caja">
-        <span class="punto-indicador-caja"></span>
-        Caja abierta
-      </span>
-    }
-  </div>
+    [pasosTutorial]="pasosTutorial">
+    <div cabecera-acciones data-tour="caja" class="slot-indicador-caja">
+      @if (cajaActual() === null) {
+        <button type="button" class="indicador-caja indicador-caja-cerrada" (click)="mostrarAperturaCaja.set(true)">
+          <span class="punto-indicador-caja"></span>
+          Caja cerrada · Tocá para abrirla
+        </button>
+      } @else if (cajaActual()) {
+        <span class="indicador-caja">
+          <span class="punto-indicador-caja"></span>
+          Caja abierta
+        </span>
+      }
+    </div>
+  </app-cabecera-interna>
 
   @if (mostrarAperturaCaja()) {
     <app-modal (cerrar)="mostrarAperturaCaja.set(false)">
@@ -190,8 +190,8 @@
     <app-spinner />
   } @else if (todasLasFechas()) {
     <!-- "Ver todas las fechas" (o una búsqueda por texto): agrupadas en un contenedor por día,
-         paginadas por día con "hoy" como página 0 — ver el comentario en boleteria.ts sobre
-         `ejecutarBusquedaAgrupada`/`paginaRelativa`. -->
+         paginadas por semana calendario (lunes–domingo), arrancando en la semana que contiene
+         "hoy" — ver el comentario en boleteria.ts sobre `ejecutarBusquedaAgrupada`/`paginasDias`. -->
     @if (gruposDia().length === 0) {
       <div class="sin-resultados">
         <svg lucideSearchX class="sin-resultados-icono" [strokeWidth]="1.5"></svg>
@@ -292,37 +292,63 @@
 
   <!-- Fila de resultado: la misma para la tabla plana (día puntual) y para cada contenedor de
        la vista agrupada (todas las fechas) — evita duplicar este bloque en los dos lugares. -->
-  <!-- Números relativos a "hoy" (0 = hoy, negativo = para atrás, positivo = para adelante):
-       se repite arriba y abajo de la lista, siempre la misma franja. -->
+  <!-- Cada botón muestra el rango de fechas de esa semana (la de hoy se etiqueta "Hoy" y va con
+       anillo); el botón "Hoy" suelto aparece del lado hacia el que hay que ir (izquierda si mirás
+       semanas futuras, derecha si estás en el pasado). Se repite arriba y abajo de la lista. -->
   <ng-template #paginadorDiasTpl>
     <div class="paginador-dias">
+      <!-- Ranuras de ancho fijo a los costados: el botón "Hoy" entra y sale sin mover el resto de
+           la barra. Sólo aparece cuando la semana de hoy quedó fuera de la franja visible (a más de
+           una semana), porque si está a la vista ya se toca directo. -->
+      <span class="ranura-volver-hoy ranura-volver-hoy-izq">
+        @if (pagina() > paginaHoy() + 1) {
+          <button type="button" class="btn-volver-hoy" [disabled]="buscando()" (click)="irAPagina(paginaHoy())">
+            <svg lucideChevronLeft [strokeWidth]="2.5"></svg>
+            Hoy
+          </button>
+        }
+      </span>
       <button
         type="button"
         class="btn-flecha-pagina"
-        aria-label="Días anteriores"
+        aria-label="Semana anterior"
         [disabled]="pagina() === 0 || buscando()"
         (click)="paginaAnterior()">
         <svg lucideChevronLeft [strokeWidth]="2.5"></svg>
       </button>
-      @for (p of paginasVisibles(); track p) {
-        <button
-          type="button"
-          class="btn-pagina-dia"
-          [class.activo]="p === paginaRelativa()"
-          [attr.aria-current]="p === paginaRelativa() ? 'page' : null"
-          [disabled]="buscando()"
-          (click)="irAPaginaRelativa(p)">
-          {{ p === 0 ? 'Hoy' : (p > 0 ? '+' + p : p) }}
-        </button>
+      @for (p of paginasVisibles(); track $index) {
+        @if (p) {
+          <button
+            type="button"
+            class="btn-pagina-dia"
+            [class.activo]="p.indice === pagina()"
+            [class.es-hoy]="p.indice === paginaHoy()"
+            [attr.aria-current]="p.indice === pagina() ? 'page' : null"
+            [title]="etiquetaRangoPagina(p)"
+            [disabled]="buscando()"
+            (click)="irAPagina(p.indice)">
+            {{ p.indice === paginaHoy() ? 'Hoy' : etiquetaRangoPagina(p) }}
+          </button>
+        } @else {
+          <span class="btn-pagina-dia btn-pagina-dia-vacia" aria-hidden="true"></span>
+        }
       }
       <button
         type="button"
         class="btn-flecha-pagina"
-        aria-label="Días siguientes"
+        aria-label="Semana siguiente"
         [disabled]="pagina() + 1 >= totalPaginasAgrupado() || buscando()"
         (click)="paginaSiguiente()">
         <svg lucideChevronRight [strokeWidth]="2.5"></svg>
       </button>
+      <span class="ranura-volver-hoy ranura-volver-hoy-der">
+        @if (pagina() < paginaHoy() - 1) {
+          <button type="button" class="btn-volver-hoy" [disabled]="buscando()" (click)="irAPagina(paginaHoy())">
+            Hoy
+            <svg lucideChevronRight [strokeWidth]="2.5"></svg>
+          </button>
+        }
+      </span>
     </div>
   </ng-template>
 

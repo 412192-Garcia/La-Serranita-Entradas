@@ -10,6 +10,7 @@ import org.example.laserranitaentradas.repository.CajaRepository;
 import org.example.laserranitaentradas.repository.CompraRepository;
 import org.example.laserranitaentradas.repository.RetiroCajaRepository;
 import org.example.laserranitaentradas.repository.TipoEntradaRepository;
+import org.example.laserranitaentradas.service.CajaService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -40,6 +41,7 @@ class ReporteServiceImplTest {
     @Mock private TipoEntradaRepository tipoEntradaRepository;
     @Mock private CajaRepository cajaRepository;
     @Mock private RetiroCajaRepository retiroCajaRepository;
+    @Mock private CajaService cajaService;
 
     private ReporteServiceImpl service;
 
@@ -47,10 +49,11 @@ class ReporteServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        service = new ReporteServiceImpl(compraRepository, tipoEntradaRepository, cajaRepository, retiroCajaRepository);
+        service = new ReporteServiceImpl(compraRepository, tipoEntradaRepository, cajaRepository, retiroCajaRepository, cajaService);
         lenient().when(tipoEntradaRepository.findAll()).thenReturn(List.of());
         lenient().when(cajaRepository.findAllByFechaCierreBetweenOrderByFechaCierreDesc(any(), any())).thenReturn(List.of());
         lenient().when(cajaRepository.findIdsDeshabilitadas()).thenReturn(List.of());
+        lenient().when(cajaService.diferenciaPosnetPorCaja(any())).thenReturn(java.util.Map.of());
     }
 
     @Test

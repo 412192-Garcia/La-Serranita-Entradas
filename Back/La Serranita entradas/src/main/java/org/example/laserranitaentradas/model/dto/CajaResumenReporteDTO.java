@@ -18,6 +18,9 @@ public class CajaResumenReporteDTO {
     private BigDecimal totalRetiros;
     private BigDecimal montoEsperado;
     private BigDecimal montoContado;
-    /** montoContado − montoEsperado: positivo es sobrante, negativo es faltante. */
+    /** montoContado − montoEsperado: positivo es sobrante, negativo es faltante. Sólo efectivo. */
     private BigDecimal diferencia;
+    /** Diferencia combinada de Tarjeta + QR: lo cerrado en el/los posnet − lo vendido con tarjeta y QR
+     * (con ajustes). Positivo es sobrante, negativo es faltante. 0 si esta caja no tuvo nada de posnet. */
+    private BigDecimal diferenciaPosnet;
 }

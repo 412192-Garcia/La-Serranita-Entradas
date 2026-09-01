@@ -5,6 +5,7 @@
   </div>
 }
 
+@if (!modoRevision()) {
 <div class="tarjeta-kpis-detalle">
   <div>
     <h2>Total vendido</h2>
@@ -84,19 +85,24 @@
 }
 
 <p class="fila-entradas-fisicas">
-  Entradas físicas: inicial {{ caja().entradasFisicasInicial ?? '—' }} · cortadas {{ caja().entradasFisicasCortadas ?? '—' }}
-  @if (caja().entradasFisicasEsperadas !== null) {
-    <span [class]="claseDiferenciaValor(caja().diferenciaEntradas)">
-      · esperadas {{ caja().entradasFisicasEsperadas }}
-      ({{ (caja().diferenciaEntradas ?? 0) < 0 ? 'faltan ' + (-caja().diferenciaEntradas!) : (caja().diferenciaEntradas ?? 0) > 0 ? 'sobran ' + caja().diferenciaEntradas : 'sin diferencia' }})
-    </span>
+  Entradas vendidas: <strong>{{ caja().totalEntradasPagas ?? 0 }}</strong>
+  @if (caja().entradasFisicasCortadas !== null && caja().entradasFisicasCortadas !== undefined) {
+    · cortadas del talonario <strong>{{ caja().entradasFisicasCortadas }}</strong>
+    @if (caja().diferenciaEntradas !== null) {
+      @if (caja().diferenciaEntradas! > 0) {
+        · <span class="diferencia-faltante">faltan cortar {{ caja().diferenciaEntradas }}</span>
+      } @else if (caja().diferenciaEntradas! < 0) {
+        · <span class="diferencia-faltante">{{ -caja().diferenciaEntradas! }} cortadas de más</span>
+      }
+    }
   }
 </p>
+}
 
 <!-- ---------- Ventas por forma de pago ---------- -->
 <div class="bloque-desglose-ventas">
   <div class="cabecera-desglose-ventas">
-    <h3>Resumen de ventas</h3>
+    <h3>{{ modoRevision() ? 'Corregir la caja' : 'Resumen de ventas' }}</h3>
   </div>
 
   @if (!modoRevision()) {
@@ -126,6 +132,35 @@
     @if (caja().huboVentaDolares) {
       <p class="alerta-dolares">
         Las ventas cobradas en dólares (marcadas <strong>US$</strong>) no se pueden mover
+      </p>
+    }
+
+    <p class="titulo-totales-revision">Cómo quedaría el cierre con estos cambios</p>
+    <div class="tabla-simple tabla-totales-revision">
+      <div class="fila-simple fila-simple-formaspago fila-simple-header">
+        <span>Forma de pago</span><span>Esperado</span><span>Contado</span><span>Diferencia</span>
+      </div>
+      @for (total of totalesRevision(); track total.clave) {
+        <div class="fila-simple fila-simple-formaspago">
+          <span>{{ total.etiqueta }}</span>
+          <span>{{ total.esperado | pesos }}</span>
+          <span>{{ total.contado === null ? '—' : (total.contado | pesos) }}</span>
+          <span [class]="claseDiferenciaValor(total.diferencia)">{{ total.diferencia === null ? '—' : (total.diferencia | pesos) }}</span>
+        </div>
+      }
+    </div>
+
+    @if (entradasRevision(); as e) {
+      <p class="fila-entradas-revision" [class.fila-entradas-revision-cambio]="e.cambio">
+        Entradas vendidas: <strong>{{ e.vendidas }}</strong>
+        @if (e.cortadas !== null) {
+          · cortadas del talonario <strong>{{ e.cortadas }}</strong>
+          @if (e.diferenciaTalonario! > 0) {
+            · <span class="diferencia-faltante">faltan cortar {{ e.diferenciaTalonario }}</span>
+          } @else if (e.diferenciaTalonario! < 0) {
+            · <span class="diferencia-faltante">{{ -e.diferenciaTalonario! }} cortadas de más</span>
+          }
+        }
       </p>
     }
 
@@ -269,33 +304,6 @@
           </span>
         }
       </div>
-    }
-
-    <div class="tabla-simple tabla-totales-revision">
-      <div class="fila-simple fila-simple-formaspago fila-simple-header">
-        <span>Forma de pago</span><span>Esperado</span><span>Contado</span><span>Diferencia</span>
-      </div>
-      @for (total of totalesRevision(); track total.clave) {
-        <div class="fila-simple fila-simple-formaspago">
-          <span>{{ total.etiqueta }}</span>
-          <span>{{ total.esperado | pesos }}</span>
-          <span>{{ total.contado === null ? '—' : (total.contado | pesos) }}</span>
-          <span [class]="claseDiferenciaValor(total.diferencia)">{{ total.diferencia === null ? '—' : (total.diferencia | pesos) }}</span>
-        </div>
-      }
-    </div>
-
-    @if (entradasRevision(); as e) {
-      <p class="fila-entradas-revision" [class.fila-entradas-revision-cambio]="e.cambio">
-        Entradas: <strong>{{ e.vendidas }}</strong> vendidas · esperás cortar
-        <strong>{{ e.esperadasTalonario }}</strong> del talonario
-        @if (e.cortadas !== null) {
-          · cortaste {{ e.cortadas }}
-          <span [class]="claseDiferenciaValor(e.diferenciaTalonario)">
-            ({{ e.diferenciaTalonario! < 0 ? 'faltan ' + (-e.diferenciaTalonario!) : e.diferenciaTalonario! > 0 ? 'sobran ' + e.diferenciaTalonario : 'sin diferencia' }})
-          </span>
-        }
-      </p>
     }
 
     @if (errorRevision()) {

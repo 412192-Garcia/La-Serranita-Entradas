@@ -30,13 +30,6 @@
   gap: 20px;
 }
 
-.tarjeta-kpis-cajas {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
-  margin-bottom: 16px;
-}
-
 .kpi-numero {
   font-family: var(--font-heading);
   font-size: 2.4rem;
@@ -54,7 +47,7 @@
 }
 
 .fila-simple-cajas {
-  grid-template-columns: 1.3fr 1fr 1fr 0.9fr 0.9fr 0.9fr 0.9fr 0.9fr;
+  grid-template-columns: 1.3fr 1fr 0.9fr 1fr 1fr 1fr;
   font-size: 0.85rem;
 }
 
@@ -86,7 +79,7 @@
 }
 
 .fila-simple-ranking {
-  grid-template-columns: 1.6fr 1fr 1fr 1fr 1fr;
+  grid-template-columns: 1.6fr 0.7fr 1.1fr 1fr 1fr 1fr;
   font-size: 0.9rem;
 }
 
@@ -155,7 +148,6 @@
 
 /* ---------- Responsive ---------- */
 @media (max-width: 900px) {
-  .tarjeta-kpis-cajas { grid-template-columns: 1fr; }
   .fila-simple-cajas { grid-template-columns: 1fr; font-size: 0.8rem; }
   .fila-simple-ranking { grid-template-columns: 1fr; font-size: 0.8rem; }
 }

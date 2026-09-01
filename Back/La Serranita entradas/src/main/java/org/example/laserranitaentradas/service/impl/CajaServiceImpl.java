@@ -611,10 +611,12 @@ public class CajaServiceImpl implements CajaService {
         );
         Page<Caja> pagina = cajaRepository.findAll(spec, pageable);
 
-        // Sólo se calcula retiros por caja (N+1) para las de ESTA página, no para todo el rango —
-        // a diferencia de ReporteServiceImpl.getResumen, que hace este mismo loop sobre TODAS las
-        // cajas del rango de una porque necesita el ranking de boleteros completo.
-        List<CajaResumenReporteDTO> contenido = pagina.getContent().stream()
+        // Sólo la página: retiros y diferencia de posnet (N+1 / 3 queries en lote) se calculan para
+        // las ≤100 filas que se muestran, no para todo el rango.
+        List<Caja> filas = pagina.getContent();
+        Map<Long, BigDecimal> difPosnet = diferenciaPosnetPorCaja(filas.stream().map(Caja::getId).toList());
+
+        List<CajaResumenReporteDTO> contenido = filas.stream()
                 .map(caja -> new CajaResumenReporteDTO(
                         caja.getId(),
                         caja.getUsuario().getNombre() + " " + caja.getUsuario().getApellido(),
@@ -624,13 +626,10 @@ public class CajaServiceImpl implements CajaService {
                         sumRetiros(caja.getId()),
                         caja.getMontoEsperado(),
                         caja.getMontoContado(),
-                        caja.getDiferencia()
+                        caja.getDiferencia(),
+                        difPosnet.getOrDefault(caja.getId(), BigDecimal.ZERO)
                 ))
                 .toList();
-
-        BigDecimal totalRetiros = retiroCajaRepository.sumRetirosDeCajasCerradas(desdeDt, hastaDt, usuarioNombre, TipoMovimientoCaja.APORTE);
-        BigDecimal totalFaltantes = cajaRepository.sumFaltantes(desdeDt, hastaDt, usuarioNombre);
-        BigDecimal totalSobrantes = cajaRepository.sumSobrantes(desdeDt, hastaDt, usuarioNombre);
 
         return CajasCerradasResponseDTO.builder()
                 .content(contenido)
@@ -638,9 +637,6 @@ public class CajaServiceImpl implements CajaService {
                 .totalPages(pagina.getTotalPages())
                 .number(pagina.getNumber())
                 .size(pagina.getSize())
-                .totalRetiros(totalRetiros)
-                .totalFaltantes(totalFaltantes)
-                .totalSobrantes(totalSobrantes)
                 .build();
     }
 
@@ -794,6 +790,39 @@ public class CajaServiceImpl implements CajaService {
                 .filter(c -> c.getFormaPago() == formaPago)
                 .map(CierrePosnet::getMonto)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    /** Formas de pago que van al "posnet" para la diferencia combinada de Tarjeta + QR. */
+    private static final Set<FormaPago> FORMAS_POSNET_DIF = Set.of(FormaPago.TARJETA, FormaPago.MERCADO_PAGO_QR);
+
+    @Override
+    public Map<Long, BigDecimal> diferenciaPosnetPorCaja(List<Long> cajaIds) {
+        if (cajaIds == null || cajaIds.isEmpty()) return Map.of();
+        Map<Long, BigDecimal> cerrado = agruparPorCaja(cierrePosnetRepository.sumMontoPorCaja(cajaIds));
+        Map<Long, BigDecimal> vendido = agruparPorCaja(
+                compraRepository.sumMontoPorCajaYFormas(cajaIds, FORMAS_POSNET_DIF, EstadoCompra.CANCELADO));
+        Map<Long, BigDecimal> ajusteNeto = agruparPorCaja(ajusteCajaRepository.netoPorCajaYFormas(cajaIds, FORMAS_POSNET_DIF));
+
+        Map<Long, BigDecimal> resultado = new java.util.HashMap<>();
+        for (Long id : cajaIds) {
+            BigDecimal dif = cerrado.getOrDefault(id, BigDecimal.ZERO)
+                    .subtract(vendido.getOrDefault(id, BigDecimal.ZERO))
+                    .subtract(ajusteNeto.getOrDefault(id, BigDecimal.ZERO));
+            resultado.put(id, dif);
+        }
+        return resultado;
+    }
+
+    /** Convierte las filas [idCaja, valor] de un GROUP BY a un Map, tolerando que el valor venga como Long/BigDecimal. */
+    private static Map<Long, BigDecimal> agruparPorCaja(List<Object[]> filas) {
+        Map<Long, BigDecimal> m = new java.util.HashMap<>();
+        for (Object[] fila : filas) {
+            if (fila[0] == null) continue;
+            Long id = ((Number) fila[0]).longValue();
+            BigDecimal valor = fila[1] == null ? BigDecimal.ZERO : new BigDecimal(fila[1].toString());
+            m.put(id, valor);
+        }
+        return m;
     }
 
     /**

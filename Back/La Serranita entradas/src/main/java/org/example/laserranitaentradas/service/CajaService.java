@@ -130,6 +130,14 @@ public interface CajaService {
     CajaResponseDTO eliminarAjuste(Long cajaId, Long ajusteId);
 
     /**
+     * Diferencia combinada de Tarjeta + QR por caja (lo cerrado en el/los posnet menos lo vendido
+     * con tarjeta y QR, con los ajustes manuales aplicados). Positivo = sobró, negativo = faltó, 0
+     * si la caja no tuvo nada de posnet. En lote (3 queries agrupadas) para el listado de cajas
+     * cerradas, el ranking y los KPIs, donde no llega el detalle completo del cierre.
+     */
+    java.util.Map<Long, java.math.BigDecimal> diferenciaPosnetPorCaja(java.util.List<Long> cajaIds);
+
+    /**
      * Deshabilita una caja YA CERRADA: desaparece de todos los listados/KPIs de Cajas, del ranking
      * y del reporte agregado, y sus ventas dejan de sumar en el reporte (ver ReporteService). El
      * detalle por id la sigue devolviendo, con habilitada=false. Irreversible desde la app.

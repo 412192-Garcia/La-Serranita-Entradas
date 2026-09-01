@@ -26,6 +26,7 @@ import org.example.laserranitaentradas.repository.CajaRepository;
 import org.example.laserranitaentradas.repository.CompraRepository;
 import org.example.laserranitaentradas.repository.RetiroCajaRepository;
 import org.example.laserranitaentradas.repository.TipoEntradaRepository;
+import org.example.laserranitaentradas.service.CajaService;
 import org.example.laserranitaentradas.service.ReporteService;
 import org.springframework.stereotype.Service;
 
@@ -59,13 +60,16 @@ public class ReporteServiceImpl implements ReporteService {
     private final TipoEntradaRepository tipoEntradaRepository;
     private final CajaRepository cajaRepository;
     private final RetiroCajaRepository retiroCajaRepository;
+    private final CajaService cajaService;
 
     public ReporteServiceImpl(CompraRepository compraRepository, TipoEntradaRepository tipoEntradaRepository,
-                              CajaRepository cajaRepository, RetiroCajaRepository retiroCajaRepository) {
+                              CajaRepository cajaRepository, RetiroCajaRepository retiroCajaRepository,
+                              CajaService cajaService) {
         this.compraRepository = compraRepository;
         this.tipoEntradaRepository = tipoEntradaRepository;
         this.cajaRepository = cajaRepository;
         this.retiroCajaRepository = retiroCajaRepository;
+        this.cajaService = cajaService;
     }
 
     @Override
@@ -335,6 +339,12 @@ public class ReporteServiceImpl implements ReporteService {
         BigDecimal totalFaltantesCajas = BigDecimal.ZERO;
         BigDecimal totalSobrantesCajas = BigDecimal.ZERO;
 
+        List<Long> idsHabilitadas = cajasCerradas.stream()
+                .filter(Caja::estaHabilitada)
+                .map(Caja::getId)
+                .toList();
+        Map<Long, BigDecimal> difPosnetPorCaja = cajaService.diferenciaPosnetPorCaja(idsHabilitadas);
+
         for (Caja caja : cajasCerradas) {
             // Deshabilitada por un admin: fuera de la sección "cajas" del reporte y de los totales
             // de retiros/faltantes/sobrantes (mismo criterio que `if (!tipo.getActivo()) continue`).
@@ -347,10 +357,14 @@ public class ReporteServiceImpl implements ReporteService {
             totalRetirosCajas = totalRetirosCajas.add(retirosCaja);
 
             BigDecimal diferencia = caja.getDiferencia() != null ? caja.getDiferencia() : BigDecimal.ZERO;
-            if (diferencia.compareTo(BigDecimal.ZERO) < 0) {
-                totalFaltantesCajas = totalFaltantesCajas.add(diferencia.abs());
+            BigDecimal diferenciaPosnet = difPosnetPorCaja.getOrDefault(caja.getId(), BigDecimal.ZERO);
+            // Faltante/sobrante neteando efectivo + Tarjeta/QR: si la plata está en otra forma de
+            // pago sigue estando, no falta como tal.
+            BigDecimal neto = diferencia.add(diferenciaPosnet);
+            if (neto.signum() < 0) {
+                totalFaltantesCajas = totalFaltantesCajas.add(neto.negate());
             } else {
-                totalSobrantesCajas = totalSobrantesCajas.add(diferencia);
+                totalSobrantesCajas = totalSobrantesCajas.add(neto);
             }
 
             cajas.add(new CajaResumenReporteDTO(
@@ -362,7 +376,8 @@ public class ReporteServiceImpl implements ReporteService {
                     retirosCaja,
                     caja.getMontoEsperado(),
                     caja.getMontoContado(),
-                    diferencia));
+                    diferencia,
+                    diferenciaPosnet));
         }
 
         List<VentaArticuloVarioDTO> ventasArticulosVarios = new ArrayList<>(articulosPorId.values().stream()

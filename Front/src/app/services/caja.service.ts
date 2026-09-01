@@ -226,16 +226,14 @@ export interface CajaCerrada {
   totalRetiros: number;
   montoEsperado: number;
   montoContado: number;
+  /** Sólo efectivo: montoContado − montoEsperado. */
   diferencia: number;
+  /** Tarjeta + QR combinados: lo cerrado en el/los posnet − lo vendido con tarjeta y QR. 0 si no hubo posnet. */
+  diferenciaPosnet: number;
 }
 
-/** Página de "Cajas cerradas": mismas propiedades que Pagina<T>, más los totales de retiros/
- * faltantes/sobrantes de TODO lo que matchea el filtro (no sólo la página actual). */
-export interface CajasCerradasResponse extends Pagina<CajaCerrada> {
-  totalRetiros: number;
-  totalFaltantes: number;
-  totalSobrantes: number;
-}
+/** Página de "Cajas cerradas": mismas propiedades que Pagina<T>. */
+export type CajasCerradasResponse = Pagina<CajaCerrada>;
 
 @Injectable({
   providedIn: 'root',

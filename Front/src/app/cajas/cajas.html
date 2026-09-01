@@ -75,21 +75,6 @@
         }
       }
 
-      <div class="tarjeta-kpis tarjeta-kpis-cajas">
-        <div>
-          <h2>Retiros</h2>
-          <p class="kpi-numero kpi-numero-secundario">{{ totalesCerradas().retiros | pesos }}</p>
-        </div>
-        <div>
-          <h2>Faltantes</h2>
-          <p class="kpi-numero kpi-numero-secundario kpi-numero-negativo">{{ totalesCerradas().faltantes | pesos }}</p>
-        </div>
-        <div>
-          <h2>Sobrantes</h2>
-          <p class="kpi-numero kpi-numero-secundario">{{ totalesCerradas().sobrantes | pesos }}</p>
-        </div>
-      </div>
-
       @if (cargandoCerradas()) {
         <app-spinner />
       } @else if (errorCerradas()) {
@@ -103,42 +88,29 @@
               Boletero
               <app-columna-ordenable [estado]="estadoOrdenCajas('usuarioNombre')" />
             </button>
-            <button type="button" class="col-ordenable" (click)="ordenarColumnaCajas('fechaApertura')">
-              Apertura
-              <app-columna-ordenable [estado]="estadoOrdenCajas('fechaApertura')" />
-            </button>
             <button type="button" class="col-ordenable" (click)="ordenarColumnaCajas('fechaCierre')">
               Cierre
               <app-columna-ordenable [estado]="estadoOrdenCajas('fechaCierre')" />
-            </button>
-            <button type="button" class="col-ordenable" (click)="ordenarColumnaCajas('montoInicial')">
-              Inicial
-              <app-columna-ordenable [estado]="estadoOrdenCajas('montoInicial')" />
             </button>
             <span>Retiros</span>
             <button type="button" class="col-ordenable" (click)="ordenarColumnaCajas('montoEsperado')">
               Esperado
               <app-columna-ordenable [estado]="estadoOrdenCajas('montoEsperado')" />
             </button>
-            <button type="button" class="col-ordenable" (click)="ordenarColumnaCajas('montoContado')">
-              Contado
-              <app-columna-ordenable [estado]="estadoOrdenCajas('montoContado')" />
-            </button>
             <button type="button" class="col-ordenable" (click)="ordenarColumnaCajas('diferencia')">
-              Diferencia
+              Dif. efectivo
               <app-columna-ordenable [estado]="estadoOrdenCajas('diferencia')" />
             </button>
+            <span>Dif. posnet</span>
           </div>
           @for (c of cajasCerradas(); track c.id) {
             <div class="fila-simple fila-simple-cajas fila-clickable" [class.fila-expandida]="filaExpandidaId() === c.id" (click)="toggleDetalle(c.id)">
               <span>{{ c.usuarioNombre }}</span>
-              <span>{{ c.fechaApertura | date: 'dd/MM HH:mm' }}</span>
               <span>{{ c.fechaCierre | date: 'dd/MM HH:mm' }}</span>
-              <span>{{ c.montoInicial | pesos }}</span>
               <span>{{ c.totalRetiros | pesos }}</span>
               <span>{{ c.montoEsperado | pesos }}</span>
-              <span>{{ c.montoContado | pesos }}</span>
-              <span [class]="claseDiferencia(c)">{{ c.diferencia | pesos }}</span>
+              <span [class]="claseDiferencia(c.diferencia)">{{ c.diferencia | pesos }}</span>
+              <span [class]="claseDiferencia(c.diferenciaPosnet)">{{ c.diferenciaPosnet | pesos }}</span>
             </div>
             @if (filaExpandidaId() === c.id) {
               <div class="fila-detalle-expandida" (click)="$event.stopPropagation()">
@@ -171,13 +143,13 @@
     } @else if (resumen(); as r) {
       <div class="tarjeta">
         <h2>Ranking de boleteros</h2>
-        <p class="ayuda">Desempeño acumulado por boletero en el rango: turnos trabajados, efectivo vendido en puerta, retiros y diferencia de caja.</p>
+        <p class="ayuda">Desempeño acumulado por boletero en el rango: turnos trabajados, efectivo vendido en puerta, retiros y las diferencias de efectivo y de posnet (tarjeta + QR).</p>
         @if (rankingBoleteros(r).length === 0) {
           <p class="ayuda">No se cerró ninguna caja en este rango.</p>
         } @else {
           <div class="tabla-simple">
             <div class="fila-simple fila-simple-ranking fila-simple-header">
-              <span>Boletero</span><span>Turnos</span><span>Efectivo vendido</span><span>Retiros</span><span>Diferencia</span>
+              <span>Boletero</span><span>Turnos</span><span>Efectivo vendido</span><span>Retiros</span><span>Dif. efectivo</span><span>Dif. posnet</span>
             </div>
             @for (b of rankingBoleteros(r); track b.nombre) {
               <div class="fila-simple fila-simple-ranking">
@@ -185,9 +157,8 @@
                 <span>{{ b.turnos }}</span>
                 <span>{{ b.efectivoVendido | pesos }}</span>
                 <span>{{ b.retiros | pesos }}</span>
-                <span [class]="b.diferencia < 0 ? 'diferencia-faltante' : b.diferencia > 0 ? 'diferencia-sobrante' : 'diferencia-exacta'">
-                  {{ b.diferencia | pesos }}
-                </span>
+                <span [class]="claseDiferencia(b.diferencia)">{{ b.diferencia | pesos }}</span>
+                <span [class]="claseDiferencia(b.diferenciaPosnet)">{{ b.diferenciaPosnet | pesos }}</span>
               </div>
             }
           </div>
