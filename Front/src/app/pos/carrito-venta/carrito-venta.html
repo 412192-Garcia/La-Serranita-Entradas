@@ -162,6 +162,11 @@
                 <span>Vuelto en pesos</span>
                 <strong>{{ vueltoDolares | pesos }}</strong>
               </div>
+            } @else if (faltaEnPesosPorDolares(); as faltaDolares) {
+              <div class="vuelto-resultado vuelto-falta">
+                <span>Falta (en pesos)</span>
+                <strong>{{ faltaDolares | pesos }}</strong>
+              </div>
             }
           }
         } @else {
@@ -179,6 +184,11 @@
             <div class="vuelto-resultado">
               <span>Vuelto</span>
               <strong>{{ vuelto() | pesos }}</strong>
+            </div>
+          } @else if (falta() !== null) {
+            <div class="vuelto-resultado vuelto-falta">
+              <span>Falta</span>
+              <strong>{{ falta() | pesos }}</strong>
             </div>
           }
         }

@@ -10,6 +10,9 @@
   </div>
 
   <div class="cabecera-acciones">
+    <!-- Acciones propias de la pantalla (ej. en el POS: Retiro/Aporte, Reponer talonario). -->
+    <ng-content select="[cabecera-acciones]"></ng-content>
+
     @if (!enLinea()) {
       <span class="indicador-offline" title="Sin conexión a internet">
         <svg lucideWifiOff [strokeWidth]="2"></svg>

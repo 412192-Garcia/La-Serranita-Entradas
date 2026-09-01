@@ -147,7 +147,7 @@
                 } @else if (errorDetalle()) {
                   <p class="alerta-error">{{ errorDetalle() }}</p>
                 } @else if (cajaDetalle(); as det) {
-                  <app-resumen-cierre [caja]="det" [mostrarAcciones]="true" (corregir)="iniciarCorreccion(det)" />
+                  <app-resumen-cierre [caja]="det" [mostrarAcciones]="true" (corregir)="iniciarCorreccion(det)" (cajaActualizada)="onCajaAjustada($event)" />
                 }
               </div>
             }

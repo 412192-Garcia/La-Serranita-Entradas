@@ -349,6 +349,13 @@
   font-weight: 800;
 }
 
+/* Pagó con menos que el total: mismo formato que el vuelto pero en rojo, para que se lea
+   distinto de un vuelto real. */
+.vuelto-resultado.vuelto-falta {
+  background-color: var(--color-danger-light);
+  color: var(--color-danger-dark);
+}
+
 .motivo-bloqueo {
   margin: 0;
   font-size: 0.82rem;

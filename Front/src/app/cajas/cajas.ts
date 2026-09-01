@@ -299,6 +299,15 @@ export class ConfiguracionCajas implements OnInit {
     });
   }
 
+  /** El admin aplicó o deshizo un ajuste de formas de pago desde el resumen: la respuesta ya trae
+   * la caja recalculada. Refresca el detalle desplegado y la fila del listado (cambió la diferencia). */
+  onCajaAjustada(c: Caja): void {
+    if (this.filaExpandidaId() === c.id) {
+      this.cajaDetalle.set(c);
+    }
+    this.cargarCajasCerradas();
+  }
+
   /** Nombres únicos de boleteros con al menos una caja cerrada en el rango, para el filtro — sigue
    * viniendo del reporte agregado (trae todas las cajas del rango, sin paginar) porque necesita
    * verlas todas para no perderse ningún nombre; el listado paginado en sí no sirve para esto. */

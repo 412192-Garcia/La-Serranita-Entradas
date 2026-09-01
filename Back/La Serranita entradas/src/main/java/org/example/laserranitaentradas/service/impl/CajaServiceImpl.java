@@ -1,6 +1,8 @@
 package org.example.laserranitaentradas.service.impl;
 
 import jakarta.transaction.Transactional;
+import org.example.laserranitaentradas.model.dto.AjusteCajaRequestDTO;
+import org.example.laserranitaentradas.model.dto.AjusteCajaResponseDTO;
 import org.example.laserranitaentradas.model.dto.CajaAbiertaDTO;
 import org.example.laserranitaentradas.model.dto.CajaDetalleAbiertaDTO;
 import org.example.laserranitaentradas.model.dto.CajaResponseDTO;
@@ -13,6 +15,8 @@ import org.example.laserranitaentradas.model.dto.EntradasPorTipoDTO;
 import org.example.laserranitaentradas.model.dto.IngresoEntradasResponseDTO;
 import org.example.laserranitaentradas.model.dto.OperacionCajaDTO;
 import org.example.laserranitaentradas.model.dto.RetiroCajaResponseDTO;
+import org.example.laserranitaentradas.model.dto.SegmentoEntradaDTO;
+import org.example.laserranitaentradas.model.entity.AjusteCaja;
 import org.example.laserranitaentradas.model.entity.Caja;
 import org.example.laserranitaentradas.model.entity.CierrePosnet;
 import org.example.laserranitaentradas.model.entity.Compra;
@@ -23,9 +27,11 @@ import org.example.laserranitaentradas.model.entity.FormaPago;
 import org.example.laserranitaentradas.model.entity.IngresoEntradas;
 import org.example.laserranitaentradas.model.entity.RetiroCaja;
 import org.example.laserranitaentradas.model.entity.Tipo;
+import org.example.laserranitaentradas.model.entity.TipoEntrada;
 import org.example.laserranitaentradas.model.entity.TipoMovimientoCaja;
 import org.example.laserranitaentradas.model.entity.TipoMovimientoEntradas;
 import org.example.laserranitaentradas.model.entity.Usuario;
+import org.example.laserranitaentradas.repository.AjusteCajaRepository;
 import org.example.laserranitaentradas.repository.CajaRepository;
 import org.example.laserranitaentradas.repository.CajaSpecifications;
 import org.example.laserranitaentradas.repository.CierrePosnetRepository;
@@ -33,6 +39,7 @@ import org.example.laserranitaentradas.repository.CompraRepository;
 import org.example.laserranitaentradas.repository.IngresoEntradasRepository;
 import org.example.laserranitaentradas.repository.RetiroCajaRepository;
 import org.example.laserranitaentradas.service.CajaService;
+import org.example.laserranitaentradas.service.TipoEntradaService;
 import org.example.laserranitaentradas.service.UsuarioService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -52,6 +59,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 @Service
@@ -59,12 +67,17 @@ public class CajaServiceImpl implements CajaService {
 
     private static final Set<Integer> DENOMINACIONES_VALIDAS = Set.of(100, 200, 500, 1000, 2000, 10000, 20000);
     private static final Set<FormaPago> FORMAS_PAGO_POSNET = Set.of(FormaPago.TARJETA, FormaPago.MERCADO_PAGO_QR);
+    /** Formas de pago de boletería entre las que un ajuste manual puede traspasar monto. */
+    private static final Set<FormaPago> FORMAS_PAGO_AJUSTABLES =
+            Set.of(FormaPago.EFECTIVO_BOLETERIA, FormaPago.TARJETA, FormaPago.MERCADO_PAGO_QR);
 
     private final CajaRepository cajaRepository;
     private final RetiroCajaRepository retiroCajaRepository;
     private final CierrePosnetRepository cierrePosnetRepository;
     private final IngresoEntradasRepository ingresoEntradasRepository;
     private final CompraRepository compraRepository;
+    private final AjusteCajaRepository ajusteCajaRepository;
+    private final TipoEntradaService tipoEntradaService;
     private final UsuarioService usuarioService;
 
     public CajaServiceImpl(CajaRepository cajaRepository,
@@ -72,12 +85,16 @@ public class CajaServiceImpl implements CajaService {
                             CierrePosnetRepository cierrePosnetRepository,
                             IngresoEntradasRepository ingresoEntradasRepository,
                             CompraRepository compraRepository,
+                            AjusteCajaRepository ajusteCajaRepository,
+                            TipoEntradaService tipoEntradaService,
                             UsuarioService usuarioService) {
         this.cajaRepository = cajaRepository;
         this.retiroCajaRepository = retiroCajaRepository;
         this.cierrePosnetRepository = cierrePosnetRepository;
         this.ingresoEntradasRepository = ingresoEntradasRepository;
         this.compraRepository = compraRepository;
+        this.ajusteCajaRepository = ajusteCajaRepository;
+        this.tipoEntradaService = tipoEntradaService;
         this.usuarioService = usuarioService;
     }
 
@@ -279,11 +296,69 @@ public class CajaServiceImpl implements CajaService {
         return toDto(guardada);
     }
 
-    /** Inicial + impacto real de efectivo (ver impactoEfectivoArs) − retiros netos (ver sumRetiros). */
+    /**
+     * Inicial + impacto real de efectivo (ver impactoEfectivoArs) − retiros netos (ver
+     * sumRetiros) + el neto de los ajustes manuales que traspasaron monto hacia/desde efectivo
+     * (ver registrarAjustes).
+     */
     private BigDecimal calcularMontoEsperado(Caja caja) {
         BigDecimal impactoEfectivoArs = sumImpactoEfectivoArs(caja.getId());
         BigDecimal totalRetiros = sumRetiros(caja.getId());
-        return caja.getMontoInicial().add(impactoEfectivoArs).subtract(totalRetiros);
+        BigDecimal ajusteEfectivo = sumAjustesNeto(caja.getId(), FormaPago.EFECTIVO_BOLETERIA);
+        return caja.getMontoInicial().add(impactoEfectivoArs).subtract(totalRetiros).add(ajusteEfectivo);
+    }
+
+    /** Neto de los ajustes manuales para una forma de pago: lo que entró (destino) menos lo que salió (origen). */
+    private BigDecimal sumAjustesNeto(Long cajaId, FormaPago forma) {
+        return sumAjustesNeto(ajusteCajaRepository.findAllByCajaIdOrderByFechaAsc(cajaId), forma);
+    }
+
+    private BigDecimal sumAjustesNeto(List<AjusteCaja> ajustes, FormaPago forma) {
+        BigDecimal neto = BigDecimal.ZERO;
+        for (AjusteCaja a : ajustes) {
+            if (a.getFormaDestino() == forma) neto = neto.add(a.getMonto());
+            if (a.getFormaOrigen() == forma) neto = neto.subtract(a.getMonto());
+        }
+        return neto;
+    }
+
+    /**
+     * +1 si el ajuste AGREGA ventas (sólo destino), −1 si las QUITA (sólo origen), 0 si sólo
+     * las reubica entre formas (mismas ventas) o es un monto suelto. Se usa para saber cuánto
+     * cambia el conteo de entradas / uso del talonario.
+     */
+    private int signoAjuste(AjusteCaja a) {
+        boolean origen = a.getFormaOrigen() != null;
+        boolean destino = a.getFormaDestino() != null;
+        if (destino && !origen) return 1;
+        if (origen && !destino) return -1;
+        return 0;
+    }
+
+    private Map<Long, TipoEntrada> tiposEntradaPorId() {
+        return tipoEntradaService.getAll().stream()
+                .collect(Collectors.toMap(TipoEntrada::getId, t -> t, (a, b) -> a));
+    }
+
+    /**
+     * Cuántos pases suman (o restan) los ajustes manuales a un conteo de entradas de esta caja,
+     * contando sólo los tipos que pasan el filtro (ej. los que entregan entrada física, o los
+     * que tienen precio > 0).
+     */
+    private int impactoAjustesEntradas(List<AjusteCaja> ajustes, Map<Long, TipoEntrada> tiposPorId,
+                                        Predicate<TipoEntrada> filtro) {
+        int total = 0;
+        for (AjusteCaja a : ajustes) {
+            int signo = signoAjuste(a);
+            if (signo == 0) continue;
+            int pasesPorVenta = 0;
+            for (Map.Entry<Long, Integer> linea : a.getLineas().entrySet()) {
+                TipoEntrada tipo = tiposPorId.get(linea.getKey());
+                if (tipo != null && filtro.test(tipo)) pasesPorVenta += linea.getValue();
+            }
+            total += signo * a.getCantidadVentas() * pasesPorVenta;
+        }
+        return total;
     }
 
     @Transactional
@@ -324,6 +399,85 @@ public class CajaServiceImpl implements CajaService {
         guardarCierresPosnet(guardada, cierres, LocalDateTime.now());
 
         return toDto(guardada);
+    }
+
+    @Transactional
+    @Override
+    public CajaResponseDTO registrarAjustes(Long cajaId, List<AjusteCajaRequestDTO> ajustes) {
+        Caja caja = cajaRepository.findById(cajaId)
+                .orElseThrow(() -> new IllegalArgumentException("Caja no encontrada para id: " + cajaId));
+        if (caja.getFechaCierre() == null) {
+            throw new IllegalStateException("Esta caja todavía está abierta: los ajustes se cargan sobre un cierre ya hecho");
+        }
+        if (ajustes == null || ajustes.isEmpty()) {
+            throw new IllegalArgumentException("No se mandó ningún ajuste");
+        }
+
+        LocalDateTime ahora = LocalDateTime.now();
+        for (AjusteCajaRequestDTO dto : ajustes) {
+            validarAjuste(dto);
+            ajusteCajaRepository.save(AjusteCaja.builder()
+                    .caja(caja)
+                    .formaOrigen(dto.getFormaOrigen())
+                    .formaDestino(dto.getFormaDestino())
+                    .monto(dto.getMonto())
+                    .cantidadVentas(dto.getCantidadVentas() == null ? 0 : Math.max(0, dto.getCantidadVentas()))
+                    .detalle(dto.getDetalle() == null || dto.getDetalle().isBlank() ? null : dto.getDetalle().trim())
+                    .nota(dto.getNota() == null || dto.getNota().isBlank() ? null : dto.getNota().trim())
+                    .fecha(ahora)
+                    .comprasMovidas(dto.getComprasMovidas() == null ? new ArrayList<>() : new ArrayList<>(dto.getComprasMovidas()))
+                    .lineas(dto.getLineas() == null ? new java.util.HashMap<>() : new java.util.HashMap<>(dto.getLineas()))
+                    .build());
+        }
+        ajusteCajaRepository.flush();
+
+        recalcularEfectivoTrasAjuste(caja);
+        return toDto(cajaRepository.save(caja));
+    }
+
+    @Transactional
+    @Override
+    public CajaResponseDTO eliminarAjuste(Long cajaId, Long ajusteId) {
+        Caja caja = cajaRepository.findById(cajaId)
+                .orElseThrow(() -> new IllegalArgumentException("Caja no encontrada para id: " + cajaId));
+        AjusteCaja ajuste = ajusteCajaRepository.findByIdAndCajaId(ajusteId, cajaId)
+                .orElseThrow(() -> new IllegalArgumentException("Ajuste no encontrado para id: " + ajusteId));
+        ajusteCajaRepository.delete(ajuste);
+        ajusteCajaRepository.flush();
+
+        recalcularEfectivoTrasAjuste(caja);
+        return toDto(cajaRepository.save(caja));
+    }
+
+    private void validarAjuste(AjusteCajaRequestDTO dto) {
+        if (dto.getFormaOrigen() == null && dto.getFormaDestino() == null) {
+            throw new IllegalArgumentException("Indicá al menos una forma de pago (de dónde sale y/o a dónde va el ajuste)");
+        }
+        if (dto.getFormaOrigen() != null && !FORMAS_PAGO_AJUSTABLES.contains(dto.getFormaOrigen())) {
+            throw new IllegalArgumentException("El ajuste sólo admite Efectivo, Tarjeta o QR");
+        }
+        if (dto.getFormaDestino() != null && !FORMAS_PAGO_AJUSTABLES.contains(dto.getFormaDestino())) {
+            throw new IllegalArgumentException("El ajuste sólo admite Efectivo, Tarjeta o QR");
+        }
+        if (dto.getFormaOrigen() != null && dto.getFormaOrigen() == dto.getFormaDestino()) {
+            throw new IllegalArgumentException("El origen y el destino del ajuste no pueden ser la misma forma de pago");
+        }
+        if (dto.getMonto() == null || dto.getMonto().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("El monto del ajuste tiene que ser mayor a cero");
+        }
+    }
+
+    /**
+     * Recalcula y persiste montoEsperado/diferencia de efectivo con los ajustes ya guardados,
+     * para que el listado de cajas cerradas, el ranking y sumFaltantes/sobrantes queden al día
+     * (mismo criterio que corregirCierre). Los esperados/diferencias de posnet no se guardan en
+     * la Caja — se recalculan siempre en toDto.
+     */
+    private void recalcularEfectivoTrasAjuste(Caja caja) {
+        if (caja.getMontoContado() == null) return;
+        BigDecimal montoEsperado = calcularMontoEsperado(caja);
+        caja.setMontoEsperado(montoEsperado);
+        caja.setDiferencia(caja.getMontoContado().subtract(montoEsperado));
     }
 
     @Transactional
@@ -617,19 +771,27 @@ public class CajaServiceImpl implements CajaService {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
-    /** Cuántas entradas debería haber cortado el boletero según lo que el sistema registró como entregado. */
+    /**
+     * Cuántas entradas debería haber cortado el boletero según lo que el sistema registró como
+     * entregado, más el impacto de los ajustes manuales (una venta agregada suma sus pases al
+     * talonario esperado; una quitada los resta).
+     */
     private int calcularEntradasEsperadas(Caja caja) {
-        return compraRepository.findAllByCajaId(caja.getId()).stream()
+        int base = compraRepository.findAllByCajaId(caja.getId()).stream()
                 .filter(c -> c.getEstado() != EstadoCompra.CANCELADO)
                 .flatMap(c -> c.getDetalles().stream())
                 .filter(d -> d.getTipoEntrada() != null && Boolean.TRUE.equals(d.getTipoEntrada().getEntregaEntrada()))
                 .mapToInt(CompraDetalle::getCantidad)
                 .sum();
+        return base + impactoAjustesEntradas(
+                ajusteCajaRepository.findAllByCajaIdOrderByFechaAsc(caja.getId()),
+                tiposEntradaPorId(),
+                t -> Boolean.TRUE.equals(t.getEntregaEntrada()));
     }
 
-    /** Unidades vendidas de tipos de entrada con precio > 0 (excluye las gratis, los extras y los artículos, y las compras canceladas). */
+    /** Unidades vendidas de tipos de entrada con precio > 0 (excluye las gratis, los extras y los artículos, y las compras canceladas), más el impacto de los ajustes manuales. */
     private int contarEntradasPagas(Long cajaId) {
-        return compraRepository.findAllByCajaId(cajaId).stream()
+        int base = compraRepository.findAllByCajaId(cajaId).stream()
                 .filter(c -> c.getEstado() != EstadoCompra.CANCELADO)
                 .flatMap(c -> c.getDetalles().stream())
                 .filter(d -> d.getTipoEntrada() != null
@@ -638,9 +800,13 @@ public class CajaServiceImpl implements CajaService {
                         && d.getTipoEntrada().getPrecio().compareTo(BigDecimal.ZERO) > 0)
                 .mapToInt(CompraDetalle::getCantidad)
                 .sum();
+        return base + impactoAjustesEntradas(
+                ajusteCajaRepository.findAllByCajaIdOrderByFechaAsc(cajaId),
+                tiposEntradaPorId(),
+                t -> t.getTipo() == Tipo.ENTRADA && t.getPrecio() != null && t.getPrecio().compareTo(BigDecimal.ZERO) > 0);
     }
 
-    /** Cuenta las unidades vendidas por tipo de entrada (ignora extras y artículos varios, y las compras canceladas). */
+    /** Cuenta las unidades vendidas por tipo de entrada (ignora extras y artículos varios, y las compras canceladas), aplicando también los ajustes manuales. */
     private List<EntradasPorTipoDTO> contarEntradasPorTipo(Long cajaId) {
         Map<String, Integer> cantidadPorTipo = new LinkedHashMap<>();
         for (Compra compra : compraRepository.findAllByCajaId(cajaId)) {
@@ -651,10 +817,73 @@ public class CajaServiceImpl implements CajaService {
                 }
             }
         }
+        Map<Long, TipoEntrada> tiposPorId = tiposEntradaPorId();
+        for (AjusteCaja a : ajusteCajaRepository.findAllByCajaIdOrderByFechaAsc(cajaId)) {
+            int signo = signoAjuste(a);
+            if (signo == 0) continue;
+            for (Map.Entry<Long, Integer> linea : a.getLineas().entrySet()) {
+                TipoEntrada tipo = tiposPorId.get(linea.getKey());
+                if (tipo != null && tipo.getTipo() == Tipo.ENTRADA) {
+                    cantidadPorTipo.merge(tipo.getNombre(), signo * a.getCantidadVentas() * linea.getValue(), Integer::sum);
+                }
+            }
+        }
         return cantidadPorTipo.entrySet().stream()
+                .filter(e -> e.getValue() > 0)
                 .map(e -> EntradasPorTipoDTO.builder().nombreTipo(e.getKey()).cantidad(e.getValue()).build())
                 .sorted(Comparator.comparing(EntradasPorTipoDTO::getCantidad, Comparator.reverseOrder()))
                 .toList();
+    }
+
+    /** Parte del monto de una compra que corresponde a artículos varios (líneas sin tipo de entrada), a precio congelado. */
+    private BigDecimal montoArticulos(Compra compra) {
+        return compra.getDetalles().stream()
+                .filter(d -> d.getTipoEntrada() == null && d.getPrecioUnitario() != null)
+                .map(d -> d.getPrecioUnitario().multiply(BigDecimal.valueOf(d.getCantidad())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    /**
+     * Una entrada por cada línea de entrada PAGA de la compra, con la parte del monto que le
+     * toca: se reparte lo cobrado de entradas (total − artículos) proporcional al precio de lista
+     * de cada línea, y la última línea absorbe el redondeo para que la suma cuadre exacta.
+     */
+    private List<SegmentoEntradaDTO> segmentosEntrada(Compra compra) {
+        List<CompraDetalle> lineas = compra.getDetalles().stream()
+                .filter(d -> d.getTipoEntrada() != null
+                        && d.getTipoEntrada().getTipo() == Tipo.ENTRADA
+                        && d.getTipoEntrada().getPrecio() != null
+                        && d.getTipoEntrada().getPrecio().compareTo(BigDecimal.ZERO) > 0)
+                .toList();
+        if (lineas.isEmpty()) return List.of();
+
+        BigDecimal montoEntradas = compra.getMontoTotal().subtract(montoArticulos(compra));
+        BigDecimal sumaLista = lineas.stream()
+                .map(d -> d.getTipoEntrada().getPrecio().multiply(BigDecimal.valueOf(d.getCantidad())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        List<SegmentoEntradaDTO> out = new ArrayList<>();
+        BigDecimal acumulado = BigDecimal.ZERO;
+        for (int i = 0; i < lineas.size(); i++) {
+            CompraDetalle d = lineas.get(i);
+            BigDecimal monto;
+            if (i == lineas.size() - 1) {
+                monto = montoEntradas.subtract(acumulado);
+            } else if (sumaLista.compareTo(BigDecimal.ZERO) > 0) {
+                BigDecimal lista = d.getTipoEntrada().getPrecio().multiply(BigDecimal.valueOf(d.getCantidad()));
+                monto = montoEntradas.multiply(lista).divide(sumaLista, 2, java.math.RoundingMode.HALF_UP);
+                acumulado = acumulado.add(monto);
+            } else {
+                monto = BigDecimal.ZERO;
+            }
+            out.add(SegmentoEntradaDTO.builder()
+                    .tipoEntradaId(d.getTipoEntrada().getId())
+                    .tipoNombre(d.getTipoEntrada().getNombre())
+                    .cantidad(d.getCantidad())
+                    .monto(monto)
+                    .build());
+        }
+        return out;
     }
 
     /** Nombre a mostrar para una línea de compra: entrada, artículo de catálogo, o descripción libre. */
@@ -682,6 +911,8 @@ public class CajaServiceImpl implements CajaService {
                     .tipo("VENTA")
                     .fecha(compra.getFechaValidacion() != null ? compra.getFechaValidacion() : compra.getFechaCreacion())
                     .monto(compra.getMontoTotal())
+                    .montoArticulos(montoArticulos(compra))
+                    .segmentosEntrada(segmentosEntrada(compra))
                     .formaPago(compra.getFormaPago())
                     .detalle(detalle)
                     .compraId(compra.getId())
@@ -713,6 +944,21 @@ public class CajaServiceImpl implements CajaService {
         return operaciones;
     }
 
+    private AjusteCajaResponseDTO toAjusteDto(AjusteCaja a) {
+        return AjusteCajaResponseDTO.builder()
+                .id(a.getId())
+                .formaOrigen(a.getFormaOrigen())
+                .formaDestino(a.getFormaDestino())
+                .monto(a.getMonto())
+                .cantidadVentas(a.getCantidadVentas())
+                .detalle(a.getDetalle())
+                .nota(a.getNota())
+                .fecha(a.getFecha())
+                .usuario(a.getUsuarioCreacion())
+                .lineas(new java.util.HashMap<>(a.getLineas()))
+                .build();
+    }
+
     private CajaResponseDTO toDto(Caja caja) {
         // Mientras la caja sigue abierta, ningún total "esperado" se expone: si el boletero
         // pudiera verlos antes de cerrar, alcanzaría con anotar esos mismos números para que
@@ -732,6 +978,7 @@ public class CajaServiceImpl implements CajaService {
         BigDecimal totalCerradoPosnet = null;
         BigDecimal diferenciaPosnet = null;
         List<CierrePosnetResponseDTO> cierresDto = List.of();
+        List<AjusteCajaResponseDTO> ajustesDto = List.of();
         Integer entradasFisicasEsperadas = null;
         Integer diferenciaEntradas = null;
         List<OperacionCajaDTO> operaciones = null;
@@ -751,28 +998,38 @@ public class CajaServiceImpl implements CajaService {
             // el vuelto en pesos de las ventas en dólares en vez de sumar su precio (ver el
             // comentario de impactoEfectivoArs). Los dos números divergen a propósito cuando
             // hubo ventas en dólares.
-            totalVentasEfectivo = sumVentasPorFormaPago(caja.getId(), FormaPago.EFECTIVO_BOLETERIA);
-            efectivoEsperado = caja.getMontoInicial().add(sumImpactoEfectivoArs(caja.getId())).subtract(totalRetiros);
+            // Ajustes manuales de la repartición por forma de pago (traspasos que cargó un
+            // admin cuando la cajera cobró de una forma y registró otra): se aplican como un
+            // neto sobre lo vendido de cada forma. No cambian el total vendido (lo que sale de
+            // una entra en otra), sólo a cuál forma se le atribuye.
+            List<AjusteCaja> ajustes = ajusteCajaRepository.findAllByCajaIdOrderByFechaAsc(caja.getId());
+
+            totalVentasEfectivo = sumVentasPorFormaPago(caja.getId(), FormaPago.EFECTIVO_BOLETERIA)
+                    .add(sumAjustesNeto(ajustes, FormaPago.EFECTIVO_BOLETERIA));
+            efectivoEsperado = calcularMontoEsperado(caja);
 
             List<CierrePosnet> cierres = cierrePosnetRepository.findAllByCajaIdOrderByIdAsc(caja.getId());
             boolean combinado = cierres.stream().anyMatch(c -> c.getFormaPago() == null);
 
+            // Lo vendido con Tarjeta y con QR se manda SIEMPRE por separado (el detalle de venta
+            // sí distingue la forma), aunque el cierre del posnet se haya cargado combinado.
+            totalVentasTarjeta = sumVentasPorFormaPago(caja.getId(), FormaPago.TARJETA)
+                    .add(sumAjustesNeto(ajustes, FormaPago.TARJETA));
+            totalVentasQr = sumVentasPorFormaPago(caja.getId(), FormaPago.MERCADO_PAGO_QR)
+                    .add(sumAjustesNeto(ajustes, FormaPago.MERCADO_PAGO_QR));
             if (combinado) {
-                // Cargado como un solo monto de Tarjeta+QR juntos: el esperado sigue viniendo
-                // de las ventas reales (que sí distinguen formaPago), sólo se suman las dos
-                // acá; lo contado no se reparte entre ambas, se compara ya combinado.
-                totalVentasPosnet = sumVentasPorFormaPago(caja.getId(), FormaPago.TARJETA)
-                        .add(sumVentasPorFormaPago(caja.getId(), FormaPago.MERCADO_PAGO_QR));
+                // Cargado como un solo monto de Tarjeta+QR juntos: lo contado no se reparte entre
+                // ambas, se compara ya combinado (totalCerradoTarjeta/Qr quedan null).
+                totalVentasPosnet = totalVentasTarjeta.add(totalVentasQr);
                 totalCerradoPosnet = sumCierres(cierres, null);
                 diferenciaPosnet = totalCerradoPosnet.subtract(totalVentasPosnet);
             } else {
-                totalVentasTarjeta = sumVentasPorFormaPago(caja.getId(), FormaPago.TARJETA);
-                totalVentasQr = sumVentasPorFormaPago(caja.getId(), FormaPago.MERCADO_PAGO_QR);
                 totalCerradoTarjeta = sumCierres(cierres, FormaPago.TARJETA);
                 totalCerradoQr = sumCierres(cierres, FormaPago.MERCADO_PAGO_QR);
                 diferenciaTarjeta = totalCerradoTarjeta.subtract(totalVentasTarjeta);
                 diferenciaQr = totalCerradoQr.subtract(totalVentasQr);
             }
+            ajustesDto = ajustes.stream().map(this::toAjusteDto).toList();
             cierresDto = cierres.stream()
                     .map(c -> CierrePosnetResponseDTO.builder()
                             .id(c.getId())
@@ -864,6 +1121,7 @@ public class CajaServiceImpl implements CajaService {
                 .totalCerradoPosnet(totalCerradoPosnet)
                 .diferenciaPosnet(diferenciaPosnet)
                 .cierresPosnet(cierresDto)
+                .ajustes(ajustesDto)
                 .entradasFisicasInicial(caja.getEntradasFisicasInicial())
                 .entradasFisicasCortadas(caja.getEntradasFisicasCortadas())
                 .entradasFisicasEsperadas(entradasFisicasEsperadas)

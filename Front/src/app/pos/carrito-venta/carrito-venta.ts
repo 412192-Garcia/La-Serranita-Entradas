@@ -139,6 +139,14 @@ export class CarritoVenta {
     return diferencia >= 0 ? diferencia : null;
   });
 
+  /** Cuánto falta para llegar al total (pago en pesos). Null si "paga con" está vacío o ya alcanza. */
+  falta = computed(() => {
+    const pagaCon = this.pagaCon();
+    if (pagaCon === null) return null;
+    const diferencia = this.total() - pagaCon;
+    return diferencia > 0 ? diferencia : null;
+  });
+
   /** A cuántos dólares equivale el total, según la cotización cargada. Null hasta que se carga la cotización. */
   montoEnDolares = computed(() => {
     const cotizacion = this.cotizacionDolar();
@@ -153,6 +161,15 @@ export class CarritoVenta {
     if (pagaCon === null || cotizacion === null || cotizacion <= 0) return null;
     const diferencia = pagaCon * cotizacion - this.total();
     return diferencia >= 0 ? diferencia : null;
+  });
+
+  /** Cuánto falta en PESOS para llegar al total, pagando en dólares. Null si aún no hay datos o ya alcanza. */
+  faltaEnPesosPorDolares = computed(() => {
+    const pagaCon = this.pagaConDolares();
+    const cotizacion = this.cotizacionDolar();
+    if (pagaCon === null || cotizacion === null || cotizacion <= 0) return null;
+    const diferencia = this.total() - pagaCon * cotizacion;
+    return diferencia > 0 ? diferencia : null;
   });
 
   /** Igual que en la compra online: no se puede entrar sólo con menores. */

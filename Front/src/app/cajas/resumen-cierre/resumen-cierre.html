@@ -27,7 +27,7 @@
     <span>{{ caja().montoContado | pesos }}</span>
     <span [class]="claseDiferenciaValor(caja().diferencia)">{{ caja().diferencia | pesos }}</span>
   </div>
-  @if (caja().totalVentasPosnet !== null) {
+  @if (caja().totalCerradoPosnet !== null && caja().totalCerradoPosnet !== undefined) {
     <div class="fila-simple fila-simple-formaspago">
       <span>Tarjeta + QR</span>
       <span>{{ caja().totalVentasPosnet | pesos }}</span>
@@ -86,31 +86,294 @@
   }
 </p>
 
-@if (mostrarAcciones()) {
-  <button type="button" class="btn-corregir-cierre" (click)="corregir.emit()">Corregir cierre</button>
+<!-- ---------- Ventas por forma de pago ---------- -->
+<div class="bloque-desglose-ventas">
+  <div class="cabecera-desglose-ventas">
+    <h3>Ventas por forma de pago</h3>
+  </div>
+
+  @if (!modoRevision()) {
+    @for (grupo of desglosePorFormaPago(); track grupo.clave) {
+      <div class="grupo-desglose">
+        <div class="cabecera-grupo-desglose">
+          <span>{{ grupo.etiqueta }}</span>
+          <span>{{ grupo.subtotal | pesos }}</span>
+        </div>
+        @for (fila of grupo.filas; track fila.firma) {
+          <div class="fila-desglose" [class.fila-desglose-articulos]="fila.firma === 'Artículos varios'">
+            <span class="firma-desglose">{{ fila.firma }}</span>
+            <span class="cantidad-desglose">
+              @if (fila.firma !== 'Artículos varios') {
+                {{ fila.cantidad }} {{ fila.cantidad === 1 ? 'venta' : 'ventas' }}
+              }
+            </span>
+            <span class="monto-desglose">{{ fila.monto | pesos }}</span>
+          </div>
+        }
+      </div>
+    } @empty {
+      <p class="sin-datos-desglose">No hubo ventas en este turno.</p>
+    }
+  } @else {
+    <p class="ayuda-revision">
+      Una matriz por tipo de entrada. Cada fila es un tamaño de grupo. <strong>−</strong> saca una venta
+      de esa forma de pago, <strong>+</strong> agrega una. Sacar de una y agregar en otra = la venta se
+      cobró distinto de lo que se tocó. Sacar sin agregar = venta fantasma. Agregar sin sacar = venta
+      que no se registró. Las diferencias de abajo se recalculan en vivo.
+    </p>
+    @if (caja().huboVentaDolares) {
+      <p class="alerta-dolares">Esta caja tuvo ventas en dólares: no se pueden sacar entradas de la columna Efectivo.</p>
+    }
+
+    @for (m of matrices(); track m.tipoId) {
+      <div class="matriz-tipo">
+        <div class="cabecera-matriz-tipo">{{ m.tipoNombre }}</div>
+        <div class="fila-matriz fila-matriz-header">
+          <span>Grupo</span>
+          @for (col of columnas; track col.clave) {
+            <span>{{ col.etiqueta }}</span>
+          }
+        </div>
+        @for (fila of m.filas; track fila.cantidad) {
+          <div class="fila-matriz">
+            <span class="firma-matriz">{{ fila.cantidad }}×</span>
+            @for (celda of fila.celdas; track celda.clave) {
+              <span class="celda-matriz">
+                <button type="button" class="btn-mover" [disabled]="!celda.puedeQuitar" (click)="quitar(m.tipoId, fila.cantidad, celda.clave)" aria-label="Sacar de esta forma de pago">−</button>
+                <span class="valor-celda">
+                  <strong>
+                    {{ celda.cantidad }}
+                    @if (celda.aplicado !== 0) {
+                      <span class="badge-aplicado" title="Ya ajustado en una corrección anterior">{{ celda.aplicado > 0 ? '+' + celda.aplicado : celda.aplicado }}</span>
+                    }
+                    @if (celda.ajuste !== 0) {
+                      <span
+                        class="badge-ajuste"
+                        [class.badge-ajuste-neg]="celda.ajuste < 0 && !celda.esTraslado"
+                        [class.badge-ajuste-traslado]="celda.esTraslado"
+                        [title]="celda.esTraslado ? 'Parte de un traslado entre formas de pago' : ''">
+                        {{ celda.ajuste > 0 ? '+' + celda.ajuste : celda.ajuste }}
+                      </span>
+                    }
+                  </strong>
+                  <em>{{ celda.monto | pesos }}</em>
+                </span>
+                <button type="button" class="btn-mover" [disabled]="!celda.puedeAgregar" (click)="agregar(m.tipoId, fila.cantidad, celda.clave)" aria-label="Ubicar en esta forma de pago">+</button>
+              </span>
+            }
+          </div>
+        }
+      </div>
+    } @empty {
+      <p class="sin-datos-desglose">No hubo ventas de entradas pagas en este turno.</p>
+    }
+
+    @if (articulosPorForma().length > 0) {
+      <p class="linea-articulos">
+        Artículos varios (van aparte de las entradas):
+        @for (a of articulosPorForma(); track a.clave) {
+          <span>{{ a.etiqueta }} <strong>{{ a.monto | pesos }}</strong></span>
+        }
+      </p>
+    }
+
+    <div class="form-nueva-composicion">
+      <span>¿Falta una venta que no se registró? Agregala:</span>
+      <input
+        type="number"
+        min="1"
+        class="input-cantidad-composicion"
+        placeholder="Nº"
+        [ngModel]="nuevaVentaCantidad()"
+        (ngModelChange)="nuevaVentaCantidad.set($event)" />
+      <span>×</span>
+      <select [ngModel]="nuevaVentaTipoId()" (ngModelChange)="nuevaVentaTipoId.set($event)" aria-label="Tipo de entrada">
+        <option [ngValue]="null">Tipo de entrada…</option>
+        @for (t of tiposPagos(); track t.id) {
+          <option [ngValue]="t.id">{{ t.nombre }}</option>
+        }
+      </select>
+      <span>en</span>
+      <select [ngModel]="nuevaVentaForma()" (ngModelChange)="nuevaVentaForma.set($event)" aria-label="Forma de pago">
+        @for (col of columnas; track col.clave) {
+          <option [ngValue]="col.clave">{{ col.etiqueta }}</option>
+        }
+      </select>
+      <button type="button" class="btn-secundario-caja" (click)="agregarVenta()">Agregar</button>
+    </div>
+
+    @if (movimientos().traslados.length > 0 || movimientos().sacados.length > 0 || movimientos().agregados.length > 0) {
+      <div class="lista-agregados">
+        @for (m of movimientos().traslados; track m.key) {
+          <span class="chip-agregado chip-traslado">
+            {{ m.cantidad }}× {{ m.tipoNombre }}: {{ etiquetaForma(m.origen) }} → {{ etiquetaForma(m.destino) }}@if (m.count > 1) { (×{{ m.count }})}
+            <button type="button" (click)="deshacerTraslado(m)" aria-label="Deshacer traslado">✕</button>
+          </span>
+        }
+        @for (s of movimientos().sacados; track s.key) {
+          <span class="chip-agregado chip-quitado">
+            − {{ s.cantidad }}× {{ s.tipoNombre }} de {{ etiquetaForma(s.forma) }}@if (s.count > 1) { (×{{ s.count }})}
+            <button type="button" (click)="restaurarSacados(s.ids)" aria-label="Deshacer">✕</button>
+          </span>
+        }
+        @for (a of movimientos().agregados; track a.key) {
+          <span class="chip-agregado">
+            + {{ a.cantidad }}× {{ a.tipoNombre }} en {{ etiquetaForma(a.forma) }}@if (a.count > 1) { (×{{ a.count }})}
+            <button type="button" (click)="quitarAgregados(a.ids)" aria-label="Quitar">✕</button>
+          </span>
+        }
+      </div>
+    }
+
+    <div class="form-monto-suelto">
+      <select [ngModel]="signoMontoSuelto()" (ngModelChange)="signoMontoSuelto.set($event)" aria-label="Sumar o restar">
+        <option value="AGREGAR">Sumar</option>
+        <option value="QUITAR">Restar</option>
+      </select>
+      <input
+        type="text"
+        inputmode="numeric"
+        placeholder="Monto"
+        appMoneyInput
+        [ngModel]="montoSuelto()"
+        (ngModelChange)="montoSuelto.set($event)" />
+      <span>{{ signoMontoSuelto() === 'AGREGAR' ? 'a' : 'de' }}</span>
+      <select [ngModel]="formaMontoSuelto()" (ngModelChange)="formaMontoSuelto.set($event)" aria-label="Forma de pago">
+        @for (col of columnas; track col.clave) {
+          <option [ngValue]="col.clave">{{ col.etiqueta }}</option>
+        }
+      </select>
+      <input
+        type="text"
+        class="input-nota-suelto"
+        placeholder="Nota (opcional)"
+        [ngModel]="notaMontoSuelto()"
+        (ngModelChange)="notaMontoSuelto.set($event)" />
+      <button type="button" class="btn-secundario-caja" (click)="agregarMontoSuelto()">Agregar</button>
+    </div>
+
+    @if (agregados().length > 0) {
+      <div class="lista-agregados">
+        @for (a of agregados(); track a.id) {
+          <span class="chip-agregado">
+            {{ a.signo === 'AGREGAR' ? '+' : '−' }} {{ a.monto | pesos }} {{ a.signo === 'AGREGAR' ? 'a' : 'de' }} {{ etiquetaForma(a.forma) }}
+            @if (a.nota) { · {{ a.nota }} }
+            <button type="button" (click)="quitarMontoSuelto(a.id)" aria-label="Quitar">✕</button>
+          </span>
+        }
+      </div>
+    }
+
+    <div class="tabla-simple tabla-totales-revision">
+      <div class="fila-simple fila-simple-formaspago fila-simple-header">
+        <span>Forma de pago</span><span>Esperado</span><span>Contado</span><span>Diferencia</span>
+      </div>
+      @for (total of totalesRevision(); track total.clave) {
+        <div class="fila-simple fila-simple-formaspago">
+          <span>{{ total.etiqueta }}</span>
+          <span>{{ total.esperado | pesos }}</span>
+          <span>{{ total.contado === null ? '—' : (total.contado | pesos) }}</span>
+          <span [class]="claseDiferenciaValor(total.diferencia)">{{ total.diferencia === null ? '—' : (total.diferencia | pesos) }}</span>
+        </div>
+      }
+    </div>
+
+    @if (entradasRevision(); as e) {
+      <p class="fila-entradas-revision" [class.fila-entradas-revision-cambio]="e.cambio">
+        Entradas: <strong>{{ e.vendidas }}</strong> vendidas · esperás cortar
+        <strong>{{ e.esperadasTalonario }}</strong> del talonario
+        @if (e.cortadas !== null) {
+          · cortaste {{ e.cortadas }}
+          <span [class]="claseDiferenciaValor(e.diferenciaTalonario)">
+            ({{ e.diferenciaTalonario! < 0 ? 'faltan ' + (-e.diferenciaTalonario!) : e.diferenciaTalonario! > 0 ? 'sobran ' + e.diferenciaTalonario : 'sin diferencia' }})
+          </span>
+        }
+      </p>
+    }
+
+    @if (errorRevision()) {
+      <p class="alerta-error">{{ errorRevision() }}</p>
+    }
+    <div class="acciones-revision">
+      <button type="button" class="btn-limpiar" (click)="toggleRevision()">Cancelar</button>
+      <button
+        type="button"
+        class="btn-cobrar"
+        [disabled]="!hayCambios() || aplicando()"
+        (click)="aplicar()">
+        {{ aplicando() ? 'Guardando…' : 'Aplicar cambios' }}
+      </button>
+    </div>
+  }
+
+  @if (caja().ajustes && caja().ajustes.length > 0) {
+    <div class="lista-ajustes">
+      <h4>Ajustes manuales</h4>
+      @for (ajuste of caja().ajustes; track ajuste.id) {
+        <div class="fila-ajuste">
+          <span class="detalle-ajuste">
+            <strong>{{ ajuste.monto | pesos }}</strong>
+            @if (ajuste.formaOrigen && ajuste.formaDestino) {
+              · {{ etiquetaForma(ajuste.formaOrigen) }} → {{ etiquetaForma(ajuste.formaDestino) }}
+            } @else if (ajuste.formaDestino) {
+              · agregado a {{ etiquetaForma(ajuste.formaDestino) }}
+            } @else {
+              · quitado de {{ etiquetaForma(ajuste.formaOrigen) }}
+            }
+            @if (ajuste.cantidadVentas > 0) {
+              · {{ ajuste.cantidadVentas }} {{ ajuste.cantidadVentas === 1 ? 'venta' : 'ventas' }}
+            }
+            @if (ajuste.detalle) { ({{ ajuste.detalle }}) }
+          </span>
+          <span class="meta-ajuste">
+            {{ ajuste.usuario }} · {{ ajuste.fecha | date: 'dd/MM HH:mm' }}
+            @if (mostrarAcciones()) {
+              <button type="button" class="btn-deshacer-ajuste" [disabled]="deshaciendoId() === ajuste.id" (click)="deshacerAjuste(ajuste)">
+                {{ deshaciendoId() === ajuste.id ? 'Deshaciendo…' : 'Deshacer' }}
+              </button>
+            }
+          </span>
+        </div>
+      }
+    </div>
+  }
+</div>
+
+@if (mostrarAcciones() && !modoRevision()) {
+  <div class="acciones-resumen">
+    <button type="button" class="btn-corregir-cierre" (click)="corregir.emit()">Corregir cierre</button>
+    @if (hayVentasAjustables()) {
+      <button type="button" class="btn-corregir-cierre" (click)="toggleRevision()">Corregir caja</button>
+    }
+  </div>
 }
 
 @if (caja().operaciones && caja().operaciones!.length > 0) {
-  <div class="tabla-simple tabla-detalle-operaciones">
-    <div class="fila-simple fila-simple-operaciones fila-simple-header">
-      <span></span><span>Hora</span><span>Tipo</span><span>Detalle</span><span>Monto</span>
-    </div>
-    @for (op of caja().operaciones!; track $index) {
-      <div class="fila-simple fila-simple-operaciones" [class.fila-operacion-retiro]="op.tipo === 'RETIRO' || op.tipo === 'RETIRO_ENTRADAS'" [class.fila-operacion-aporte]="op.tipo === 'APORTE'">
-        <span class="icono-tipo-operacion">
-          @switch (op.tipo) {
-            @case ('VENTA') { <svg lucideShoppingCart [strokeWidth]="2"></svg> }
-            @case ('RETIRO') { <svg lucideArrowUpRight [strokeWidth]="2"></svg> }
-            @case ('APORTE') { <svg lucideArrowDownRight [strokeWidth]="2"></svg> }
-            @case ('INGRESO_ENTRADAS') { <svg lucideTicketPlus [strokeWidth]="2"></svg> }
-            @case ('RETIRO_ENTRADAS') { <svg lucideTicketMinus [strokeWidth]="2"></svg> }
-          }
-        </span>
-        <span>{{ op.fecha | date: 'HH:mm' }}</span>
-        <span>{{ etiquetaTipoOperacion(op) }}</span>
-        <span>{{ op.detalle }}</span>
-        <span>{{ op.monto !== null ? (op.monto | pesos) : '' }}</span>
+  <button type="button" class="btn-desglose-detalle" (click)="mostrarOperaciones.set(!mostrarOperaciones())">
+    {{ mostrarOperaciones() ? 'Ocultar operaciones' : 'Ver operaciones' }}
+  </button>
+  @if (mostrarOperaciones()) {
+    <div class="tabla-simple tabla-detalle-operaciones">
+      <div class="fila-simple fila-simple-operaciones fila-simple-header">
+        <span></span><span>Hora</span><span>Tipo</span><span>Detalle</span><span>Monto</span>
       </div>
-    }
-  </div>
+      @for (op of caja().operaciones!; track $index) {
+        <div class="fila-simple fila-simple-operaciones" [class.fila-operacion-retiro]="op.tipo === 'RETIRO' || op.tipo === 'RETIRO_ENTRADAS'" [class.fila-operacion-aporte]="op.tipo === 'APORTE'">
+          <span class="icono-tipo-operacion">
+            @switch (op.tipo) {
+              @case ('VENTA') { <svg lucideShoppingCart [strokeWidth]="2"></svg> }
+              @case ('RETIRO') { <svg lucideArrowUpRight [strokeWidth]="2"></svg> }
+              @case ('APORTE') { <svg lucideArrowDownRight [strokeWidth]="2"></svg> }
+              @case ('INGRESO_ENTRADAS') { <svg lucideTicketPlus [strokeWidth]="2"></svg> }
+              @case ('RETIRO_ENTRADAS') { <svg lucideTicketMinus [strokeWidth]="2"></svg> }
+            }
+          </span>
+          <span>{{ op.fecha | date: 'HH:mm' }}</span>
+          <span>{{ etiquetaTipoOperacion(op) }}</span>
+          <span>{{ op.detalle }}</span>
+          <span>{{ op.monto !== null ? (op.monto | pesos) : '' }}</span>
+        </div>
+      }
+    </div>
+  }
 }

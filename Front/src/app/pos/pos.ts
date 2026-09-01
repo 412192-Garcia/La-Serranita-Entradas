@@ -33,7 +33,7 @@ const PASOS_TUTORIAL: TourStep[] = [
   {
     selector: '[data-tour="barra-caja"]',
     titulo: 'Tu caja',
-    texto: 'Acá ves el estado de tu caja y accedés a Retiro/Aporte y Reponer talonario. Para validar el ingreso de alguien que ya tiene una entrada, escaneá su DNI en cualquier momento: se abre acá mismo la lista de sus anticipadas para validarlas sin salir del POS.',
+    texto: 'Desde acá hacés un Retiro/Aporte de efectivo o reponés el talonario. Para validar el ingreso de alguien que ya tiene una entrada, escaneá su DNI en cualquier momento: se abre acá mismo la lista de sus anticipadas para validarlas sin salir del POS.',
   },
   {
     selector: '[data-tour="catalogo"]',
