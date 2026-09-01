@@ -2,6 +2,7 @@ package org.example.laserranitaentradas.controller;
 
 import org.example.laserranitaentradas.config.UsuarioAutenticado;
 import org.example.laserranitaentradas.model.dto.AbrirCajaRequestDTO;
+import org.example.laserranitaentradas.model.dto.AjusteCajaRequestDTO;
 import org.example.laserranitaentradas.model.dto.CajaAbiertaDTO;
 import org.example.laserranitaentradas.model.dto.CajaResponseDTO;
 import org.example.laserranitaentradas.model.dto.CerrarCajaRequestDTO;
@@ -138,5 +139,25 @@ public class CajaController {
     public ResponseEntity<CajaResponseDTO> corregirCierre(@PathVariable Long id, @RequestBody CerrarCajaRequestDTO request) {
         return ResponseEntity.ok(cajaService.corregirCierre(id, request.getConteoEfectivo(),
                 request.getCierresPosnet(), request.getEntradasFisicasCortadas(), request.getCambioContado(), request.getDolaresContado()));
+    }
+
+    @PostMapping("/{id}/deshabilitar")
+    @Operation(summary = "Deshabilitar una caja cerrada (ADMIN)",
+            description = "La caja desaparece de todos los listados y KPIs de Cajas, del ranking y del reporte agregado, y sus ventas dejan de sumar en el reporte. El detalle por id la sigue devolviendo con habilitada=false. Irreversible desde la app; sólo cajas ya cerradas.")
+    public ResponseEntity<CajaResponseDTO> deshabilitar(@PathVariable Long id) {
+        return ResponseEntity.ok(cajaService.deshabilitarCaja(id));
+    }
+
+    @PostMapping("/{id}/ajustes")
+    @Operation(summary = "Ajustar la repartición por forma de pago de un cierre (ADMIN)",
+            description = "Traspasa monto entre efectivo/tarjeta/QR cuando la cajera cobró de una forma y registró otra. No toca las compras: queda como un registro aparte y el cierre recalcula sus esperados/diferencias. Se mandan varios traspasos de una sola vez.")
+    public ResponseEntity<CajaResponseDTO> registrarAjustes(@PathVariable Long id, @RequestBody List<AjusteCajaRequestDTO> ajustes) {
+        return ResponseEntity.ok(cajaService.registrarAjustes(id, ajustes));
+    }
+
+    @DeleteMapping("/{id}/ajustes/{ajusteId}")
+    @Operation(summary = "Deshacer un ajuste de repartición por forma de pago (ADMIN)", description = "Borra el ajuste y vuelve a recalcular el cierre sin él.")
+    public ResponseEntity<CajaResponseDTO> eliminarAjuste(@PathVariable Long id, @PathVariable Long ajusteId) {
+        return ResponseEntity.ok(cajaService.eliminarAjuste(id, ajusteId));
     }
 }

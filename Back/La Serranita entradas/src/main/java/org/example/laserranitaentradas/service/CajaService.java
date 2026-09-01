@@ -1,5 +1,6 @@
 package org.example.laserranitaentradas.service;
 
+import org.example.laserranitaentradas.model.dto.AjusteCajaRequestDTO;
 import org.example.laserranitaentradas.model.dto.CajaAbiertaDTO;
 import org.example.laserranitaentradas.model.dto.CierrePosnetRequestDTO;
 import org.example.laserranitaentradas.model.dto.CajaResponseDTO;
@@ -115,4 +116,24 @@ public interface CajaService {
      */
     CajasCerradasResponseDTO getCajasCerradas(LocalDate desde, LocalDate hasta, String usuarioNombre,
                                                String ordenarPor, String direccion, int page, int size);
+
+    /**
+     * Registra uno o más traspasos manuales de monto entre formas de pago sobre una caja YA
+     * CERRADA (el admin corrigiendo la repartición cuando la cajera cobró de una forma y tocó
+     * otra). No toca las compras: cada traspaso queda como un AjusteCaja aparte. Recalcula y
+     * persiste montoEsperado/diferencia para que el listado de cajas cerradas y el ranking
+     * queden consistentes. ADMIN-only (gateado en SecurityConfig).
+     */
+    CajaResponseDTO registrarAjustes(Long cajaId, List<AjusteCajaRequestDTO> ajustes);
+
+    /** Deshace un ajuste manual: borra la fila y recalcula el cierre. ADMIN-only. */
+    CajaResponseDTO eliminarAjuste(Long cajaId, Long ajusteId);
+
+    /**
+     * Deshabilita una caja YA CERRADA: desaparece de todos los listados/KPIs de Cajas, del ranking
+     * y del reporte agregado, y sus ventas dejan de sumar en el reporte (ver ReporteService). El
+     * detalle por id la sigue devolviendo, con habilitada=false. Irreversible desde la app.
+     * ADMIN-only (gateado en SecurityConfig).
+     */
+    CajaResponseDTO deshabilitarCaja(Long cajaId);
 }

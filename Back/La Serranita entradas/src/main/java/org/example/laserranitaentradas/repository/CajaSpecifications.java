@@ -26,4 +26,9 @@ public class CajaSpecifications {
             return cb.equal(cb.concat(cb.concat(usuario.get("nombre"), " "), usuario.get("apellido")), usuarioNombre);
         };
     }
+
+    /** Deja fuera las cajas deshabilitadas por un admin (null cuenta como habilitada). */
+    public static Specification<Caja> habilitada() {
+        return (root, query, cb) -> cb.or(cb.isNull(root.get("habilitada")), cb.isTrue(root.get("habilitada")));
+    }
 }

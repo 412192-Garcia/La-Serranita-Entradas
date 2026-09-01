@@ -87,4 +87,19 @@ public class Caja extends BaseEntity {
      */
     @Column(name = "dolares_contado")
     private BigDecimal dolaresContado;
+
+    /**
+     * false = un admin deshabilitó esta caja: se saca de todos los listados/KPIs de Cajas, del
+     * ranking y del reporte, y sus ventas dejan de sumar. Irreversible desde la app. Null en
+     * cajas previas a este campo (ddl-auto=update no puede backfillear): se tratan como
+     * habilitadas — usar siempre {@link #estaHabilitada()} para leer, nunca el getter directo.
+     */
+    @Column(name = "habilitada")
+    @Builder.Default
+    private Boolean habilitada = true;
+
+    /** null (cajas viejas) y true cuentan como habilitada; sólo el false explícito la deshabilita. */
+    public boolean estaHabilitada() {
+        return !Boolean.FALSE.equals(habilitada);
+    }
 }

@@ -37,6 +37,7 @@ import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -74,6 +75,10 @@ public class ReporteServiceImpl implements ReporteService {
         }
 
         List<Compra> compras = compraRepository.findAllByFechaVisitaBetween(desde, hasta);
+
+        // Cajas que un admin deshabilitó: sus ventas de boletería no cuentan en ninguna métrica
+        // (como si el turno nunca hubiera existido). Las compras online tienen caja == null.
+        Set<Long> cajasDeshabilitadas = new HashSet<>(cajaRepository.findIdsDeshabilitadas());
 
         BigDecimal recaudacionTotal = BigDecimal.ZERO;
         long cantidadCompras = 0;
@@ -130,6 +135,13 @@ public class ReporteServiceImpl implements ReporteService {
         BigDecimal sumaCotizacionPonderada = BigDecimal.ZERO;
 
         for (Compra compra : compras) {
+            // Venta de un turno deshabilitado: se descarta de TODO (recaudación, formas de pago,
+            // desglose, dólares, promos, afluencia, personasIngresadas, artículos, estados…).
+            Caja cajaCompra = compra.getCaja();
+            if (cajaCompra != null && cajasDeshabilitadas.contains(cajaCompra.getId())) {
+                continue;
+            }
+
             boolean cobrada = ESTADOS_COBRADOS.contains(compra.getEstado());
             boolean vendida = ESTADOS_VENDIDOS.contains(compra.getEstado());
             boolean validada = ESTADOS_INGRESADOS.contains(compra.getEstado());
@@ -324,6 +336,11 @@ public class ReporteServiceImpl implements ReporteService {
         BigDecimal totalSobrantesCajas = BigDecimal.ZERO;
 
         for (Caja caja : cajasCerradas) {
+            // Deshabilitada por un admin: fuera de la sección "cajas" del reporte y de los totales
+            // de retiros/faltantes/sobrantes (mismo criterio que `if (!tipo.getActivo()) continue`).
+            if (!caja.estaHabilitada()) {
+                continue;
+            }
             BigDecimal retirosCaja = retiroCajaRepository.findAllByCajaIdOrderByFechaAsc(caja.getId()).stream()
                     .map(r -> r.getTipo() == TipoMovimientoCaja.APORTE ? r.getMonto().negate() : r.getMonto())
                     .reduce(BigDecimal.ZERO, BigDecimal::add);

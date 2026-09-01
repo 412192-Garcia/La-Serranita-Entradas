@@ -1,11 +1,8 @@
-<!-- No se muestra el efectivo esperado ni lo vendido en efectivo hasta el cierre:
-     es justamente lo que el boletero tiene que contar a ciegas. -->
-<div class="barra-caja">
-  <div class="barra-caja-datos">
-    <span class="barra-caja-item"><strong>Caja abierta</strong></span>
-    <span class="barra-caja-item muted">Inicial {{ caja().montoInicial | pesos }} · Retiros {{ caja().totalRetiros | pesos }}</span>
-    <span class="barra-caja-item muted" [class.negativo]="stockEntradas() < 0">Entradas: {{ stockEntradas() }}</span>
-
+<!-- Sólo el estado de sincronización de la cola offline. Retiro/Aporte y Reponer talonario
+     viven ahora en la cabecera. Los totales de la caja no se muestran hasta el cierre: es lo
+     que el boletero tiene que contar a ciegas. -->
+@if (pendientes() > 0 || conError().length > 0) {
+  <div class="barra-caja">
     @if (pendientes() > 0) {
       <span class="chip-pendientes" title="Se registran solas cuando vuelva la señal">
         <svg lucideCloudOff [strokeWidth]="2"></svg>
@@ -20,8 +17,4 @@
       <button type="button" class="btn-descartar-error" (click)="descartarErrores()">Descartar</button>
     }
   </div>
-  <div class="barra-caja-acciones">
-    <button type="button" class="btn-secundario-caja" (click)="retirarEfectivo.emit()">Retiro / Aporte</button>
-    <button type="button" class="btn-secundario-caja" (click)="agregarEntradas.emit()">Reponer talonario</button>
-  </div>
-</div>
+}

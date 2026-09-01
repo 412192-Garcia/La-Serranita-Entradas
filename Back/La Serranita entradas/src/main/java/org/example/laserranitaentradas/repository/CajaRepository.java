@@ -16,8 +16,13 @@ import java.util.Optional;
 public interface CajaRepository extends JpaRepository<Caja, Long>, JpaSpecificationExecutor<Caja> {
     Optional<Caja> findByUsuarioIdAndFechaCierreIsNull(Long usuarioId);
 
-    /** Cajas ya cerradas dentro del rango, para el reporte de faltantes/sobrantes por turno — la más reciente primero. */
+    /** Cajas ya cerradas dentro del rango, para el reporte de faltantes/sobrantes por turno — la más reciente primero.
+     * Incluye las deshabilitadas: el reporte las filtra en memoria (ver ReporteServiceImpl) para no cambiar este OrderBy. */
     List<Caja> findAllByFechaCierreBetweenOrderByFechaCierreDesc(LocalDateTime desde, LocalDateTime hasta);
+
+    /** Ids de las cajas deshabilitadas por un admin: para descartar sus ventas del reporte. */
+    @Query("SELECT c.id FROM Caja c WHERE c.habilitada = false")
+    List<Long> findIdsDeshabilitadas();
 
     /** Todas las cajas abiertas ahora mismo, sin importar de qué boletero — para el dashboard del admin. */
     List<Caja> findAllByFechaCierreIsNullOrderByFechaAperturaAsc();
@@ -27,11 +32,13 @@ public interface CajaRepository extends JpaRepository<Caja, Long>, JpaSpecificat
      * diferencia ya es una columna persistida (se calcula una sola vez al cerrar), así que esto es
      * una sola query agregada, no un loop por caja. */
     @Query("SELECT COALESCE(SUM(CASE WHEN c.diferencia < 0 THEN -c.diferencia ELSE 0 END), 0) FROM Caja c JOIN c.usuario u " +
-            "WHERE c.fechaCierre BETWEEN :desde AND :hasta AND (:usuarioNombre IS NULL OR CONCAT(u.nombre, ' ', u.apellido) = :usuarioNombre)")
+            "WHERE c.fechaCierre BETWEEN :desde AND :hasta AND (:usuarioNombre IS NULL OR CONCAT(u.nombre, ' ', u.apellido) = :usuarioNombre) " +
+            "AND (c.habilitada IS NULL OR c.habilitada = true)")
     BigDecimal sumFaltantes(@Param("desde") LocalDateTime desde, @Param("hasta") LocalDateTime hasta, @Param("usuarioNombre") String usuarioNombre);
 
     /** Igual que sumFaltantes pero para el sobrante total. */
     @Query("SELECT COALESCE(SUM(CASE WHEN c.diferencia > 0 THEN c.diferencia ELSE 0 END), 0) FROM Caja c JOIN c.usuario u " +
-            "WHERE c.fechaCierre BETWEEN :desde AND :hasta AND (:usuarioNombre IS NULL OR CONCAT(u.nombre, ' ', u.apellido) = :usuarioNombre)")
+            "WHERE c.fechaCierre BETWEEN :desde AND :hasta AND (:usuarioNombre IS NULL OR CONCAT(u.nombre, ' ', u.apellido) = :usuarioNombre) " +
+            "AND (c.habilitada IS NULL OR c.habilitada = true)")
     BigDecimal sumSobrantes(@Param("desde") LocalDateTime desde, @Param("hasta") LocalDateTime hasta, @Param("usuarioNombre") String usuarioNombre);
 }

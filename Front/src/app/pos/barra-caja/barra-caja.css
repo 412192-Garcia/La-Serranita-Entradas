@@ -1,44 +1,8 @@
-@import '../../shared/pos-caja.css';
-
 .barra-caja {
   display: flex;
   flex-wrap: wrap;
-  justify-content: space-between;
   align-items: center;
-  gap: 12px;
-  background-color: var(--color-card-bg);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  padding: 14px 20px;
-}
-
-.barra-caja-datos {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.barra-caja-item {
-  font-size: 0.95rem;
-  color: var(--color-text);
-}
-
-.barra-caja-item.muted {
-  font-size: 0.82rem;
-  color: var(--color-text-muted);
-}
-
-/* El talonario quedó en negativo (se retiraron más entradas de las que había): mismo criterio
-   de color que un rechazo, para que salte a la vista sin esperar al conteo del cierre. */
-.barra-caja-item.negativo {
-  color: var(--color-danger-dark);
-  font-weight: 700;
-}
-
-.barra-caja-acciones {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  gap: 10px;
 }
 
 /* Ámbar, no rojo: hay operaciones sin subir pero no pasó nada malo, se resuelve solo. */
@@ -48,7 +12,6 @@
   align-items: center;
   gap: 6px;
   width: fit-content;
-  margin-top: 4px;
   padding: 4px 10px;
   border-radius: 999px;
   font-size: 0.78rem;
@@ -74,7 +37,6 @@
 }
 
 .btn-descartar-error {
-  margin-top: 4px;
   padding: 4px 10px;
   border: 1px solid var(--color-danger-dark);
   background: transparent;

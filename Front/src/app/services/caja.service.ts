@@ -3,6 +3,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { etiquetaFormaPago } from '../models/forma-pago';
+import { FormaPagoPos } from '../models/compra';
 import { Pagina } from './boleteria.service';
 
 export type TipoMovimientoCaja = 'RETIRO' | 'APORTE';
@@ -41,11 +42,26 @@ export interface IngresoEntradas {
   fecha: string;
 }
 
+/** Una línea de entrada paga de una venta (para el modo revisión del cierre). */
+export interface SegmentoEntrada {
+  tipoEntradaId: number;
+  tipoNombre: string;
+  cantidad: number;
+  /** Parte del monto de la compra atribuida a esta línea. */
+  monto: number;
+}
+
 export interface OperacionCaja {
   tipo: 'VENTA' | 'RETIRO' | 'APORTE' | 'INGRESO_ENTRADAS' | 'RETIRO_ENTRADAS';
   fecha: string;
   /** Null en los ingresos de entradas físicas: no mueven plata. */
   monto: number | null;
+  /** Sólo en ventas: parte del monto que son artículos varios (no entradas). 0/ausente si la venta es sólo entradas. */
+  montoArticulos?: number | null;
+  /** Sólo en ventas: una entrada por cada línea de entrada paga (tipo + cantidad + su parte del monto). */
+  segmentosEntrada?: SegmentoEntrada[] | null;
+  /** Sólo en ventas: true si se cobró en efectivo-dólares. Ese monto no se puede reubicar entre formas de pago. */
+  pagoEnDolares?: boolean | null;
   formaPago: string | null;
   detalle: string;
   /** Sólo en ventas: id de la Compra, para poder cancelarla o editarla. Null en retiros/ingresos. */
@@ -105,6 +121,9 @@ export interface Caja {
 
   operaciones: OperacionCaja[] | null;
 
+  /** Ajustes manuales de la repartición por forma de pago (traspasos que cargó un admin). Vacío si no se ajustó nada. Los esperados/diferencias de arriba ya vienen con esto aplicado. */
+  ajustes: AjusteCaja[];
+
   /** Unidades vendidas de tipos de entrada con precio > 0 (excluye las gratis, los extras y los artículos), sin importar la forma de pago. Null hasta el cierre. */
   totalEntradasPagas: number | null;
   entradasVendidasPorTipo: EntradasPorTipo[] | null;
@@ -120,11 +139,48 @@ export interface Caja {
   /** Dólares que el boletero contó al cerrar. Null si esta caja no tuvo ventas en dólares. */
   dolaresContado: number | null;
   diferenciaDolares: number | null;
+
+  /** false = un admin la deshabilitó: no figura en ningún listado ni en el reporte, y sus ventas no cuentan. Irreversible. */
+  habilitada: boolean;
 }
 
 export interface EntradasPorTipo {
   nombreTipo: string;
   cantidad: number;
+}
+
+/**
+ * Un ajuste manual de la repartición por forma de pago de un cierre ya hecho. Según qué formas
+ * vengan: origen + destino = reubicar; sólo origen = quitar (se registró de más); sólo destino
+ * = agregar (se cobró y no se registró).
+ */
+export interface AjusteCaja {
+  id: number;
+  formaOrigen: FormaPagoPos | null;
+  formaDestino: FormaPagoPos | null;
+  monto: number;
+  cantidadVentas: number;
+  /** Firma del grupo ("2x Pase General"), la nota del ajuste libre, o null. */
+  detalle: string | null;
+  nota: string | null;
+  fecha: string;
+  /** Username del admin que lo cargó. */
+  usuario: string | null;
+  /** Composición de una venta del ajuste: tipoEntradaId → cantidad de pases. */
+  lineas?: Record<number, number>;
+}
+
+/** Lo que el front manda para crear un ajuste. */
+export interface AjusteCajaInput {
+  formaOrigen: FormaPagoPos | null;
+  formaDestino: FormaPagoPos | null;
+  monto: number;
+  cantidadVentas: number;
+  detalle: string | null;
+  comprasMovidas: number[];
+  nota?: string | null;
+  /** Composición de una venta del ajuste: tipoEntradaId → cantidad de pases. Vacío para montos sueltos. */
+  lineas: Record<number, number>;
 }
 
 export interface CierrePosnetInput {
@@ -291,6 +347,24 @@ export class CajaService {
       .set('size', size);
     if (usuarioNombre) params = params.set('usuarioNombre', usuarioNombre);
     return this.http.get<CajasCerradasResponse>(`${this.cajaUrl}/cerradas`, { params });
+  }
+
+  /** Registra uno o más traspasos manuales de monto entre formas de pago sobre un cierre ya hecho
+   * (la cajera cobró de una forma y tocó otra). No toca las compras. ADMIN-only. Devuelve la caja
+   * con los esperados/diferencias ya recalculados. */
+  registrarAjustes(cajaId: number, ajustes: AjusteCajaInput[]): Observable<Caja> {
+    return this.http.post<Caja>(`${this.cajaUrl}/${cajaId}/ajustes`, ajustes);
+  }
+
+  /** Deshace un ajuste manual y devuelve la caja recalculada sin él. ADMIN-only. */
+  eliminarAjuste(cajaId: number, ajusteId: number): Observable<Caja> {
+    return this.http.delete<Caja>(`${this.cajaUrl}/${cajaId}/ajustes/${ajusteId}`);
+  }
+
+  /** Deshabilita una caja cerrada: desaparece de listados y reportes, y sus ventas dejan de contar.
+   * Irreversible desde la app. ADMIN-only. Devuelve la caja con habilitada=false. */
+  deshabilitarCaja(cajaId: number): Observable<Caja> {
+    return this.http.post<Caja>(`${this.cajaUrl}/${cajaId}/deshabilitar`, {});
   }
 
   /** Corrige un cierre ya hecho (ej. un billete mal contado). ADMIN-only, cualquier caja cerrada. */

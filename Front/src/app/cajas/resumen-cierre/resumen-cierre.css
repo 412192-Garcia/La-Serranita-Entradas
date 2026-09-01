@@ -5,6 +5,69 @@
   width: 100%;
 }
 
+/* Botones/alertas compartidos con el flujo de caja (copiados de shared/pos-caja.css para no
+   arrastrar toda esa hoja al bundle de este componente y pasarse del budget de CSS). */
+.btn-limpiar {
+  padding: 14px 16px;
+  border: 1.5px solid var(--color-border);
+  background-color: var(--color-card-bg);
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.btn-limpiar:hover { border-color: var(--color-danger); color: var(--color-danger-dark); }
+
+.btn-cobrar {
+  flex: 1;
+  padding: 16px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background-color: var(--color-primary);
+  color: #fff;
+  font-family: var(--font-heading);
+  font-size: 1.15rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background-color 0.18s ease;
+}
+
+.btn-cobrar:hover:not(:disabled) { background-color: var(--color-primary-dark); }
+
+.btn-cobrar:disabled {
+  background-color: var(--color-border);
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.btn-secundario-caja {
+  padding: 10px 16px;
+  border: 1.5px solid var(--color-border);
+  background-color: var(--color-card-bg);
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.btn-secundario-caja:hover { border-color: var(--color-primary); color: var(--color-primary-dark); }
+
+.alerta-error {
+  background-color: var(--color-danger-light);
+  color: var(--color-danger-dark);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  font-size: 0.9rem;
+  margin: 0 0 12px;
+}
+
 .tarjeta-kpis-detalle {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -145,8 +208,6 @@
 }
 
 .btn-corregir-cierre {
-  display: block;
-  margin-bottom: 14px;
   padding: 10px 16px;
   border: 1.5px solid var(--color-border);
   border-radius: var(--radius-sm);
@@ -162,6 +223,635 @@
 .btn-corregir-cierre:hover {
   border-color: var(--color-primary);
   color: var(--color-primary-dark);
+}
+
+.btn-borrar-caja {
+  padding: 10px 16px;
+  border: 1.5px solid var(--color-danger);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-card-bg);
+  color: var(--color-danger-dark);
+  font-family: var(--font-heading);
+  font-size: 0.88rem;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/* Aparte del resto de la fila (Corregir cierre / Corregir caja): es una acción destructiva,
+   no debería quedar pegada a las de corrección. */
+.acciones-resumen .btn-borrar-caja {
+  margin-left: auto;
+}
+
+.btn-borrar-caja:hover:not(:disabled) {
+  background-color: var(--color-danger);
+  color: #fff;
+}
+
+.btn-borrar-caja:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.banner-caja-borrada {
+  background-color: var(--color-bg-soft);
+  border: 1px solid var(--color-border);
+  border-left: 4px solid var(--color-text-muted);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  margin-bottom: 14px;
+  font-size: 0.88rem;
+  color: var(--color-text-secondary);
+}
+
+.dialogo-borrar-caja {
+  background-color: var(--color-card-bg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card-lg);
+  padding: 22px 24px;
+  max-width: 440px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dialogo-borrar-caja h3 {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--color-danger-dark);
+}
+
+.dialogo-borrar-caja p {
+  margin: 0;
+  font-size: 0.92rem;
+  color: var(--color-text-secondary);
+}
+
+.input-confirmacion-borrar-caja {
+  padding: 10px 12px;
+  font-size: 1rem;
+  font-family: inherit;
+  letter-spacing: 1px;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  outline: none;
+  background-color: var(--color-card-bg);
+  color: var(--color-text);
+}
+
+.input-confirmacion-borrar-caja:focus {
+  border-color: var(--color-danger);
+}
+
+.acciones-dialogo-borrar-caja {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.acciones-dialogo-borrar-caja .btn-limpiar,
+.acciones-dialogo-borrar-caja .btn-borrar-caja {
+  flex: 1;
+}
+
+/* ---------- Desglose de ventas por forma de pago ---------- */
+
+.bloque-desglose-ventas {
+  margin-bottom: 14px;
+}
+
+.cabecera-desglose-ventas {
+  margin-bottom: 10px;
+}
+
+.cabecera-desglose-ventas h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--color-text);
+}
+
+.grupo-desglose {
+  background-color: var(--color-bg-soft);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  margin-bottom: 8px;
+}
+
+.cabecera-grupo-desglose {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--color-text-muted);
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 4px;
+}
+
+.fila-desglose {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 12px;
+  font-size: 0.85rem;
+  padding: 4px 0;
+  align-items: baseline;
+}
+
+.firma-desglose {
+  color: var(--color-text);
+}
+
+.cantidad-desglose {
+  color: var(--color-text-secondary);
+  font-size: 0.8rem;
+}
+
+.monto-desglose {
+  font-weight: 700;
+  color: var(--color-text);
+  text-align: right;
+  min-width: 90px;
+}
+
+.sin-datos-desglose {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  margin: 0 0 8px;
+}
+
+.alerta-dolares {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--color-danger-dark);
+  background-color: var(--color-danger-light);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  margin: 0 0 10px;
+}
+
+/* ---------- Matriz editable (una por tipo de entrada; filas = tamaño de grupo) ---------- */
+
+.ayuda-revision {
+  font-size: 0.82rem;
+  color: var(--color-text-secondary);
+  margin: 0 0 12px;
+  line-height: 1.4;
+}
+
+.matriz-tipo {
+  background-color: var(--color-bg-soft);
+  border-radius: var(--radius-sm);
+  padding: 4px 10px 8px;
+  margin-bottom: 10px;
+  overflow-x: auto;
+}
+
+.cabecera-matriz-tipo {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--color-text);
+  padding: 8px 4px 4px;
+}
+
+.fila-matriz {
+  display: grid;
+  grid-template-columns: minmax(120px, 1.4fr) repeat(var(--columnas, 3), minmax(120px, 1fr));
+  gap: 10px;
+  align-items: center;
+  padding: 8px 4px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.fila-matriz:last-child {
+  border-bottom: none;
+}
+
+.fila-matriz-header {
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--color-text-muted);
+}
+
+.fila-matriz-header span:not(:first-child) {
+  text-align: center;
+}
+
+.firma-matriz {
+  font-size: 0.83rem;
+  color: var(--color-text);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-quitar-composicion {
+  border: none;
+  background: none;
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  line-height: 1;
+  cursor: pointer;
+  font-family: inherit;
+  padding: 0;
+}
+
+.fila-matriz-tocada {
+  background-color: var(--color-bg-soft);
+}
+
+.badge-ajuste {
+  margin-left: 4px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: var(--color-primary-dark);
+}
+
+.badge-ajuste-neg {
+  color: var(--color-danger-dark);
+}
+
+.badge-ajuste-traslado {
+  color: #b45309;
+}
+
+.badge-aplicado {
+  margin-left: 4px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+}
+
+/* Marca que en esa celda hay ventas cobradas en dólares (no se pueden mover). */
+.badge-dolares {
+  margin-left: 4px;
+  font-size: 0.62rem;
+  font-weight: 800;
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 0 3px;
+  cursor: help;
+}
+
+.form-nueva-composicion {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+  font-size: 0.82rem;
+  color: var(--color-text-secondary);
+}
+
+.form-nueva-composicion input,
+.form-nueva-composicion select {
+  padding: 7px 8px;
+  border: 1.5px solid var(--color-border);
+  border-radius: 6px;
+  background-color: var(--color-card-bg);
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 0.83rem;
+}
+
+.form-nueva-composicion .input-cantidad-composicion {
+  width: 60px;
+}
+
+.celda-matriz {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.btn-mover {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border: 1.5px solid var(--color-border);
+  border-radius: 6px;
+  background-color: var(--color-card-bg);
+  color: var(--color-text-secondary);
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
+}
+
+.btn-mover:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-primary-dark);
+}
+
+.btn-mover:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.valor-celda {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 56px;
+  line-height: 1.2;
+}
+
+.valor-celda strong {
+  font-size: 0.9rem;
+  color: var(--color-text);
+}
+
+.valor-celda em {
+  font-style: normal;
+  font-size: 0.68rem;
+  color: var(--color-text-muted);
+}
+
+.form-monto-suelto {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+  font-size: 0.83rem;
+}
+
+.form-monto-suelto select,
+.form-monto-suelto input {
+  padding: 7px 8px;
+  border: 1.5px solid var(--color-border);
+  border-radius: 6px;
+  background-color: var(--color-card-bg);
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 0.83rem;
+}
+
+.form-monto-suelto input {
+  width: 110px;
+}
+
+.form-monto-suelto .input-nota-suelto {
+  width: 160px;
+  flex: 1;
+  min-width: 120px;
+}
+
+.lista-agregados {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.chip-agregado {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--color-primary-dark);
+  background-color: var(--color-bg-soft);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  padding: 3px 10px;
+}
+
+.chip-quitado {
+  color: var(--color-danger-dark);
+}
+
+.chip-traslado {
+  color: #b45309;
+}
+
+.chip-agregado button {
+  border: none;
+  background: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: 0.8rem;
+  line-height: 1;
+  font-family: inherit;
+}
+
+.tabla-totales-revision {
+  background-color: var(--color-bg-soft);
+  border-radius: var(--radius-sm);
+  padding: 4px 10px;
+  margin-bottom: 12px;
+}
+
+.acciones-revision {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.fila-entradas-revision {
+  margin: -4px 0 12px;
+  font-size: 0.83rem;
+  color: var(--color-text-secondary);
+}
+
+.linea-articulos {
+  margin: -4px 0 12px;
+  font-size: 0.82rem;
+  color: var(--color-text-secondary);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+}
+
+.linea-articulos strong {
+  color: var(--color-text);
+}
+
+.fila-desglose-articulos {
+  border-top: 1px dashed var(--color-border);
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+.fila-entradas-revision-cambio {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.fila-entradas-revision strong {
+  color: var(--color-text);
+}
+
+/* ---------- Lista de ajustes aplicados ---------- */
+
+.lista-ajustes {
+  margin-top: 12px;
+  padding: 10px 14px;
+  background-color: var(--color-bg-soft);
+  border-radius: var(--radius-sm);
+}
+
+.lista-ajustes h4 {
+  margin: 0 0 8px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--color-text-muted);
+}
+
+.fila-ajuste {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 6px 14px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 0.82rem;
+}
+
+.fila-ajuste:last-child {
+  border-bottom: none;
+}
+
+.detalle-ajuste {
+  color: var(--color-text-secondary);
+}
+
+.detalle-ajuste strong {
+  color: var(--color-text);
+}
+
+.meta-ajuste {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+}
+
+.btn-deshacer-ajuste {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--color-primary-dark);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.btn-deshacer-ajuste:disabled {
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+}
+
+.acciones-resumen {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+/* ---------- Desplegable de operaciones del turno ---------- */
+
+.acordeon-operaciones {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.acordeon-operaciones-cabecera {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  border: none;
+  background-color: var(--color-bg-soft);
+  color: var(--color-text);
+  font-family: var(--font-heading);
+  font-size: 0.9rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.acordeon-operaciones-cabecera:hover {
+  background-color: var(--color-primary-light);
+}
+
+.acordeon-operaciones-contador {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background-color: var(--color-border);
+  color: var(--color-text-secondary);
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.acordeon-operaciones-chevron {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  transition: transform 0.18s ease;
+}
+
+.acordeon-operaciones.abierto .acordeon-operaciones-chevron {
+  transform: rotate(180deg);
+}
+
+.acordeon-operaciones-cuerpo {
+  padding: 12px 14px 14px;
+  border-top: 1px solid var(--color-border);
+}
+
+.filtro-tipo-operacion {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.chip-filtro {
+  border: 1px solid var(--color-border);
+  background-color: var(--color-card-bg);
+  color: var(--color-text-secondary);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.chip-filtro.activo {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+
+.acordeon-operaciones-cuerpo .tabla-detalle-operaciones {
+  margin-bottom: 0;
 }
 
 @media (max-width: 500px) {

@@ -49,7 +49,7 @@
   </div>
 
   <div class="carrito-cobro">
-    <div class="formas-pago">
+    <div class="formas-pago" [class.formas-pago-sin-elegir]="hayItems() && formaPago() === null">
       @for (f of formasPago; track f.valor) {
         <button
           type="button"
@@ -60,6 +60,9 @@
         </button>
       }
     </div>
+    @if (hayItems() && formaPago() === null) {
+      <p class="aviso-elegir-forma">Selecciona el metodo de pago</p>
+    }
 
     @if (ahorro() > 0) {
       <p class="aviso-promo">
@@ -162,6 +165,11 @@
                 <span>Vuelto en pesos</span>
                 <strong>{{ vueltoDolares | pesos }}</strong>
               </div>
+            } @else if (faltaEnPesosPorDolares(); as faltaDolares) {
+              <div class="vuelto-resultado vuelto-falta">
+                <span>Falta (en pesos)</span>
+                <strong>{{ faltaDolares | pesos }}</strong>
+              </div>
             }
           }
         } @else {
@@ -179,6 +187,11 @@
             <div class="vuelto-resultado">
               <span>Vuelto</span>
               <strong>{{ vuelto() | pesos }}</strong>
+            </div>
+          } @else if (falta() !== null) {
+            <div class="vuelto-resultado vuelto-falta">
+              <span>Falta</span>
+              <strong>{{ falta() | pesos }}</strong>
             </div>
           }
         }

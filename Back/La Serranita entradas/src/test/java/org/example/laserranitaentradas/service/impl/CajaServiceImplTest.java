@@ -3,6 +3,8 @@ package org.example.laserranitaentradas.service.impl;
 import org.example.laserranitaentradas.model.dto.CajaResponseDTO;
 import org.example.laserranitaentradas.model.dto.CierrePosnetRequestDTO;
 import org.example.laserranitaentradas.model.dto.ConteoDenominacionDTO;
+import org.example.laserranitaentradas.model.dto.AjusteCajaRequestDTO;
+import org.example.laserranitaentradas.model.entity.AjusteCaja;
 import org.example.laserranitaentradas.model.entity.Caja;
 import org.example.laserranitaentradas.model.entity.CierrePosnet;
 import org.example.laserranitaentradas.model.entity.Compra;
@@ -11,15 +13,18 @@ import org.example.laserranitaentradas.model.entity.EstadoCompra;
 import org.example.laserranitaentradas.model.entity.FormaPago;
 import org.example.laserranitaentradas.model.entity.IngresoEntradas;
 import org.example.laserranitaentradas.model.entity.RetiroCaja;
+import org.example.laserranitaentradas.model.entity.Tipo;
 import org.example.laserranitaentradas.model.entity.TipoEntrada;
 import org.example.laserranitaentradas.model.entity.TipoMovimientoCaja;
 import org.example.laserranitaentradas.model.entity.TipoMovimientoEntradas;
 import org.example.laserranitaentradas.model.entity.Usuario;
+import org.example.laserranitaentradas.repository.AjusteCajaRepository;
 import org.example.laserranitaentradas.repository.CajaRepository;
 import org.example.laserranitaentradas.repository.CierrePosnetRepository;
 import org.example.laserranitaentradas.repository.CompraRepository;
 import org.example.laserranitaentradas.repository.IngresoEntradasRepository;
 import org.example.laserranitaentradas.repository.RetiroCajaRepository;
+import org.example.laserranitaentradas.service.TipoEntradaService;
 import org.example.laserranitaentradas.service.UsuarioService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -30,12 +35,15 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -57,6 +65,8 @@ class CajaServiceImplTest {
     @Mock private CierrePosnetRepository cierrePosnetRepository;
     @Mock private IngresoEntradasRepository ingresoEntradasRepository;
     @Mock private CompraRepository compraRepository;
+    @Mock private AjusteCajaRepository ajusteCajaRepository;
+    @Mock private TipoEntradaService tipoEntradaService;
     @Mock private UsuarioService usuarioService;
 
     private CajaServiceImpl service;
@@ -65,7 +75,9 @@ class CajaServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        service = new CajaServiceImpl(cajaRepository, retiroCajaRepository, cierrePosnetRepository, ingresoEntradasRepository, compraRepository, usuarioService);
+        service = new CajaServiceImpl(cajaRepository, retiroCajaRepository, cierrePosnetRepository, ingresoEntradasRepository, compraRepository, ajusteCajaRepository, tipoEntradaService, usuarioService);
+        lenient().when(ajusteCajaRepository.findAllByCajaIdOrderByFechaAsc(any())).thenReturn(List.of());
+        lenient().when(tipoEntradaService.getAll()).thenReturn(List.of());
     }
 
     @Test
@@ -445,7 +457,7 @@ class CajaServiceImplTest {
     }
 
     @Test
-    void cerrar_conCierrePosnetCombinado_sumaTarjetaYQrJuntosYDejaLosSeparadosEnNull() {
+    void cerrar_conCierrePosnetCombinado_sumaTarjetaYQrJuntosParaLoContadoPeroMandaLasVentasPorSeparado() {
         Caja cajaAbierta = cajaAbierta(7L, "5000", 50);
         when(cajaRepository.findByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(Optional.of(cajaAbierta));
         when(compraRepository.findAllByCajaId(7L)).thenReturn(List.of(
@@ -465,8 +477,10 @@ class CajaServiceImplTest {
         assertThat(respuesta.getTotalVentasPosnet()).isEqualByComparingTo("55000");
         assertThat(respuesta.getTotalCerradoPosnet()).isEqualByComparingTo("54000");
         assertThat(respuesta.getDiferenciaPosnet()).isEqualByComparingTo("-1000");
-        assertThat(respuesta.getTotalVentasTarjeta()).isNull();
-        assertThat(respuesta.getTotalVentasQr()).isNull();
+        // Lo vendido con cada forma se manda siempre (el detalle de venta sí las distingue)...
+        assertThat(respuesta.getTotalVentasTarjeta()).isEqualByComparingTo("40000");
+        assertThat(respuesta.getTotalVentasQr()).isEqualByComparingTo("15000");
+        // ...pero lo contado sigue combinado, no repartido.
         assertThat(respuesta.getTotalCerradoTarjeta()).isNull();
         assertThat(respuesta.getTotalCerradoQr()).isNull();
     }
@@ -815,6 +829,52 @@ class CajaServiceImplTest {
     }
 
     @Test
+    void reabrir_deCajaDeshabilitada_rechaza() {
+        Caja cajaCerrada = cajaCerradaDeUsuario(7L, USUARIO_ID);
+        cajaCerrada.setHabilitada(false);
+        when(cajaRepository.findById(7L)).thenReturn(Optional.of(cajaCerrada));
+
+        assertThatThrownBy(() -> service.reabrir(7L)).isInstanceOf(IllegalStateException.class);
+        verify(cajaRepository, never()).save(any());
+    }
+
+    @Test
+    void deshabilitarCaja_cajaCerradaYHabilitada_marcaHabilitadaEnFalseYDevuelveElDto() {
+        Caja cajaCerrada = cajaCerradaDeUsuario(7L, USUARIO_ID);
+        when(cajaRepository.findById(7L)).thenReturn(Optional.of(cajaCerrada));
+        when(compraRepository.findAllByCajaId(7L)).thenReturn(List.of());
+        when(retiroCajaRepository.findAllByCajaIdOrderByFechaAsc(7L)).thenReturn(List.of());
+        when(cierrePosnetRepository.findAllByCajaIdOrderByIdAsc(7L)).thenReturn(List.of());
+        when(cajaRepository.save(any(Caja.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        CajaResponseDTO dto = service.deshabilitarCaja(7L);
+
+        ArgumentCaptor<Caja> captor = ArgumentCaptor.forClass(Caja.class);
+        verify(cajaRepository).save(captor.capture());
+        assertThat(captor.getValue().getHabilitada()).isFalse();
+        assertThat(dto.getHabilitada()).isFalse();
+    }
+
+    @Test
+    void deshabilitarCaja_cajaTodaviaAbierta_rechaza() {
+        Caja cajaAbierta = cajaAbierta(7L, "5000", 50); // sin fechaCierre
+        when(cajaRepository.findById(7L)).thenReturn(Optional.of(cajaAbierta));
+
+        assertThatThrownBy(() -> service.deshabilitarCaja(7L)).isInstanceOf(IllegalStateException.class);
+        verify(cajaRepository, never()).save(any());
+    }
+
+    @Test
+    void deshabilitarCaja_cajaYaDeshabilitada_rechaza() {
+        Caja cajaCerrada = cajaCerradaDeUsuario(7L, USUARIO_ID);
+        cajaCerrada.setHabilitada(false);
+        when(cajaRepository.findById(7L)).thenReturn(Optional.of(cajaCerrada));
+
+        assertThatThrownBy(() -> service.deshabilitarCaja(7L)).isInstanceOf(IllegalStateException.class);
+        verify(cajaRepository, never()).save(any());
+    }
+
+    @Test
     void recerrarConElUltimoConteo_reutilizaElConteoYaGuardadoEnLaCaja() {
         // Simula una caja recién reabierta con reabrir(): fechaCierre null, pero el conteo de
         // cuando se cerró la primera vez todavía está ahí (reabrir no lo toca).
@@ -920,6 +980,209 @@ class CajaServiceImplTest {
             assertThat(c.getTotalVendido()).isEqualByComparingTo("0");
             assertThat(c.getTotalEntradasPagas()).isEqualTo(0);
         });
+    }
+
+    @Test
+    void registrarAjustes_traspasaMontoEntreFormasDePagoYRecalculaLaDiferenciaDeEfectivo() {
+        Caja caja = cajaCerradaDeUsuario(7L, USUARIO_ID);
+        caja.setMontoContado(new BigDecimal("68600")); // contó lo que hay de verdad en el cajón
+        when(cajaRepository.findById(7L)).thenReturn(Optional.of(caja));
+        when(cajaRepository.save(any(Caja.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(compraRepository.findAllByCajaId(7L)).thenReturn(List.of(
+                compraConMontoFormaEstado("58600", FormaPago.EFECTIVO_BOLETERIA, EstadoCompra.VENDIDO_EN_PUERTA),
+                compraConMontoFormaEstado("10000", FormaPago.TARJETA, EstadoCompra.VENDIDO_EN_PUERTA)));
+        when(retiroCajaRepository.findAllByCajaIdOrderByFechaAsc(7L)).thenReturn(List.of());
+        when(cierrePosnetRepository.findAllByCajaIdOrderByIdAsc(7L)).thenReturn(List.of(cierrePosnet(FormaPago.TARJETA, "10000")));
+
+        List<AjusteCaja> guardados = new ArrayList<>();
+        when(ajusteCajaRepository.save(any(AjusteCaja.class))).thenAnswer(inv -> {
+            AjusteCaja a = inv.getArgument(0);
+            guardados.add(a);
+            return a;
+        });
+        when(ajusteCajaRepository.findAllByCajaIdOrderByFechaAsc(any())).thenAnswer(inv -> List.copyOf(guardados));
+
+        // La cajera cobró una venta de 10000 en efectivo pero tocó "tarjeta": traspaso TARJETA -> EFECTIVO.
+        AjusteCajaRequestDTO req = new AjusteCajaRequestDTO();
+        req.setFormaOrigen(FormaPago.TARJETA);
+        req.setFormaDestino(FormaPago.EFECTIVO_BOLETERIA);
+        req.setMonto(new BigDecimal("10000"));
+        req.setCantidadVentas(1);
+        req.setDetalle("1x Pase General");
+
+        var respuesta = service.registrarAjustes(7L, List.of(req));
+
+        // esperado efectivo = 5000 (inicial) + 58600 (ventas efectivo) + 10000 (ajuste entrante) = 73600
+        assertThat(caja.getMontoEsperado()).isEqualByComparingTo("73600");
+        // contado 68600 - esperado 73600 = -5000 (ahora falta, antes cerraba)
+        assertThat(caja.getDiferencia()).isEqualByComparingTo("-5000");
+        // el ajuste sale del esperado de tarjeta: 10000 vendido - 10000 traspasado = 0, contra 10000 de cierre => sobra 10000
+        assertThat(respuesta.getTotalVentasTarjeta()).isEqualByComparingTo("0");
+        assertThat(respuesta.getDiferenciaTarjeta()).isEqualByComparingTo("10000");
+        assertThat(respuesta.getAjustes()).hasSize(1);
+        assertThat(respuesta.getAjustes().get(0).getFormaOrigen()).isEqualTo(FormaPago.TARJETA);
+        assertThat(respuesta.getAjustes().get(0).getFormaDestino()).isEqualTo(FormaPago.EFECTIVO_BOLETERIA);
+    }
+
+    @Test
+    void registrarAjustes_agregarVentasRecalculaElUsoDeEntradas() {
+        Caja caja = cajaCerradaDeUsuario(7L, USUARIO_ID);
+        caja.setMontoContado(new BigDecimal("50000"));
+        caja.setEntradasFisicasInicial(100);
+        caja.setEntradasFisicasCortadas(30);
+        when(cajaRepository.findById(7L)).thenReturn(Optional.of(caja));
+        when(cajaRepository.save(any(Caja.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(compraRepository.findAllByCajaId(7L)).thenReturn(List.of()); // base de entradas = 0
+        when(retiroCajaRepository.findAllByCajaIdOrderByFechaAsc(7L)).thenReturn(List.of());
+        when(cierrePosnetRepository.findAllByCajaIdOrderByIdAsc(7L)).thenReturn(List.of());
+
+        TipoEntrada general = new TipoEntrada();
+        general.setId(1L);
+        general.setNombre("General");
+        general.setTipo(Tipo.ENTRADA);
+        general.setPrecio(new BigDecimal("34300"));
+        general.setEntregaEntrada(true);
+        when(tipoEntradaService.getAll()).thenReturn(List.of(general));
+
+        List<AjusteCaja> guardados = new ArrayList<>();
+        when(ajusteCajaRepository.save(any(AjusteCaja.class))).thenAnswer(inv -> {
+            guardados.add(inv.getArgument(0));
+            return inv.getArgument(0);
+        });
+        when(ajusteCajaRepository.findAllByCajaIdOrderByFechaAsc(any())).thenAnswer(inv -> List.copyOf(guardados));
+
+        // Agregar 2 ventas de "3x General" a efectivo → +6 pases que entregan entrada.
+        AjusteCajaRequestDTO req = new AjusteCajaRequestDTO();
+        req.setFormaDestino(FormaPago.EFECTIVO_BOLETERIA);
+        req.setMonto(new BigDecimal("200000"));
+        req.setCantidadVentas(2);
+        req.setDetalle("3x General");
+        req.setLineas(Map.of(1L, 3));
+
+        var respuesta = service.registrarAjustes(7L, List.of(req));
+
+        assertThat(respuesta.getEntradasFisicasEsperadas()).isEqualTo(6);   // base 0 + 6 del ajuste
+        assertThat(respuesta.getDiferenciaEntradas()).isEqualTo(6 - 30);     // esperadas − cortadas
+        assertThat(respuesta.getTotalEntradasPagas()).isEqualTo(6);
+        assertThat(respuesta.getEntradasVendidasPorTipo())
+                .anySatisfy(e -> {
+                    assertThat(e.getNombreTipo()).isEqualTo("General");
+                    assertThat(e.getCantidad()).isEqualTo(6);
+                });
+    }
+
+    @Test
+    void registrarAjustes_soloDestino_agregaMontoAlEsperadoDeEsaForma() {
+        Caja caja = cajaCerradaDeUsuario(7L, USUARIO_ID);
+        caja.setMontoContado(new BigDecimal("60000")); // contó 60000 de verdad
+        when(cajaRepository.findById(7L)).thenReturn(Optional.of(caja));
+        when(cajaRepository.save(any(Caja.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(compraRepository.findAllByCajaId(7L)).thenReturn(List.of(
+                compraConMontoFormaEstado("50000", FormaPago.EFECTIVO_BOLETERIA, EstadoCompra.VENDIDO_EN_PUERTA)));
+        when(retiroCajaRepository.findAllByCajaIdOrderByFechaAsc(7L)).thenReturn(List.of());
+        when(cierrePosnetRepository.findAllByCajaIdOrderByIdAsc(7L)).thenReturn(List.of());
+
+        List<AjusteCaja> guardados = new ArrayList<>();
+        when(ajusteCajaRepository.save(any(AjusteCaja.class))).thenAnswer(inv -> {
+            AjusteCaja a = inv.getArgument(0);
+            guardados.add(a);
+            return a;
+        });
+        when(ajusteCajaRepository.findAllByCajaIdOrderByFechaAsc(any())).thenAnswer(inv -> List.copyOf(guardados));
+
+        // Se cobraron 10000 en efectivo que la cajera nunca registró: agregar 10000 a EFECTIVO.
+        AjusteCajaRequestDTO req = new AjusteCajaRequestDTO();
+        req.setFormaOrigen(null);
+        req.setFormaDestino(FormaPago.EFECTIVO_BOLETERIA);
+        req.setMonto(new BigDecimal("10000"));
+        req.setDetalle("cobro sin registrar");
+
+        var respuesta = service.registrarAjustes(7L, List.of(req));
+
+        // esperado = 1 (inicial, cajaCerradaDeUsuario usa "5000")... ojo: inicial 5000.
+        // 5000 + 50000 (venta) + 10000 (agregado) = 65000; contado 60000 => -5000
+        assertThat(caja.getMontoEsperado()).isEqualByComparingTo("65000");
+        assertThat(caja.getDiferencia()).isEqualByComparingTo("-5000");
+        assertThat(respuesta.getAjustes().get(0).getFormaOrigen()).isNull();
+        assertThat(respuesta.getAjustes().get(0).getFormaDestino()).isEqualTo(FormaPago.EFECTIVO_BOLETERIA);
+    }
+
+    @Test
+    void registrarAjustes_sinNingunaForma_rechaza() {
+        Caja caja = cajaCerradaDeUsuario(7L, USUARIO_ID);
+        caja.setMontoContado(new BigDecimal("1000"));
+        when(cajaRepository.findById(7L)).thenReturn(Optional.of(caja));
+
+        AjusteCajaRequestDTO req = new AjusteCajaRequestDTO();
+        req.setMonto(new BigDecimal("500"));
+
+        assertThatThrownBy(() -> service.registrarAjustes(7L, List.of(req)))
+                .isInstanceOf(IllegalArgumentException.class);
+        verify(ajusteCajaRepository, never()).save(any());
+    }
+
+    @Test
+    void registrarAjustes_conMismaFormaDeOrigenYDestino_rechaza() {
+        Caja caja = cajaCerradaDeUsuario(7L, USUARIO_ID);
+        caja.setMontoContado(new BigDecimal("1000"));
+        when(cajaRepository.findById(7L)).thenReturn(Optional.of(caja));
+
+        AjusteCajaRequestDTO req = new AjusteCajaRequestDTO();
+        req.setFormaOrigen(FormaPago.TARJETA);
+        req.setFormaDestino(FormaPago.TARJETA);
+        req.setMonto(new BigDecimal("500"));
+
+        assertThatThrownBy(() -> service.registrarAjustes(7L, List.of(req)))
+                .isInstanceOf(IllegalArgumentException.class);
+        verify(ajusteCajaRepository, never()).save(any());
+    }
+
+    @Test
+    void registrarAjustes_sobreCajaTodaviaAbierta_rechaza() {
+        Caja caja = cajaAbierta(7L, "5000", 50); // sin fechaCierre
+        when(cajaRepository.findById(7L)).thenReturn(Optional.of(caja));
+
+        AjusteCajaRequestDTO req = new AjusteCajaRequestDTO();
+        req.setFormaOrigen(FormaPago.TARJETA);
+        req.setFormaDestino(FormaPago.EFECTIVO_BOLETERIA);
+        req.setMonto(new BigDecimal("500"));
+
+        assertThatThrownBy(() -> service.registrarAjustes(7L, List.of(req)))
+                .isInstanceOf(IllegalStateException.class);
+        verify(ajusteCajaRepository, never()).save(any());
+    }
+
+    @Test
+    void eliminarAjuste_borraLaFilaYVuelveLaDiferenciaAlEstadoOriginal() {
+        Caja caja = cajaCerradaDeUsuario(7L, USUARIO_ID);
+        caja.setMontoContado(new BigDecimal("68600"));
+        when(cajaRepository.findById(7L)).thenReturn(Optional.of(caja));
+        when(cajaRepository.save(any(Caja.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(compraRepository.findAllByCajaId(7L)).thenReturn(List.of(
+                compraConMontoFormaEstado("68600", FormaPago.EFECTIVO_BOLETERIA, EstadoCompra.VENDIDO_EN_PUERTA)));
+        when(retiroCajaRepository.findAllByCajaIdOrderByFechaAsc(7L)).thenReturn(List.of());
+        when(cierrePosnetRepository.findAllByCajaIdOrderByIdAsc(7L)).thenReturn(List.of());
+
+        AjusteCaja ajuste = AjusteCaja.builder()
+                .id(3L).caja(caja)
+                .formaOrigen(FormaPago.EFECTIVO_BOLETERIA).formaDestino(FormaPago.TARJETA)
+                .monto(new BigDecimal("10000")).cantidadVentas(1)
+                .comprasMovidas(new ArrayList<>())
+                .build();
+        List<AjusteCaja> guardados = new ArrayList<>(List.of(ajuste));
+        when(ajusteCajaRepository.findByIdAndCajaId(3L, 7L)).thenReturn(Optional.of(ajuste));
+        doAnswer(inv -> { guardados.remove(inv.getArgument(0)); return null; })
+                .when(ajusteCajaRepository).delete(any(AjusteCaja.class));
+        when(ajusteCajaRepository.findAllByCajaIdOrderByFechaAsc(any())).thenAnswer(inv -> List.copyOf(guardados));
+
+        var respuesta = service.eliminarAjuste(7L, 3L);
+
+        // El ajuste borrado (EFECTIVO -> TARJETA, 10000) le restaba 10000 al esperado de efectivo.
+        // Sin él: esperado = 5000 (inicial) + 68600 (venta efectivo) = 73600; diferencia = 68600 - 73600 = -5000.
+        assertThat(caja.getMontoEsperado()).isEqualByComparingTo("73600");
+        assertThat(caja.getDiferencia()).isEqualByComparingTo("-5000");
+        assertThat(respuesta.getAjustes()).isEmpty();
+        verify(ajusteCajaRepository).delete(ajuste);
     }
 
     private Usuario usuarioConId(Long id) {

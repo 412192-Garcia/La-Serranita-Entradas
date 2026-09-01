@@ -70,7 +70,17 @@ public class CajaResponseDTO {
     /** Ventas + retiros en orden cronológico. Null mientras sigue ABIERTA (mismo motivo anti-trampa que los totales esperados). */
     private List<OperacionCajaDTO> operaciones;
 
+    /**
+     * Ajustes manuales de la repartición por forma de pago cargados por un admin sobre este
+     * cierre (traspasos entre efectivo/tarjeta/QR). Vacío si no se ajustó nada. Los esperados
+     * y diferencias de arriba ya vienen con estos ajustes aplicados.
+     */
+    private List<AjusteCajaResponseDTO> ajustes;
+
     /** Unidades vendidas de tipos de entrada con precio > 0 (excluye las gratis, los extras y los artículos), sin importar la forma de pago. Null mientras sigue ABIERTA. */
     private Integer totalEntradasPagas;
     private List<EntradasPorTipoDTO> entradasVendidasPorTipo;
+
+    /** false = un admin deshabilitó esta caja (no figura en listados ni reportes). El detalle por id la sigue devolviendo. Nunca null. */
+    private Boolean habilitada;
 }

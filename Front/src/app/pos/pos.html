@@ -3,7 +3,14 @@
   <app-cabecera-interna
     titulo="Venta en Boletería"
     descripcion="Cobrá y registra la compra."
-    [pasosTutorial]="pasosTutorial" />
+    [pasosTutorial]="pasosTutorial">
+    @if (caja()) {
+      <div class="acciones-caja-cabecera" cabecera-acciones data-tour="barra-caja">
+        <button type="button" class="btn-secundario-caja" (click)="mostrarRetiro.set(true)">Retiro / Aporte</button>
+        <button type="button" class="btn-secundario-caja" (click)="mostrarIngresoEntradas.set(true)">Reponer talonario</button>
+      </div>
+    }
+  </app-cabecera-interna>
 
   @if (cargandoCaja()) {
     <app-spinner />
@@ -11,11 +18,7 @@
     <app-apertura-caja (cajaAbierta)="onCajaAbierta($event)" />
   } @else {
 
-    <app-barra-caja
-      data-tour="barra-caja"
-      [caja]="caja()!"
-      (retirarEfectivo)="mostrarRetiro.set(true)"
-      (agregarEntradas)="mostrarIngresoEntradas.set(true)" />
+    <app-barra-caja />
 
     <!-- Los dos son modales: no empujan el mostrador de venta, y al taparlo de paso
          evitan seguir cobrando hacia una caja que se está por retirar. -->
