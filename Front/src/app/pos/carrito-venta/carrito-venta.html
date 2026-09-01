@@ -49,7 +49,7 @@
   </div>
 
   <div class="carrito-cobro">
-    <div class="formas-pago">
+    <div class="formas-pago" [class.formas-pago-sin-elegir]="hayItems() && formaPago() === null">
       @for (f of formasPago; track f.valor) {
         <button
           type="button"
@@ -60,6 +60,9 @@
         </button>
       }
     </div>
+    @if (hayItems() && formaPago() === null) {
+      <p class="aviso-elegir-forma">Selecciona el metodo de pago</p>
+    }
 
     @if (ahorro() > 0) {
       <p class="aviso-promo">

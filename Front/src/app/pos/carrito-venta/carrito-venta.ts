@@ -69,7 +69,9 @@ export class CarritoVenta {
 
   readonly formasPago = FORMAS_PAGO;
 
-  formaPago = signal<FormaPagoPos>('EFECTIVO_BOLETERIA');
+  /** Arranca sin elegir a propósito: si viniera Efectivo por defecto, es muy fácil cobrar en
+   * efectivo una venta que en realidad fue con tarjeta por olvidarse de cambiarlo. */
+  formaPago = signal<FormaPagoPos | null>(null);
 
   // ---------- Descuento: promo con nombre o manual ad-hoc, mutuamente excluyentes ----------
   modoDescuento = signal<'ninguno' | 'promo' | 'manual'>('ninguno');
@@ -180,7 +182,12 @@ export class CarritoVenta {
   private faltaCompletarPagoDolares = computed(() => this.pagoEnDolares() && this.vueltoEnPesosPorDolares() === null);
 
   puedeCobrar = computed(
-    () => this.hayItems() && (!this.tieneEntradas() || this.tieneObligatorio()) && !this.faltaCompletarPagoDolares() && !this.cobrando()
+    () =>
+      this.hayItems() &&
+      this.formaPago() !== null &&
+      (!this.tieneEntradas() || this.tieneObligatorio()) &&
+      !this.faltaCompletarPagoDolares() &&
+      !this.cobrando()
   );
 
   motivoBloqueo = computed(() => {
@@ -207,7 +214,9 @@ export class CarritoVenta {
       const articulos = this.articulosCarritoPayload();
       const formaPago = this.formaPago();
       const descuento = this.descuentoPayload();
-      if (entradas.length === 0 && articulos.length === 0) {
+      // Sin forma de pago elegida no se cotiza: el TOTAL cae al precio de lista (subtotalLista),
+      // y recién al elegir Efectivo/Tarjeta/QR se pide la cotización real (promo sólo en efectivo).
+      if (formaPago === null || (entradas.length === 0 && articulos.length === 0)) {
         this.cotizacion.set(null);
         return;
       }
@@ -330,6 +339,7 @@ export class CarritoVenta {
   }
 
   onLimpiar(): void {
+    this.formaPago.set(null);
     this.pagaCon.set(null);
     this.limpiarPagoDolares();
     this.error.set(null);
@@ -339,6 +349,8 @@ export class CarritoVenta {
 
   async cobrar(): Promise<void> {
     if (!this.puedeCobrar()) return;
+    const formaPago = this.formaPago();
+    if (formaPago === null) return;
 
     this.cobrando.set(true);
     this.error.set(null);
@@ -348,7 +360,6 @@ export class CarritoVenta {
       ...this.entradasFijasPayload(),
     ];
     const articulos = this.articulosCarritoPayload();
-    const formaPago = this.formaPago();
     const pagoEnDolares = this.pagoEnDolares();
     const vuelto = pagoEnDolares ? this.vueltoEnPesosPorDolares() : this.vuelto();
     const total = this.total();

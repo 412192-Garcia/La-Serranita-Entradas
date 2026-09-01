@@ -160,6 +160,21 @@
   color: #fff;
 }
 
+/* Con items en el carrito y ninguna forma elegida: los botones llaman la atención para que
+   la cajera no se olvide de tocar el que corresponde. */
+.formas-pago-sin-elegir .btn-forma-pago {
+  border-color: var(--color-accent-dark);
+  color: var(--color-accent-dark);
+}
+
+.aviso-elegir-forma {
+  margin: 6px 0 0;
+  text-align: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--color-accent-dark);
+}
+
 .aviso-promo {
   margin: 0;
   font-size: 0.82rem;
