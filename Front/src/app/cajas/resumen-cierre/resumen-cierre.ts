@@ -9,6 +9,7 @@ import { FormaPagoPos } from '../../models/compra';
 import { etiquetaFormaPago } from '../../models/forma-pago';
 import { cotizarLocalmente } from '../../shared/calculo-precio.util';
 import { MoneyInputDirective } from '../../shared/money-input/money-input.directive';
+import { Modal } from '../../shared/modal/modal';
 import { PesosPipe } from '../../shared/pesos.pipe';
 import { LucideShoppingCart, LucideArrowDownRight, LucideArrowUpRight, LucideTicketPlus, LucideTicketMinus } from '@lucide/angular';
 
@@ -91,7 +92,7 @@ const COLUMNAS: ColumnaDesglose[] = [
 
 @Component({
   selector: 'app-resumen-cierre',
-  imports: [PesosPipe, DatePipe, DecimalPipe, FormsModule, MoneyInputDirective, LucideShoppingCart, LucideArrowDownRight, LucideArrowUpRight, LucideTicketPlus, LucideTicketMinus],
+  imports: [PesosPipe, DatePipe, DecimalPipe, FormsModule, MoneyInputDirective, Modal, LucideShoppingCart, LucideArrowDownRight, LucideArrowUpRight, LucideTicketPlus, LucideTicketMinus],
   templateUrl: './resumen-cierre.html',
   styleUrl: './resumen-cierre.css',
 })
@@ -119,9 +120,46 @@ export class ResumenCierre {
 
   corregir = output<void>();
   cajaActualizada = output<Caja>();
+  cajaDeshabilitada = output<Caja>();
 
   readonly columnas = COLUMNAS;
   readonly etiquetaTipoOperacion = etiquetaTipoOperacion;
+
+  // ---------- Borrar la caja (irreversible) ----------
+  readonly PALABRA_CONFIRMACION = 'BORRAR';
+  mostrarModalDeshabilitar = signal(false);
+  textoConfirmacion = signal('');
+  deshabilitando = signal(false);
+  errorDeshabilitar = signal<string | null>(null);
+
+  confirmacionOk = computed(
+    () => this.textoConfirmacion().trim().toUpperCase() === this.PALABRA_CONFIRMACION
+  );
+
+  abrirModalDeshabilitar(): void {
+    this.textoConfirmacion.set('');
+    this.errorDeshabilitar.set(null);
+    this.mostrarModalDeshabilitar.set(true);
+  }
+
+  confirmarDeshabilitar(): void {
+    if (!this.confirmacionOk() || this.deshabilitando()) return;
+    this.deshabilitando.set(true);
+    this.errorDeshabilitar.set(null);
+    this.cajaService.deshabilitarCaja(this.caja().id).subscribe({
+      next: (c) => {
+        this.deshabilitando.set(false);
+        this.mostrarModalDeshabilitar.set(false);
+        this.cajaDeshabilitada.emit(c);
+      },
+      error: (err) => {
+        this.deshabilitando.set(false);
+        this.errorDeshabilitar.set(
+          typeof err?.error === 'string' ? err.error : 'No se pudo borrar la caja. Reintentá.'
+        );
+      },
+    });
+  }
 
   totalVendido(): number {
     const c = this.caja();

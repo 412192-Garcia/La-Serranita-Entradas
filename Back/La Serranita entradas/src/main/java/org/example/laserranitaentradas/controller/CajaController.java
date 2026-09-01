@@ -141,6 +141,13 @@ public class CajaController {
                 request.getCierresPosnet(), request.getEntradasFisicasCortadas(), request.getCambioContado(), request.getDolaresContado()));
     }
 
+    @PostMapping("/{id}/deshabilitar")
+    @Operation(summary = "Deshabilitar una caja cerrada (ADMIN)",
+            description = "La caja desaparece de todos los listados y KPIs de Cajas, del ranking y del reporte agregado, y sus ventas dejan de sumar en el reporte. El detalle por id la sigue devolviendo con habilitada=false. Irreversible desde la app; sólo cajas ya cerradas.")
+    public ResponseEntity<CajaResponseDTO> deshabilitar(@PathVariable Long id) {
+        return ResponseEntity.ok(cajaService.deshabilitarCaja(id));
+    }
+
     @PostMapping("/{id}/ajustes")
     @Operation(summary = "Ajustar la repartición por forma de pago de un cierre (ADMIN)",
             description = "Traspasa monto entre efectivo/tarjeta/QR cuando la cajera cobró de una forma y registró otra. No toca las compras: queda como un registro aparte y el cierre recalcula sus esperados/diferencias. Se mandan varios traspasos de una sola vez.")

@@ -1,3 +1,10 @@
+@if (caja().habilitada === false) {
+  <div class="banner-caja-borrada">
+    Esta caja fue <strong>borrada</strong> por un administrador: no aparece en los listados ni en
+    el reporte, y sus ventas tampoco cuentan. No se puede deshacer desde la app.
+  </div>
+}
+
 <div class="tarjeta-kpis-detalle">
   <div>
     <h2>Total vendido</h2>
@@ -339,13 +346,46 @@
   }
 </div>
 
-@if (mostrarAcciones() && !modoRevision()) {
+@if (mostrarAcciones() && !modoRevision() && caja().habilitada !== false) {
   <div class="acciones-resumen">
     <button type="button" class="btn-corregir-cierre" (click)="corregir.emit()">Corregir cierre</button>
     @if (hayVentasAjustables()) {
       <button type="button" class="btn-corregir-cierre" (click)="toggleRevision()">Corregir caja</button>
     }
+    <button type="button" class="btn-borrar-caja" (click)="abrirModalDeshabilitar()">Borrar caja</button>
   </div>
+}
+
+@if (mostrarModalDeshabilitar()) {
+  <app-modal [cerrarAlTocarFondo]="false" (cerrar)="mostrarModalDeshabilitar.set(false)">
+    <div class="dialogo-borrar-caja">
+      <h3>Borrar esta caja</h3>
+      <p>
+        La caja va a desaparecer de todos los listados y del reporte, y sus ventas dejan de
+        contar. <strong>No se puede deshacer desde la app.</strong>
+      </p>
+      <p>Escribí <strong>{{ PALABRA_CONFIRMACION }}</strong> para confirmar:</p>
+      <input
+        type="text"
+        class="input-confirmacion-borrar-caja"
+        [ngModel]="textoConfirmacion()"
+        (ngModelChange)="textoConfirmacion.set($event)"
+        [placeholder]="PALABRA_CONFIRMACION" />
+      @if (errorDeshabilitar()) {
+        <p class="alerta-error">{{ errorDeshabilitar() }}</p>
+      }
+      <div class="acciones-dialogo-borrar-caja">
+        <button type="button" class="btn-limpiar" (click)="mostrarModalDeshabilitar.set(false)">Cancelar</button>
+        <button
+          type="button"
+          class="btn-borrar-caja"
+          [disabled]="!confirmacionOk() || deshabilitando()"
+          (click)="confirmarDeshabilitar()">
+          {{ deshabilitando() ? 'Borrando…' : 'Borrar caja' }}
+        </button>
+      </div>
+    </div>
+  </app-modal>
 }
 
 @if (caja().operaciones && caja().operaciones!.length > 0) {

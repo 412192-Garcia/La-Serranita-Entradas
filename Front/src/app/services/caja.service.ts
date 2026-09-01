@@ -137,6 +137,9 @@ export interface Caja {
   /** Dólares que el boletero contó al cerrar. Null si esta caja no tuvo ventas en dólares. */
   dolaresContado: number | null;
   diferenciaDolares: number | null;
+
+  /** false = un admin la deshabilitó: no figura en ningún listado ni en el reporte, y sus ventas no cuentan. Irreversible. */
+  habilitada: boolean;
 }
 
 export interface EntradasPorTipo {
@@ -354,6 +357,12 @@ export class CajaService {
   /** Deshace un ajuste manual y devuelve la caja recalculada sin él. ADMIN-only. */
   eliminarAjuste(cajaId: number, ajusteId: number): Observable<Caja> {
     return this.http.delete<Caja>(`${this.cajaUrl}/${cajaId}/ajustes/${ajusteId}`);
+  }
+
+  /** Deshabilita una caja cerrada: desaparece de listados y reportes, y sus ventas dejan de contar.
+   * Irreversible desde la app. ADMIN-only. Devuelve la caja con habilitada=false. */
+  deshabilitarCaja(cajaId: number): Observable<Caja> {
+    return this.http.post<Caja>(`${this.cajaUrl}/${cajaId}/deshabilitar`, {});
   }
 
   /** Corrige un cierre ya hecho (ej. un billete mal contado). ADMIN-only, cualquier caja cerrada. */

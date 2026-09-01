@@ -308,6 +308,15 @@ export class ConfiguracionCajas implements OnInit {
     this.cargarCajasCerradas();
   }
 
+  /** El admin deshabilitó la caja: colapsa la fila y recarga todo (el backend ya la sacó de la
+   * tabla, los KPIs, el ranking y los chips — cargar() re-pide getResumen + cargarCajasCerradas). */
+  onCajaDeshabilitada(_c: Caja): void {
+    this.filaExpandidaId.set(null);
+    this.cajaDetalle.set(null);
+    this.errorDetalle.set(null);
+    this.cargar();
+  }
+
   /** Nombres únicos de boleteros con al menos una caja cerrada en el rango, para el filtro — sigue
    * viniendo del reporte agregado (trae todas las cajas del rango, sin paginar) porque necesita
    * verlas todas para no perderse ningún nombre; el listado paginado en sí no sirve para esto. */

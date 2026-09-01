@@ -361,6 +361,27 @@ public class CajaServiceImpl implements CajaService {
         return total;
     }
 
+    /**
+     * Deshabilita una caja ya cerrada: la saca de todos los listados/KPIs de Cajas, del ranking
+     * y del reporte, y hace que sus ventas dejen de sumar (ver ReporteServiceImpl). Irreversible
+     * desde la app. El detalle por id la sigue devolviendo, con habilitada=false.
+     */
+    @Transactional
+    @Override
+    public CajaResponseDTO deshabilitarCaja(Long cajaId) {
+        Caja caja = cajaRepository.findById(cajaId)
+                .orElseThrow(() -> new IllegalArgumentException("Caja no encontrada para id: " + cajaId));
+        if (caja.getFechaCierre() == null) {
+            throw new IllegalStateException("Sólo se puede deshabilitar una caja ya cerrada");
+        }
+        if (!caja.estaHabilitada()) {
+            throw new IllegalStateException("Esta caja ya está deshabilitada");
+        }
+        caja.setHabilitada(false);
+        // BaseEntity estampa usuarioModificacion/fechaModificacion (queda quién y cuándo).
+        return toDto(cajaRepository.save(caja));
+    }
+
     @Transactional
     @Override
     public CajaResponseDTO corregirCierre(Long cajaId, List<ConteoDenominacionDTO> conteoEfectivo,
@@ -488,6 +509,9 @@ public class CajaServiceImpl implements CajaService {
         if (caja.getFechaCierre() == null) {
             throw new IllegalStateException("Esta caja está abierta: no hace falta reabrirla, ya se puede reintentar directamente.");
         }
+        if (!caja.estaHabilitada()) {
+            throw new IllegalStateException("Esta caja está deshabilitada: no se puede reabrir.");
+        }
         // El conteo (denominaciones, posnet, entradas cortadas, cambio, dólares) queda tal cual
         // estaba en la caja — no se toca acá — así que recerrarConElUltimoConteo lo puede releer
         // después sin que nadie tenga que volver a cargarlo.
@@ -582,7 +606,8 @@ public class CajaServiceImpl implements CajaService {
 
         Specification<Caja> spec = Specification.allOf(
                 CajaSpecifications.cerradaEntre(desdeDt, hastaDt),
-                CajaSpecifications.deUsuarioNombre(usuarioNombre)
+                CajaSpecifications.deUsuarioNombre(usuarioNombre),
+                CajaSpecifications.habilitada()
         );
         Page<Caja> pagina = cajaRepository.findAll(spec, pageable);
 
@@ -1135,6 +1160,7 @@ public class CajaServiceImpl implements CajaService {
                 .dolaresEsperado(dolaresEsperado)
                 .dolaresContado(caja.getDolaresContado())
                 .diferenciaDolares(diferenciaDolares)
+                .habilitada(caja.estaHabilitada())
                 .build();
     }
 }

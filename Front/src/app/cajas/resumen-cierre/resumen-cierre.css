@@ -225,6 +225,98 @@
   color: var(--color-primary-dark);
 }
 
+.btn-borrar-caja {
+  padding: 10px 16px;
+  border: 1.5px solid var(--color-danger);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-card-bg);
+  color: var(--color-danger-dark);
+  font-family: var(--font-heading);
+  font-size: 0.88rem;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/* Aparte del resto de la fila (Corregir cierre / Corregir caja): es una acción destructiva,
+   no debería quedar pegada a las de corrección. */
+.acciones-resumen .btn-borrar-caja {
+  margin-left: auto;
+}
+
+.btn-borrar-caja:hover:not(:disabled) {
+  background-color: var(--color-danger);
+  color: #fff;
+}
+
+.btn-borrar-caja:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.banner-caja-borrada {
+  background-color: var(--color-bg-soft);
+  border: 1px solid var(--color-border);
+  border-left: 4px solid var(--color-text-muted);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  margin-bottom: 14px;
+  font-size: 0.88rem;
+  color: var(--color-text-secondary);
+}
+
+.dialogo-borrar-caja {
+  background-color: var(--color-card-bg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card-lg);
+  padding: 22px 24px;
+  max-width: 440px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dialogo-borrar-caja h3 {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--color-danger-dark);
+}
+
+.dialogo-borrar-caja p {
+  margin: 0;
+  font-size: 0.92rem;
+  color: var(--color-text-secondary);
+}
+
+.input-confirmacion-borrar-caja {
+  padding: 10px 12px;
+  font-size: 1rem;
+  font-family: inherit;
+  letter-spacing: 1px;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  outline: none;
+  background-color: var(--color-card-bg);
+  color: var(--color-text);
+}
+
+.input-confirmacion-borrar-caja:focus {
+  border-color: var(--color-danger);
+}
+
+.acciones-dialogo-borrar-caja {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.acciones-dialogo-borrar-caja .btn-limpiar,
+.acciones-dialogo-borrar-caja .btn-borrar-caja {
+  flex: 1;
+}
+
 /* ---------- Desglose de ventas por forma de pago ---------- */
 
 .bloque-desglose-ventas {

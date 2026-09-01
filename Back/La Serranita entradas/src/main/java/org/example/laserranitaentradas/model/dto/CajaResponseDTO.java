@@ -80,4 +80,7 @@ public class CajaResponseDTO {
     /** Unidades vendidas de tipos de entrada con precio > 0 (excluye las gratis, los extras y los artículos), sin importar la forma de pago. Null mientras sigue ABIERTA. */
     private Integer totalEntradasPagas;
     private List<EntradasPorTipoDTO> entradasVendidasPorTipo;
+
+    /** false = un admin deshabilitó esta caja (no figura en listados ni reportes). El detalle por id la sigue devolviendo. Nunca null. */
+    private Boolean habilitada;
 }

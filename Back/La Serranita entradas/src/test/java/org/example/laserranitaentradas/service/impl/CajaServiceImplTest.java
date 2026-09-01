@@ -829,6 +829,52 @@ class CajaServiceImplTest {
     }
 
     @Test
+    void reabrir_deCajaDeshabilitada_rechaza() {
+        Caja cajaCerrada = cajaCerradaDeUsuario(7L, USUARIO_ID);
+        cajaCerrada.setHabilitada(false);
+        when(cajaRepository.findById(7L)).thenReturn(Optional.of(cajaCerrada));
+
+        assertThatThrownBy(() -> service.reabrir(7L)).isInstanceOf(IllegalStateException.class);
+        verify(cajaRepository, never()).save(any());
+    }
+
+    @Test
+    void deshabilitarCaja_cajaCerradaYHabilitada_marcaHabilitadaEnFalseYDevuelveElDto() {
+        Caja cajaCerrada = cajaCerradaDeUsuario(7L, USUARIO_ID);
+        when(cajaRepository.findById(7L)).thenReturn(Optional.of(cajaCerrada));
+        when(compraRepository.findAllByCajaId(7L)).thenReturn(List.of());
+        when(retiroCajaRepository.findAllByCajaIdOrderByFechaAsc(7L)).thenReturn(List.of());
+        when(cierrePosnetRepository.findAllByCajaIdOrderByIdAsc(7L)).thenReturn(List.of());
+        when(cajaRepository.save(any(Caja.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        CajaResponseDTO dto = service.deshabilitarCaja(7L);
+
+        ArgumentCaptor<Caja> captor = ArgumentCaptor.forClass(Caja.class);
+        verify(cajaRepository).save(captor.capture());
+        assertThat(captor.getValue().getHabilitada()).isFalse();
+        assertThat(dto.getHabilitada()).isFalse();
+    }
+
+    @Test
+    void deshabilitarCaja_cajaTodaviaAbierta_rechaza() {
+        Caja cajaAbierta = cajaAbierta(7L, "5000", 50); // sin fechaCierre
+        when(cajaRepository.findById(7L)).thenReturn(Optional.of(cajaAbierta));
+
+        assertThatThrownBy(() -> service.deshabilitarCaja(7L)).isInstanceOf(IllegalStateException.class);
+        verify(cajaRepository, never()).save(any());
+    }
+
+    @Test
+    void deshabilitarCaja_cajaYaDeshabilitada_rechaza() {
+        Caja cajaCerrada = cajaCerradaDeUsuario(7L, USUARIO_ID);
+        cajaCerrada.setHabilitada(false);
+        when(cajaRepository.findById(7L)).thenReturn(Optional.of(cajaCerrada));
+
+        assertThatThrownBy(() -> service.deshabilitarCaja(7L)).isInstanceOf(IllegalStateException.class);
+        verify(cajaRepository, never()).save(any());
+    }
+
+    @Test
     void recerrarConElUltimoConteo_reutilizaElConteoYaGuardadoEnLaCaja() {
         // Simula una caja recién reabierta con reabrir(): fechaCierre null, pero el conteo de
         // cuando se cerró la primera vez todavía está ahí (reabrir no lo toca).

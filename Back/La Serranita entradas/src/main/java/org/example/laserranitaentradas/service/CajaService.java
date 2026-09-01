@@ -128,4 +128,12 @@ public interface CajaService {
 
     /** Deshace un ajuste manual: borra la fila y recalcula el cierre. ADMIN-only. */
     CajaResponseDTO eliminarAjuste(Long cajaId, Long ajusteId);
+
+    /**
+     * Deshabilita una caja YA CERRADA: desaparece de todos los listados/KPIs de Cajas, del ranking
+     * y del reporte agregado, y sus ventas dejan de sumar en el reporte (ver ReporteService). El
+     * detalle por id la sigue devolviendo, con habilitada=false. Irreversible desde la app.
+     * ADMIN-only (gateado en SecurityConfig).
+     */
+    CajaResponseDTO deshabilitarCaja(Long cajaId);
 }
