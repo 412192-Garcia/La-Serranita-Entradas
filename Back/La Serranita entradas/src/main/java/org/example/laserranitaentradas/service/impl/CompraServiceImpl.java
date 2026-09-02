@@ -469,8 +469,7 @@ public class CompraServiceImpl implements CompraService {
 
         // Un regalo queda SIN fechaVisita a propósito, incluso después de canjearse: su
         // recaudación se atribuye a la fecha de compra (la plata entró al venderlo) y su ingreso
-        // a la fecha de validación, cada uno a su mes, sin moverse. El reporte los cruza por
-        // separado (ver ReporteServiceImpl / findRegalosValidadosEntre).
+        // a la fecha de validación, cada uno a su mes, sin moverse (ver ReporteServiceImpl).
 
         return compraRepository.save(compra);
     }

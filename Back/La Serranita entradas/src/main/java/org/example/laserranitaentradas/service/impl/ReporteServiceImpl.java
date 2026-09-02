@@ -33,6 +33,7 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.EnumMap;
@@ -78,12 +79,20 @@ public class ReporteServiceImpl implements ReporteService {
             throw new IllegalArgumentException("El rango de fechas es inválido");
         }
 
-        List<Compra> compras = new ArrayList<>(compraRepository.findAllByFechaVisitaBetween(desde, hasta));
-        // Un regalo nunca tiene fechaVisita (ni después de canjearse), así que
-        // findAllByFechaVisitaBetween no lo trae. Su RECAUDACIÓN se suma acá por fecha de compra
-        // —queda anclada al mes en que se vendió—; su INGRESO se cuenta aparte, por fecha de
-        // validación (más abajo, findRegalosValidadosEntre). Las dos cosas, cada una a su mes.
-        compras.addAll(compraRepository.findRegalosCreadosEntre(desde.atStartOfDay(), hasta.plusDays(1).atStartOfDay()));
+        // Cada compra tiene tres fechas que importan y NO tienen por qué caer en el mismo mes:
+        //  - fechaCreacion   → cuándo se generó la compra (y, en Mercado Pago, cuándo se pagó)
+        //  - fechaVisita     → el día que el cliente eligió para venir (null en un regalo)
+        //  - fechaValidacion → cuándo la persona realmente cruzó la puerta
+        // El reporte atribuye cada métrica a la fecha que le corresponde:
+        //  - RECAUDACIÓN     → día de cobro: Mercado Pago = fechaCreacion; efectivo/tarjeta/QR
+        //                      = fechaValidacion (se cobra en la puerta al validar)
+        //  - INGRESOS / personas / afluencia real → fechaValidacion, siempre
+        //  - DEMANDA ("reservado para ese día")   → fechaVisita
+        // Ejemplo: pagan un regalo por MP en enero y lo canjean en marzo → la plata queda en
+        // enero, el visitante en marzo, y ninguna de las dos se mueve al re-correr el reporte.
+        LocalDateTime desdeDt = desde.atStartOfDay();
+        LocalDateTime hastaDt = hasta.plusDays(1).atStartOfDay();
+        List<Compra> compras = compraRepository.findParaReporte(desde, hasta, desdeDt, hastaDt);
 
         // Cajas que un admin deshabilitó: sus ventas de boletería no cuentan en ninguna métrica
         // (como si el turno nunca hubiera existido). Las compras online tienen caja == null.
@@ -144,22 +153,47 @@ public class ReporteServiceImpl implements ReporteService {
         BigDecimal sumaCotizacionPonderada = BigDecimal.ZERO;
 
         for (Compra compra : compras) {
-            // Venta de un turno deshabilitado: se descarta de TODO (recaudación, formas de pago,
-            // desglose, dólares, promos, afluencia, personasIngresadas, artículos, estados…).
+            // Venta de un turno que un admin deshabilitó: se descarta de TODO (como si el turno
+            // nunca hubiera existido). Las compras online no tienen caja.
             Caja cajaCompra = compra.getCaja();
             if (cajaCompra != null && cajasDeshabilitadas.contains(cajaCompra.getId())) {
                 continue;
             }
 
-            boolean cobrada = ESTADOS_COBRADOS.contains(compra.getEstado());
-            boolean vendida = ESTADOS_VENDIDOS.contains(compra.getEstado());
-            boolean validada = ESTADOS_INGRESADOS.contains(compra.getEstado());
+            boolean esMercadoPago = compra.getFormaPago() == FormaPago.MERCADO_PAGO;
             // La venta de puerta es lo único que nunca fue una reserva anticipada.
             boolean esBoleteria = compra.getEstado() == EstadoCompra.VENDIDO_EN_PUERTA;
 
+            // Día de cobro: Mercado Pago se paga al comprar; efectivo/tarjeta/QR se cobran en la
+            // puerta, al validar (sin validar, no entró plata).
+            LocalDate diaCobro = esMercadoPago
+                    ? compra.getFechaCreacion().toLocalDate()
+                    : (compra.getFechaValidacion() != null ? compra.getFechaValidacion().toLocalDate() : null);
+            boolean cuentaRecaudacion = enRango(diaCobro, desde, hasta)
+                    && ESTADOS_COBRADOS.contains(compra.getEstado());
+
+            LocalDate diaIngreso = compra.getFechaValidacion() != null
+                    ? compra.getFechaValidacion().toLocalDate() : null;
+            boolean cuentaIngreso = enRango(diaIngreso, desde, hasta)
+                    && ESTADOS_INGRESADOS.contains(compra.getEstado());
+
+            // Demanda: pases reservados para venir ese día. Un regalo no tiene día elegido.
+            boolean cuentaDemanda = enRango(compra.getFechaVisita(), desde, hasta)
+                    && ESTADOS_VENDIDOS.contains(compra.getEstado());
+
+            if (!cuentaRecaudacion && !cuentaIngreso && !cuentaDemanda) {
+                // El prefiltro la trajo por una fecha que en realidad cae fuera del rango exacto.
+                continue;
+            }
+
             cantidadPorEstado.merge(compra.getEstado(), 1L, Long::sum);
 
-            if (cobrada) {
+            long pasesEntrada = compra.getDetalles().stream()
+                    .filter(d -> d.getTipoEntrada() != null && d.getTipoEntrada().getTipo() == Tipo.ENTRADA)
+                    .mapToLong(CompraDetalle::getCantidad)
+                    .sum();
+
+            if (cuentaRecaudacion) {
                 recaudacionTotal = recaudacionTotal.add(compra.getMontoTotal());
                 cantidadCompras++;
                 if (compra.getDescuentoAplicado() != null && compra.getDescuentoAplicado().compareTo(BigDecimal.ZERO) > 0) {
@@ -190,42 +224,16 @@ public class ReporteServiceImpl implements ReporteService {
                 cantidadPorOrigen.merge(origen, 1L, Long::sum);
                 montoPorOrigen.merge(origen, compra.getMontoTotal(), BigDecimal::add);
 
-                int hora = compra.getFechaCreacion().getHour();
-                long pasesEntradaCompra = compra.getDetalles().stream()
-                        .filter(d -> d.getTipoEntrada() != null && d.getTipoEntrada().getTipo() == Tipo.ENTRADA)
-                        .mapToLong(CompraDetalle::getCantidad)
-                        .sum();
+                // Hora del cobro: para MP la del checkout, para el resto la del cobro en puerta.
+                int hora = (esMercadoPago ? compra.getFechaCreacion() : compra.getFechaValidacion()).getHour();
                 if (esBoleteria) {
                     cantidadComprasBoleteriaPorHora.merge(hora, 1L, Long::sum);
-                    cantidadPasesBoleteriaPorHora.merge(hora, pasesEntradaCompra, Long::sum);
+                    cantidadPasesBoleteriaPorHora.merge(hora, pasesEntrada, Long::sum);
                 } else {
                     cantidadComprasAnticipadaPorHora.merge(hora, 1L, Long::sum);
-                    cantidadPasesAnticipadaPorHora.merge(hora, pasesEntradaCompra, Long::sum);
+                    cantidadPasesAnticipadaPorHora.merge(hora, pasesEntrada, Long::sum);
                 }
-            }
 
-            if (vendida) {
-                long pasesEntrada = compra.getDetalles().stream()
-                        .filter(d -> d.getTipoEntrada() != null && d.getTipoEntrada().getTipo() == Tipo.ENTRADA)
-                        .mapToLong(CompraDetalle::getCantidad)
-                        .sum();
-                if (esBoleteria) {
-                    vendidosBoleteriaPorDia.merge(compra.getFechaVisita(), pasesEntrada, Long::sum);
-                    // La venta de puerta implica ingreso inmediato: no hay validación separada.
-                    personasIngresadas += pasesEntrada;
-                } else if (compra.getFechaVisita() != null) {
-                    // Reserva anticipada normal: afluencia e ingreso por su día de visita.
-                    // Los regalos (fechaVisita null) NO entran acá: su ingreso se cuenta aparte,
-                    // por fecha de validación (ver el bloque de regalos canjeados más abajo).
-                    vendidosAnticipadaPorDia.merge(compra.getFechaVisita(), pasesEntrada, Long::sum);
-                    if (validada) {
-                        validadosAnticipadaPorDia.merge(compra.getFechaVisita(), pasesEntrada, Long::sum);
-                        personasIngresadas += pasesEntrada;
-                    }
-                }
-            }
-
-            if (cobrada) {
                 for (CompraDetalle detalle : compra.getDetalles()) {
                     // Las líneas de artículo vario (venta en puerta) no tienen tipoEntrada: no
                     // entran en el desglose por tipo/extra, van al reporte de artículos varios aparte.
@@ -268,25 +276,21 @@ public class ReporteServiceImpl implements ReporteService {
                     }
                 }
             }
-        }
 
-        // Ingreso de los regalos canjeados: se cuenta por fecha de VALIDACIÓN (el día en que la
-        // persona entró), separado de su recaudación —que ya se sumó arriba por fecha de compra,
-        // en el mes en que se vendió el regalo, y no se mueve de ahí—. Un regalo comprado en
-        // enero y usado en marzo: la plata queda en enero, el visitante en marzo.
-        for (Compra regalo : compraRepository.findRegalosValidadosEntre(
-                EstadoCompra.USADO, desde.atStartOfDay(), hasta.plusDays(1).atStartOfDay())) {
-            if (regalo.getCaja() != null && cajasDeshabilitadas.contains(regalo.getCaja().getId())) {
-                continue;
+            // "Reservado para ese día": pases de anticipadas por su día de visita elegido.
+            if (cuentaDemanda && !esBoleteria) {
+                vendidosAnticipadaPorDia.merge(compra.getFechaVisita(), pasesEntrada, Long::sum);
             }
-            LocalDate diaIngreso = regalo.getFechaValidacion().toLocalDate();
-            long pasesEntrada = regalo.getDetalles().stream()
-                    .filter(d -> d.getTipoEntrada() != null && d.getTipoEntrada().getTipo() == Tipo.ENTRADA)
-                    .mapToLong(CompraDetalle::getCantidad)
-                    .sum();
-            vendidosAnticipadaPorDia.merge(diaIngreso, pasesEntrada, Long::sum);
-            validadosAnticipadaPorDia.merge(diaIngreso, pasesEntrada, Long::sum);
-            personasIngresadas += pasesEntrada;
+
+            // Ingreso real: la persona cruzó la puerta ese día (por fechaValidacion).
+            if (cuentaIngreso) {
+                if (esBoleteria) {
+                    vendidosBoleteriaPorDia.merge(diaIngreso, pasesEntrada, Long::sum);
+                } else {
+                    validadosAnticipadaPorDia.merge(diaIngreso, pasesEntrada, Long::sum);
+                }
+                personasIngresadas += pasesEntrada;
+            }
         }
 
         // Los tipos activos se listan aunque no hayan tenido ventas en el rango, para que
@@ -437,6 +441,11 @@ public class ReporteServiceImpl implements ReporteService {
                 ventasArticulosVarios, usoPromociones, ventasDolares);
     }
 
+    /** true si `fecha` (puede ser null) cae dentro de [desde, hasta], ambos inclusive. */
+    private static boolean enRango(LocalDate fecha, LocalDate desde, LocalDate hasta) {
+        return fecha != null && !fecha.isBefore(desde) && !fecha.isAfter(hasta);
+    }
+
     /** Neto de retiros por caja (RETIRO suma, APORTE resta), en una sola consulta agrupada. */
     private Map<Long, BigDecimal> netoRetirosPorCaja(List<Long> cajaIds) {
         Map<Long, BigDecimal> resultado = new HashMap<>();
@@ -456,15 +465,18 @@ public class ReporteServiceImpl implements ReporteService {
                                                            Map<Long, BigDecimal> montoAnticipadaPorTipo,
                                                            Map<Long, Long> cantidadBoleteriaPorTipo,
                                                            Map<Long, BigDecimal> montoBoleteriaPorTipo) {
+        // getOrDefault y no get(): un tipo que se vendió en el período pero ya está inactivo entra
+        // en tiposPorId por el desglose, pero el loop de "tipos activos" lo saltea, así que puede
+        // no tener sus cuatro entradas.
         return tiposPorId.values().stream()
                 .sorted((a, b) -> a.getNombre().compareToIgnoreCase(b.getNombre()))
                 .map(tipo -> new DesgloseTipoEntradaDTO(
                         tipo.getId(),
                         tipo.getNombre(),
-                        cantidadAnticipadaPorTipo.get(tipo.getId()),
-                        montoAnticipadaPorTipo.get(tipo.getId()),
-                        cantidadBoleteriaPorTipo.get(tipo.getId()),
-                        montoBoleteriaPorTipo.get(tipo.getId())))
+                        cantidadAnticipadaPorTipo.getOrDefault(tipo.getId(), 0L),
+                        montoAnticipadaPorTipo.getOrDefault(tipo.getId(), BigDecimal.ZERO),
+                        cantidadBoleteriaPorTipo.getOrDefault(tipo.getId(), 0L),
+                        montoBoleteriaPorTipo.getOrDefault(tipo.getId(), BigDecimal.ZERO)))
                 .toList();
     }
 }

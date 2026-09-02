@@ -23,21 +23,20 @@ public interface CompraRepository extends JpaRepository<Compra, Long>, JpaSpecif
     List<Compra> findAllByFechaVisitaOrderByCodigoReservaAsc(LocalDate fechaVisita);
     long countByFechaVisita(LocalDate fechaVisita);
     long countByFechaVisitaIsNull();
-    List<Compra> findAllByFechaVisitaBetween(LocalDate desde, LocalDate hasta);
-
-    /** Regalos (fechaVisita null) creados en el rango, por fecha de compra: aportan su recaudación
-     * al reporte igual que cualquier venta cobrada, en el mes en que se vendieron. No tienen día
-     * de visita, así que no entran en el desglose diario ni en afluencia. */
-    @Query("SELECT c FROM Compra c WHERE c.fechaVisita IS NULL AND c.fechaCreacion >= :desde AND c.fechaCreacion < :hasta")
-    List<Compra> findRegalosCreadosEntre(@Param("desde") LocalDateTime desde, @Param("hasta") LocalDateTime hasta);
-
-    /** Regalos canjeados (validados) cuyo ingreso cayó en el rango: aportan la afluencia y las
-     * personas ingresadas al reporte, por fecha de validación (cuando la persona entró) — su
-     * recaudación NO se cuenta acá, ya se contó por fecha de compra en su mes. */
-    @Query("SELECT c FROM Compra c WHERE c.fechaVisita IS NULL AND c.estado = :estado " +
-            "AND c.fechaValidacion >= :desde AND c.fechaValidacion < :hasta")
-    List<Compra> findRegalosValidadosEntre(@Param("estado") EstadoCompra estado,
-                                           @Param("desde") LocalDateTime desde, @Param("hasta") LocalDateTime hasta);
+    /**
+     * Todas las compras que "tocan" el rango del reporte por alguna de sus tres fechas: día de
+     * compra (fechaCreacion), día de visita elegido (fechaVisita) o día de ingreso real
+     * (fechaValidacion). El reporte después decide, por compra, qué métrica va a qué día:
+     * recaudación al día de cobro, afluencia/personas al día de validación, demanda al día de
+     * visita (ver ReporteServiceImpl). Es un prefiltro amplio; el filtrado fino exacto lo hace
+     * el service comparando LocalDate.
+     */
+    @Query("SELECT c FROM Compra c WHERE " +
+            "(c.fechaVisita >= :desde AND c.fechaVisita <= :hasta) " +
+            "OR (c.fechaCreacion >= :desdeDt AND c.fechaCreacion < :hastaDt) " +
+            "OR (c.fechaValidacion >= :desdeDt AND c.fechaValidacion < :hastaDt)")
+    List<Compra> findParaReporte(@Param("desde") LocalDate desde, @Param("hasta") LocalDate hasta,
+                                 @Param("desdeDt") LocalDateTime desdeDt, @Param("hastaDt") LocalDateTime hastaDt);
 
     /** Ids de checkouts que quedaron sin pagarse: para expirarlos (ver CompraServiceImpl). */
     @Query("SELECT c.id FROM Compra c WHERE c.estado = :estado AND c.fechaCreacion < :limite")
