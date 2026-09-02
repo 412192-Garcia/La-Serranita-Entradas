@@ -81,6 +81,11 @@ export class OperacionesPendientesService {
   readonly conError = computed(() => this.cola().filter((e) => e.estado === 'error'));
 
   private sincronizando = false;
+  /** Claves que un envío en vivo (ejecutar) tiene ahora mismo en vuelo: sincronizar() las
+   * saltea para no mandar la misma operación —y su misma idempotencyKey— por duplicado en
+   * paralelo (la colisión daría un 500 por la constraint unique y marcaría error una venta
+   * que en realidad entró). */
+  private enviandoEnVivo = new Set<string>();
 
   constructor() {
     window.addEventListener('online', () => this.sincronizar());
@@ -115,6 +120,7 @@ export class OperacionesPendientesService {
       return { confirmada: false, rechazada: false };
     }
 
+    this.enviandoEnVivo.add(entrada.idempotencyKey);
     try {
       // false: es el primer intento, en vivo — si el servidor lo rechaza, la persona que lo
       // tipeó lo ve ahí mismo (ver enviar()) y no hace falta guardarlo aparte para un admin.
@@ -129,6 +135,8 @@ export class OperacionesPendientesService {
       // PRÓXIMA operación que se intente ya sepa que hay que encolar directo, sin repetir la espera.
       this.conectividad.verificar();
       return { confirmada: false, rechazada: false };
+    } finally {
+      this.enviandoEnVivo.delete(entrada.idempotencyKey);
     }
   }
 
@@ -141,7 +149,10 @@ export class OperacionesPendientesService {
     this.sincronizando = true;
     try {
       // Se recorre una copia: la cola se va modificando a medida que cada una sale bien.
-      for (const entrada of this.cola().filter((e) => e.estado === 'pendiente')) {
+      // Se saltean las que un envío en vivo tiene en vuelo (ver enviandoEnVivo).
+      for (const entrada of this.cola().filter(
+        (e) => e.estado === 'pendiente' && !this.enviandoEnVivo.has(e.idempotencyKey),
+      )) {
         try {
           // true: esto ya es un reintento en segundo plano — si el servidor lo rechaza acá,
           // nadie lo está mirando en vivo, así que sí amerita quedar registrado para un admin.

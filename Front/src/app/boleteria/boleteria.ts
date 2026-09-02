@@ -16,6 +16,7 @@ import { ColumnaOrdenable } from '../shared/columna-ordenable/columna-ordenable'
 import { PesosPipe } from '../shared/pesos.pipe';
 import { TourStep } from '../shared/tour/tour';
 import { DetectorEscaneoDni, esEscaneoDocumento, extraerDniDeEscaneo } from '../shared/escaner-dni.util';
+import { aFechaISO } from '../shared/fecha.util';
 
 /** ~6 pasos, todos apuntando a elementos siempre presentes en el DOM (nada detrás de "Más
  * filtros" ni de una fila de resultado puntual, que dependen de los datos del momento). */
@@ -53,13 +54,11 @@ const PASOS_TUTORIAL: TourStep[] = [
 ];
 
 function fechaComoInput(d: Date): string {
-  const mes = String(d.getMonth() + 1).padStart(2, '0');
-  const dia = String(d.getDate()).padStart(2, '0');
-  return `${d.getFullYear()}-${mes}-${dia}`;
+  return aFechaISO(d);
 }
 
 function hoyComoFechaInput(): string {
-  return fechaComoInput(new Date());
+  return aFechaISO(new Date());
 }
 
 /** "Hoy"/"Mañana"/"Ayer" cuando aplica; null para el resto, que se muestra como día de semana + fecha corta. */

@@ -42,8 +42,9 @@ public class FamiliaCuponServiceImpl implements FamiliaCuponService {
     public FamiliaCupon create(CrearFamiliaCuponRequest request) {
         boolean tienePorcentaje = request.getPorcentajeDescuento() != null && request.getPorcentajeDescuento().compareTo(BigDecimal.ZERO) > 0;
         boolean tieneMonto = request.getMontoDescuento() != null && request.getMontoDescuento().compareTo(BigDecimal.ZERO) > 0;
-        if (!tienePorcentaje && !tieneMonto) {
-            throw new IllegalArgumentException("El cupón necesita un porcentaje o un monto de descuento mayor a cero.");
+        // Exactamente uno (ver CuponServiceImpl.create): con los dos, el monto quedaría ignorado.
+        if (tienePorcentaje == tieneMonto) {
+            throw new IllegalArgumentException("El cupón necesita un porcentaje o un monto de descuento mayor a cero (uno solo, no los dos).");
         }
 
         int cantidad = (request.getCantidad() == null || request.getCantidad() < 1) ? 1 : request.getCantidad();

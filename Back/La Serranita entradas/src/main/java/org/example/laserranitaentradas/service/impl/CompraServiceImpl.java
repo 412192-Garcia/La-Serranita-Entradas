@@ -140,6 +140,32 @@ public class CompraServiceImpl implements CompraService {
         return descuento;
     }
 
+    /**
+     * Valida el cobro en dólares de una venta de puerta y devuelve los dólares que entregó el
+     * cliente, o null si el pago fue en pesos (el request no trae cotización). Pagar en dólares
+     * sigue siendo un cobro EFECTIVO_BOLETERIA: sólo cambia la moneda física, y el boletero
+     * declara los dólares recibidos (no el vuelto: el vuelto en pesos se deriva de
+     * dolaresRecibidos × cotización − montoFinal) para poder contarlos al cerrar la caja.
+     */
+    private BigDecimal validarCobroDolares(VentaPosRequestDTO request, BigDecimal montoFinal) {
+        BigDecimal cotizacionDolar = request.getCotizacionDolar();
+        if (cotizacionDolar == null) return null;
+        if (request.getFormaPago() != FormaPago.EFECTIVO_BOLETERIA) {
+            throw new IllegalArgumentException("El pago en dólares sólo está disponible cobrando en efectivo");
+        }
+        if (cotizacionDolar.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("La cotización del dólar tiene que ser mayor a cero");
+        }
+        BigDecimal dolaresRecibidos = request.getDolaresRecibidos();
+        if (dolaresRecibidos == null || dolaresRecibidos.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Indicá cuántos dólares entregó el cliente");
+        }
+        if (dolaresRecibidos.multiply(cotizacionDolar).compareTo(montoFinal) < 0) {
+            throw new IllegalArgumentException("Los dólares recibidos no alcanzan para cubrir el total");
+        }
+        return dolaresRecibidos;
+    }
+
     private PagoService resolverEstrategia(FormaPago formaPago) {
         if (formaPago == null) {
             throw new IllegalArgumentException("Debe indicar una forma de pago");
@@ -171,9 +197,6 @@ public class CompraServiceImpl implements CompraService {
         if (compraGuardada.getFormaPago() != null) {
             dto.setFormaPago(compraGuardada.getFormaPago());
         }
-
-        dto.setPreferenceId(respuestaPago.getPreferenceId());
-        dto.setInitPoint(respuestaPago.getInitPoint());
 
         return dto;
     }
@@ -444,6 +467,11 @@ public class CompraServiceImpl implements CompraService {
         compra.setUsuarioValidador(usuario);
         compra.setFechaValidacion(LocalDateTime.now());
 
+        // Un regalo queda SIN fechaVisita a propósito, incluso después de canjearse: su
+        // recaudación se atribuye a la fecha de compra (la plata entró al venderlo) y su ingreso
+        // a la fecha de validación, cada uno a su mes, sin moverse. El reporte los cruza por
+        // separado (ver ReporteServiceImpl / findRegalosValidadosEntre).
+
         return compraRepository.save(compra);
     }
 
@@ -588,6 +616,27 @@ public class CompraServiceImpl implements CompraService {
     private record DetallesCalculados(List<CompraDetalle> detalles, BigDecimal montoTotal) {}
 
     /**
+     * Cantidad ya vendida ese día por tipo de entrada, para chequear contra el cupo diario:
+     * suma las líneas de entrada de todas las compras de esa fechaVisita, sin contar lo
+     * cancelado, las líneas de artículo vario (sin tipoEntrada) ni las de la compra que se
+     * está reemplazando (`excluirCompraId`, cuando se reprecia/edita una venta existente).
+     * Devuelve un mapa vacío para los regalos (fechaVisita null): no hay día contra el cual medir.
+     */
+    private Map<Long, Integer> cantidadVendidaPorTipoEnElDia(LocalDate fechaVisita, Long excluirCompraId) {
+        Map<Long, Integer> cantidadVendidaPorTipo = new HashMap<>();
+        if (fechaVisita == null) return cantidadVendidaPorTipo;
+        for (Compra otra : compraRepository.findAllByFechaVisitaOrderByCodigoReservaAsc(fechaVisita)) {
+            if ((excluirCompraId != null && excluirCompraId.equals(otra.getId()))
+                    || otra.getEstado() == EstadoCompra.CANCELADO || otra.getDetalles() == null) continue;
+            for (CompraDetalle det : otra.getDetalles()) {
+                if (det.getTipoEntrada() == null) continue;
+                cantidadVendidaPorTipo.merge(det.getTipoEntrada().getId(), det.getCantidad(), Integer::sum);
+            }
+        }
+        return cantidadVendidaPorTipo;
+    }
+
+    /**
      * Convierte las líneas del pedido en detalles de compra, cobrando el precio que
      * corresponde a la forma de pago (el precio promocional por grupo sólo existe en
      * efectivo) y verificando contra el cupo diario de cada tipo.
@@ -606,18 +655,7 @@ public class CompraServiceImpl implements CompraService {
         // Cupo diario por tipo: se suma lo ya vendido ese día (sin contar lo cancelado)
         // más lo que se está agregando ahora. Los regalos no tienen fecha todavía, así
         // que no hay contra qué día chequear el cupo.
-        Map<Long, Integer> cantidadVendidaPorTipo = new HashMap<>();
-        if (fechaVisita != null) {
-            for (Compra otra : compraRepository.findAllByFechaVisitaOrderByCodigoReservaAsc(fechaVisita)) {
-                if ((excluirCompraId != null && excluirCompraId.equals(otra.getId()))
-                        || otra.getEstado() == EstadoCompra.CANCELADO || otra.getDetalles() == null) continue;
-                for (CompraDetalle det : otra.getDetalles()) {
-                    // Las líneas de artículo vario (venta en puerta) no tienen tipoEntrada: no cuentan para el cupo diario.
-                    if (det.getTipoEntrada() == null) continue;
-                    cantidadVendidaPorTipo.merge(det.getTipoEntrada().getId(), det.getCantidad(), Integer::sum);
-                }
-            }
-        }
+        Map<Long, Integer> cantidadVendidaPorTipo = cantidadVendidaPorTipoEnElDia(fechaVisita, excluirCompraId);
 
         BigDecimal montoTotal = BigDecimal.ZERO;
         List<CompraDetalle> detalles = new ArrayList<>();
@@ -835,28 +873,8 @@ public class CompraServiceImpl implements CompraService {
                 ? promocionRepository.findById(request.getPromocionId()).orElse(null)
                 : null;
 
-        // Pagar en dólares sigue siendo un cobro en EFECTIVO_BOLETERIA (misma forma de pago,
-        // sólo cambia la moneda física): sólo se activa si el request manda cotización. El
-        // boletero entra cuántos dólares recibió (no el vuelto: el vuelto en pesos se deriva
-        // de dolaresRecibidos × cotización − montoFinal), así se sabe cuántos dólares tienen
-        // que contar al cerrar la caja.
         BigDecimal cotizacionDolar = request.getCotizacionDolar();
-        BigDecimal dolaresRecibidos = null;
-        if (cotizacionDolar != null) {
-            if (request.getFormaPago() != FormaPago.EFECTIVO_BOLETERIA) {
-                throw new IllegalArgumentException("El pago en dólares sólo está disponible cobrando en efectivo");
-            }
-            if (cotizacionDolar.compareTo(BigDecimal.ZERO) <= 0) {
-                throw new IllegalArgumentException("La cotización del dólar tiene que ser mayor a cero");
-            }
-            dolaresRecibidos = request.getDolaresRecibidos();
-            if (dolaresRecibidos == null || dolaresRecibidos.compareTo(BigDecimal.ZERO) <= 0) {
-                throw new IllegalArgumentException("Indicá cuántos dólares entregó el cliente");
-            }
-            if (dolaresRecibidos.multiply(cotizacionDolar).compareTo(montoFinal) < 0) {
-                throw new IllegalArgumentException("Los dólares recibidos no alcanzan para cubrir el total");
-            }
-        }
+        BigDecimal dolaresRecibidos = validarCobroDolares(request, montoFinal);
 
         // Venta anónima: no hay cliente ni contacto que cargar (ya están entrando, no hay
         // nada que validar después ni comprobante que mandar). Nace VENDIDO_EN_PUERTA porque
@@ -928,22 +946,7 @@ public class CompraServiceImpl implements CompraService {
                 : null;
 
         BigDecimal cotizacionDolar = request.getCotizacionDolar();
-        BigDecimal dolaresRecibidos = null;
-        if (cotizacionDolar != null) {
-            if (request.getFormaPago() != FormaPago.EFECTIVO_BOLETERIA) {
-                throw new IllegalArgumentException("El pago en dólares sólo está disponible cobrando en efectivo");
-            }
-            if (cotizacionDolar.compareTo(BigDecimal.ZERO) <= 0) {
-                throw new IllegalArgumentException("La cotización del dólar tiene que ser mayor a cero");
-            }
-            dolaresRecibidos = request.getDolaresRecibidos();
-            if (dolaresRecibidos == null || dolaresRecibidos.compareTo(BigDecimal.ZERO) <= 0) {
-                throw new IllegalArgumentException("Indicá cuántos dólares entregó el cliente");
-            }
-            if (dolaresRecibidos.multiply(cotizacionDolar).compareTo(montoFinal) < 0) {
-                throw new IllegalArgumentException("Los dólares recibidos no alcanzan para cubrir el total");
-            }
-        }
+        BigDecimal dolaresRecibidos = validarCobroDolares(request, montoFinal);
 
         // orphanRemoval en Compra.detalles: vaciar la colección alcanza para que Hibernate
         // borre las líneas viejas antes de cargar las nuevas (mismo criterio que editarVenta).
@@ -1081,6 +1084,56 @@ public class CompraServiceImpl implements CompraService {
         return compraRepository.findById(compraId).map(c -> c.getEstado().name()).orElse(compra.getEstado().name());
     }
 
+    @Override
+    public List<Long> idsCheckoutsAbandonados(int horasAntiguedad) {
+        return compraRepository.findIdsByEstadoAndFechaCreacionBefore(
+                EstadoCompra.PENDIENTE_PAGO, LocalDateTime.now().minusHours(horasAntiguedad));
+    }
+
+    @Transactional
+    @Override
+    public void expirarCheckoutAbandonado(Long compraId) {
+        Compra compra = compraRepository.findById(compraId).orElse(null);
+        if (compra == null || compra.getEstado() != EstadoCompra.PENDIENTE_PAGO) {
+            return;
+        }
+
+        // Última chance: si el pago entró pero el webhook nunca llegó, esto lo confirma y la
+        // compra deja de estar PENDIENTE_PAGO (no se cancela).
+        if (compra.getFormaPago() == FormaPago.MERCADO_PAGO) {
+            verificarPagoDirecto(compraId);
+            compra = compraRepository.findById(compraId).orElse(null);
+            if (compra == null || compra.getEstado() != EstadoCompra.PENDIENTE_PAGO) {
+                return;
+            }
+        }
+
+        compra.setEstado(EstadoCompra.CANCELADO);
+        liberarCupon(compra);
+        compraRepository.save(compra);
+        log.info("Compra ID {} cancelada: checkout abandonado sin pagarse", compraId);
+    }
+
+    /**
+     * Devuelve el uso de cupón que una compra había consumido al crearse (ver create()), cuando
+     * esa compra se cancela sin haberse pagado. Si el cupón se había desactivado solo por llegar
+     * al máximo de usos, se reactiva al liberar uno (mientras no esté vencido).
+     */
+    private void liberarCupon(Compra compra) {
+        Cupon cupon = compra.getCupon();
+        if (cupon == null || cupon.getUsosActuales() == null) {
+            return;
+        }
+        cupon.setUsosActuales(Math.max(0, cupon.getUsosActuales() - 1));
+        if (Boolean.FALSE.equals(cupon.getActivo())
+                && cupon.getUsosMaximos() != null
+                && cupon.getUsosActuales() < cupon.getUsosMaximos()
+                && !cupon.getFechaExpiracion().isBefore(LocalDate.now())) {
+            cupon.setActivo(true);
+        }
+        cuponService.update(cupon);
+    }
+
     @Transactional
     @Override
     public Compra reembolsarCompra(Long compraId) {
@@ -1158,16 +1211,7 @@ public class CompraServiceImpl implements CompraService {
         LocalDate fechaVisita = compra.getFechaVisita();
         // Cupo diario: se cuenta contra todas las compras del día MENOS esta misma (se está
         // reemplazando lo que ya tenía, no sumando encima — ver construirDetalles, mismo criterio).
-        Map<Long, Integer> cantidadVendidaPorTipo = new HashMap<>();
-        if (fechaVisita != null) {
-            for (Compra otra : compraRepository.findAllByFechaVisitaOrderByCodigoReservaAsc(fechaVisita)) {
-                if (otra.getId().equals(compraId) || otra.getEstado() == EstadoCompra.CANCELADO || otra.getDetalles() == null) continue;
-                for (CompraDetalle det : otra.getDetalles()) {
-                    if (det.getTipoEntrada() == null) continue;
-                    cantidadVendidaPorTipo.merge(det.getTipoEntrada().getId(), det.getCantidad(), Integer::sum);
-                }
-            }
-        }
+        Map<Long, Integer> cantidadVendidaPorTipo = cantidadVendidaPorTipoEnElDia(fechaVisita, compraId);
 
         BigDecimal montoEntradas = BigDecimal.ZERO;
         List<CompraDetalle> nuevasEntradas = new ArrayList<>();

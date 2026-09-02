@@ -78,7 +78,12 @@ public class ReporteServiceImpl implements ReporteService {
             throw new IllegalArgumentException("El rango de fechas es inválido");
         }
 
-        List<Compra> compras = compraRepository.findAllByFechaVisitaBetween(desde, hasta);
+        List<Compra> compras = new ArrayList<>(compraRepository.findAllByFechaVisitaBetween(desde, hasta));
+        // Un regalo nunca tiene fechaVisita (ni después de canjearse), así que
+        // findAllByFechaVisitaBetween no lo trae. Su RECAUDACIÓN se suma acá por fecha de compra
+        // —queda anclada al mes en que se vendió—; su INGRESO se cuenta aparte, por fecha de
+        // validación (más abajo, findRegalosValidadosEntre). Las dos cosas, cada una a su mes.
+        compras.addAll(compraRepository.findRegalosCreadosEntre(desde.atStartOfDay(), hasta.plusDays(1).atStartOfDay()));
 
         // Cajas que un admin deshabilitó: sus ventas de boletería no cuentan en ninguna métrica
         // (como si el turno nunca hubiera existido). Las compras online tienen caja == null.
@@ -208,7 +213,10 @@ public class ReporteServiceImpl implements ReporteService {
                     vendidosBoleteriaPorDia.merge(compra.getFechaVisita(), pasesEntrada, Long::sum);
                     // La venta de puerta implica ingreso inmediato: no hay validación separada.
                     personasIngresadas += pasesEntrada;
-                } else {
+                } else if (compra.getFechaVisita() != null) {
+                    // Reserva anticipada normal: afluencia e ingreso por su día de visita.
+                    // Los regalos (fechaVisita null) NO entran acá: su ingreso se cuenta aparte,
+                    // por fecha de validación (ver el bloque de regalos canjeados más abajo).
                     vendidosAnticipadaPorDia.merge(compra.getFechaVisita(), pasesEntrada, Long::sum);
                     if (validada) {
                         validadosAnticipadaPorDia.merge(compra.getFechaVisita(), pasesEntrada, Long::sum);
@@ -260,6 +268,25 @@ public class ReporteServiceImpl implements ReporteService {
                     }
                 }
             }
+        }
+
+        // Ingreso de los regalos canjeados: se cuenta por fecha de VALIDACIÓN (el día en que la
+        // persona entró), separado de su recaudación —que ya se sumó arriba por fecha de compra,
+        // en el mes en que se vendió el regalo, y no se mueve de ahí—. Un regalo comprado en
+        // enero y usado en marzo: la plata queda en enero, el visitante en marzo.
+        for (Compra regalo : compraRepository.findRegalosValidadosEntre(
+                EstadoCompra.USADO, desde.atStartOfDay(), hasta.plusDays(1).atStartOfDay())) {
+            if (regalo.getCaja() != null && cajasDeshabilitadas.contains(regalo.getCaja().getId())) {
+                continue;
+            }
+            LocalDate diaIngreso = regalo.getFechaValidacion().toLocalDate();
+            long pasesEntrada = regalo.getDetalles().stream()
+                    .filter(d -> d.getTipoEntrada() != null && d.getTipoEntrada().getTipo() == Tipo.ENTRADA)
+                    .mapToLong(CompraDetalle::getCantidad)
+                    .sum();
+            vendidosAnticipadaPorDia.merge(diaIngreso, pasesEntrada, Long::sum);
+            validadosAnticipadaPorDia.merge(diaIngreso, pasesEntrada, Long::sum);
+            personasIngresadas += pasesEntrada;
         }
 
         // Los tipos activos se listan aunque no hayan tenido ventas en el rango, para que
@@ -344,6 +371,7 @@ public class ReporteServiceImpl implements ReporteService {
                 .map(Caja::getId)
                 .toList();
         Map<Long, BigDecimal> difPosnetPorCaja = cajaService.diferenciaPosnetPorCaja(idsHabilitadas);
+        Map<Long, BigDecimal> retirosPorCaja = netoRetirosPorCaja(idsHabilitadas);
 
         for (Caja caja : cajasCerradas) {
             // Deshabilitada por un admin: fuera de la sección "cajas" del reporte y de los totales
@@ -351,9 +379,7 @@ public class ReporteServiceImpl implements ReporteService {
             if (!caja.estaHabilitada()) {
                 continue;
             }
-            BigDecimal retirosCaja = retiroCajaRepository.findAllByCajaIdOrderByFechaAsc(caja.getId()).stream()
-                    .map(r -> r.getTipo() == TipoMovimientoCaja.APORTE ? r.getMonto().negate() : r.getMonto())
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal retirosCaja = retirosPorCaja.getOrDefault(caja.getId(), BigDecimal.ZERO);
             totalRetirosCajas = totalRetirosCajas.add(retirosCaja);
 
             BigDecimal diferencia = caja.getDiferencia() != null ? caja.getDiferencia() : BigDecimal.ZERO;
@@ -409,6 +435,20 @@ public class ReporteServiceImpl implements ReporteService {
                 ventasPorOrigen, totalDescuentos, cantidadComprasConDescuento,
                 cajas, totalRetirosCajas, totalFaltantesCajas, totalSobrantesCajas,
                 ventasArticulosVarios, usoPromociones, ventasDolares);
+    }
+
+    /** Neto de retiros por caja (RETIRO suma, APORTE resta), en una sola consulta agrupada. */
+    private Map<Long, BigDecimal> netoRetirosPorCaja(List<Long> cajaIds) {
+        Map<Long, BigDecimal> resultado = new HashMap<>();
+        if (cajaIds.isEmpty()) {
+            return resultado;
+        }
+        for (Object[] fila : retiroCajaRepository.netoRetirosPorCaja(cajaIds, TipoMovimientoCaja.APORTE)) {
+            if (fila[0] == null) continue;
+            resultado.put(((Number) fila[0]).longValue(),
+                    fila[1] == null ? BigDecimal.ZERO : new BigDecimal(fila[1].toString()));
+        }
+        return resultado;
     }
 
     private List<DesgloseTipoEntradaDTO> ordenarPorNombre(Map<Long, TipoEntrada> tiposPorId,

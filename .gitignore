@@ -1,2 +1,10 @@
-Back/La Serranita entradas/.env
+# Secretos (los .env viven fuera del control de versiones)
 .env
+Back/La Serranita entradas/.env
+
+# IDEs
+.idea/
+
+# Artefactos de compilación que se colaron alguna vez desde la raíz
+*.class
+/com/
