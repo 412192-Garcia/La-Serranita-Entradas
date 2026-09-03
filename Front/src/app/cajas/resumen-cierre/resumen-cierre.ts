@@ -524,14 +524,13 @@ export class ResumenCierre {
 
   entradasRevision = computed(() => {
     const c = this.caja();
-    if (c.entradasFisicasEsperadas === null && c.totalEntradasPagas === null) return null;
+    if (c.entradasFisicasEsperadas === null) return null;
+    // Cuántas entradas del talonario deberían cortarse: sólo cuentan los tipos que entregan
+    // una entrada física (no toda venta paga la entrega — ver TipoEntrada.entregaEntrada).
     let dTal = 0;
-    let dVen = 0;
     const aplica = (tipoId: number, cantidad: number, signo: number) => {
       const tipo = this.tiposEntrada().find((t) => t.id === tipoId);
-      if (!tipo) return;
-      if (tipo.entregaEntrada) dTal += signo * cantidad;
-      if (tipo.tipo === 'ENTRADA' && tipo.precio > 0) dVen += signo * cantidad;
+      if (tipo?.entregaEntrada) dTal += signo * cantidad;
     };
     const { quit, agr } = this.pares();
     for (const seg of quit) aplica(seg.tipoId, seg.cantidad, -1);
@@ -541,11 +540,10 @@ export class ResumenCierre {
     const esperadasTalonario = (c.entradasFisicasEsperadas ?? 0) + dTal;
     const cortadas = c.entradasFisicasCortadas;
     return {
-      vendidas: (c.totalEntradasPagas ?? 0) + dVen,
       esperadasTalonario,
       cortadas,
       diferenciaTalonario: cortadas === null ? null : esperadasTalonario - cortadas,
-      cambio: dTal !== 0 || dVen !== 0,
+      cambio: dTal !== 0,
     };
   });
 

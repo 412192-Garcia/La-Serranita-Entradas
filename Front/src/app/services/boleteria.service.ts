@@ -3,7 +3,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { TipoEntrada } from '../models/tipo-entrada';
-import { FormaPagoPos, FormaPagoType } from '../models/compra';
+import { FormaPagoPos, FormaPagoType, FormaPagoVentaPos } from '../models/compra';
 
 export type EstadoCompra =
   | 'PENDIENTE_PAGO'
@@ -118,7 +118,7 @@ export interface DescuentoPos {
 }
 
 export interface VentaPosRequest extends DescuentoPos {
-  formaPago: FormaPagoPos;
+  formaPago: FormaPagoVentaPos;
   entradas: LineaVentaPos[];
   articulos?: LineaArticuloPos[];
   /** Cotización usada (ARS por USD). Sólo si el boletero cobró en dólares (sigue siendo EFECTIVO_BOLETERIA). */

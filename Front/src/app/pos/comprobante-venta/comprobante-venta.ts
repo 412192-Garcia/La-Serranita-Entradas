@@ -1,6 +1,6 @@
 import { Component, input, output } from '@angular/core';
 import { Reserva } from '../../services/boleteria.service';
-import { FormaPagoPos } from '../../models/compra';
+import { FormaPagoVentaPos } from '../../models/compra';
 import { ItemVentaResumen } from '../carrito-venta/carrito-venta';
 import { LucideCircleCheck, LucideCloudOff } from '@lucide/angular';
 import { PesosPipe } from '../../shared/pesos.pipe';
@@ -13,7 +13,7 @@ import { PesosPipe } from '../../shared/pesos.pipe';
 })
 export class ComprobanteVenta {
   venta = input.required<Reserva>();
-  formaPago = input.required<FormaPagoPos>();
+  formaPago = input.required<FormaPagoVentaPos>();
   vuelto = input<number | null>(null);
   items = input<ItemVentaResumen[]>([]);
   /** Venta cobrada sin conexión: los datos son los calculados en el navegador, todavía sin confirmar contra el servidor. */

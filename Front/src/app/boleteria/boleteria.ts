@@ -92,13 +92,14 @@ interface GrupoDia {
   totalPases: number;
 }
 
-/** Las cuatro existentes: las dos de la compra online y las que agrega la venta en puerta. */
+/** Todas las formas de pago posibles: las de la compra online y las que agrega la venta en puerta. */
 const FORMAS_PAGO_FILTRABLES: { valor: FormaPagoType; etiqueta: string }[] = [
   { valor: 'MERCADO_PAGO', etiqueta: 'Mercado Pago' },
   { valor: 'EFECTIVO_BOLETERIA', etiqueta: 'Efectivo' },
   { valor: 'TARJETA', etiqueta: 'Tarjeta' },
   { valor: 'MERCADO_PAGO_QR', etiqueta: 'QR' },
   { valor: 'RESERVA_ADMIN', etiqueta: 'Generada (admin)' },
+  { valor: 'SIN_COBRO', etiqueta: 'Sin cobro' },
 ];
 
 /** Los dos que un boletero toca todo el día, para ver cuánto falta por llegar: siempre

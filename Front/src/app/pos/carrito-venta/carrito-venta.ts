@@ -9,7 +9,7 @@ import { OperacionesPendientesService } from '../../services/operaciones-pendien
 import { TipoEntrada } from '../../models/tipo-entrada';
 import { Promocion } from '../../models/promocion';
 import { FilaArticuloCarrito, LineaEntradaFija } from '../../models/venta-pos';
-import { FormaPagoPos } from '../../models/compra';
+import { FormaPagoPos, FormaPagoVentaPos } from '../../models/compra';
 import { FORMAS_PAGO } from '../../models/forma-pago';
 import { MoneyInputDirective } from '../../shared/money-input/money-input.directive';
 import { ConectividadService } from '../../services/conectividad.service';
@@ -26,7 +26,7 @@ export interface ItemVentaResumen {
 /** Lo que necesita el comprobante de venta, capturado en el momento del cobro. */
 export interface VentaPosConfirmada {
   venta: Reserva;
-  formaPago: FormaPagoPos;
+  formaPago: FormaPagoVentaPos;
   vuelto: number | null;
   items: ItemVentaResumen[];
   /** Si este cobro en efectivo se hizo en dólares (no es una forma de pago aparte, sigue siendo EFECTIVO_BOLETERIA). */
@@ -174,6 +174,10 @@ export class CarritoVenta {
     return diferencia > 0 ? diferencia : null;
   });
 
+  /** Carrito con total $0 (todo bonificado / descuento del 100%): no hay nada que cobrar, así
+   * que no se pide forma de pago — la venta se registra como SIN_COBRO. */
+  sinCobro = computed(() => this.hayItems() && this.total() === 0);
+
   /** Igual que en la compra online: no se puede entrar sólo con menores. */
   private tieneEntradas = computed(() => this.lineas().length > 0);
   private tieneObligatorio = computed(() => this.lineas().some((l) => l.tipo.obligatorio));
@@ -184,7 +188,7 @@ export class CarritoVenta {
   puedeCobrar = computed(
     () =>
       this.hayItems() &&
-      this.formaPago() !== null &&
+      (this.sinCobro() || this.formaPago() !== null) &&
       (!this.tieneEntradas() || this.tieneObligatorio()) &&
       !this.faltaCompletarPagoDolares() &&
       !this.cobrando()
@@ -349,7 +353,7 @@ export class CarritoVenta {
 
   async cobrar(): Promise<void> {
     if (!this.puedeCobrar()) return;
-    const formaPago = this.formaPago();
+    const formaPago: FormaPagoVentaPos | null = this.sinCobro() ? 'SIN_COBRO' : this.formaPago();
     if (formaPago === null) return;
 
     this.cobrando.set(true);

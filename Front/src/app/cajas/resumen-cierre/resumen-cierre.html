@@ -85,7 +85,7 @@
 }
 
 <p class="fila-entradas-fisicas">
-  Entradas vendidas: <strong>{{ caja().totalEntradasPagas ?? 0 }}</strong>
+  Entradas a cortar: <strong>{{ caja().entradasFisicasEsperadas ?? 0 }}</strong>
   @if (caja().entradasFisicasCortadas !== null && caja().entradasFisicasCortadas !== undefined) {
     · cortadas del talonario <strong>{{ caja().entradasFisicasCortadas }}</strong>
     @if (caja().diferenciaEntradas !== null) {
@@ -152,7 +152,7 @@
 
     @if (entradasRevision(); as e) {
       <p class="fila-entradas-revision" [class.fila-entradas-revision-cambio]="e.cambio">
-        Entradas vendidas: <strong>{{ e.vendidas }}</strong>
+        Entradas a cortar: <strong>{{ e.esperadasTalonario }}</strong>
         @if (e.cortadas !== null) {
           · cortadas del talonario <strong>{{ e.cortadas }}</strong>
           @if (e.diferenciaTalonario! > 0) {

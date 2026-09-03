@@ -166,6 +166,17 @@ public class CompraServiceImpl implements CompraService {
         return dolaresRecibidos;
     }
 
+    /**
+     * SIN_COBRO es sólo para ventas de puerta cuyo total quedó en $0: si hay algo que cobrar,
+     * el boletero tiene que elegir efectivo/tarjeta/QR. (No se fuerza al revés: una venta de $0
+     * cobrada como "efectivo" sigue siendo válida, sólo suma 0.)
+     */
+    private void validarFormaPagoPos(FormaPago formaPago, BigDecimal montoFinal) {
+        if (formaPago == FormaPago.SIN_COBRO && montoFinal.compareTo(BigDecimal.ZERO) != 0) {
+            throw new IllegalArgumentException("Esta venta tiene un monto a cobrar: elegí efectivo, tarjeta o QR.");
+        }
+    }
+
     private PagoService resolverEstrategia(FormaPago formaPago) {
         if (formaPago == null) {
             throw new IllegalArgumentException("Debe indicar una forma de pago");
@@ -866,6 +877,7 @@ public class CompraServiceImpl implements CompraService {
         BigDecimal descuento = calcularDescuentoPos(montoBruto, request.getPromocionId(),
                 request.getDescuentoManualPorcentaje(), request.getDescuentoManualMonto());
         BigDecimal montoFinal = montoBruto.subtract(descuento);
+        validarFormaPagoPos(request.getFormaPago(), montoFinal);
         // calcularDescuentoPos ya validó que la promo exista y esté activa: se vuelve a buscar
         // acá sólo para poder guardar la referencia en la Compra (ver comentario en Compra.promocion).
         Promocion promocionUsada = request.getPromocionId() != null
@@ -940,6 +952,7 @@ public class CompraServiceImpl implements CompraService {
         BigDecimal descuento = calcularDescuentoPos(montoBruto, request.getPromocionId(),
                 request.getDescuentoManualPorcentaje(), request.getDescuentoManualMonto());
         BigDecimal montoFinal = montoBruto.subtract(descuento);
+        validarFormaPagoPos(request.getFormaPago(), montoFinal);
         Promocion promocionUsada = request.getPromocionId() != null
                 ? promocionRepository.findById(request.getPromocionId()).orElse(null)
                 : null;
@@ -1249,6 +1262,7 @@ public class CompraServiceImpl implements CompraService {
         BigDecimal descuento = compra.getDescuentoAplicado() != null ? compra.getDescuentoAplicado() : BigDecimal.ZERO;
         if (descuento.compareTo(montoBruto) > 0) descuento = montoBruto;
         BigDecimal montoFinal = montoBruto.subtract(descuento);
+        validarFormaPagoPos(request.getFormaPago(), montoFinal);
 
         if (compra.getCotizacionDolar() != null) {
             if (request.getFormaPago() != FormaPago.EFECTIVO_BOLETERIA) {
