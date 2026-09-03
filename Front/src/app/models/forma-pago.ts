@@ -13,7 +13,7 @@ export const FORMAS_PAGO: OpcionPago[] = [
 ];
 
 /** Etiquetas de las formas de pago que no son un botón del POS pero sí aparecen en listados. */
-const ETIQUETAS_EXTRA: Record<string, string> = {
+const ETIQUETAS_EXTRA: Record<string, string | undefined> = {
   MERCADO_PAGO: 'Mercado Pago',
   RESERVA_ADMIN: 'Generada (admin)',
   SIN_COBRO: 'Sin cobro',
