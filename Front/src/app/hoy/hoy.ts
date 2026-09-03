@@ -7,6 +7,7 @@ import { CabeceraInterna } from '../shared/cabecera-interna/cabecera-interna';
 import { Spinner } from '../shared/spinner/spinner';
 import { PesosPipe } from '../shared/pesos.pipe';
 import { TourStep } from '../shared/tour/tour';
+import { aFechaISO } from '../shared/fecha.util';
 
 const PASOS_TUTORIAL: TourStep[] = [
   {
@@ -22,9 +23,7 @@ const PASOS_TUTORIAL: TourStep[] = [
 ];
 
 function hoyISO(): string {
-  const d = new Date();
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  return aFechaISO(new Date());
 }
 
 @Component({

@@ -2,11 +2,12 @@ import { FormaPagoType } from './compra';
 
 export interface AfluenciaDiaria {
   fecha: string;
-  /** Reserva anticipada (pagada online o a cobrar en caja), sin contar venta en puerta. */
+  /** Demanda: pases reservados para venir ese día (por fecha de visita), estén validados o no. */
   pasesVendidosAnticipada: number;
-  /** De esas reservas anticipadas, cuántas ya se validaron por DNI al llegar. */
+  /** Ingreso real de anticipadas y regalos ese día (por fecha de validación — puede no coincidir
+   * con el día reservado si el cliente vino otro día). */
   pasesValidadosAnticipada: number;
-  /** Vendido directamente en la puerta (POS): siempre ingresa en el momento. */
+  /** Vendido directamente en la puerta (POS) ese día: ingresa en el momento. */
   pasesVendidosBoleteria: number;
 }
 

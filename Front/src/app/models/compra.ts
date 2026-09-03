@@ -1,13 +1,18 @@
 /** MERCADO_PAGO y EFECTIVO_BOLETERIA salen de la compra online; TARJETA y
  *  MERCADO_PAGO_QR sólo existen en la venta presencial del POS de boletería;
  *  RESERVA_ADMIN sólo la crea un ADMIN a mano, sin cobrar nada por acá (invitados,
- *  ventas por agencia con el cobro resuelto por fuera, etc). Pagar en dólares NO es una
- *  forma de pago aparte: sigue siendo EFECTIVO_BOLETERIA, sólo cambia la moneda física
- *  (ver el checkbox "Pagó en dólares" dentro del botón Efectivo del POS). */
-export type FormaPagoType = 'MERCADO_PAGO' | 'EFECTIVO_BOLETERIA' | 'TARJETA' | 'MERCADO_PAGO_QR' | 'RESERVA_ADMIN';
+ *  ventas por agencia con el cobro resuelto por fuera, etc); SIN_COBRO es una venta de
+ *  puerta cuyo total quedó en $0 (todo bonificado), sin nada que cobrar. Pagar en dólares
+ *  NO es una forma de pago aparte: sigue siendo EFECTIVO_BOLETERIA, sólo cambia la moneda
+ *  física (ver el checkbox "Pagó en dólares" dentro del botón Efectivo del POS). */
+export type FormaPagoType = 'MERCADO_PAGO' | 'EFECTIVO_BOLETERIA' | 'TARJETA' | 'MERCADO_PAGO_QR' | 'RESERVA_ADMIN' | 'SIN_COBRO';
 
-/** Las que el POS puede cobrar (la boletería no genera pagos online). */
+/** Las formas de pago que el boletero elige para cobrar en el POS. */
 export type FormaPagoPos = 'EFECTIVO_BOLETERIA' | 'TARJETA' | 'MERCADO_PAGO_QR';
+
+/** Lo que puede llevar una venta de puerta: una forma de cobro, o SIN_COBRO cuando el total
+ *  quedó en $0 (todo bonificado) y no hay nada que cobrar. */
+export type FormaPagoVentaPos = FormaPagoPos | 'SIN_COBRO';
 
 export interface ClienteData {
   nombre: string;

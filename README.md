@@ -19,8 +19,10 @@ El frontend se divide en dos módulos que comparten el mismo proyecto:
 
 - **Módulo web (público)** — `/entradas`: el flujo de compra que se embebe en el sitio del parque
   (calendario → selección de entradas → datos del comprador → resumen y pago). Va en el bundle inicial.
-- **Módulo interno (staff)** — `/login`, `/boleteria`, `/configuracion`: control de accesos y
-  administración. Se carga bajo demanda para que no pese sobre el visitante que sólo viene a comprar.
+- **Módulo interno (staff)** — `/login`, `/boleteria`, `/pos`, `/cajas`, `/reportes`, `/hoy`,
+  `/acciones`, `/configuracion`: control de accesos, venta presencial (POS), arqueo y cierre de
+  caja, reportes y administración. Se carga bajo demanda para que no pese sobre el visitante que
+  sólo viene a comprar.
 
 ## Decisiones de diseño que conviene conocer
 
@@ -28,8 +30,11 @@ El frontend se divide en dos módulos que comparten el mismo proyecto:
   tipea (o se escanea con lector PDF417) el DNI del titular y aparece la reserva.
 - **Una compra por grupo.** Una sola transacción asocia todos los pases al DNI del titular, y el
   check-in habilita al grupo completo de una vez; no hay ingreso parcial persona por persona.
-- **Dos formas de pago.** Mercado Pago (se acredita por webhook) y efectivo en boletería (queda
-  reservado y se cobra al llegar, con precios promocionales por cantidad de pases).
+- **Formas de pago.** En la compra web: Mercado Pago (se acredita por webhook) o efectivo en
+  boletería (queda reservado y se cobra al llegar, con precios promocionales por cantidad de pases).
+  En la venta presencial (POS) se registra además tarjeta y Mercado Pago QR, cobrados con el posnet
+  del boletero. Un ADMIN puede cargar reservas a mano sin cobro por el sistema (invitados, ventas
+  por agencia). El detalle está en el enum `FormaPago`.
 
 ## Requisitos
 
@@ -205,16 +210,17 @@ Snippet a pegar en la página del sitio:
 ```
 
 El `height: 780px` inicial es sólo un valor de arranque razonable hasta que llega el primer aviso
-de altura (llega casi de inmediato). `preview-iframe.html` en la raíz del repo tiene una página de
-ejemplo completa con este mismo patrón, útil para probar el embed sin tocar el sitio real.
+de altura (llega casi de inmediato).
 
 ## Seguridad
 
-El módulo interno usa JWT: `POST /api/usuarios/login` devuelve un token (válido 8 h) que el
+El módulo interno usa JWT: `POST /api/usuarios/login` devuelve un token (válido 12 h) que el
 frontend guarda y adjunta en cada request mediante un interceptor. En el backend, un filtro lo
 valida y `SecurityConfig` autoriza por rol:
 
 - **Público:** catálogo de entradas, calendario de días abiertos, validación de cupones, alta de
   compras y webhook de Mercado Pago.
-- **BOLETERO o ADMIN:** búsqueda de reservas, validación de ingreso y cobro en efectivo.
-- **Sólo ADMIN:** días y horarios, cupones, tipos de entrada, precios por grupo y usuarios.
+- **BOLETERO o ADMIN:** búsqueda de reservas, validación de ingreso, venta presencial (POS) y
+  operaciones de caja del día (apertura, retiros propios, cobros).
+- **Sólo ADMIN:** días y horarios, cupones, tipos de entrada, precios por grupo, artículos varios,
+  usuarios, reportes, cierre y corrección de cajas, ajustes y reservas cargadas a mano.

@@ -10,6 +10,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -22,7 +23,25 @@ public interface CompraRepository extends JpaRepository<Compra, Long>, JpaSpecif
     List<Compra> findAllByFechaVisitaOrderByCodigoReservaAsc(LocalDate fechaVisita);
     long countByFechaVisita(LocalDate fechaVisita);
     long countByFechaVisitaIsNull();
-    List<Compra> findAllByFechaVisitaBetween(LocalDate desde, LocalDate hasta);
+    /**
+     * Todas las compras que "tocan" el rango del reporte por alguna de sus tres fechas: día de
+     * compra (fechaCreacion), día de visita elegido (fechaVisita) o día de ingreso real
+     * (fechaValidacion). El reporte después decide, por compra, qué métrica va a qué día:
+     * recaudación al día de cobro, afluencia/personas al día de validación, demanda al día de
+     * visita (ver ReporteServiceImpl). Es un prefiltro amplio; el filtrado fino exacto lo hace
+     * el service comparando LocalDate.
+     */
+    @Query("SELECT c FROM Compra c WHERE " +
+            "(c.fechaVisita >= :desde AND c.fechaVisita <= :hasta) " +
+            "OR (c.fechaCreacion >= :desdeDt AND c.fechaCreacion < :hastaDt) " +
+            "OR (c.fechaValidacion >= :desdeDt AND c.fechaValidacion < :hastaDt)")
+    List<Compra> findParaReporte(@Param("desde") LocalDate desde, @Param("hasta") LocalDate hasta,
+                                 @Param("desdeDt") LocalDateTime desdeDt, @Param("hastaDt") LocalDateTime hastaDt);
+
+    /** Ids de checkouts que quedaron sin pagarse: para expirarlos (ver CompraServiceImpl). */
+    @Query("SELECT c.id FROM Compra c WHERE c.estado = :estado AND c.fechaCreacion < :limite")
+    List<Long> findIdsByEstadoAndFechaCreacionBefore(@Param("estado") EstadoCompra estado,
+                                                     @Param("limite") LocalDateTime limite);
 
     /** Todo lo cobrado durante ese turno de caja, para calcular el efectivo esperado al cerrar. */
     List<Compra> findAllByCajaId(Long cajaId);

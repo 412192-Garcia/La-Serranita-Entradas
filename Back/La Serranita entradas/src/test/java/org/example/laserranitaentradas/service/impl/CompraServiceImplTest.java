@@ -352,6 +352,42 @@ class CompraServiceImplTest {
         assertThat(resultado.getMontoTotal()).isEqualByComparingTo("200");
     }
 
+    @Test
+    void registrarVentaPos_sinCobro_conTotalCero_seRegistraComoVentaDePuerta() {
+        mockearVentaPosBasica();
+        // Precio del tipo en $0 (todo bonificado): el total queda en 0.
+        org.example.laserranitaentradas.model.entity.TipoEntrada bonificada = org.example.laserranitaentradas.model.entity.TipoEntrada.builder()
+                .id(2L).nombre("Bonificada").tipo(org.example.laserranitaentradas.model.entity.Tipo.ENTRADA)
+                .obligatorio(true).precio(java.math.BigDecimal.ZERO).build();
+        when(tipoEntradaService.findById(2L)).thenReturn(Optional.of(bonificada));
+        when(calculoPrecioService.calcularTotal(org.mockito.ArgumentMatchers.eq(bonificada), org.mockito.ArgumentMatchers.eq(2), any()))
+                .thenReturn(java.math.BigDecimal.ZERO);
+
+        org.example.laserranitaentradas.model.dto.DetalleCompraDTO detalle = new org.example.laserranitaentradas.model.dto.DetalleCompraDTO();
+        detalle.setTipoEntradaId(2L);
+        detalle.setCantidad(2);
+        var request = new org.example.laserranitaentradas.model.dto.VentaPosRequestDTO();
+        request.setFormaPago(FormaPago.SIN_COBRO);
+        request.setEntradas(List.of(detalle));
+
+        Compra resultado = service.registrarVentaPos(request, 9L);
+
+        assertThat(resultado.getFormaPago()).isEqualTo(FormaPago.SIN_COBRO);
+        assertThat(resultado.getEstado()).isEqualTo(EstadoCompra.VENDIDO_EN_PUERTA);
+        assertThat(resultado.getMontoTotal()).isEqualByComparingTo("0");
+    }
+
+    @Test
+    void registrarVentaPos_sinCobro_conMontoACobrar_rechaza() {
+        mockearVentaPosBasica(); // el tipo General vale 200
+        var request = ventaPosBasica();
+        request.setFormaPago(FormaPago.SIN_COBRO);
+
+        assertThatThrownBy(() -> service.registrarVentaPos(request, 9L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("monto a cobrar");
+    }
+
     // ---------- Cobrar una anticipada RESERVADO_EFECTIVO cargada en el POS ----------
 
     private Compra reservaEfectivo(Long id) {

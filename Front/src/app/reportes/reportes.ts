@@ -68,6 +68,7 @@ const COLOR_POR_FORMA_PAGO: Record<RecaudacionPorFormaPago['formaPago'], string>
   TARJETA: '#4a7fc9',
   MERCADO_PAGO_QR: '#7a5bc9',
   RESERVA_ADMIN: '#c96bb0',
+  SIN_COBRO: '#8c8c8c',
 };
 
 const ETIQUETA_POR_ESTADO: Record<ComprasPorEstado['estado'], string> = {
@@ -328,9 +329,9 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
         data: {
           labels: r.afluenciaDiaria.map((d) => d.fecha.slice(5)),
           datasets: [
-            { label: 'Anticipada vendida', data: r.afluenciaDiaria.map((d) => d.pasesVendidosAnticipada), backgroundColor: '#39a935' },
-            { label: 'Anticipada validada (DNI en boletería)', data: r.afluenciaDiaria.map((d) => d.pasesValidadosAnticipada), backgroundColor: '#1f6b1c' },
-            { label: 'Boletería (venta de puerta)', data: r.afluenciaDiaria.map((d) => d.pasesVendidosBoleteria), backgroundColor: '#4a7fc9' },
+            { label: 'Reservado para ese día', data: r.afluenciaDiaria.map((d) => d.pasesVendidosAnticipada), backgroundColor: '#39a935' },
+            { label: 'Ingresos de anticipada/regalo ese día', data: r.afluenciaDiaria.map((d) => d.pasesValidadosAnticipada), backgroundColor: '#1f6b1c' },
+            { label: 'Venta de puerta ese día', data: r.afluenciaDiaria.map((d) => d.pasesVendidosBoleteria), backgroundColor: '#4a7fc9' },
           ],
         },
         options: {

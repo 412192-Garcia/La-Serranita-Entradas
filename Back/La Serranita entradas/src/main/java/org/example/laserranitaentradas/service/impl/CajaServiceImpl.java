@@ -247,37 +247,40 @@ public class CajaServiceImpl implements CajaService {
     @Transactional
     @Override
     public CajaResponseDTO cerrar(Long usuarioId, List<ConteoDenominacionDTO> conteoEfectivo,
-                                   List<CierrePosnetRequestDTO> cierresPosnet, Integer entradasFisicasCortadas,
+                                   List<CierrePosnetRequestDTO> cierresPosnet, Integer entradasFisicasRestantes,
                                    BigDecimal cambioContado, BigDecimal dolaresContado) {
         Caja caja = getAbiertaOrThrow(usuarioId);
-        return cerrarCaja(caja, conteoEfectivo, cierresPosnet, entradasFisicasCortadas, cambioContado, dolaresContado);
+        return cerrarCaja(caja, conteoEfectivo, cierresPosnet, entradasFisicasRestantes, cambioContado, dolaresContado);
     }
 
     @Transactional
     @Override
     public CajaResponseDTO cerrarComoAdmin(Long cajaId, List<ConteoDenominacionDTO> conteoEfectivo,
-                                            List<CierrePosnetRequestDTO> cierresPosnet, Integer entradasFisicasCortadas,
+                                            List<CierrePosnetRequestDTO> cierresPosnet, Integer entradasFisicasRestantes,
                                             BigDecimal cambioContado, BigDecimal dolaresContado) {
         Caja caja = cajaRepository.findById(cajaId)
                 .orElseThrow(() -> new IllegalArgumentException("Caja no encontrada para id: " + cajaId));
         if (caja.getFechaCierre() != null) {
             throw new IllegalStateException("Esta caja ya está cerrada");
         }
-        return cerrarCaja(caja, conteoEfectivo, cierresPosnet, entradasFisicasCortadas, cambioContado, dolaresContado);
+        return cerrarCaja(caja, conteoEfectivo, cierresPosnet, entradasFisicasRestantes, cambioContado, dolaresContado);
     }
 
     /** El cálculo real de cerrar, sobre una caja ya resuelta (propia o, vía admin, ajena). */
     private CajaResponseDTO cerrarCaja(Caja caja, List<ConteoDenominacionDTO> conteoEfectivo,
-                                        List<CierrePosnetRequestDTO> cierresPosnet, Integer entradasFisicasCortadas,
+                                        List<CierrePosnetRequestDTO> cierresPosnet, Integer entradasFisicasRestantes,
                                         BigDecimal cambioContado, BigDecimal dolaresContado) {
         List<ConteoDenominacion> conteo = validarYMapearConteo(conteoEfectivo);
         List<CierrePosnetRequestDTO> cierres = validarCierresPosnet(cierresPosnet);
-        if (entradasFisicasCortadas == null || entradasFisicasCortadas < 0) {
-            throw new IllegalArgumentException("Indicá cuántas entradas cortaste del talonario");
+        if (entradasFisicasRestantes == null || entradasFisicasRestantes < 0) {
+            throw new IllegalArgumentException("Indicá cuántas entradas quedan en el talonario");
         }
+        List<Compra> compras = compraRepository.findAllByCajaId(caja.getId());
         BigDecimal montoContado = calcularMontoContado(conteo, cambioContado);
-        BigDecimal dolaresContadoValidado = validarDolaresContado(caja.getId(), dolaresContado);
-        BigDecimal montoEsperado = calcularMontoEsperado(caja);
+        BigDecimal dolaresContadoValidado = validarDolaresContado(compras, dolaresContado);
+        BigDecimal montoEsperado = calcularMontoEsperado(caja, compras,
+                retiroCajaRepository.findAllByCajaIdOrderByFechaAsc(caja.getId()),
+                ajusteCajaRepository.findAllByCajaIdOrderByFechaAsc(caja.getId()));
 
         LocalDateTime ahora = LocalDateTime.now();
         caja.setFechaCierre(ahora);
@@ -287,7 +290,7 @@ public class CajaServiceImpl implements CajaService {
         caja.setCambioContado(cambioContado == null ? BigDecimal.ZERO : cambioContado);
         caja.getConteoEfectivo().clear();
         caja.getConteoEfectivo().addAll(conteo);
-        caja.setEntradasFisicasCortadas(entradasFisicasCortadas);
+        caja.setEntradasFisicasRestantes(entradasFisicasRestantes);
         caja.setDolaresContado(dolaresContadoValidado);
 
         Caja guardada = cajaRepository.save(caja);
@@ -299,12 +302,19 @@ public class CajaServiceImpl implements CajaService {
     /**
      * Inicial + impacto real de efectivo (ver impactoEfectivoArs) − retiros netos (ver
      * sumRetiros) + el neto de los ajustes manuales que traspasaron monto hacia/desde efectivo
-     * (ver registrarAjustes).
+     * (ver corregirCaja).
      */
     private BigDecimal calcularMontoEsperado(Caja caja) {
-        BigDecimal impactoEfectivoArs = sumImpactoEfectivoArs(caja.getId());
-        BigDecimal totalRetiros = sumRetiros(caja.getId());
-        BigDecimal ajusteEfectivo = sumAjustesNeto(caja.getId(), FormaPago.EFECTIVO_BOLETERIA);
+        return calcularMontoEsperado(caja,
+                compraRepository.findAllByCajaId(caja.getId()),
+                retiroCajaRepository.findAllByCajaIdOrderByFechaAsc(caja.getId()),
+                ajusteCajaRepository.findAllByCajaIdOrderByFechaAsc(caja.getId()));
+    }
+
+    private BigDecimal calcularMontoEsperado(Caja caja, List<Compra> compras, List<RetiroCaja> retiros, List<AjusteCaja> ajustes) {
+        BigDecimal impactoEfectivoArs = sumImpactoEfectivoArs(compras);
+        BigDecimal totalRetiros = sumRetiros(retiros);
+        BigDecimal ajusteEfectivo = sumAjustesNeto(ajustes, FormaPago.EFECTIVO_BOLETERIA);
         return caja.getMontoInicial().add(impactoEfectivoArs).subtract(totalRetiros).add(ajusteEfectivo);
     }
 
@@ -384,9 +394,10 @@ public class CajaServiceImpl implements CajaService {
 
     @Transactional
     @Override
-    public CajaResponseDTO corregirCierre(Long cajaId, List<ConteoDenominacionDTO> conteoEfectivo,
-                                           List<CierrePosnetRequestDTO> cierresPosnet, Integer entradasFisicasCortadas,
-                                           BigDecimal cambioContado, BigDecimal dolaresContado) {
+    public CajaResponseDTO corregirCaja(Long cajaId, List<ConteoDenominacionDTO> conteoEfectivo,
+                                         List<CierrePosnetRequestDTO> cierresPosnet, Integer entradasFisicasRestantes,
+                                         BigDecimal cambioContado, BigDecimal dolaresContado,
+                                         List<AjusteCajaRequestDTO> ajustes) {
         Caja caja = cajaRepository.findById(cajaId)
                 .orElseThrow(() -> new IllegalArgumentException("Caja no encontrada para id: " + cajaId));
         if (caja.getFechaCierre() == null) {
@@ -395,16 +406,40 @@ public class CajaServiceImpl implements CajaService {
 
         List<ConteoDenominacion> conteo = validarYMapearConteo(conteoEfectivo);
         List<CierrePosnetRequestDTO> cierres = validarCierresPosnet(cierresPosnet);
-        if (entradasFisicasCortadas == null || entradasFisicasCortadas < 0) {
-            throw new IllegalArgumentException("Indicá cuántas entradas cortaste del talonario");
+        if (entradasFisicasRestantes == null || entradasFisicasRestantes < 0) {
+            throw new IllegalArgumentException("Indicá cuántas entradas quedan en el talonario");
         }
-        BigDecimal montoContado = calcularMontoContado(conteo, cambioContado);
-        BigDecimal dolaresContadoValidado = validarDolaresContado(caja.getId(), dolaresContado);
 
-        // El esperado se recalcula igual que al cerrar (no debería haber cambiado, pero
-        // recalcularlo en vez de reusar el guardado evita que quede desactualizado si algo
-        // sí cambió entre medio).
-        BigDecimal montoEsperado = calcularMontoEsperado(caja);
+        LocalDateTime ahora = LocalDateTime.now();
+
+        // 1) Traspasos entre formas de pago (si vienen): se guardan ANTES de recalcular el
+        //    esperado, así calcularMontoEsperado ya los ve en una sola pasada.
+        if (ajustes != null && !ajustes.isEmpty()) {
+            for (AjusteCajaRequestDTO dto : ajustes) {
+                validarAjuste(dto);
+                ajusteCajaRepository.save(AjusteCaja.builder()
+                        .caja(caja)
+                        .formaOrigen(dto.getFormaOrigen())
+                        .formaDestino(dto.getFormaDestino())
+                        .monto(dto.getMonto())
+                        .cantidadVentas(dto.getCantidadVentas() == null ? 0 : Math.max(0, dto.getCantidadVentas()))
+                        .detalle(dto.getDetalle() == null || dto.getDetalle().isBlank() ? null : dto.getDetalle().trim())
+                        .nota(dto.getNota() == null || dto.getNota().isBlank() ? null : dto.getNota().trim())
+                        .fecha(ahora)
+                        .comprasMovidas(dto.getComprasMovidas() == null ? new ArrayList<>() : new ArrayList<>(dto.getComprasMovidas()))
+                        .lineas(dto.getLineas() == null ? new java.util.HashMap<>() : new java.util.HashMap<>(dto.getLineas()))
+                        .build());
+            }
+            ajusteCajaRepository.flush();
+        }
+
+        // 2) Recuento del cierre.
+        List<Compra> compras = compraRepository.findAllByCajaId(caja.getId());
+        BigDecimal montoContado = calcularMontoContado(conteo, cambioContado);
+        BigDecimal dolaresContadoValidado = validarDolaresContado(compras, dolaresContado);
+        BigDecimal montoEsperado = calcularMontoEsperado(caja, compras,
+                retiroCajaRepository.findAllByCajaIdOrderByFechaAsc(caja.getId()),
+                ajusteCajaRepository.findAllByCajaIdOrderByFechaAsc(caja.getId()));
 
         caja.setMontoContado(montoContado);
         caja.setMontoEsperado(montoEsperado);
@@ -412,48 +447,14 @@ public class CajaServiceImpl implements CajaService {
         caja.setCambioContado(cambioContado == null ? BigDecimal.ZERO : cambioContado);
         caja.getConteoEfectivo().clear();
         caja.getConteoEfectivo().addAll(conteo);
-        caja.setEntradasFisicasCortadas(entradasFisicasCortadas);
+        caja.setEntradasFisicasRestantes(entradasFisicasRestantes);
         caja.setDolaresContado(dolaresContadoValidado);
 
         Caja guardada = cajaRepository.save(caja);
         cierrePosnetRepository.deleteAllByCajaId(caja.getId());
-        guardarCierresPosnet(guardada, cierres, LocalDateTime.now());
+        guardarCierresPosnet(guardada, cierres, ahora);
 
         return toDto(guardada);
-    }
-
-    @Transactional
-    @Override
-    public CajaResponseDTO registrarAjustes(Long cajaId, List<AjusteCajaRequestDTO> ajustes) {
-        Caja caja = cajaRepository.findById(cajaId)
-                .orElseThrow(() -> new IllegalArgumentException("Caja no encontrada para id: " + cajaId));
-        if (caja.getFechaCierre() == null) {
-            throw new IllegalStateException("Esta caja todavía está abierta: los ajustes se cargan sobre un cierre ya hecho");
-        }
-        if (ajustes == null || ajustes.isEmpty()) {
-            throw new IllegalArgumentException("No se mandó ningún ajuste");
-        }
-
-        LocalDateTime ahora = LocalDateTime.now();
-        for (AjusteCajaRequestDTO dto : ajustes) {
-            validarAjuste(dto);
-            ajusteCajaRepository.save(AjusteCaja.builder()
-                    .caja(caja)
-                    .formaOrigen(dto.getFormaOrigen())
-                    .formaDestino(dto.getFormaDestino())
-                    .monto(dto.getMonto())
-                    .cantidadVentas(dto.getCantidadVentas() == null ? 0 : Math.max(0, dto.getCantidadVentas()))
-                    .detalle(dto.getDetalle() == null || dto.getDetalle().isBlank() ? null : dto.getDetalle().trim())
-                    .nota(dto.getNota() == null || dto.getNota().isBlank() ? null : dto.getNota().trim())
-                    .fecha(ahora)
-                    .comprasMovidas(dto.getComprasMovidas() == null ? new ArrayList<>() : new ArrayList<>(dto.getComprasMovidas()))
-                    .lineas(dto.getLineas() == null ? new java.util.HashMap<>() : new java.util.HashMap<>(dto.getLineas()))
-                    .build());
-        }
-        ajusteCajaRepository.flush();
-
-        recalcularEfectivoTrasAjuste(caja);
-        return toDto(cajaRepository.save(caja));
     }
 
     @Transactional
@@ -491,8 +492,8 @@ public class CajaServiceImpl implements CajaService {
     /**
      * Recalcula y persiste montoEsperado/diferencia de efectivo con los ajustes ya guardados,
      * para que el listado de cajas cerradas, el ranking y sumFaltantes/sobrantes queden al día
-     * (mismo criterio que corregirCierre). Los esperados/diferencias de posnet no se guardan en
-     * la Caja — se recalculan siempre en toDto.
+     * (mismo criterio que corregirCaja). Los esperados/diferencias de posnet no se guardan en
+     * la Caja — se recalculan siempre en toDto. Lo usa eliminarAjuste (al borrar una fila suelta).
      */
     private void recalcularEfectivoTrasAjuste(Caja caja) {
         if (caja.getMontoContado() == null) return;
@@ -545,9 +546,9 @@ public class CajaServiceImpl implements CajaService {
                 })
                 .toList();
         // cerrarCaja vuelve a guardar los cierres de posnet tal cual se le pasen: sin borrar
-        // los viejos primero quedarían duplicados (mismo criterio que corregirCierre).
+        // los viejos primero quedarían duplicados (mismo criterio que corregirCaja).
         cierrePosnetRepository.deleteAllByCajaId(cajaId);
-        return cerrarCaja(caja, conteo, posnet, caja.getEntradasFisicasCortadas(), caja.getCambioContado(), caja.getDolaresContado());
+        return cerrarCaja(caja, conteo, posnet, caja.getEntradasFisicasRestantes(), caja.getCambioContado(), caja.getDolaresContado());
     }
 
     @Override
@@ -561,24 +562,31 @@ public class CajaServiceImpl implements CajaService {
     public CajaDetalleAbiertaDTO getOperacionesCaja(Long cajaId) {
         Caja caja = cajaRepository.findById(cajaId)
                 .orElseThrow(() -> new IllegalArgumentException("Caja no encontrada para id: " + cajaId));
-        List<EntradasPorTipoDTO> entradasVendidasPorTipo = contarEntradasPorTipo(cajaId);
+
+        // Todo lo de esta caja se trae una sola vez y se reparte a cada cálculo (antes cada
+        // helper repetía su propio findAllByCajaId).
+        List<Compra> compras = compraRepository.findAllByCajaId(cajaId);
+        List<AjusteCaja> ajustes = ajusteCajaRepository.findAllByCajaIdOrderByFechaAsc(cajaId);
+        List<RetiroCaja> retiros = retiroCajaRepository.findAllByCajaIdOrderByFechaAsc(cajaId);
+        List<IngresoEntradas> ingresosEntradas = ingresoEntradasRepository.findAllByCajaIdOrderByFechaAsc(cajaId);
 
         Integer entradasFisicasRestantes = null;
         if (caja.getEntradasFisicasInicial() != null) {
-            int ingresosNetos = ingresoEntradasRepository.findAllByCajaIdOrderByFechaAsc(cajaId).stream()
+            int ingresosNetos = ingresosEntradas.stream()
                     .mapToInt(i -> i.getTipo() == TipoMovimientoEntradas.RETIRO ? -i.getCantidad() : i.getCantidad())
                     .sum();
-            entradasFisicasRestantes = caja.getEntradasFisicasInicial() + ingresosNetos - calcularEntradasEsperadas(caja);
+            entradasFisicasRestantes = caja.getEntradasFisicasInicial() + ingresosNetos
+                    - calcularEntradasEntregadas(compras, ajustes);
         }
 
         return CajaDetalleAbiertaDTO.builder()
-                .operaciones(construirOperaciones(cajaId))
-                .totalVentasEfectivo(sumVentasPorFormaPago(cajaId, FormaPago.EFECTIVO_BOLETERIA))
-                .totalVentasTarjeta(sumVentasPorFormaPago(cajaId, FormaPago.TARJETA))
-                .totalVentasQr(sumVentasPorFormaPago(cajaId, FormaPago.MERCADO_PAGO_QR))
-                .totalEntradasPagas(contarEntradasPagas(cajaId))
-                .entradasVendidasPorTipo(entradasVendidasPorTipo)
-                .huboVentaDolares(huboVentaDolares(cajaId))
+                .operaciones(construirOperaciones(compras, retiros, ingresosEntradas))
+                .totalVentasEfectivo(sumVentasPorFormaPago(compras, FormaPago.EFECTIVO_BOLETERIA))
+                .totalVentasTarjeta(sumVentasPorFormaPago(compras, FormaPago.TARJETA))
+                .totalVentasQr(sumVentasPorFormaPago(compras, FormaPago.MERCADO_PAGO_QR))
+                .totalEntradasPagas(contarEntradasPagas(compras, ajustes))
+                .entradasVendidasPorTipo(contarEntradasPorTipo(compras, ajustes))
+                .huboVentaDolares(huboVentaDolares(compras))
                 .entradasFisicasRestantes(entradasFisicasRestantes)
                 .build();
     }
@@ -649,16 +657,18 @@ public class CajaServiceImpl implements CajaService {
                     // admin en el dashboard de Hoy, no el dueño de la caja.
                     // El pago en dólares sigue siendo EFECTIVO_BOLETERIA (misma forma de pago,
                     // sólo cambia la moneda física), así que ya está incluido acá.
-                    BigDecimal totalVendido = sumVentasPorFormaPago(caja.getId(), FormaPago.EFECTIVO_BOLETERIA)
-                            .add(sumVentasPorFormaPago(caja.getId(), FormaPago.TARJETA))
-                            .add(sumVentasPorFormaPago(caja.getId(), FormaPago.MERCADO_PAGO_QR));
+                    List<Compra> compras = compraRepository.findAllByCajaId(caja.getId());
+                    List<AjusteCaja> ajustes = ajusteCajaRepository.findAllByCajaIdOrderByFechaAsc(caja.getId());
+                    BigDecimal totalVendido = sumVentasPorFormaPago(compras, FormaPago.EFECTIVO_BOLETERIA)
+                            .add(sumVentasPorFormaPago(compras, FormaPago.TARJETA))
+                            .add(sumVentasPorFormaPago(compras, FormaPago.MERCADO_PAGO_QR));
                     return CajaAbiertaDTO.builder()
                             .id(caja.getId())
                             .usuarioNombre(caja.getUsuario().getNombre() + " " + caja.getUsuario().getApellido())
                             .fechaApertura(caja.getFechaApertura())
                             .montoInicial(caja.getMontoInicial())
                             .totalVendido(totalVendido)
-                            .totalEntradasPagas(contarEntradasPagas(caja.getId()))
+                            .totalEntradasPagas(contarEntradasPagas(compras, ajustes))
                             .build();
                 })
                 .toList();
@@ -717,26 +727,30 @@ public class CajaServiceImpl implements CajaService {
         return resultado;
     }
 
-    private BigDecimal sumVentasPorFormaPago(Long cajaId, FormaPago formaPago) {
-        return compraRepository.findAllByCajaId(cajaId).stream()
+    // Los cálculos de abajo trabajan sobre las compras/movimientos de la caja ya traídos:
+    // toDto y getOperacionesCaja los piden UNA vez y los reparten a todos (antes cada helper
+    // repetía su propio findAllByCajaId sobre la misma caja).
+
+    private BigDecimal sumVentasPorFormaPago(List<Compra> compras, FormaPago formaPago) {
+        return compras.stream()
                 .filter(c -> c.getFormaPago() == formaPago && c.getEstado() != EstadoCompra.CANCELADO)
                 .map(Compra::getMontoTotal)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     /** Ventas en efectivo pagadas en dólares (formaPago sigue siendo EFECTIVO_BOLETERIA), no canceladas. */
-    private List<Compra> ventasEnDolares(Long cajaId) {
-        return compraRepository.findAllByCajaId(cajaId).stream()
+    private List<Compra> ventasEnDolares(List<Compra> compras) {
+        return compras.stream()
                 .filter(c -> c.getCotizacionDolar() != null && c.getEstado() != EstadoCompra.CANCELADO)
                 .toList();
     }
 
-    private boolean huboVentaDolares(Long cajaId) {
-        return !ventasEnDolares(cajaId).isEmpty();
+    private boolean huboVentaDolares(List<Compra> compras) {
+        return !ventasEnDolares(compras).isEmpty();
     }
 
-    private BigDecimal sumDolaresEsperados(Long cajaId) {
-        return ventasEnDolares(cajaId).stream()
+    private BigDecimal sumDolaresEsperados(List<Compra> compras) {
+        return ventasEnDolares(compras).stream()
                 .map(Compra::getDolaresRecibidos)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
@@ -758,16 +772,16 @@ public class CajaServiceImpl implements CajaService {
         return vueltoPesos(compra).negate();
     }
 
-    private BigDecimal sumImpactoEfectivoArs(Long cajaId) {
-        return compraRepository.findAllByCajaId(cajaId).stream()
+    private BigDecimal sumImpactoEfectivoArs(List<Compra> compras) {
+        return compras.stream()
                 .filter(c -> c.getFormaPago() == FormaPago.EFECTIVO_BOLETERIA && c.getEstado() != EstadoCompra.CANCELADO)
                 .map(this::impactoEfectivoArs)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     /** Null si esta caja no tuvo ninguna venta en dólares (no hay nada que contar); si tuvo, exige el conteo. */
-    private BigDecimal validarDolaresContado(Long cajaId, BigDecimal dolaresContado) {
-        if (!huboVentaDolares(cajaId)) return null;
+    private BigDecimal validarDolaresContado(List<Compra> compras, BigDecimal dolaresContado) {
+        if (!huboVentaDolares(compras)) return null;
         if (dolaresContado == null || dolaresContado.compareTo(BigDecimal.ZERO) < 0) {
             throw new IllegalArgumentException("Esta caja tuvo ventas en dólares: indicá cuántos dólares contaste");
         }
@@ -776,8 +790,12 @@ public class CajaServiceImpl implements CajaService {
 
     /** Neto: retiros suman, aportes restan (un aporte es, en la fórmula del esperado, un retiro negativo). */
     private BigDecimal sumRetiros(Long cajaId) {
+        return sumRetiros(retiroCajaRepository.findAllByCajaIdOrderByFechaAsc(cajaId));
+    }
+
+    private BigDecimal sumRetiros(List<RetiroCaja> movimientos) {
         BigDecimal neto = BigDecimal.ZERO;
-        for (RetiroCaja movimiento : retiroCajaRepository.findAllByCajaIdOrderByFechaAsc(cajaId)) {
+        for (RetiroCaja movimiento : movimientos) {
             neto = movimiento.getTipo() == TipoMovimientoCaja.APORTE
                     ? neto.subtract(movimiento.getMonto())
                     : neto.add(movimiento.getMonto());
@@ -826,26 +844,25 @@ public class CajaServiceImpl implements CajaService {
     }
 
     /**
-     * Cuántas entradas debería haber cortado el boletero según lo que el sistema registró como
-     * entregado, más el impacto de los ajustes manuales (una venta agregada suma sus pases al
-     * talonario esperado; una quitada los resta).
+     * Cuántas entradas del talonario entregó el sistema (pases de tipos con entregaEntrada en
+     * ventas no canceladas), más el impacto de los ajustes manuales (una venta agregada suma
+     * sus pases, una quitada los resta). Es "lo que se cortó según el sistema"; el talonario
+     * esperado que queda es inicial + ingresos − esto.
      */
-    private int calcularEntradasEsperadas(Caja caja) {
-        int base = compraRepository.findAllByCajaId(caja.getId()).stream()
+    private int calcularEntradasEntregadas(List<Compra> compras, List<AjusteCaja> ajustes) {
+        int base = compras.stream()
                 .filter(c -> c.getEstado() != EstadoCompra.CANCELADO)
                 .flatMap(c -> c.getDetalles().stream())
                 .filter(d -> d.getTipoEntrada() != null && Boolean.TRUE.equals(d.getTipoEntrada().getEntregaEntrada()))
                 .mapToInt(CompraDetalle::getCantidad)
                 .sum();
-        return base + impactoAjustesEntradas(
-                ajusteCajaRepository.findAllByCajaIdOrderByFechaAsc(caja.getId()),
-                tiposEntradaPorId(),
+        return base + impactoAjustesEntradas(ajustes, tiposEntradaPorId(),
                 t -> Boolean.TRUE.equals(t.getEntregaEntrada()));
     }
 
     /** Unidades vendidas de tipos de entrada con precio > 0 (excluye las gratis, los extras y los artículos, y las compras canceladas), más el impacto de los ajustes manuales. */
-    private int contarEntradasPagas(Long cajaId) {
-        int base = compraRepository.findAllByCajaId(cajaId).stream()
+    private int contarEntradasPagas(List<Compra> compras, List<AjusteCaja> ajustes) {
+        int base = compras.stream()
                 .filter(c -> c.getEstado() != EstadoCompra.CANCELADO)
                 .flatMap(c -> c.getDetalles().stream())
                 .filter(d -> d.getTipoEntrada() != null
@@ -854,16 +871,14 @@ public class CajaServiceImpl implements CajaService {
                         && d.getTipoEntrada().getPrecio().compareTo(BigDecimal.ZERO) > 0)
                 .mapToInt(CompraDetalle::getCantidad)
                 .sum();
-        return base + impactoAjustesEntradas(
-                ajusteCajaRepository.findAllByCajaIdOrderByFechaAsc(cajaId),
-                tiposEntradaPorId(),
+        return base + impactoAjustesEntradas(ajustes, tiposEntradaPorId(),
                 t -> t.getTipo() == Tipo.ENTRADA && t.getPrecio() != null && t.getPrecio().compareTo(BigDecimal.ZERO) > 0);
     }
 
     /** Cuenta las unidades vendidas por tipo de entrada (ignora extras y artículos varios, y las compras canceladas), aplicando también los ajustes manuales. */
-    private List<EntradasPorTipoDTO> contarEntradasPorTipo(Long cajaId) {
+    private List<EntradasPorTipoDTO> contarEntradasPorTipo(List<Compra> compras, List<AjusteCaja> ajustes) {
         Map<String, Integer> cantidadPorTipo = new LinkedHashMap<>();
-        for (Compra compra : compraRepository.findAllByCajaId(cajaId)) {
+        for (Compra compra : compras) {
             if (compra.getEstado() == EstadoCompra.CANCELADO) continue;
             for (CompraDetalle detalle : compra.getDetalles()) {
                 if (detalle.getTipoEntrada() != null && detalle.getTipoEntrada().getTipo() == Tipo.ENTRADA) {
@@ -872,7 +887,7 @@ public class CajaServiceImpl implements CajaService {
             }
         }
         Map<Long, TipoEntrada> tiposPorId = tiposEntradaPorId();
-        for (AjusteCaja a : ajusteCajaRepository.findAllByCajaIdOrderByFechaAsc(cajaId)) {
+        for (AjusteCaja a : ajustes) {
             int signo = signoAjuste(a);
             if (signo == 0) continue;
             for (Map.Entry<Long, Integer> linea : a.getLineas().entrySet()) {
@@ -916,6 +931,18 @@ public class CajaServiceImpl implements CajaService {
                 .map(d -> d.getTipoEntrada().getPrecio().multiply(BigDecimal.valueOf(d.getCantidad())))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
+        // Descuento de la compra, igual para todos sus segmentos: si fue una promo de %, ese %
+        // (exacto aunque la compra tenga varias líneas); si no, el $ que salió (promo de monto
+        // fijo o descuento manual, donde sólo se conoce el importe).
+        BigDecimal descuentoPorcentaje = compra.getPromocion() != null
+                ? compra.getPromocion().getPorcentajeDescuento() : null;
+        BigDecimal descuentoMonto = null;
+        if (descuentoPorcentaje == null
+                && compra.getDescuentoAplicado() != null
+                && compra.getDescuentoAplicado().signum() > 0) {
+            descuentoMonto = compra.getDescuentoAplicado();
+        }
+
         List<SegmentoEntradaDTO> out = new ArrayList<>();
         BigDecimal acumulado = BigDecimal.ZERO;
         for (int i = 0; i < lineas.size(); i++) {
@@ -935,6 +962,8 @@ public class CajaServiceImpl implements CajaService {
                     .tipoNombre(d.getTipoEntrada().getNombre())
                     .cantidad(d.getCantidad())
                     .monto(monto)
+                    .descuentoPorcentaje(descuentoPorcentaje)
+                    .descuentoMonto(descuentoMonto)
                     .build());
         }
         return out;
@@ -953,10 +982,10 @@ public class CajaServiceImpl implements CajaService {
         return d.getCantidad() + "x " + nombre;
     }
 
-    private List<OperacionCajaDTO> construirOperaciones(Long cajaId) {
+    private List<OperacionCajaDTO> construirOperaciones(List<Compra> compras, List<RetiroCaja> movimientos, List<IngresoEntradas> ingresos) {
         List<OperacionCajaDTO> operaciones = new ArrayList<>();
 
-        for (Compra compra : compraRepository.findAllByCajaId(cajaId)) {
+        for (Compra compra : compras) {
             if (compra.getEstado() == EstadoCompra.CANCELADO) continue;
             String detalle = compra.getDetalles().stream()
                     .map(this::nombreDetalle)
@@ -974,7 +1003,7 @@ public class CajaServiceImpl implements CajaService {
                     .build());
         }
 
-        for (RetiroCaja movimiento : retiroCajaRepository.findAllByCajaIdOrderByFechaAsc(cajaId)) {
+        for (RetiroCaja movimiento : movimientos) {
             operaciones.add(OperacionCajaDTO.builder()
                     .tipo(movimiento.getTipo() == TipoMovimientoCaja.APORTE ? "APORTE" : "RETIRO")
                     .fecha(movimiento.getFecha())
@@ -983,7 +1012,7 @@ public class CajaServiceImpl implements CajaService {
                     .build());
         }
 
-        for (IngresoEntradas ingreso : ingresoEntradasRepository.findAllByCajaIdOrderByFechaAsc(cajaId)) {
+        for (IngresoEntradas ingreso : ingresos) {
             boolean esRetiro = ingreso.getTipo() == TipoMovimientoEntradas.RETIRO;
             String detalle = (esRetiro ? "-" : "+") + ingreso.getCantidad() + " entradas"
                     + (ingreso.getMotivo() != null && !ingreso.getMotivo().isBlank() ? " — " + ingreso.getMotivo() : "");
@@ -1019,7 +1048,16 @@ public class CajaServiceImpl implements CajaService {
         // pudiera verlos antes de cerrar, alcanzaría con anotar esos mismos números para que
         // el cierre le dé perfecto aunque haya plata de menos. Recién se revelan al cerrar.
         boolean cerrada = caja.getFechaCierre() != null;
-        BigDecimal totalRetiros = sumRetiros(caja.getId());
+
+        // Todo lo de esta caja se trae UNA sola vez y se reparte a cada cálculo: antes cada
+        // helper (sumVentasPorFormaPago, contarEntradasPagas, construirOperaciones, …) repetía
+        // su propio findAllByCajaId sobre la misma caja, ~10 veces por respuesta.
+        List<Compra> compras = compraRepository.findAllByCajaId(caja.getId());
+        List<RetiroCaja> movimientos = retiroCajaRepository.findAllByCajaIdOrderByFechaAsc(caja.getId());
+        List<IngresoEntradas> ingresosMovimientos = ingresoEntradasRepository.findAllByCajaIdOrderByFechaAsc(caja.getId());
+        List<AjusteCaja> ajustes = ajusteCajaRepository.findAllByCajaIdOrderByFechaAsc(caja.getId());
+
+        BigDecimal totalRetiros = sumRetiros(movimientos);
 
         BigDecimal totalVentasEfectivo = null;
         BigDecimal efectivoEsperado = null;
@@ -1044,7 +1082,7 @@ public class CajaServiceImpl implements CajaService {
 
         // Booleano, no un monto: seguro de exponer aunque la caja siga ABIERTA (ver el
         // comentario en CajaResponseDTO.huboVentaDolares).
-        boolean huboVentaDolares = huboVentaDolares(caja.getId());
+        boolean huboVentaDolares = huboVentaDolares(compras);
 
         if (cerrada) {
             // totalVentasEfectivo es la revenue "de lista" (precio de venta, sea cual sea la
@@ -1057,20 +1095,18 @@ public class CajaServiceImpl implements CajaService {
             // admin cuando la cajera cobró de una forma y registró otra): se aplican como un
             // neto sobre lo vendido de cada forma. No cambian el total vendido (lo que sale de
             // una entra en otra), sólo a cuál forma se le atribuye.
-            List<AjusteCaja> ajustes = ajusteCajaRepository.findAllByCajaIdOrderByFechaAsc(caja.getId());
-
-            totalVentasEfectivo = sumVentasPorFormaPago(caja.getId(), FormaPago.EFECTIVO_BOLETERIA)
+            totalVentasEfectivo = sumVentasPorFormaPago(compras, FormaPago.EFECTIVO_BOLETERIA)
                     .add(sumAjustesNeto(ajustes, FormaPago.EFECTIVO_BOLETERIA));
-            efectivoEsperado = calcularMontoEsperado(caja);
+            efectivoEsperado = calcularMontoEsperado(caja, compras, movimientos, ajustes);
 
             List<CierrePosnet> cierres = cierrePosnetRepository.findAllByCajaIdOrderByIdAsc(caja.getId());
             boolean combinado = cierres.stream().anyMatch(c -> c.getFormaPago() == null);
 
             // Lo vendido con Tarjeta y con QR se manda SIEMPRE por separado (el detalle de venta
             // sí distingue la forma), aunque el cierre del posnet se haya cargado combinado.
-            totalVentasTarjeta = sumVentasPorFormaPago(caja.getId(), FormaPago.TARJETA)
+            totalVentasTarjeta = sumVentasPorFormaPago(compras, FormaPago.TARJETA)
                     .add(sumAjustesNeto(ajustes, FormaPago.TARJETA));
-            totalVentasQr = sumVentasPorFormaPago(caja.getId(), FormaPago.MERCADO_PAGO_QR)
+            totalVentasQr = sumVentasPorFormaPago(compras, FormaPago.MERCADO_PAGO_QR)
                     .add(sumAjustesNeto(ajustes, FormaPago.MERCADO_PAGO_QR));
             if (combinado) {
                 // Cargado como un solo monto de Tarjeta+QR juntos: lo contado no se reparte entre
@@ -1095,31 +1131,38 @@ public class CajaServiceImpl implements CajaService {
                             .build())
                     .toList();
 
-            entradasFisicasEsperadas = calcularEntradasEsperadas(caja);
-            if (caja.getEntradasFisicasCortadas() != null) {
-                // Mismo criterio que la diferencia de efectivo (contado − esperado): positivo es
-                // sobrante, negativo es faltante. Acá "lo esperado que quede en el talonario" es
-                // inicial − entradasFisicasEsperadas y "lo que quedó de verdad" es inicial −
-                // cortadas; restando el inicial de los dos lados queda esperadas − cortadas. Si
-                // cortó MÁS de lo que las ventas justifican (cortadas > esperadas), faltan
-                // entradas en el talonario — no sobran.
-                diferenciaEntradas = entradasFisicasEsperadas - caja.getEntradasFisicasCortadas();
+            // Cuántas entradas DEBERÍAN quedar en el talonario: con las que arrancó, más lo que
+            // se repuso a mitad de turno, menos lo que el sistema entregó. Null si la caja no
+            // tiene inicial cargado (turnos previos a ese campo) — sin eso no hay contra qué
+            // comparar. Misma fórmula que getOperacionesCaja para la caja abierta.
+            if (caja.getEntradasFisicasInicial() != null) {
+                int ingresosNetos = ingresosMovimientos.stream()
+                        .mapToInt(i -> i.getTipo() == TipoMovimientoEntradas.RETIRO ? -i.getCantidad() : i.getCantidad())
+                        .sum();
+                entradasFisicasEsperadas = caja.getEntradasFisicasInicial() + ingresosNetos
+                        - calcularEntradasEntregadas(compras, ajustes);
+                if (caja.getEntradasFisicasRestantes() != null) {
+                    // restantes − esperadas, mismo criterio que la diferencia de efectivo
+                    // (contado − esperado): negativo = faltan en el talonario (se cortaron de
+                    // más), positivo = sobran.
+                    diferenciaEntradas = caja.getEntradasFisicasRestantes() - entradasFisicasEsperadas;
+                }
             }
 
-            operaciones = construirOperaciones(caja.getId());
+            operaciones = construirOperaciones(compras, movimientos, ingresosMovimientos);
 
-            entradasVendidasPorTipo = contarEntradasPorTipo(caja.getId());
-            totalEntradasPagas = contarEntradasPagas(caja.getId());
+            entradasVendidasPorTipo = contarEntradasPorTipo(compras, ajustes);
+            totalEntradasPagas = contarEntradasPagas(compras, ajustes);
 
             if (huboVentaDolares) {
-                dolaresEsperado = sumDolaresEsperados(caja.getId());
+                dolaresEsperado = sumDolaresEsperados(compras);
                 if (caja.getDolaresContado() != null) {
                     diferenciaDolares = caja.getDolaresContado().subtract(dolaresEsperado);
                 }
             }
         }
 
-        List<RetiroCajaResponseDTO> retiros = retiroCajaRepository.findAllByCajaIdOrderByFechaAsc(caja.getId()).stream()
+        List<RetiroCajaResponseDTO> retiros = movimientos.stream()
                 .map(r -> RetiroCajaResponseDTO.builder()
                         .id(r.getId())
                         .monto(r.getMonto())
@@ -1129,7 +1172,7 @@ public class CajaServiceImpl implements CajaService {
                         .build())
                 .toList();
 
-        List<IngresoEntradasResponseDTO> ingresosEntradas = ingresoEntradasRepository.findAllByCajaIdOrderByFechaAsc(caja.getId()).stream()
+        List<IngresoEntradasResponseDTO> ingresosEntradas = ingresosMovimientos.stream()
                 .map(i -> IngresoEntradasResponseDTO.builder()
                         .id(i.getId())
                         .cantidad(i.getCantidad())
@@ -1178,7 +1221,7 @@ public class CajaServiceImpl implements CajaService {
                 .cierresPosnet(cierresDto)
                 .ajustes(ajustesDto)
                 .entradasFisicasInicial(caja.getEntradasFisicasInicial())
-                .entradasFisicasCortadas(caja.getEntradasFisicasCortadas())
+                .entradasFisicasRestantes(caja.getEntradasFisicasRestantes())
                 .entradasFisicasEsperadas(entradasFisicasEsperadas)
                 .diferenciaEntradas(diferenciaEntradas)
                 .totalIngresosEntradas(totalIngresosEntradas)

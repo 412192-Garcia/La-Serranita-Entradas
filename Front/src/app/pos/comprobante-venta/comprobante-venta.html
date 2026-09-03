@@ -11,8 +11,13 @@
   }
 
   <div class="comprobante-monto">
-    <span class="etiqueta">Cobrado</span>
-    <span class="valor">{{ venta().montoTotal | pesos }}</span>
+    @if (formaPago() === 'SIN_COBRO') {
+      <span class="etiqueta">Sin cobro</span>
+      <span class="valor">$ 0</span>
+    } @else {
+      <span class="etiqueta">Cobrado</span>
+      <span class="valor">{{ venta().montoTotal | pesos }}</span>
+    }
   </div>
 
   @if (formaPago() === 'EFECTIVO_BOLETERIA' && vuelto() !== null) {

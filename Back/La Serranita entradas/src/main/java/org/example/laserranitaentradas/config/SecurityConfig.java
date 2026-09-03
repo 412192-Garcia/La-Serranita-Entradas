@@ -79,9 +79,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/interno/caja/*/cerrar").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/interno/caja/*/retiros").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/interno/caja/*/ingresos-entradas").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.PUT, "/api/interno/caja/*/cierre").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.PUT, "/api/interno/caja/*/correccion").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/interno/caja/*/deshabilitar").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.POST, "/api/interno/caja/*/ajustes").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.DELETE, "/api/interno/caja/*/ajustes/*").hasRole("ADMIN")
                 .requestMatchers("/api/interno/rechazos/**").hasRole("ADMIN")
 

@@ -61,8 +61,10 @@ public class CuponServiceImpl implements CuponService {
     public Cupon create(CrearCuponRequest request) {
         boolean tienePorcentaje = request.getPorcentajeDescuento() != null && request.getPorcentajeDescuento().compareTo(BigDecimal.ZERO) > 0;
         boolean tieneMonto = request.getMontoDescuento() != null && request.getMontoDescuento().compareTo(BigDecimal.ZERO) > 0;
-        if (!tienePorcentaje && !tieneMonto) {
-            throw new IllegalArgumentException("El cupón necesita un porcentaje o un monto de descuento mayor a cero.");
+        // Exactamente uno: si vienen los dos, el cálculo del descuento (ver CompraServiceImpl)
+        // usaría el porcentaje y el monto quedaría de adorno, callado.
+        if (tienePorcentaje == tieneMonto) {
+            throw new IllegalArgumentException("El cupón necesita un porcentaje o un monto de descuento mayor a cero (uno solo, no los dos).");
         }
 
         String codigo = request.getCodigo();

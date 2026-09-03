@@ -119,7 +119,7 @@
                 } @else if (errorDetalle()) {
                   <p class="alerta-error">{{ errorDetalle() }}</p>
                 } @else if (cajaDetalle(); as det) {
-                  <app-resumen-cierre [caja]="det" [mostrarAcciones]="true" (corregir)="iniciarCorreccion(det)" (cajaActualizada)="onCajaAjustada($event)" (cajaDeshabilitada)="onCajaDeshabilitada($event)" />
+                  <app-resumen-cierre [caja]="det" [mostrarAcciones]="true" (cajaActualizada)="onCajaAjustada($event)" (cajaDeshabilitada)="onCajaDeshabilitada($event)" />
                 }
               </div>
             }
@@ -136,6 +136,8 @@
       }
     </div>
 
+
+    <br>
     @if (cargando()) {
       <div class="tarjeta">
         <app-spinner />
@@ -175,7 +177,6 @@
     [class.oculto]="!mostrarCierre()"
     [cajaId]="cajaIdCierre()"
     [cajaAbierta]="cajaCierreDetalle()"
-    [cajaParaCorregir]="cajaParaCorregir()"
     (cajaCerrada)="onCajaCerrada($event)"
     (cajaActualizada)="onCajaActualizadaCierre($event)"
     (cerrar)="mostrarCierre.set(false)" />

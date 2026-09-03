@@ -18,4 +18,12 @@ public class SegmentoEntradaDTO {
     private String tipoNombre;
     private int cantidad;
     private BigDecimal monto;
+    /**
+     * Descuento con el que se cobró la venta, para que el modo revisión agrupe las ventas
+     * normales aparte de las que tuvieron descuento (y cada descuento por separado). Uno de los
+     * dos, o ninguno: `descuentoPorcentaje` si fue una promo de %, `descuentoMonto` si fue una
+     * promo de monto fijo o un descuento manual (ahí sólo se conoce el $ que salió).
+     */
+    private BigDecimal descuentoPorcentaje;
+    private BigDecimal descuentoMonto;
 }

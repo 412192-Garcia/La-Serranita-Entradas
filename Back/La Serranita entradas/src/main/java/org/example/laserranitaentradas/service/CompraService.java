@@ -63,6 +63,19 @@ public interface CompraService {
      */
     String verificarPagoDirecto(Long compraId);
 
+    /** Ids de compras que quedaron PENDIENTE_PAGO hace más de `horasAntiguedad` (checkouts
+     * abandonados: el usuario nunca terminó de pagar). Las procesa {@link #expirarCheckoutAbandonado}. */
+    List<Long> idsCheckoutsAbandonados(int horasAntiguedad);
+
+    /**
+     * Cierra un checkout abandonado: primero re-verifica contra Mercado Pago por si el pago
+     * entró y el webhook nunca llegó (en ese caso la confirma, no la cancela); si sigue sin
+     * pagarse, la marca CANCELADO y devuelve el uso del cupón que había consumido al crearse.
+     * Así el cupo diario y los usos de cupón no quedan bloqueados para siempre por compras
+     * que nadie pagó.
+     */
+    void expirarCheckoutAbandonado(Long compraId);
+
     /** Corrige nombre/apellido del titular y su contacto (email/teléfono). No toca fecha, entradas ni montos. */
     Compra actualizarContacto(Long compraId, EditarContactoRequest request);
 

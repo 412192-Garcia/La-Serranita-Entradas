@@ -70,9 +70,9 @@ public class Caja extends BaseEntity {
     @Column(name = "entradas_fisicas_inicial")
     private Integer entradasFisicasInicial;
 
-    /** Cuántas entradas físicas cortó del talonario durante el turno. Null hasta que cierra. */
-    @Column(name = "entradas_fisicas_cortadas")
-    private Integer entradasFisicasCortadas;
+    /** Cuántas entradas físicas quedaron sin cortar en el talonario, contadas al cerrar. Null hasta que cierra. */
+    @Column(name = "entradas_fisicas_restantes")
+    private Integer entradasFisicasRestantes;
 
     /** Cuántos billetes de cada denominación contó el boletero al cerrar. */
     @ElementCollection

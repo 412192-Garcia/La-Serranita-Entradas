@@ -14,7 +14,11 @@ public enum FormaPago {
     // el cliente pueda elegir en el storefront público. No implica que sea gratis "porque sí":
     // cubre tanto invitados como ventas por agencia, donde el cobro real se hizo por fuera
     // del sistema (por eso el nombre neutro, sin decir "regalo").
-    RESERVA_ADMIN("Reserva generada (admin)", "Reserva cargada a mano por un administrador, sin cobrar nada por acá — el cobro, si lo hay, se resolvió por fuera (ej. invitados, ventas por agencia)");
+    RESERVA_ADMIN("Reserva generada (admin)", "Reserva cargada a mano por un administrador, sin cobrar nada por acá — el cobro, si lo hay, se resolvió por fuera (ej. invitados, ventas por agencia)"),
+    // Venta de puerta cuyo total quedó en $0 (todo bonificado / descuento del 100%): no hay
+    // nada que cobrar, así que no tiene sentido pedirle al boletero que elija efectivo/tarjeta/QR.
+    // Suma 0 a la recaudación y a la caja; las entradas y el ingreso cuentan igual.
+    SIN_COBRO("Sin cobro", "Venta de puerta sin monto a cobrar (entradas bonificadas)");
 
     private final String descripcion;
     private final String detalle;

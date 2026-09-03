@@ -84,19 +84,21 @@
   }
 }
 
-<p class="fila-entradas-fisicas">
-  Entradas vendidas: <strong>{{ caja().totalEntradasPagas ?? 0 }}</strong>
-  @if (caja().entradasFisicasCortadas !== null && caja().entradasFisicasCortadas !== undefined) {
-    · cortadas del talonario <strong>{{ caja().entradasFisicasCortadas }}</strong>
-    @if (caja().diferenciaEntradas !== null) {
-      @if (caja().diferenciaEntradas! > 0) {
-        · <span class="diferencia-faltante">faltan cortar {{ caja().diferenciaEntradas }}</span>
-      } @else if (caja().diferenciaEntradas! < 0) {
-        · <span class="diferencia-faltante">{{ -caja().diferenciaEntradas! }} cortadas de más</span>
+@if (caja().entradasFisicasRestantes !== null && caja().entradasFisicasRestantes !== undefined) {
+  <p class="fila-entradas-fisicas">
+    Restantes en el talonario: <strong>{{ caja().entradasFisicasRestantes }}</strong>
+    @if (caja().entradasFisicasEsperadas !== null) {
+      · esperadas <strong>{{ caja().entradasFisicasEsperadas }}</strong>
+      @if (caja().diferenciaEntradas !== null) {
+        @if (caja().diferenciaEntradas! < 0) {
+          · <span class="diferencia-faltante">faltan {{ -caja().diferenciaEntradas! }}</span>
+        } @else if (caja().diferenciaEntradas! > 0) {
+          · <span>sobran {{ caja().diferenciaEntradas }}</span>
+        }
       }
     }
-  }
-</p>
+  </p>
+}
 }
 
 <!-- ---------- Ventas por forma de pago ---------- -->
@@ -112,22 +114,56 @@
           <span>{{ grupo.etiqueta }}</span>
           <span>{{ grupo.subtotal | pesos }}</span>
         </div>
-        @for (fila of grupo.filas; track fila.firma) {
-          <div class="fila-desglose" [class.fila-desglose-articulos]="fila.firma === 'Artículos varios'">
-            <span class="firma-desglose">{{ fila.firma }}</span>
-            <span class="cantidad-desglose">
-              @if (fila.firma !== 'Artículos varios') {
-                {{ fila.cantidad }} {{ fila.cantidad === 1 ? 'venta' : 'ventas' }}
-              }
-            </span>
-            <span class="monto-desglose">{{ fila.monto | pesos }}</span>
-          </div>
+        @for (item of grupo.items; track item.firma) {
+          @if (item.subs.length === 1) {
+            @let s = item.subs[0];
+            <div class="fila-desglose" [class.fila-desglose-articulos]="item.firma === 'Artículos varios'">
+              <span class="firma-desglose">
+                {{ item.firma }}
+                @if (s.descLabel !== null) {
+                  <small class="etiqueta-descuento">{{ s.descLabel }}</small>
+                }
+              </span>
+              <span class="cantidad-desglose">
+                @if (item.firma !== 'Artículos varios') {
+                  {{ s.cantidad }} {{ s.cantidad === 1 ? 'venta' : 'ventas' }}
+                }
+              </span>
+              <span class="monto-desglose">{{ s.monto | pesos }}</span>
+            </div>
+          } @else {
+            <div class="fila-desglose fila-desglose-titulo">
+              <span class="firma-desglose">{{ item.firma }}</span>
+              <span class="cantidad-desglose">{{ item.cantidadTotal }} ventas</span>
+              <span class="monto-desglose">{{ item.montoTotal | pesos }}</span>
+            </div>
+            @for (s of item.subs; track s.descKey) {
+              <div class="fila-desglose fila-desglose-sub">
+                <span class="firma-desglose">
+                  @if (s.descLabel !== null) {
+                    <small class="etiqueta-descuento">{{ s.descLabel }}</small>
+                  } @else {
+                    <small class="etiqueta-sin-desc">sin descuento</small>
+                  }
+                </span>
+                <span class="cantidad-desglose">{{ s.cantidad }} {{ s.cantidad === 1 ? 'venta' : 'ventas' }}</span>
+                <span class="monto-desglose">{{ s.monto | pesos }}</span>
+              </div>
+            }
+          }
         }
       </div>
     } @empty {
       <p class="sin-datos-desglose">No hubo ventas en este turno.</p>
     }
   } @else {
+
+  <div class="revision-dos-columnas">
+    <div class="revision-col-conteo">
+      <app-conteo-cierre [precarga]="caja()" [huboVentaDolares]="caja().huboVentaDolares" />
+    </div>
+
+    <div class="revision-col-ajustes">
 
     @if (caja().huboVentaDolares) {
       <p class="alerta-dolares">
@@ -152,18 +188,21 @@
 
     @if (entradasRevision(); as e) {
       <p class="fila-entradas-revision" [class.fila-entradas-revision-cambio]="e.cambio">
-        Entradas vendidas: <strong>{{ e.vendidas }}</strong>
-        @if (e.cortadas !== null) {
-          · cortadas del talonario <strong>{{ e.cortadas }}</strong>
-          @if (e.diferenciaTalonario! > 0) {
-            · <span class="diferencia-faltante">faltan cortar {{ e.diferenciaTalonario }}</span>
-          } @else if (e.diferenciaTalonario! < 0) {
-            · <span class="diferencia-faltante">{{ -e.diferenciaTalonario! }} cortadas de más</span>
+        @if (e.restantes !== null) {
+          Restantes en el talonario: <strong>{{ e.restantes }}</strong>
+          · esperadas <strong>{{ e.esperadasTalonario }}</strong>
+          @if (e.diferenciaTalonario! < 0) {
+            · <span class="diferencia-faltante">faltan {{ -e.diferenciaTalonario! }}</span>
+          } @else if (e.diferenciaTalonario! > 0) {
+            · <span>sobran {{ e.diferenciaTalonario }}</span>
           }
+        } @else {
+          Deberían quedar en el talonario: <strong>{{ e.esperadasTalonario }}</strong>
         }
       </p>
     }
 
+    <div class="matrices-scroll">
     @for (m of matrices(); track m.tipoId) {
       <div class="matriz-tipo">
         <div class="cabecera-matriz-tipo">{{ m.tipoNombre }}</div>
@@ -173,42 +212,71 @@
             <span>{{ col.etiqueta }}</span>
           }
         </div>
-        @for (fila of m.filas; track fila.cantidad) {
-          <div class="fila-matriz">
-            <span class="firma-matriz">{{ fila.cantidad }}×</span>
-            @for (celda of fila.celdas; track celda.clave) {
-              <span class="celda-matriz">
-                <button type="button" class="btn-mover" [disabled]="!celda.puedeQuitar" (click)="quitar(m.tipoId, fila.cantidad, celda.clave)" aria-label="Sacar de esta forma de pago">−</button>
-                <span class="valor-celda">
-                  <strong>
-                    {{ celda.cantidad }}
-                    @if (celda.dolares > 0) {
-                      <span class="badge-dolares" [title]="celda.dolares + (celda.dolares === 1 ? ' venta cobrada en dólares — no se puede mover' : ' ventas cobradas en dólares — no se pueden mover')">US$</span>
-                    }
-                    @if (celda.aplicado !== 0) {
-                      <span class="badge-aplicado" title="Ya ajustado en una corrección anterior">{{ celda.aplicado > 0 ? '+' + celda.aplicado : celda.aplicado }}</span>
-                    }
-                    @if (celda.ajuste !== 0) {
-                      <span
-                        class="badge-ajuste"
-                        [class.badge-ajuste-neg]="celda.ajuste < 0 && !celda.esTraslado"
-                        [class.badge-ajuste-traslado]="celda.esTraslado"
-                        [title]="celda.esTraslado ? 'Parte de un traslado entre formas de pago' : ''">
-                        {{ celda.ajuste > 0 ? '+' + celda.ajuste : celda.ajuste }}
-                      </span>
-                    }
-                  </strong>
-                  <em>{{ celda.monto | pesos }}</em>
-                </span>
-                <button type="button" class="btn-mover" [disabled]="!celda.puedeAgregar" (click)="agregar(m.tipoId, fila.cantidad, celda.clave)" aria-label="Ubicar en esta forma de pago">+</button>
+        @for (grupo of m.grupos; track grupo.cantidad) {
+          @if (grupo.filas.length === 1) {
+            @let f = grupo.filas[0];
+            <div class="fila-matriz" [class.fila-matriz-descuento]="f.descLabel !== null">
+              <span class="firma-matriz">
+                {{ grupo.cantidad }}×
+                @if (f.descLabel !== null) {
+                  <small class="etiqueta-descuento">{{ f.descLabel }}</small>
+                }
               </span>
-            }
-          </div>
+              <ng-container [ngTemplateOutlet]="celdasTpl" [ngTemplateOutletContext]="{ tipoId: m.tipoId, fila: f }" />
+            </div>
+          } @else {
+            <div class="grupo-multi">
+              <span class="grupo-multi-num">{{ grupo.cantidad }}×</span>
+              @for (f of grupo.filas; track f.key) {
+                <div class="fila-matriz fila-matriz-en-grupo" [class.fila-matriz-descuento]="f.descLabel !== null">
+                  <span class="firma-matriz firma-en-grupo">
+                    @if (f.descLabel !== null) {
+                      <small class="etiqueta-descuento">{{ f.descLabel }}</small>
+                    } @else {
+                      <small class="etiqueta-sin-desc">sin descuento</small>
+                    }
+                  </span>
+                  <ng-container [ngTemplateOutlet]="celdasTpl" [ngTemplateOutletContext]="{ tipoId: m.tipoId, fila: f }" />
+                </div>
+              }
+            </div>
+          }
         }
       </div>
     } @empty {
       <p class="sin-datos-desglose">No hubo ventas de entradas pagas en este turno.</p>
     }
+    </div>
+
+    <ng-template #celdasTpl let-tipoId="tipoId" let-fila="fila">
+      @for (celda of fila.celdas; track celda.clave) {
+        <span class="celda-matriz">
+          <button type="button" class="btn-mover" [disabled]="!celda.puedeQuitar" (click)="quitar(tipoId, fila.cantidad, fila.descKey, celda.clave)" aria-label="Sacar de esta forma de pago">−</button>
+          <span class="valor-celda">
+            <strong>
+              {{ celda.cantidad }}
+              @if (celda.dolares > 0) {
+                <span class="badge-dolares" [title]="celda.dolares + (celda.dolares === 1 ? ' venta cobrada en dólares — no se puede mover' : ' ventas cobradas en dólares — no se pueden mover')">US$</span>
+              }
+              @if (celda.aplicado !== 0) {
+                <span class="badge-aplicado" title="Ya ajustado en una corrección anterior">{{ celda.aplicado > 0 ? '+' + celda.aplicado : celda.aplicado }}</span>
+              }
+              @if (celda.ajuste !== 0) {
+                <span
+                  class="badge-ajuste"
+                  [class.badge-ajuste-neg]="celda.ajuste < 0 && !celda.esTraslado"
+                  [class.badge-ajuste-traslado]="celda.esTraslado"
+                  [title]="celda.esTraslado ? 'Parte de un traslado entre formas de pago' : ''">
+                  {{ celda.ajuste > 0 ? '+' + celda.ajuste : celda.ajuste }}
+                </span>
+              }
+            </strong>
+            <em>{{ celda.monto | pesos }}</em>
+          </span>
+          <button type="button" class="btn-mover" [disabled]="!celda.puedeAgregar" (click)="agregar(tipoId, fila.cantidad, fila.desc, celda.clave)" aria-label="Ubicar en esta forma de pago">+</button>
+        </span>
+      }
+    </ng-template>
 
     @if (articulosPorForma().length > 0) {
       <p class="linea-articulos">
@@ -220,7 +288,7 @@
     }
 
     <div class="form-nueva-composicion">
-      <span>¿Falta una venta que no se registró? Agregala:</span>
+      <span class="form-titulo-composicion">¿Falta una venta que no se registró? Agrégala:</span>
       <input
         type="number"
         min="1"
@@ -241,6 +309,23 @@
           <option [ngValue]="col.clave">{{ col.etiqueta }}</option>
         }
       </select>
+      <select [ngModel]="nuevaVentaDescModo()" (ngModelChange)="nuevaVentaDescModo.set($event)" aria-label="Descuento">
+        <option value="ninguno">Sin descuento</option>
+        <option value="porcentaje">Descuento %</option>
+        <option value="monto">Descuento $</option>
+      </select>
+      @if (nuevaVentaDescModo() !== 'ninguno') {
+        <input
+          type="number"
+          min="0"
+          class="input-cantidad-composicion"
+          [placeholder]="nuevaVentaDescModo() === 'porcentaje' ? '%' : '$'"
+          [ngModel]="nuevaVentaDescValor()"
+          (ngModelChange)="nuevaVentaDescValor.set($event)" />
+      }
+      @if (nuevaVentaMonto() !== null && nuevaVentaDescModo() !== 'ninguno') {
+        <span class="preview-monto-nueva">= {{ nuevaVentaMonto() | pesos }}</span>
+      }
       <button type="button" class="btn-secundario-caja" (click)="agregarVenta()">Agregar</button>
     </div>
 
@@ -248,19 +333,19 @@
       <div class="lista-agregados">
         @for (m of movimientos().traslados; track m.key) {
           <span class="chip-agregado chip-traslado">
-            {{ m.cantidad }}× {{ m.tipoNombre }}: {{ etiquetaForma(m.origen) }} → {{ etiquetaForma(m.destino) }}@if (m.count > 1) { (×{{ m.count }})}
+            {{ m.cantidad }}× {{ m.tipoNombre }}@if (m.descLabel !== null) { ({{ m.descLabel }})}: {{ etiquetaForma(m.origen) }} → {{ etiquetaForma(m.destino) }}@if (m.count > 1) { (×{{ m.count }})}
             <button type="button" (click)="deshacerTraslado(m)" aria-label="Deshacer traslado">✕</button>
           </span>
         }
         @for (s of movimientos().sacados; track s.key) {
           <span class="chip-agregado chip-quitado">
-            − {{ s.cantidad }}× {{ s.tipoNombre }} de {{ etiquetaForma(s.forma) }}@if (s.count > 1) { (×{{ s.count }})}
+            − {{ s.cantidad }}× {{ s.tipoNombre }}@if (s.descLabel !== null) { ({{ s.descLabel }})} de {{ etiquetaForma(s.forma) }}@if (s.count > 1) { (×{{ s.count }})}
             <button type="button" (click)="restaurarSacados(s.ids)" aria-label="Deshacer">✕</button>
           </span>
         }
         @for (a of movimientos().agregados; track a.key) {
           <span class="chip-agregado">
-            + {{ a.cantidad }}× {{ a.tipoNombre }} en {{ etiquetaForma(a.forma) }}@if (a.count > 1) { (×{{ a.count }})}
+            + {{ a.cantidad }}× {{ a.tipoNombre }}@if (a.descLabel !== null) { ({{ a.descLabel }})} en {{ etiquetaForma(a.forma) }}@if (a.count > 1) { (×{{ a.count }})}
             <button type="button" (click)="quitarAgregados(a.ids)" aria-label="Quitar">✕</button>
           </span>
         }
@@ -316,9 +401,12 @@
         class="btn-cobrar"
         [disabled]="!hayCambios() || aplicando()"
         (click)="aplicar()">
-        {{ aplicando() ? 'Guardando…' : 'Aplicar cambios' }}
+        {{ aplicando() ? 'Guardando…' : 'Guardar corrección' }}
       </button>
     </div>
+
+    </div>
+  </div>
   }
 
   @if (caja().ajustes && caja().ajustes.length > 0) {
@@ -356,10 +444,7 @@
 
 @if (mostrarAcciones() && !modoRevision() && caja().habilitada !== false) {
   <div class="acciones-resumen">
-    <button type="button" class="btn-corregir-cierre" (click)="corregir.emit()">Corregir cierre</button>
-    @if (hayVentasAjustables()) {
-      <button type="button" class="btn-corregir-cierre" (click)="toggleRevision()">Corregir caja</button>
-    }
+    <button type="button" class="btn-corregir-cierre" (click)="toggleRevision()">Corregir caja</button>
     <button type="button" class="btn-borrar-caja" (click)="abrirModalDeshabilitar()">Borrar caja</button>
   </div>
 }

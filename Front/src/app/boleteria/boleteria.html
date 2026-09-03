@@ -83,7 +83,7 @@
         [attr.aria-expanded]="regalosExpandido()"
         (click)="toggleRegalos()">
         <svg lucideGift [strokeWidth]="2"></svg>
-        <span>{{ totalRegalos() }} regalo{{ totalRegalos() === 1 ? '' : 's' }} sin fecha</span>
+        <span>{{ totalRegalos() }} regalo{{ totalRegalos() === 1 ? '' : 's' }}</span>
         <svg lucideChevronDown class="icono-regalos" [strokeWidth]="2.5"></svg>
       </button>
     }
@@ -199,13 +199,6 @@
         <small>Ajustá los filtros de arriba, o revisá el texto buscado.</small>
       </div>
     } @else {
-      <div class="resumen-dia">
-        <span>
-          {{ totalElementos() }} reserva{{ totalElementos() === 1 ? '' : 's' }} ·
-          {{ totalPasesPagina() }} pase{{ totalPasesPagina() === 1 ? '' : 's' }} en esta página
-        </span>
-      </div>
-
       @if (avisoReenvio()) {
         <p class="aviso-reenvio">{{ avisoReenvio() }}</p>
       }
@@ -213,6 +206,13 @@
       @if (totalPaginasAgrupado() > 1) {
         <ng-container [ngTemplateOutlet]="paginadorDiasTpl" />
       }
+
+      <div class="resumen-dia">
+        <span>
+          {{ totalElementos() }} reserva{{ totalElementos() === 1 ? '' : 's' }} ·
+          {{ totalPasesPagina() }} pase{{ totalPasesPagina() === 1 ? '' : 's' }} en esta página
+        </span>
+      </div>
 
       @for (grupo of gruposDia(); track grupo.fecha) {
         <div class="grupo-dia" [class.grupo-dia-hoy]="grupo.esHoy" [attr.data-grupo-hoy]="grupo.esHoy ? '' : null">
