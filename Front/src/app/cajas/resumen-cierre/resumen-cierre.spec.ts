@@ -13,7 +13,7 @@ import { TipoEntrada } from '../../models/tipo-entrada';
  * tarifa de lista.
  */
 describe('ResumenCierre — matriz con descuentos', () => {
-  let registrarAjustes: ReturnType<typeof vi.fn>;
+  let corregirCaja: ReturnType<typeof vi.fn>;
 
   const general: TipoEntrada = {
     id: 1, nombre: 'General', descripcion: '', precio: 9000, activo: true,
@@ -45,8 +45,10 @@ describe('ResumenCierre — matriz con descuentos', () => {
     return {
       id: 7, estado: 'CERRADA', fechaApertura: '2026-08-15T08:00:00', montoInicial: 5000,
       fechaCierre: '2026-08-15T18:00:00',
-      totalVentasEfectivo: 34200, totalRetiros: 0, efectivoEsperado: 39200, montoContado: 39200,
-      diferencia: 0, cambioContado: 0, retiros: [], conteoEfectivo: [],
+      // conteoEfectivo consistente con montoContado: el recuento precargado no cuenta como "modificado".
+      totalVentasEfectivo: 34200, totalRetiros: 0, efectivoEsperado: 40000, montoContado: 40000,
+      diferencia: 0, cambioContado: 0, retiros: [],
+      conteoEfectivo: [{ denominacion: 20000, cantidad: 2 }],
       totalVentasTarjeta: 0, totalVentasQr: 0, totalCerradoTarjeta: 0, totalCerradoQr: 0,
       diferenciaTarjeta: 0, diferenciaQr: 0, totalVentasPosnet: null, totalCerradoPosnet: null,
       diferenciaPosnet: null, cierresPosnet: [],
@@ -63,15 +65,16 @@ describe('ResumenCierre — matriz con descuentos', () => {
     fixture.componentRef.setInput('caja', cajaCon(operaciones));
     const c = fixture.componentInstance as any;
     c.modoRevision.set(true);
+    fixture.detectChanges(); // monta el <app-conteo-cierre> del modo revisión
     return c;
   }
 
   const filas = (c: any) => c.matrices().find((m: any) => m.tipoId === 1).filas.filter((f: any) => f.cantidad === 2);
   const fila = (c: any, descKey: string) => filas(c).find((f: any) => f.descKey === descKey);
-  const ajustesEnviados = () => registrarAjustes.mock.calls[0][1];
+  const ajustesEnviados = () => corregirCaja.mock.calls[0][1].ajustes;
 
   beforeEach(async () => {
-    registrarAjustes = vi.fn().mockReturnValue(of({}));
+    corregirCaja = vi.fn().mockReturnValue(of({}));
     await TestBed.configureTestingModule({
       imports: [ResumenCierre],
       providers: [
@@ -79,7 +82,7 @@ describe('ResumenCierre — matriz con descuentos', () => {
         { provide: ConfiguracionService, useValue: { getDescuentosEfectivo: () => of([]) } },
         {
           provide: CajaService,
-          useValue: { registrarAjustes, eliminarAjuste: () => of({}), deshabilitarCaja: () => of({}) },
+          useValue: { corregirCaja, eliminarAjuste: () => of({}), deshabilitarCaja: () => of({}) },
         },
       ],
     }).compileComponents();
@@ -165,5 +168,19 @@ describe('ResumenCierre — matriz con descuentos', () => {
     c.agregarVenta();
     c.aplicar();
     expect(ajustesEnviados()[0].monto).toBe(17500);
+  });
+
+  it('editar el recuento del cierre (sin ajustes) manda la corrección con el nuevo conteo', () => {
+    const c = montar([venta(10, 18000)]);
+    const conteo = c.conteoCierre();
+
+    // La cajera había puesto 55 entradas cortadas de más.
+    conteo.entradasFisicasCortadas.set(9);
+    expect(c.hayCambios()).toBe(true);
+
+    c.aplicar();
+    const payload = corregirCaja.mock.calls[0][1];
+    expect(payload.entradasFisicasCortadas).toBe(9);
+    expect(payload.ajustes).toEqual([]);
   });
 });

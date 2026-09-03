@@ -1,0 +1,158 @@
+<div class="cuerpo-conteo">
+  <section class="seccion-conteo col-efectivo">
+    <h4>Efectivo</h4>
+    <div class="lista-denominaciones">
+      @for (d of denominaciones; track d) {
+        <label class="fila-denominacion">
+          <span>{{ d | pesos }}</span>
+          <input
+            type="number"
+            min="0"
+            inputmode="numeric"
+            placeholder="0"
+            [ngModel]="conteoEfectivo()[d]"
+            (ngModelChange)="setConteoEfectivo(d, $event ?? 0)" />
+        </label>
+      }
+      <label class="fila-denominacion fila-cambio">
+        <span>Cambio</span>
+        <input
+          type="text"
+          inputmode="numeric"
+          placeholder="0"
+          appMoneyInput
+          [ngModel]="cambioContado()"
+          (ngModelChange)="cambioContado.set($event)" />
+      </label>
+    </div>
+    <div class="total-efectivo-contado">
+      <span>Total contado</span>
+      <strong>{{ montoContadoCalculado() | pesos }}</strong>
+    </div>
+  </section>
+
+  <div class="col-resto">
+  <section class="seccion-conteo">
+    <div class="cabecera-seccion-conteo">
+      <div>
+        <h4>Posnet</h4>
+      </div>
+      <div class="grupo-toggle-pill">
+        <button type="button" class="btn-toggle-pill" [class.activo]="modoPosnet() === 'COMBINADO'" (click)="modoPosnet.set('COMBINADO')">
+          Juntos
+        </button>
+        <button type="button" class="btn-toggle-pill" [class.activo]="modoPosnet() === 'SEPARADO'" (click)="modoPosnet.set('SEPARADO')">
+          Por separado
+        </button>
+      </div>
+    </div>
+
+    @if (modoPosnet() === 'SEPARADO') {
+      <div class="columnas-posnet">
+        <div class="columna-posnet">
+          <h5>Tarjeta</h5>
+          @for (fila of cierresTarjeta(); track $index) {
+            <div class="fila-cierre-posnet-columna">
+              <input
+                type="text"
+                inputmode="numeric"
+                placeholder="Monto"
+                appMoneyInput
+                [ngModel]="fila.monto"
+                (ngModelChange)="actualizarCierre('TARJETA', $index, { monto: $event })" />
+              <input
+                type="text"
+                placeholder="Nota"
+                [ngModel]="fila.nota"
+                (ngModelChange)="actualizarCierre('TARJETA', $index, { nota: $event })" />
+              @if (cierresTarjeta().length > 1) {
+                <button type="button" class="btn-quitar-cierre" (click)="quitarCierre('TARJETA', $index)" aria-label="Quitar">✕</button>
+              }
+            </div>
+          }
+          <button type="button" class="btn-secundario-caja" (click)="agregarCierre('TARJETA')">+ Agregar cierre</button>
+        </div>
+
+        <div class="columna-posnet">
+          <h5>QR</h5>
+          @for (fila of cierresQr(); track $index) {
+            <div class="fila-cierre-posnet-columna">
+              <input
+                type="text"
+                inputmode="numeric"
+                placeholder="Monto"
+                appMoneyInput
+                [ngModel]="fila.monto"
+                (ngModelChange)="actualizarCierre('MERCADO_PAGO_QR', $index, { monto: $event })" />
+              <input
+                type="text"
+                placeholder="Nota"
+                [ngModel]="fila.nota"
+                (ngModelChange)="actualizarCierre('MERCADO_PAGO_QR', $index, { nota: $event })" />
+              @if (cierresQr().length > 1) {
+                <button type="button" class="btn-quitar-cierre" (click)="quitarCierre('MERCADO_PAGO_QR', $index)" aria-label="Quitar">✕</button>
+              }
+            </div>
+          }
+          <button type="button" class="btn-secundario-caja" (click)="agregarCierre('MERCADO_PAGO_QR')">+ Agregar cierre</button>
+        </div>
+      </div>
+    } @else {
+      <div class="columna-posnet columna-posnet-combinada">
+        <h5>Tarjeta + QR</h5>
+        @for (fila of cierresCombinados(); track $index) {
+          <div class="fila-cierre-posnet-columna">
+            <input
+              type="text"
+              inputmode="numeric"
+              placeholder="Monto"
+              appMoneyInput
+              [ngModel]="fila.monto"
+              (ngModelChange)="actualizarCierre('COMBINADO', $index, { monto: $event })" />
+            <input
+              type="text"
+              placeholder="Nota"
+              [ngModel]="fila.nota"
+              (ngModelChange)="actualizarCierre('COMBINADO', $index, { nota: $event })" />
+            @if (cierresCombinados().length > 1) {
+              <button type="button" class="btn-quitar-cierre" (click)="quitarCierre('COMBINADO', $index)" aria-label="Quitar">✕</button>
+            }
+          </div>
+        }
+        <button type="button" class="btn-secundario-caja" (click)="agregarCierre('COMBINADO')">+ Agregar cierre</button>
+      </div>
+    }
+  </section>
+
+  <section class="seccion-conteo">
+    <h4>Entradas</h4>
+    <label class="campo-apertura">
+      ¿Cuántas entradas cortaste del talonario?
+      <input
+        type="number"
+        min="0"
+        inputmode="numeric"
+        placeholder="0"
+        [ngModel]="entradasFisicasCortadas()"
+        (ngModelChange)="entradasFisicasCortadas.set($event)" />
+    </label>
+  </section>
+
+  @if (huboVentaDolares()) {
+    <section class="seccion-conteo">
+      <h4>Dólares</h4>
+      <p class="subtitulo-apertura">Esta caja tuvo ventas en dólares: contalos y cargá cuántos hay.</p>
+      <label class="campo-apertura">
+        ¿Cuántos dólares contaste?
+        <input
+          type="text"
+          inputmode="numeric"
+          placeholder="0"
+          appMoneyInput
+          [ngModel]="dolaresContado()"
+          (ngModelChange)="dolaresContado.set($event)" />
+      </label>
+    </section>
+  }
+  </div>
+</div>

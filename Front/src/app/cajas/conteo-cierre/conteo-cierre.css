@@ -1,0 +1,146 @@
+@import '../../shared/pos-caja.css';
+
+:host {
+  display: block;
+  min-width: 0;
+}
+
+/* Por defecto (columna angosta de "Corregir caja"): todo apilado. */
+.cuerpo-conteo {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.col-resto {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--color-border);
+}
+
+.seccion-conteo {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.col-resto > .seccion-conteo + .seccion-conteo {
+  padding-top: 14px;
+  border-top: 1px solid var(--color-border);
+}
+
+/* Modal "Cerrar caja": efectivo a la izquierda, todo lo demás a la derecha. */
+:host(.conteo-dos-columnas) .cuerpo-conteo {
+  display: grid;
+  grid-template-columns: 190px minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+:host(.conteo-dos-columnas) .col-resto {
+  padding-top: 0;
+  border-top: none;
+}
+
+@media (max-width: 560px) {
+  :host(.conteo-dos-columnas) .cuerpo-conteo {
+    grid-template-columns: 1fr;
+  }
+  :host(.conteo-dos-columnas) .col-resto {
+    padding-top: 14px;
+    border-top: 1px solid var(--color-border);
+  }
+}
+
+.seccion-conteo h4 {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 0.98rem;
+  font-weight: 800;
+  color: var(--color-text);
+}
+
+.seccion-conteo .subtitulo-apertura {
+  margin: -4px 0 0;
+}
+
+/* Título+subtítulo a la izquierda, toggle de modo a la derecha en la misma fila. */
+.cabecera-seccion-conteo {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cabecera-seccion-conteo .grupo-toggle-pill {
+  flex-shrink: 0;
+}
+
+.columna-posnet-combinada {
+  max-width: 320px;
+}
+
+.columnas-posnet {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 14px;
+  min-width: 0;
+}
+
+.columna-posnet {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 12px;
+  background-color: var(--color-bg-soft);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.fila-cierre-posnet-columna input {
+  box-sizing: border-box;
+}
+
+.columna-posnet h5 {
+  margin: 0 0 2px;
+  font-family: var(--font-heading);
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--color-text-secondary);
+}
+
+.fila-cierre-posnet-columna {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.fila-cierre-posnet-columna input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px;
+  font-size: 0.88rem;
+  font-family: inherit;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  outline: none;
+  background-color: var(--color-input-bg);
+  color: var(--color-text);
+}
+
+/* En la columna angosta de "Corregir caja" los dos posnets uno al lado del otro no entran. */
+:host(:not(.conteo-dos-columnas)) .columnas-posnet {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (max-width: 480px) {
+  .columnas-posnet {
+    grid-template-columns: 1fr;
+  }
+}

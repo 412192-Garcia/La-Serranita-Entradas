@@ -351,13 +351,6 @@ export class CajaService {
     return this.http.get<CajasCerradasResponse>(`${this.cajaUrl}/cerradas`, { params });
   }
 
-  /** Registra uno o más traspasos manuales de monto entre formas de pago sobre un cierre ya hecho
-   * (la cajera cobró de una forma y tocó otra). No toca las compras. ADMIN-only. Devuelve la caja
-   * con los esperados/diferencias ya recalculados. */
-  registrarAjustes(cajaId: number, ajustes: AjusteCajaInput[]): Observable<Caja> {
-    return this.http.post<Caja>(`${this.cajaUrl}/${cajaId}/ajustes`, ajustes);
-  }
-
   /** Deshace un ajuste manual y devuelve la caja recalculada sin él. ADMIN-only. */
   eliminarAjuste(cajaId: number, ajusteId: number): Observable<Caja> {
     return this.http.delete<Caja>(`${this.cajaUrl}/${cajaId}/ajustes/${ajusteId}`);
@@ -369,21 +362,23 @@ export class CajaService {
     return this.http.post<Caja>(`${this.cajaUrl}/${cajaId}/deshabilitar`, {});
   }
 
-  /** Corrige un cierre ya hecho (ej. un billete mal contado). ADMIN-only, cualquier caja cerrada. */
-  corregirCierre(
+  /**
+   * Corrige una caja cerrada en una sola pasada atómica: reescribe el recuento
+   * (efectivo/posnet/entradas/dólares) y, si vienen, registra traspasos de monto entre
+   * efectivo/tarjeta/QR (cada uno como un AjusteCaja aparte, sin tocar las compras). ADMIN-only,
+   * cualquier caja cerrada. Devuelve la caja con los esperados/diferencias ya recalculados.
+   */
+  corregirCaja(
     cajaId: number,
-    conteoEfectivo: ConteoDenominacion[],
-    cierresPosnet: CierrePosnetInput[],
-    entradasFisicasCortadas: number,
-    cambioContado: number | null,
-    dolaresContado: number | null
+    payload: {
+      conteoEfectivo: ConteoDenominacion[];
+      cierresPosnet: CierrePosnetInput[];
+      entradasFisicasCortadas: number;
+      cambioContado: number | null;
+      dolaresContado: number | null;
+      ajustes: AjusteCajaInput[];
+    }
   ): Observable<Caja> {
-    return this.http.put<Caja>(`${this.cajaUrl}/${cajaId}/cierre`, {
-      conteoEfectivo,
-      cierresPosnet,
-      entradasFisicasCortadas,
-      cambioContado,
-      dolaresContado,
-    });
+    return this.http.put<Caja>(`${this.cajaUrl}/${cajaId}/correccion`, payload);
   }
 }

@@ -58,13 +58,17 @@ public interface CajaService {
                                      BigDecimal cambioContado, BigDecimal dolaresContado);
 
     /**
-     * Corrige los datos de un cierre ya hecho (ej. un billete mal contado). Sólo si ya está
-     * cerrada — no reemplaza a `cerrar`. ADMIN-only (gateado en SecurityConfig): no valida
-     * dueño acá, cualquier caja cerrada se puede corregir.
+     * Corrige una caja YA CERRADA en una sola pasada atómica: reescribe el recuento
+     * (efectivo/posnet/entradas/dólares) y, si vienen, registra traspasos de monto entre
+     * efectivo/tarjeta/QR (cada uno como un AjusteCaja aparte, sin tocar las compras). Recalcula
+     * y persiste montoEsperado/diferencia con los ajustes ya aplicados. ADMIN-only (gateado en
+     * SecurityConfig): no valida dueño acá, cualquier caja cerrada se puede corregir. `ajustes`
+     * puede venir null o vacío (corrección de recuento pura).
      */
-    CajaResponseDTO corregirCierre(Long cajaId, List<ConteoDenominacionDTO> conteoEfectivo,
-                                    List<CierrePosnetRequestDTO> cierresPosnet, Integer entradasFisicasCortadas,
-                                    BigDecimal cambioContado, BigDecimal dolaresContado);
+    CajaResponseDTO corregirCaja(Long cajaId, List<ConteoDenominacionDTO> conteoEfectivo,
+                                  List<CierrePosnetRequestDTO> cierresPosnet, Integer entradasFisicasCortadas,
+                                  BigDecimal cambioContado, BigDecimal dolaresContado,
+                                  List<AjusteCajaRequestDTO> ajustes);
 
     /**
      * Reabre momentáneamente una caja ya cerrada (fechaCierre → null) para poder aplicarle una
@@ -116,15 +120,6 @@ public interface CajaService {
      */
     CajasCerradasResponseDTO getCajasCerradas(LocalDate desde, LocalDate hasta, String usuarioNombre,
                                                String ordenarPor, String direccion, int page, int size);
-
-    /**
-     * Registra uno o más traspasos manuales de monto entre formas de pago sobre una caja YA
-     * CERRADA (el admin corrigiendo la repartición cuando la cajera cobró de una forma y tocó
-     * otra). No toca las compras: cada traspaso queda como un AjusteCaja aparte. Recalcula y
-     * persiste montoEsperado/diferencia para que el listado de cajas cerradas y el ranking
-     * queden consistentes. ADMIN-only (gateado en SecurityConfig).
-     */
-    CajaResponseDTO registrarAjustes(Long cajaId, List<AjusteCajaRequestDTO> ajustes);
 
     /** Deshace un ajuste manual: borra la fila y recalcula el cierre. ADMIN-only. */
     CajaResponseDTO eliminarAjuste(Long cajaId, Long ajusteId);

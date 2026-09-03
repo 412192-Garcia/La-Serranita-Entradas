@@ -1,4 +1,4 @@
-import { Component, computed, inject, input, output, signal } from '@angular/core';
+import { Component, computed, inject, input, output, signal, viewChild } from '@angular/core';
 import { DatePipe, DecimalPipe, NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AjusteCaja, AjusteCajaInput, Caja, CajaService, OperacionCaja, SegmentoEntrada, etiquetaTipoOperacion } from '../../services/caja.service';
@@ -11,6 +11,7 @@ import { cotizarLocalmente } from '../../shared/calculo-precio.util';
 import { MoneyInputDirective } from '../../shared/money-input/money-input.directive';
 import { Modal } from '../../shared/modal/modal';
 import { PesosPipe } from '../../shared/pesos.pipe';
+import { ConteoCierre } from '../conteo-cierre/conteo-cierre';
 import { LucideShoppingCart, LucideArrowDownRight, LucideArrowUpRight, LucideTicketPlus, LucideTicketMinus, LucideChevronDown } from '@lucide/angular';
 
 type FiltroOperaciones = 'TODAS' | 'VENTAS' | 'MOVIMIENTOS';
@@ -168,7 +169,7 @@ const COLUMNAS: ColumnaDesglose[] = [
 
 @Component({
   selector: 'app-resumen-cierre',
-  imports: [PesosPipe, DatePipe, DecimalPipe, NgTemplateOutlet, FormsModule, MoneyInputDirective, Modal, LucideShoppingCart, LucideArrowDownRight, LucideArrowUpRight, LucideTicketPlus, LucideTicketMinus, LucideChevronDown],
+  imports: [PesosPipe, DatePipe, DecimalPipe, NgTemplateOutlet, FormsModule, MoneyInputDirective, Modal, ConteoCierre, LucideShoppingCart, LucideArrowDownRight, LucideArrowUpRight, LucideTicketPlus, LucideTicketMinus, LucideChevronDown],
   templateUrl: './resumen-cierre.html',
   styleUrl: './resumen-cierre.css',
 })
@@ -194,9 +195,11 @@ export class ResumenCierre {
   caja = input.required<Caja>();
   mostrarAcciones = input(true);
 
-  corregir = output<void>();
   cajaActualizada = output<Caja>();
   cajaDeshabilitada = output<Caja>();
+
+  /** El formulario de recuento del cierre, sólo montado en modo revisión (ver template). */
+  private conteoCierre = viewChild(ConteoCierre);
 
   readonly columnas = COLUMNAS;
   readonly etiquetaTipoOperacion = etiquetaTipoOperacion;
@@ -268,9 +271,40 @@ export class ResumenCierre {
     return etiquetaFormaPago(forma);
   }
 
-  private combinadoPosnet = computed(() =>
+  private combinadoPosnetGuardado = computed(() =>
     this.caja().totalCerradoPosnet !== null && this.caja().totalCerradoPosnet !== undefined
   );
+
+  /**
+   * El recuento con el que se calcula la columna "Contado" de la tabla de revisión: sale EN VIVO
+   * del formulario `app-conteo-cierre` cuando está montado (modo revisión), y de lo ya guardado
+   * en la caja cuando no. Así editar un billete recalcula la diferencia sin guardar.
+   */
+  private recuentoRevision = computed(() => {
+    const cc = this.conteoCierre();
+    const c = this.caja();
+    if (!cc) {
+      return {
+        combinado: this.combinadoPosnetGuardado(),
+        efectivoContado: c.montoContado ?? 0,
+        tarjetaContado: c.totalCerradoTarjeta ?? 0,
+        qrContado: c.totalCerradoQr ?? 0,
+        posnetContado: c.totalCerradoPosnet ?? 0,
+        entradasCortadas: c.entradasFisicasCortadas,
+      };
+    }
+    const cierres = cc.valor().cierresPosnet;
+    const sum = (forma: 'TARJETA' | 'MERCADO_PAGO_QR' | null) =>
+      cierres.filter((x) => x.formaPago === forma).reduce((acc, x) => acc + x.monto, 0);
+    return {
+      combinado: cc.modoPosnet() === 'COMBINADO',
+      efectivoContado: cc.montoContadoCalculado(),
+      tarjetaContado: sum('TARJETA'),
+      qrContado: sum('MERCADO_PAGO_QR'),
+      posnetContado: sum(null),
+      entradasCortadas: cc.valor().entradasFisicasCortadas,
+    };
+  });
 
   private ventas = computed<OperacionCaja[]>(() =>
     (this.caja().operaciones ?? []).filter((o) => o.tipo === 'VENTA')
@@ -330,11 +364,17 @@ export class ResumenCierre {
       if (art > 0) acc(g, 'Artículos varios', SIN_DESCUENTO, art);
     }
     const ordenDescKey = (k: string) => (k === '0' ? '' : k); // "sin descuento" primero
+    // "5x Pase General" → 5; "Artículos varios" → Infinity (siempre al final).
+    const pasesDe = (firma: string) => {
+      const n = parseInt(firma, 10);
+      return Number.isNaN(n) ? Infinity : n;
+    };
     for (const g of grupos.values()) {
       g.items.sort((a, b) => {
-        if (a.firma === 'Artículos varios') return 1;
-        if (b.firma === 'Artículos varios') return -1;
-        return b.montoTotal - a.montoTotal;
+        const pa = pasesDe(a.firma);
+        const pb = pasesDe(b.firma);
+        if (pa !== pb) return pa - pb;
+        return a.firma.localeCompare(b.firma);
       });
       for (const it of g.items) {
         it.subs.sort((a, b) => ordenDescKey(a.descKey).localeCompare(ordenDescKey(b.descKey)));
@@ -430,8 +470,6 @@ export class ResumenCierre {
     }
     return out;
   });
-
-  hayVentasAjustables = computed(() => this.segmentos().length > 0 || this.tiposPagos().length > 0);
 
   private segById(id: string): SegView | undefined {
     return this.segmentos().find((s) => s.id === id);
@@ -641,29 +679,30 @@ export class ResumenCierre {
   totalesRevision = computed<TotalVista[]>(() => {
     const c = this.caja();
     const d = this.deltas();
-    const combinado = this.combinadoPosnet();
+    const r = this.recuentoRevision();
+    const combinado = r.combinado;
     const filas: TotalVista[] = [];
 
     const efEsp = (c.efectivoEsperado ?? 0) + d.EFECTIVO_BOLETERIA;
-    filas.push({ clave: 'EFECTIVO_BOLETERIA', etiqueta: 'Efectivo', esperado: efEsp, contado: c.montoContado ?? 0, diferencia: (c.montoContado ?? 0) - efEsp });
+    filas.push({ clave: 'EFECTIVO_BOLETERIA', etiqueta: 'Efectivo', esperado: efEsp, contado: r.efectivoContado, diferencia: r.efectivoContado - efEsp });
 
     const tarEsp = (c.totalVentasTarjeta ?? 0) + d.TARJETA;
     const qrEsp = (c.totalVentasQr ?? 0) + d.MERCADO_PAGO_QR;
     filas.push({
       clave: 'TARJETA', etiqueta: 'Tarjeta', esperado: tarEsp,
-      contado: combinado ? null : (c.totalCerradoTarjeta ?? 0),
-      diferencia: combinado ? null : (c.totalCerradoTarjeta ?? 0) - tarEsp,
+      contado: combinado ? null : r.tarjetaContado,
+      diferencia: combinado ? null : r.tarjetaContado - tarEsp,
     });
     filas.push({
       clave: 'MERCADO_PAGO_QR', etiqueta: 'QR', esperado: qrEsp,
-      contado: combinado ? null : (c.totalCerradoQr ?? 0),
-      diferencia: combinado ? null : (c.totalCerradoQr ?? 0) - qrEsp,
+      contado: combinado ? null : r.qrContado,
+      diferencia: combinado ? null : r.qrContado - qrEsp,
     });
     if (combinado) {
       const esp = tarEsp + qrEsp;
       filas.push({
         clave: 'POSNET', etiqueta: 'Tarjeta + QR (cerrado junto)', esperado: esp,
-        contado: c.totalCerradoPosnet ?? 0, diferencia: (c.totalCerradoPosnet ?? 0) - esp,
+        contado: r.posnetContado, diferencia: r.posnetContado - esp,
       });
     }
     return filas;
@@ -685,7 +724,7 @@ export class ResumenCierre {
     // las reubicaciones no cambian el conteo de entradas (son las mismas ventas)
 
     const esperadasTalonario = (c.entradasFisicasEsperadas ?? 0) + dTal;
-    const cortadas = c.entradasFisicasCortadas;
+    const cortadas = this.recuentoRevision().entradasCortadas ?? null;
     return {
       esperadasTalonario,
       cortadas,
@@ -694,9 +733,111 @@ export class ResumenCierre {
     };
   });
 
+  /** ¿El recuento del cierre se editó respecto de lo que ya tenía la caja? */
+  private conteoModificado = computed(() => {
+    const cc = this.conteoCierre();
+    if (!cc) return false;
+    const c = this.caja();
+    const r = this.recuentoRevision();
+    if (r.efectivoContado !== (c.montoContado ?? 0)) return true;
+    if ((r.entradasCortadas ?? null) !== (c.entradasFisicasCortadas ?? null)) return true;
+    if ((cc.valor().dolaresContado ?? null) !== (c.dolaresContado ?? null)) return true;
+    if (r.combinado !== this.combinadoPosnetGuardado()) return true;
+    if (r.combinado) return r.posnetContado !== (c.totalCerradoPosnet ?? 0);
+    return r.tarjetaContado !== (c.totalCerradoTarjeta ?? 0) || r.qrContado !== (c.totalCerradoQr ?? 0);
+  });
+
   hayCambios = computed(
-    () => this.removidos().size > 0 || this.ventasExtra().length > 0 || this.agregados().length > 0
+    () =>
+      this.removidos().size > 0 ||
+      this.ventasExtra().length > 0 ||
+      this.agregados().length > 0 ||
+      this.conteoModificado()
   );
+
+  /** Los ajustes (traspasos/agregados) que se van a mandar, sin el recuento. */
+  private ajustesParaEnviar(): AjusteCajaInput[] {
+    const ajustes: AjusteCajaInput[] = [];
+    const grupos = new Map<string, AjusteCajaInput>();
+    const { reub, quit, agr } = this.pares();
+
+    for (const { seg, extra } of reub) {
+      const destino = extra.forma;
+      if (destino === seg.formaOriginal) continue;
+      const key = `R|${seg.tipoId}|${seg.cantidad}|${seg.descKey}|${seg.formaOriginal}|${destino}`;
+      let g = grupos.get(key);
+      if (!g) {
+        g = {
+          formaOrigen: seg.formaOriginal,
+          formaDestino: destino,
+          monto: 0,
+          cantidadVentas: 0,
+          detalle: `${seg.cantidad}x ${seg.tipoNombre}`,
+          comprasMovidas: [],
+          lineas: { [seg.tipoId]: seg.cantidad },
+        };
+        grupos.set(key, g);
+      }
+      g.monto += seg.monto;
+      g.cantidadVentas += 1;
+      g.comprasMovidas.push(seg.compraId);
+    }
+
+    for (const seg of quit) {
+      const key = `Q|${seg.tipoId}|${seg.cantidad}|${seg.descKey}|${seg.formaOriginal}`;
+      let g = grupos.get(key);
+      if (!g) {
+        g = {
+          formaOrigen: seg.formaOriginal,
+          formaDestino: null,
+          monto: 0,
+          cantidadVentas: 0,
+          detalle: `${seg.cantidad}x ${seg.tipoNombre}`,
+          comprasMovidas: [],
+          lineas: { [seg.tipoId]: seg.cantidad },
+        };
+        grupos.set(key, g);
+      }
+      g.monto += seg.monto;
+      g.cantidadVentas += 1;
+      g.comprasMovidas.push(seg.compraId);
+    }
+    ajustes.push(...grupos.values());
+
+    const extraGrupos = new Map<string, AjusteCajaInput>();
+    for (const e of agr) {
+      const key = `${e.tipoId}|${e.cantidad}|${e.descKey}|${e.forma}`;
+      let g = extraGrupos.get(key);
+      if (!g) {
+        g = {
+          formaOrigen: null,
+          formaDestino: e.forma,
+          monto: 0,
+          cantidadVentas: 0,
+          detalle: `${e.cantidad}x ${e.tipoNombre}`,
+          comprasMovidas: [],
+          lineas: { [e.tipoId]: e.cantidad },
+        };
+        extraGrupos.set(key, g);
+      }
+      g.monto += Math.round(e.monto);
+      g.cantidadVentas += 1;
+    }
+    ajustes.push(...[...extraGrupos.values()].filter((g) => g.monto > 0));
+
+    for (const a of this.agregados()) {
+      ajustes.push({
+        formaOrigen: a.signo === 'QUITAR' ? a.forma : null,
+        formaDestino: a.signo === 'AGREGAR' ? a.forma : null,
+        monto: a.monto,
+        cantidadVentas: 0,
+        detalle: a.nota || null,
+        comprasMovidas: [],
+        lineas: {},
+      });
+    }
+    return ajustes;
+  }
 
   /**
    * Chips resumen abajo de la matriz. Un − que tiene su + (mismo tipo + tamaño) se muestra como
@@ -764,6 +905,7 @@ export class ResumenCierre {
   }
 
   private salirRevision(): void {
+    this.conteoCierre()?.reset();
     this.modoRevision.set(false);
     this.removidos.set(new Set());
     this.ventasExtra.set([]);
@@ -879,105 +1021,41 @@ export class ResumenCierre {
   }
 
   aplicar(): void {
-    const ajustes: AjusteCajaInput[] = [];
-    const grupos = new Map<string, AjusteCajaInput>();
+    const cc = this.conteoCierre();
+    if (!cc) return;
 
-    const { reub, quit, agr } = this.pares();
-
-    // Reubicaciones: la venta se cobró en una forma y se tocó otra en el POS.
-    for (const { seg, extra } of reub) {
-      const destino = extra.forma;
-      if (destino === seg.formaOriginal) continue;
-      const key = `R|${seg.tipoId}|${seg.cantidad}|${seg.descKey}|${seg.formaOriginal}|${destino}`;
-      let g = grupos.get(key);
-      if (!g) {
-        g = {
-          formaOrigen: seg.formaOriginal,
-          formaDestino: destino,
-          monto: 0,
-          cantidadVentas: 0,
-          detalle: `${seg.cantidad}x ${seg.tipoNombre}`,
-          comprasMovidas: [],
-          lineas: { [seg.tipoId]: seg.cantidad },
-        };
-        grupos.set(key, g);
-      }
-      g.monto += seg.monto;
-      g.cantidadVentas += 1;
-      g.comprasMovidas.push(seg.compraId);
+    const errorConteo = cc.validar();
+    if (errorConteo) {
+      this.errorRevision.set(errorConteo);
+      return;
     }
 
-    // Ventas fantasma: se registraron de más (se sacaron sin agregar en otra forma).
-    for (const seg of quit) {
-      const key = `Q|${seg.tipoId}|${seg.cantidad}|${seg.descKey}|${seg.formaOriginal}`;
-      let g = grupos.get(key);
-      if (!g) {
-        g = {
-          formaOrigen: seg.formaOriginal,
-          formaDestino: null,
-          monto: 0,
-          cantidadVentas: 0,
-          detalle: `${seg.cantidad}x ${seg.tipoNombre}`,
-          comprasMovidas: [],
-          lineas: { [seg.tipoId]: seg.cantidad },
-        };
-        grupos.set(key, g);
-      }
-      g.monto += seg.monto;
-      g.cantidadVentas += 1;
-      g.comprasMovidas.push(seg.compraId);
-    }
-    ajustes.push(...grupos.values());
+    const ajustes = this.ajustesParaEnviar();
+    if (ajustes.length === 0 && !this.conteoModificado()) return;
 
-    // Ventas que no se registraron → agregar (sólo destino).
-    const extraGrupos = new Map<string, AjusteCajaInput>();
-    for (const e of agr) {
-      const key = `${e.tipoId}|${e.cantidad}|${e.descKey}|${e.forma}`;
-      let g = extraGrupos.get(key);
-      if (!g) {
-        g = {
-          formaOrigen: null,
-          formaDestino: e.forma,
-          monto: 0,
-          cantidadVentas: 0,
-          detalle: `${e.cantidad}x ${e.tipoNombre}`,
-          comprasMovidas: [],
-          lineas: { [e.tipoId]: e.cantidad },
-        };
-        extraGrupos.set(key, g);
-      }
-      g.monto += Math.round(e.monto);
-      g.cantidadVentas += 1;
-    }
-    ajustes.push(...[...extraGrupos.values()].filter((g) => g.monto > 0));
-
-    for (const a of this.agregados()) {
-      ajustes.push({
-        formaOrigen: a.signo === 'QUITAR' ? a.forma : null,
-        formaDestino: a.signo === 'AGREGAR' ? a.forma : null,
-        monto: a.monto,
-        cantidadVentas: 0,
-        detalle: a.nota || null,
-        comprasMovidas: [],
-        lineas: {},
-      });
-    }
-
-    if (ajustes.length === 0) return;
-
+    const v = cc.valor();
     this.aplicando.set(true);
     this.errorRevision.set(null);
-    this.cajaService.registrarAjustes(this.caja().id, ajustes).subscribe({
-      next: (c) => {
-        this.aplicando.set(false);
-        this.salirRevision();
-        this.cajaActualizada.emit(c);
-      },
-      error: (err) => {
-        this.aplicando.set(false);
-        this.errorRevision.set(typeof err?.error === 'string' ? err.error : 'No se pudo guardar el ajuste. Reintentá.');
-      },
-    });
+    this.cajaService
+      .corregirCaja(this.caja().id, {
+        conteoEfectivo: v.conteoEfectivo,
+        cierresPosnet: v.cierresPosnet,
+        entradasFisicasCortadas: v.entradasFisicasCortadas!,
+        cambioContado: v.cambioContado,
+        dolaresContado: v.dolaresContado,
+        ajustes,
+      })
+      .subscribe({
+        next: (c) => {
+          this.aplicando.set(false);
+          this.salirRevision();
+          this.cajaActualizada.emit(c);
+        },
+        error: (err) => {
+          this.aplicando.set(false);
+          this.errorRevision.set(typeof err?.error === 'string' ? err.error : 'No se pudo guardar la corrección. Reintentá.');
+        },
+      });
   }
 
   deshacerAjuste(ajuste: AjusteCaja): void {

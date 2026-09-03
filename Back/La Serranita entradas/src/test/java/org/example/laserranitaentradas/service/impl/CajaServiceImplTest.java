@@ -749,8 +749,8 @@ class CajaServiceImplTest {
     }
 
     @Test
-    void corregirCierre_deOtroUsuario_permite() {
-        // corregirCierre ya no valida dueño en el service: queda gateado ADMIN-only en
+    void corregirCaja_deOtroUsuario_permite() {
+        // corregirCaja ya no valida dueño en el service: queda gateado ADMIN-only en
         // SecurityConfig, así que cualquier caja se puede corregir sin importar quién la abrió
         // (mismo criterio que getDetalle).
         Caja cajaCerrada = cajaCerradaDeUsuario(7L, 99L);
@@ -760,31 +760,31 @@ class CajaServiceImplTest {
         when(cierrePosnetRepository.findAllByCajaIdOrderByIdAsc(7L)).thenReturn(List.of());
         when(cajaRepository.save(any(Caja.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        var respuesta = service.corregirCierre(7L, List.of(conteo(100, 1)), List.of(), 50, null, null);
+        var respuesta = service.corregirCaja(7L, List.of(conteo(100, 1)), List.of(), 50, null, null, List.of());
 
         assertThat(respuesta.getId()).isEqualTo(7L);
     }
 
     @Test
-    void corregirCierre_deCajaTodaviaAbierta_rechaza() {
+    void corregirCaja_deCajaTodaviaAbierta_rechaza() {
         Caja cajaAbierta = cajaAbierta(7L, "5000", 50); // sin fechaCierre
         cajaAbierta.setUsuario(usuarioConId(USUARIO_ID));
         when(cajaRepository.findById(7L)).thenReturn(Optional.of(cajaAbierta));
 
-        assertThatThrownBy(() -> service.corregirCierre(7L, List.of(conteo(100, 1)), List.of(), 50, null, null))
+        assertThatThrownBy(() -> service.corregirCaja(7L, List.of(conteo(100, 1)), List.of(), 50, null, null, List.of()))
                 .isInstanceOf(IllegalStateException.class);
     }
 
     @Test
-    void corregirCierre_deCajaInexistente_rechaza() {
+    void corregirCaja_deCajaInexistente_rechaza() {
         when(cajaRepository.findById(7L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.corregirCierre(7L, List.of(), List.of(), 50, null, null))
+        assertThatThrownBy(() -> service.corregirCaja(7L, List.of(), List.of(), 50, null, null, List.of()))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
-    void corregirCierre_recalculaMontoContadoYReemplazaLosCierresDePosnet() {
+    void corregirCaja_recalculaMontoContadoYReemplazaLosCierresDePosnet() {
         Caja cajaCerrada = cajaCerradaDeUsuario(7L, USUARIO_ID);
         cajaCerrada.setMontoContado(new BigDecimal("999")); // valor viejo, mal cargado
         when(cajaRepository.findById(7L)).thenReturn(Optional.of(cajaCerrada));
@@ -794,7 +794,7 @@ class CajaServiceImplTest {
         when(cajaRepository.save(any(Caja.class))).thenAnswer(inv -> inv.getArgument(0));
 
         // Corrección: eran 500 billetes de 100 (no 999 como había quedado mal cargado antes).
-        var respuesta = service.corregirCierre(7L, List.of(conteo(100, 500)), List.of(), 40, null, null);
+        var respuesta = service.corregirCaja(7L, List.of(conteo(100, 500)), List.of(), 40, null, null, List.of());
 
         assertThat(respuesta.getMontoContado()).isEqualByComparingTo("50000");
         verify(cierrePosnetRepository).deleteAllByCajaId(7L);
@@ -921,7 +921,7 @@ class CajaServiceImplTest {
 
     @Test
     void getDetalle_devuelveLaCajaSinImportarQuienLaAbrio() {
-        // A diferencia de corregirCierre, getDetalle no valida dueño: lo usa el admin para
+        // A diferencia de corregirCaja, getDetalle no valida dueño: lo usa el admin para
         // revisar cualquier caja, no sólo las propias.
         Caja cajaCerrada = cajaCerradaDeUsuario(7L, 99L);
         when(cajaRepository.findById(7L)).thenReturn(Optional.of(cajaCerrada));
@@ -983,9 +983,8 @@ class CajaServiceImplTest {
     }
 
     @Test
-    void registrarAjustes_traspasaMontoEntreFormasDePagoYRecalculaLaDiferenciaDeEfectivo() {
+    void corregirCaja_traspasaMontoEntreFormasDePagoYRecalculaLaDiferenciaDeEfectivo() {
         Caja caja = cajaCerradaDeUsuario(7L, USUARIO_ID);
-        caja.setMontoContado(new BigDecimal("68600")); // contó lo que hay de verdad en el cajón
         when(cajaRepository.findById(7L)).thenReturn(Optional.of(caja));
         when(cajaRepository.save(any(Caja.class))).thenAnswer(inv -> inv.getArgument(0));
         when(compraRepository.findAllByCajaId(7L)).thenReturn(List.of(
@@ -1010,7 +1009,8 @@ class CajaServiceImplTest {
         req.setCantidadVentas(1);
         req.setDetalle("1x Pase General");
 
-        var respuesta = service.registrarAjustes(7L, List.of(req));
+        // contó 68600 de verdad en el cajón (686 billetes de 100).
+        var respuesta = service.corregirCaja(7L, List.of(conteo(100, 686)), List.of(), 40, null, null, List.of(req));
 
         // esperado efectivo = 5000 (inicial) + 58600 (ventas efectivo) + 10000 (ajuste entrante) = 73600
         assertThat(caja.getMontoEsperado()).isEqualByComparingTo("73600");
@@ -1025,7 +1025,7 @@ class CajaServiceImplTest {
     }
 
     @Test
-    void registrarAjustes_agregarVentasRecalculaElUsoDeEntradas() {
+    void corregirCaja_agregarVentasRecalculaElUsoDeEntradas() {
         Caja caja = cajaCerradaDeUsuario(7L, USUARIO_ID);
         caja.setMontoContado(new BigDecimal("50000"));
         caja.setEntradasFisicasInicial(100);
@@ -1059,7 +1059,7 @@ class CajaServiceImplTest {
         req.setDetalle("3x General");
         req.setLineas(Map.of(1L, 3));
 
-        var respuesta = service.registrarAjustes(7L, List.of(req));
+        var respuesta = service.corregirCaja(7L, List.of(conteo(100, 500)), List.of(), 30, null, null, List.of(req));
 
         assertThat(respuesta.getEntradasFisicasEsperadas()).isEqualTo(6);   // base 0 + 6 del ajuste
         assertThat(respuesta.getDiferenciaEntradas()).isEqualTo(6 - 30);     // esperadas − cortadas
@@ -1072,9 +1072,8 @@ class CajaServiceImplTest {
     }
 
     @Test
-    void registrarAjustes_soloDestino_agregaMontoAlEsperadoDeEsaForma() {
+    void corregirCaja_soloDestino_agregaMontoAlEsperadoDeEsaForma() {
         Caja caja = cajaCerradaDeUsuario(7L, USUARIO_ID);
-        caja.setMontoContado(new BigDecimal("60000")); // contó 60000 de verdad
         when(cajaRepository.findById(7L)).thenReturn(Optional.of(caja));
         when(cajaRepository.save(any(Caja.class))).thenAnswer(inv -> inv.getArgument(0));
         when(compraRepository.findAllByCajaId(7L)).thenReturn(List.of(
@@ -1097,7 +1096,8 @@ class CajaServiceImplTest {
         req.setMonto(new BigDecimal("10000"));
         req.setDetalle("cobro sin registrar");
 
-        var respuesta = service.registrarAjustes(7L, List.of(req));
+        // contó 60000 de verdad (600 billetes de 100).
+        var respuesta = service.corregirCaja(7L, List.of(conteo(100, 600)), List.of(), 0, null, null, List.of(req));
 
         // esperado = 1 (inicial, cajaCerradaDeUsuario usa "5000")... ojo: inicial 5000.
         // 5000 + 50000 (venta) + 10000 (agregado) = 65000; contado 60000 => -5000
@@ -1108,23 +1108,21 @@ class CajaServiceImplTest {
     }
 
     @Test
-    void registrarAjustes_sinNingunaForma_rechaza() {
+    void corregirCaja_ajusteSinNingunaForma_rechaza() {
         Caja caja = cajaCerradaDeUsuario(7L, USUARIO_ID);
-        caja.setMontoContado(new BigDecimal("1000"));
         when(cajaRepository.findById(7L)).thenReturn(Optional.of(caja));
 
         AjusteCajaRequestDTO req = new AjusteCajaRequestDTO();
         req.setMonto(new BigDecimal("500"));
 
-        assertThatThrownBy(() -> service.registrarAjustes(7L, List.of(req)))
+        assertThatThrownBy(() -> service.corregirCaja(7L, List.of(conteo(100, 10)), List.of(), 0, null, null, List.of(req)))
                 .isInstanceOf(IllegalArgumentException.class);
         verify(ajusteCajaRepository, never()).save(any());
     }
 
     @Test
-    void registrarAjustes_conMismaFormaDeOrigenYDestino_rechaza() {
+    void corregirCaja_ajusteConMismaFormaDeOrigenYDestino_rechaza() {
         Caja caja = cajaCerradaDeUsuario(7L, USUARIO_ID);
-        caja.setMontoContado(new BigDecimal("1000"));
         when(cajaRepository.findById(7L)).thenReturn(Optional.of(caja));
 
         AjusteCajaRequestDTO req = new AjusteCajaRequestDTO();
@@ -1132,13 +1130,13 @@ class CajaServiceImplTest {
         req.setFormaDestino(FormaPago.TARJETA);
         req.setMonto(new BigDecimal("500"));
 
-        assertThatThrownBy(() -> service.registrarAjustes(7L, List.of(req)))
+        assertThatThrownBy(() -> service.corregirCaja(7L, List.of(conteo(100, 10)), List.of(), 0, null, null, List.of(req)))
                 .isInstanceOf(IllegalArgumentException.class);
         verify(ajusteCajaRepository, never()).save(any());
     }
 
     @Test
-    void registrarAjustes_sobreCajaTodaviaAbierta_rechaza() {
+    void corregirCaja_conAjusteSobreCajaTodaviaAbierta_rechaza() {
         Caja caja = cajaAbierta(7L, "5000", 50); // sin fechaCierre
         when(cajaRepository.findById(7L)).thenReturn(Optional.of(caja));
 
@@ -1147,7 +1145,7 @@ class CajaServiceImplTest {
         req.setFormaDestino(FormaPago.EFECTIVO_BOLETERIA);
         req.setMonto(new BigDecimal("500"));
 
-        assertThatThrownBy(() -> service.registrarAjustes(7L, List.of(req)))
+        assertThatThrownBy(() -> service.corregirCaja(7L, List.of(conteo(100, 10)), List.of(), 0, null, null, List.of(req)))
                 .isInstanceOf(IllegalStateException.class);
         verify(ajusteCajaRepository, never()).save(any());
     }

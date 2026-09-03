@@ -486,13 +486,23 @@
 }
 
 .grupo-multi .fila-matriz {
+  position: relative;
   border-bottom: none;
   padding-top: 5px;
   padding-bottom: 5px;
 }
 
-.grupo-multi .fila-matriz:not(:last-child) {
-  border-bottom: 1px dashed var(--color-border);
+/* Separador ENTRE sub-filas de un mismo tamaño: punteado, tenue y sangrado (arranca donde
+   arranca la etiqueta, no toca los bordes) para que no se confunda con la línea sólida que
+   separa un tamaño de grupo del siguiente. */
+.grupo-multi .fila-matriz:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: 42px;
+  right: 8px;
+  bottom: 0;
+  border-bottom: 1px dotted var(--color-text-muted);
+  opacity: 0.55;
 }
 
 /* Deja lugar al "10×" absoluto y sangra las etiquetas para que se lean como parte del bloque. */
@@ -607,6 +617,13 @@
   margin-bottom: 12px;
   font-size: 0.82rem;
   color: var(--color-text-secondary);
+}
+
+/* La pregunta va en su propia línea: los controles cuelgan abajo y no se parte la frase. */
+.form-titulo-composicion {
+  flex-basis: 100%;
+  font-weight: 700;
+  color: var(--color-text);
 }
 
 .form-nueva-composicion input,
@@ -746,6 +763,59 @@
   font-family: inherit;
 }
 
+/* Modo "Corregir caja": recuento del cierre a la izquierda, ajustes de forma de pago a la
+   derecha. En pantalla angosta se apila (recuento primero). */
+.revision-dos-columnas {
+  display: grid;
+  grid-template-columns: minmax(280px, 380px) minmax(0, 1fr);
+  gap: 24px;
+  align-items: stretch;
+}
+
+.revision-col-conteo,
+.revision-col-ajustes {
+  min-width: 0;
+}
+
+/* La derecha se estira al alto de la izquierda; la lista de la matriz absorbe el sobrante
+   con scroll interno, así no queda un hueco muerto abajo. */
+.revision-col-ajustes {
+  display: flex;
+  flex-direction: column;
+}
+
+.matrices-scroll {
+  flex: 1 1 0;
+  min-height: 180px;
+  overflow-y: auto;
+  margin-bottom: 12px;
+  padding: 10px;
+  background-color: var(--color-bg-soft);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.titulo-col-revision {
+  margin: 0 0 12px;
+  font-family: var(--font-heading);
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: var(--color-text);
+}
+
+@media (max-width: 720px) {
+  .revision-dos-columnas {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  /* Apilado: la matriz fluye completa, sin scroll interno. */
+  .matrices-scroll {
+    overflow: visible;
+    min-height: 0;
+    flex: 0 0 auto;
+  }
+}
+
 .titulo-totales-revision {
   margin: 4px 0 6px;
   font-size: 0.8rem;
@@ -766,7 +836,6 @@
 .acciones-revision {
   display: flex;
   gap: 8px;
-  margin-bottom: 8px;
 }
 
 .fila-entradas-revision {

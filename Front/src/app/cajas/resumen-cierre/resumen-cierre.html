@@ -156,6 +156,13 @@
     }
   } @else {
 
+  <div class="revision-dos-columnas">
+    <div class="revision-col-conteo">
+      <app-conteo-cierre [precarga]="caja()" [huboVentaDolares]="caja().huboVentaDolares" />
+    </div>
+
+    <div class="revision-col-ajustes">
+
     @if (caja().huboVentaDolares) {
       <p class="alerta-dolares">
         Las ventas cobradas en dólares (marcadas <strong>US$</strong>) no se pueden mover
@@ -191,6 +198,7 @@
       </p>
     }
 
+    <div class="matrices-scroll">
     @for (m of matrices(); track m.tipoId) {
       <div class="matriz-tipo">
         <div class="cabecera-matriz-tipo">{{ m.tipoNombre }}</div>
@@ -234,6 +242,7 @@
     } @empty {
       <p class="sin-datos-desglose">No hubo ventas de entradas pagas en este turno.</p>
     }
+    </div>
 
     <ng-template #celdasTpl let-tipoId="tipoId" let-fila="fila">
       @for (celda of fila.celdas; track celda.clave) {
@@ -275,7 +284,7 @@
     }
 
     <div class="form-nueva-composicion">
-      <span>¿Falta una venta que no se registró? Agregala:</span>
+      <span class="form-titulo-composicion">¿Falta una venta que no se registró? Agregala:</span>
       <input
         type="number"
         min="1"
@@ -388,9 +397,12 @@
         class="btn-cobrar"
         [disabled]="!hayCambios() || aplicando()"
         (click)="aplicar()">
-        {{ aplicando() ? 'Guardando…' : 'Aplicar cambios' }}
+        {{ aplicando() ? 'Guardando…' : 'Guardar corrección' }}
       </button>
     </div>
+
+    </div>
+  </div>
   }
 
   @if (caja().ajustes && caja().ajustes.length > 0) {
@@ -428,10 +440,7 @@
 
 @if (mostrarAcciones() && !modoRevision() && caja().habilitada !== false) {
   <div class="acciones-resumen">
-    <button type="button" class="btn-corregir-cierre" (click)="corregir.emit()">Corregir cierre</button>
-    @if (hayVentasAjustables()) {
-      <button type="button" class="btn-corregir-cierre" (click)="toggleRevision()">Corregir caja</button>
-    }
+    <button type="button" class="btn-corregir-cierre" (click)="toggleRevision()">Corregir caja</button>
     <button type="button" class="btn-borrar-caja" (click)="abrirModalDeshabilitar()">Borrar caja</button>
   </div>
 }

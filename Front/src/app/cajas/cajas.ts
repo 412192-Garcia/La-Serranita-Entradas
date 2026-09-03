@@ -61,16 +61,15 @@ export class ConfiguracionCajas implements OnInit {
   /** Id de la caja abierta cuya fila está desplegada mostrando app-caja-operaciones; null = ninguna. */
   filaExpandidaAbiertaId = signal<number | null>(null);
 
-  // ---------- Cerrar caja / corregir un cierre ya hecho ----------
+  // ---------- Cerrar caja ----------
+  // Corregir un cierre ya hecho NO pasa por acá: lo hace "Corregir caja" en app-resumen-cierre.
   /** Controla sólo la visibilidad del modal (ver [class.oculto]): nunca se destruye, así "Cancelar" no borra lo ya cargado. */
   mostrarCierre = signal(false);
   /** Id de la caja abierta que se está por cerrar. Sólo cambia al apuntar a una caja distinta (no al cancelar). */
   cajaIdCierre = signal<number | null>(null);
   /** Detalle de esa misma caja (vía obtenerDetalle): esperado sigue oculto porque sigue abierta, sólo trae huboVentaDolares/retiros. */
   cajaCierreDetalle = signal<Caja | null>(null);
-  /** Si está seteada, el modal corrige esa caja ya cerrada en vez de cerrar una abierta. Sólo cambia al apuntar a una caja distinta. */
-  cajaParaCorregir = signal<Caja | null>(null);
-  /** Resultado a mostrar justo después de cerrar una caja (no una corrección): el admin necesita ver que el cierre se guardó y con qué números, no volver directo a la lista sin feedback. */
+  /** Resultado a mostrar justo después de cerrar una caja: el admin necesita ver que el cierre se guardó y con qué números, no volver directo a la lista sin feedback. */
   cajaRecienCerrada = signal<Caja | null>(null);
 
   /** Id de la fila desplegada (null = ninguna); el detalle de sólo lectura de esa caja se carga debajo. */
@@ -190,7 +189,6 @@ export class ConfiguracionCajas implements OnInit {
 
   /** Abre el modal para cerrar esa caja abierta (busca su detalle, sin exponer lo esperado: sigue abierta). */
   iniciarCierre(cajaId: number): void {
-    this.cajaParaCorregir.set(null);
     this.cajaIdCierre.set(cajaId);
     this.mostrarCierre.set(true);
     this.cajaService.obtenerDetalle(cajaId).subscribe({
@@ -199,42 +197,21 @@ export class ConfiguracionCajas implements OnInit {
     });
   }
 
-  /** Abre el modal para corregir un cierre ya hecho (precargado con lo que ya tiene esa caja). */
-  iniciarCorreccion(caja: Caja): void {
-    this.cajaIdCierre.set(null);
-    this.cajaCierreDetalle.set(null);
-    this.cajaParaCorregir.set(caja);
-    this.mostrarCierre.set(true);
-  }
-
-  /** Se cerró o corrigió con éxito: refresca las listas afectadas. */
+  /** Se cerró una caja con éxito: refresca las listas afectadas y muestra el resultado. */
   onCajaCerrada(c: Caja): void {
-    const eraCorreccion = this.cajaParaCorregir() !== null;
     this.mostrarCierre.set(false);
     this.cajaIdCierre.set(null);
     this.cajaCierreDetalle.set(null);
-    this.cajaParaCorregir.set(null);
     this.cargarCajasAbiertas();
     this.cargar();
     this.cargarCajasCerradas();
-    if (eraCorreccion) {
-      if (this.filaExpandidaId() === c.id) {
-        this.cajaDetalle.set(c);
-      }
-    } else {
-      // Recién se cerró (no una corrección): mostrar el resultado, si no el modal
-      // simplemente desaparece y el admin no tiene forma de saber que se guardó.
-      this.cajaRecienCerrada.set(c);
-    }
+    // El modal simplemente desaparece: sin este resultado el admin no tiene forma de saber que se guardó.
+    this.cajaRecienCerrada.set(c);
   }
 
   /** Se agregó un retiro/aporte desde dentro del modal de cierre, sin llegar a cerrar: refresca sólo esa caja, sin tocar el resto del formulario. */
   onCajaActualizadaCierre(c: Caja): void {
-    if (this.cajaParaCorregir()) {
-      this.cajaParaCorregir.set(c);
-    } else {
-      this.cajaCierreDetalle.set(c);
-    }
+    this.cajaCierreDetalle.set(c);
   }
 
   /** Refresca el reporte agregado (ranking de boleteros + chips de filtro) y, con el mismo rango

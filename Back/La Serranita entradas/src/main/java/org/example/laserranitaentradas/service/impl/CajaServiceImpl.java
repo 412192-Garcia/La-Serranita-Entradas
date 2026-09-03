@@ -302,7 +302,7 @@ public class CajaServiceImpl implements CajaService {
     /**
      * Inicial + impacto real de efectivo (ver impactoEfectivoArs) − retiros netos (ver
      * sumRetiros) + el neto de los ajustes manuales que traspasaron monto hacia/desde efectivo
-     * (ver registrarAjustes).
+     * (ver corregirCaja).
      */
     private BigDecimal calcularMontoEsperado(Caja caja) {
         return calcularMontoEsperado(caja,
@@ -394,9 +394,10 @@ public class CajaServiceImpl implements CajaService {
 
     @Transactional
     @Override
-    public CajaResponseDTO corregirCierre(Long cajaId, List<ConteoDenominacionDTO> conteoEfectivo,
-                                           List<CierrePosnetRequestDTO> cierresPosnet, Integer entradasFisicasCortadas,
-                                           BigDecimal cambioContado, BigDecimal dolaresContado) {
+    public CajaResponseDTO corregirCaja(Long cajaId, List<ConteoDenominacionDTO> conteoEfectivo,
+                                         List<CierrePosnetRequestDTO> cierresPosnet, Integer entradasFisicasCortadas,
+                                         BigDecimal cambioContado, BigDecimal dolaresContado,
+                                         List<AjusteCajaRequestDTO> ajustes) {
         Caja caja = cajaRepository.findById(cajaId)
                 .orElseThrow(() -> new IllegalArgumentException("Caja no encontrada para id: " + cajaId));
         if (caja.getFechaCierre() == null) {
@@ -408,13 +409,34 @@ public class CajaServiceImpl implements CajaService {
         if (entradasFisicasCortadas == null || entradasFisicasCortadas < 0) {
             throw new IllegalArgumentException("Indicá cuántas entradas cortaste del talonario");
         }
+
+        LocalDateTime ahora = LocalDateTime.now();
+
+        // 1) Traspasos entre formas de pago (si vienen): se guardan ANTES de recalcular el
+        //    esperado, así calcularMontoEsperado ya los ve en una sola pasada.
+        if (ajustes != null && !ajustes.isEmpty()) {
+            for (AjusteCajaRequestDTO dto : ajustes) {
+                validarAjuste(dto);
+                ajusteCajaRepository.save(AjusteCaja.builder()
+                        .caja(caja)
+                        .formaOrigen(dto.getFormaOrigen())
+                        .formaDestino(dto.getFormaDestino())
+                        .monto(dto.getMonto())
+                        .cantidadVentas(dto.getCantidadVentas() == null ? 0 : Math.max(0, dto.getCantidadVentas()))
+                        .detalle(dto.getDetalle() == null || dto.getDetalle().isBlank() ? null : dto.getDetalle().trim())
+                        .nota(dto.getNota() == null || dto.getNota().isBlank() ? null : dto.getNota().trim())
+                        .fecha(ahora)
+                        .comprasMovidas(dto.getComprasMovidas() == null ? new ArrayList<>() : new ArrayList<>(dto.getComprasMovidas()))
+                        .lineas(dto.getLineas() == null ? new java.util.HashMap<>() : new java.util.HashMap<>(dto.getLineas()))
+                        .build());
+            }
+            ajusteCajaRepository.flush();
+        }
+
+        // 2) Recuento del cierre.
         List<Compra> compras = compraRepository.findAllByCajaId(caja.getId());
         BigDecimal montoContado = calcularMontoContado(conteo, cambioContado);
         BigDecimal dolaresContadoValidado = validarDolaresContado(compras, dolaresContado);
-
-        // El esperado se recalcula igual que al cerrar (no debería haber cambiado, pero
-        // recalcularlo en vez de reusar el guardado evita que quede desactualizado si algo
-        // sí cambió entre medio).
         BigDecimal montoEsperado = calcularMontoEsperado(caja, compras,
                 retiroCajaRepository.findAllByCajaIdOrderByFechaAsc(caja.getId()),
                 ajusteCajaRepository.findAllByCajaIdOrderByFechaAsc(caja.getId()));
@@ -430,43 +452,9 @@ public class CajaServiceImpl implements CajaService {
 
         Caja guardada = cajaRepository.save(caja);
         cierrePosnetRepository.deleteAllByCajaId(caja.getId());
-        guardarCierresPosnet(guardada, cierres, LocalDateTime.now());
+        guardarCierresPosnet(guardada, cierres, ahora);
 
         return toDto(guardada);
-    }
-
-    @Transactional
-    @Override
-    public CajaResponseDTO registrarAjustes(Long cajaId, List<AjusteCajaRequestDTO> ajustes) {
-        Caja caja = cajaRepository.findById(cajaId)
-                .orElseThrow(() -> new IllegalArgumentException("Caja no encontrada para id: " + cajaId));
-        if (caja.getFechaCierre() == null) {
-            throw new IllegalStateException("Esta caja todavía está abierta: los ajustes se cargan sobre un cierre ya hecho");
-        }
-        if (ajustes == null || ajustes.isEmpty()) {
-            throw new IllegalArgumentException("No se mandó ningún ajuste");
-        }
-
-        LocalDateTime ahora = LocalDateTime.now();
-        for (AjusteCajaRequestDTO dto : ajustes) {
-            validarAjuste(dto);
-            ajusteCajaRepository.save(AjusteCaja.builder()
-                    .caja(caja)
-                    .formaOrigen(dto.getFormaOrigen())
-                    .formaDestino(dto.getFormaDestino())
-                    .monto(dto.getMonto())
-                    .cantidadVentas(dto.getCantidadVentas() == null ? 0 : Math.max(0, dto.getCantidadVentas()))
-                    .detalle(dto.getDetalle() == null || dto.getDetalle().isBlank() ? null : dto.getDetalle().trim())
-                    .nota(dto.getNota() == null || dto.getNota().isBlank() ? null : dto.getNota().trim())
-                    .fecha(ahora)
-                    .comprasMovidas(dto.getComprasMovidas() == null ? new ArrayList<>() : new ArrayList<>(dto.getComprasMovidas()))
-                    .lineas(dto.getLineas() == null ? new java.util.HashMap<>() : new java.util.HashMap<>(dto.getLineas()))
-                    .build());
-        }
-        ajusteCajaRepository.flush();
-
-        recalcularEfectivoTrasAjuste(caja);
-        return toDto(cajaRepository.save(caja));
     }
 
     @Transactional
@@ -504,8 +492,8 @@ public class CajaServiceImpl implements CajaService {
     /**
      * Recalcula y persiste montoEsperado/diferencia de efectivo con los ajustes ya guardados,
      * para que el listado de cajas cerradas, el ranking y sumFaltantes/sobrantes queden al día
-     * (mismo criterio que corregirCierre). Los esperados/diferencias de posnet no se guardan en
-     * la Caja — se recalculan siempre en toDto.
+     * (mismo criterio que corregirCaja). Los esperados/diferencias de posnet no se guardan en
+     * la Caja — se recalculan siempre en toDto. Lo usa eliminarAjuste (al borrar una fila suelta).
      */
     private void recalcularEfectivoTrasAjuste(Caja caja) {
         if (caja.getMontoContado() == null) return;
@@ -558,7 +546,7 @@ public class CajaServiceImpl implements CajaService {
                 })
                 .toList();
         // cerrarCaja vuelve a guardar los cierres de posnet tal cual se le pasen: sin borrar
-        // los viejos primero quedarían duplicados (mismo criterio que corregirCierre).
+        // los viejos primero quedarían duplicados (mismo criterio que corregirCaja).
         cierrePosnetRepository.deleteAllByCajaId(cajaId);
         return cerrarCaja(caja, conteo, posnet, caja.getEntradasFisicasCortadas(), caja.getCambioContado(), caja.getDolaresContado());
     }
