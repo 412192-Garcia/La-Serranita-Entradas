@@ -84,19 +84,21 @@
   }
 }
 
-<p class="fila-entradas-fisicas">
-  Entradas a cortar: <strong>{{ caja().entradasFisicasEsperadas ?? 0 }}</strong>
-  @if (caja().entradasFisicasCortadas !== null && caja().entradasFisicasCortadas !== undefined) {
-    · cortadas del talonario <strong>{{ caja().entradasFisicasCortadas }}</strong>
-    @if (caja().diferenciaEntradas !== null) {
-      @if (caja().diferenciaEntradas! > 0) {
-        · <span class="diferencia-faltante">faltan cortar {{ caja().diferenciaEntradas }}</span>
-      } @else if (caja().diferenciaEntradas! < 0) {
-        · <span class="diferencia-faltante">{{ -caja().diferenciaEntradas! }} cortadas de más</span>
+@if (caja().entradasFisicasRestantes !== null && caja().entradasFisicasRestantes !== undefined) {
+  <p class="fila-entradas-fisicas">
+    Restantes en el talonario: <strong>{{ caja().entradasFisicasRestantes }}</strong>
+    @if (caja().entradasFisicasEsperadas !== null) {
+      · esperadas <strong>{{ caja().entradasFisicasEsperadas }}</strong>
+      @if (caja().diferenciaEntradas !== null) {
+        @if (caja().diferenciaEntradas! < 0) {
+          · <span class="diferencia-faltante">faltan {{ -caja().diferenciaEntradas! }}</span>
+        } @else if (caja().diferenciaEntradas! > 0) {
+          · <span>sobran {{ caja().diferenciaEntradas }}</span>
+        }
       }
     }
-  }
-</p>
+  </p>
+}
 }
 
 <!-- ---------- Ventas por forma de pago ---------- -->
@@ -186,14 +188,16 @@
 
     @if (entradasRevision(); as e) {
       <p class="fila-entradas-revision" [class.fila-entradas-revision-cambio]="e.cambio">
-        Entradas a cortar: <strong>{{ e.esperadasTalonario }}</strong>
-        @if (e.cortadas !== null) {
-          · cortadas del talonario <strong>{{ e.cortadas }}</strong>
-          @if (e.diferenciaTalonario! > 0) {
-            · <span class="diferencia-faltante">faltan cortar {{ e.diferenciaTalonario }}</span>
-          } @else if (e.diferenciaTalonario! < 0) {
-            · <span class="diferencia-faltante">{{ -e.diferenciaTalonario! }} cortadas de más</span>
+        @if (e.restantes !== null) {
+          Restantes en el talonario: <strong>{{ e.restantes }}</strong>
+          · esperadas <strong>{{ e.esperadasTalonario }}</strong>
+          @if (e.diferenciaTalonario! < 0) {
+            · <span class="diferencia-faltante">faltan {{ -e.diferenciaTalonario! }}</span>
+          } @else if (e.diferenciaTalonario! > 0) {
+            · <span>sobran {{ e.diferenciaTalonario }}</span>
           }
+        } @else {
+          Deberían quedar en el talonario: <strong>{{ e.esperadasTalonario }}</strong>
         }
       </p>
     }

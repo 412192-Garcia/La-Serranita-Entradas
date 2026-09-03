@@ -87,7 +87,7 @@ public class CajaController {
     @Operation(summary = "Cerrar caja (ADMIN)", description = "Compara lo contado (efectivo por denominación, cierres de posnet, entradas físicas) contra lo esperado y cierra el turno. Sólo un ADMIN puede cerrar cajas, sin importar de qué boletero — el cierre ya no es self-service.")
     public ResponseEntity<CajaResponseDTO> cerrar(@PathVariable Long id, @RequestBody CerrarCajaRequestDTO request) {
         return ResponseEntity.ok(cajaService.cerrarComoAdmin(id, request.getConteoEfectivo(), request.getCierresPosnet(),
-                request.getEntradasFisicasCortadas(), request.getCambioContado(), request.getDolaresContado()));
+                request.getEntradasFisicasRestantes(), request.getCambioContado(), request.getDolaresContado()));
     }
 
     @PostMapping("/{id}/retiros")
@@ -139,7 +139,7 @@ public class CajaController {
             description = "En una sola pasada atómica: recontar efectivo/posnet/entradas/dólares y traspasar monto entre efectivo/tarjeta/QR (cuando la cajera cobró de una forma y registró otra). Los traspasos no tocan las compras, quedan como AjusteCaja aparte. Sólo un ADMIN, cualquier caja cerrada sin importar quién la abrió.")
     public ResponseEntity<CajaResponseDTO> corregirCaja(@PathVariable Long id, @RequestBody CorreccionCajaRequestDTO request) {
         return ResponseEntity.ok(cajaService.corregirCaja(id, request.getConteoEfectivo(),
-                request.getCierresPosnet(), request.getEntradasFisicasCortadas(), request.getCambioContado(),
+                request.getCierresPosnet(), request.getEntradasFisicasRestantes(), request.getCambioContado(),
                 request.getDolaresContado(), request.getAjustes()));
     }
 

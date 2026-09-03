@@ -117,7 +117,7 @@ export interface Caja {
   cierresPosnet: CierrePosnet[];
 
   entradasFisicasInicial: number | null;
-  entradasFisicasCortadas: number | null;
+  entradasFisicasRestantes: number | null;
   entradasFisicasEsperadas: number | null;
   diferenciaEntradas: number | null;
   totalIngresosEntradas: number;
@@ -299,14 +299,14 @@ export class CajaService {
     cajaId: number,
     conteoEfectivo: ConteoDenominacion[],
     cierresPosnet: CierrePosnetInput[],
-    entradasFisicasCortadas: number,
+    entradasFisicasRestantes: number,
     cambioContado: number | null,
     dolaresContado: number | null
   ): Observable<Caja> {
     return this.http.post<Caja>(`${this.cajaUrl}/${cajaId}/cerrar`, {
       conteoEfectivo,
       cierresPosnet,
-      entradasFisicasCortadas,
+      entradasFisicasRestantes,
       cambioContado,
       dolaresContado,
     });
@@ -373,7 +373,7 @@ export class CajaService {
     payload: {
       conteoEfectivo: ConteoDenominacion[];
       cierresPosnet: CierrePosnetInput[];
-      entradasFisicasCortadas: number;
+      entradasFisicasRestantes: number;
       cambioContado: number | null;
       dolaresContado: number | null;
       ajustes: AjusteCajaInput[];

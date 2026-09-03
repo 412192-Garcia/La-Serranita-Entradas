@@ -11,7 +11,7 @@ function cajaBase(over: Partial<Caja> = {}): Caja {
     totalVentasTarjeta: 0, totalVentasQr: 0, totalCerradoTarjeta: 0, totalCerradoQr: 0,
     diferenciaTarjeta: 0, diferenciaQr: 0, totalVentasPosnet: null, totalCerradoPosnet: null,
     diferenciaPosnet: null, cierresPosnet: [],
-    entradasFisicasInicial: 100, entradasFisicasCortadas: 0, entradasFisicasEsperadas: 0,
+    entradasFisicasInicial: 100, entradasFisicasRestantes: 0, entradasFisicasEsperadas: 0,
     diferenciaEntradas: 0, totalIngresosEntradas: 0, ingresosEntradas: [],
     operaciones: [], ajustes: [], totalEntradasPagas: 0, entradasVendidasPorTipo: [],
     huboVentaDolares: false, dolaresEsperado: null, dolaresContado: null, diferenciaDolares: null,
@@ -35,10 +35,10 @@ describe('ConteoCierre', () => {
   it('precarga el conteo de billetes y calcula el total contado', () => {
     const c = montar(cajaBase({
       conteoEfectivo: [{ denominacion: 10000, cantidad: 4 }, { denominacion: 1000, cantidad: 3 }],
-      cambioContado: 250, entradasFisicasCortadas: 12,
+      cambioContado: 250, entradasFisicasRestantes: 12,
     }));
     expect(c.montoContadoCalculado()).toBe(43250);
-    expect(c.valor().entradasFisicasCortadas).toBe(12);
+    expect(c.valor().entradasFisicasRestantes).toBe(12);
   });
 
   it('separa los cierres de posnet por forma cuando venían separados', () => {
@@ -60,10 +60,10 @@ describe('ConteoCierre', () => {
     expect(c.valor().cierresPosnet).toEqual([{ formaPago: null, monto: 1500, nota: null }]);
   });
 
-  it('valida que se cargue cuántas entradas se cortaron', () => {
-    const c = montar(cajaBase({ entradasFisicasCortadas: 5 }));
+  it('valida que se cargue cuántas entradas quedan en el talonario', () => {
+    const c = montar(cajaBase({ entradasFisicasRestantes: 5 }));
     expect(c.validar()).toBeNull();
-    c.entradasFisicasCortadas.set(null);
+    c.entradasFisicasRestantes.set(null);
     expect(c.validar()).toContain('talonario');
   });
 });

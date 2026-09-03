@@ -3,22 +3,23 @@
     <h3>Cerrar caja</h3>
 
     <div class="cuerpo-cierre">
-      <app-conteo-cierre [cajaId]="cajaId()" [huboVentaDolares]="huboVentaDolares()" [dosColumnas]="true" />
-
-      <section class="seccion-cierre seccion-movimientos">
-        <h4>Movimientos de caja</h4>
-        @if (retirosMostrados().length) {
-          <ul class="lista-retiros">
-            @for (r of retirosMostrados(); track r.id) {
-              <li [class.item-retiro]="r.tipo === 'RETIRO'" [class.item-aporte]="r.tipo === 'APORTE'">
-                <span>{{ r.tipo === 'APORTE' ? '+ ' : '− ' }}{{ r.motivo }}</span>
-                <span>{{ r.monto | pesos }}</span>
-              </li>
-            }
-          </ul>
-        }
-        <button type="button" class="btn-secundario-caja" (click)="mostrarMovimiento.set(true)">+ Agregar retiro/aporte</button>
-      </section>
+      <app-conteo-cierre [cajaId]="cajaId()" [huboVentaDolares]="huboVentaDolares()" [dosColumnas]="true">
+        <!-- Se proyecta al final de la columna derecha (posnet/entradas), donde queda lugar libre. -->
+        <section class="seccion-cierre seccion-movimientos">
+          <h4>Movimientos de caja</h4>
+          @if (retirosMostrados().length) {
+            <ul class="lista-retiros">
+              @for (r of retirosMostrados(); track r.id) {
+                <li [class.item-retiro]="r.tipo === 'RETIRO'" [class.item-aporte]="r.tipo === 'APORTE'">
+                  <span>{{ r.tipo === 'APORTE' ? '+ ' : '− ' }}{{ r.motivo }}</span>
+                  <span>{{ r.monto | pesos }}</span>
+                </li>
+              }
+            </ul>
+          }
+          <button type="button" class="btn-secundario-caja" (click)="mostrarMovimiento.set(true)">+ Agregar retiro/aporte</button>
+        </section>
+      </app-conteo-cierre>
     </div>
 
     @if (errorCierre()) {

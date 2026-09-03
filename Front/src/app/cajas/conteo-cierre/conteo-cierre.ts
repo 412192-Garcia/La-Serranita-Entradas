@@ -16,11 +16,11 @@ type ModoPosnet = 'SEPARADO' | 'COMBINADO';
 type TipoFilaPosnet = FormaPagoPosnet | 'COMBINADO';
 
 /** Lo que el boletero/admin cargó al recontar: efectivo por denominación, cierres de posnet,
- *  entradas cortadas y dólares. Lo comparten el modal de cierre y el modo "Corregir caja". */
+ *  entradas que quedan en el talonario y dólares. Lo comparten el modal de cierre y "Corregir caja". */
 export interface ValorConteoCierre {
   conteoEfectivo: ConteoDenominacion[];
   cierresPosnet: CierrePosnetInput[];
-  entradasFisicasCortadas: number | null;
+  entradasFisicasRestantes: number | null;
   cambioContado: number | null;
   dolaresContado: number | null;
 }
@@ -48,7 +48,7 @@ export class ConteoCierre {
   cierresTarjeta = signal<FilaMontoNota[]>([{ monto: null, nota: '' }]);
   cierresQr = signal<FilaMontoNota[]>([{ monto: null, nota: '' }]);
   cierresCombinados = signal<FilaMontoNota[]>([{ monto: null, nota: '' }]);
-  entradasFisicasCortadas = signal<number | null>(null);
+  entradasFisicasRestantes = signal<number | null>(null);
   dolaresContado = signal<number | null>(null);
 
   montoContadoCalculado = computed(() =>
@@ -101,7 +101,7 @@ export class ConteoCierre {
       this.cierresCombinados.set([{ monto: null, nota: '' }]);
     }
 
-    this.entradasFisicasCortadas.set(caja.entradasFisicasCortadas);
+    this.entradasFisicasRestantes.set(caja.entradasFisicasRestantes);
     this.dolaresContado.set(caja.dolaresContado);
   }
 
@@ -112,7 +112,7 @@ export class ConteoCierre {
     this.cierresTarjeta.set([{ monto: null, nota: '' }]);
     this.cierresQr.set([{ monto: null, nota: '' }]);
     this.cierresCombinados.set([{ monto: null, nota: '' }]);
-    this.entradasFisicasCortadas.set(null);
+    this.entradasFisicasRestantes.set(null);
     this.dolaresContado.set(null);
   }
 
@@ -163,7 +163,7 @@ export class ConteoCierre {
     return {
       conteoEfectivo,
       cierresPosnet,
-      entradasFisicasCortadas: this.entradasFisicasCortadas(),
+      entradasFisicasRestantes: this.entradasFisicasRestantes(),
       cambioContado: this.cambioContado(),
       dolaresContado: this.huboVentaDolares() ? this.dolaresContado() : null,
     };
@@ -171,9 +171,9 @@ export class ConteoCierre {
 
   /** Mensaje de error si algo falta, o null si está listo para guardar. */
   validar(): string | null {
-    const cortadas = this.entradasFisicasCortadas();
-    if (cortadas === null || cortadas < 0) {
-      return 'Indicá cuántas entradas cortaste del talonario.';
+    const restantes = this.entradasFisicasRestantes();
+    if (restantes === null || restantes < 0) {
+      return 'Indicá cuántas entradas quedan en el talonario.';
     }
     if (this.huboVentaDolares()) {
       const d = this.dolaresContado();

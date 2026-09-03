@@ -290,7 +290,7 @@ export class ResumenCierre {
         tarjetaContado: c.totalCerradoTarjeta ?? 0,
         qrContado: c.totalCerradoQr ?? 0,
         posnetContado: c.totalCerradoPosnet ?? 0,
-        entradasCortadas: c.entradasFisicasCortadas,
+        entradasRestantes: c.entradasFisicasRestantes,
       };
     }
     const cierres = cc.valor().cierresPosnet;
@@ -302,7 +302,7 @@ export class ResumenCierre {
       tarjetaContado: sum('TARJETA'),
       qrContado: sum('MERCADO_PAGO_QR'),
       posnetContado: sum(null),
-      entradasCortadas: cc.valor().entradasFisicasCortadas,
+      entradasRestantes: cc.valor().entradasFisicasRestantes,
     };
   });
 
@@ -711,24 +711,26 @@ export class ResumenCierre {
   entradasRevision = computed(() => {
     const c = this.caja();
     if (c.entradasFisicasEsperadas === null) return null;
-    // Cuántas entradas del talonario deberían cortarse: sólo cuentan los tipos que entregan
-    // una entrada física (no toda venta paga la entrega — ver TipoEntrada.entregaEntrada).
+    // `entradasFisicasEsperadas` = cuántas DEBERÍAN quedar en el talonario. Agregar una venta
+    // que entrega entrada baja las restantes esperadas; quitarla las sube (sólo cuentan los
+    // tipos con entregaEntrada — ver TipoEntrada.entregaEntrada).
     let dTal = 0;
     const aplica = (tipoId: number, cantidad: number, signo: number) => {
       const tipo = this.tiposEntrada().find((t) => t.id === tipoId);
       if (tipo?.entregaEntrada) dTal += signo * cantidad;
     };
     const { quit, agr } = this.pares();
-    for (const seg of quit) aplica(seg.tipoId, seg.cantidad, -1);
-    for (const e of agr) aplica(e.tipoId, e.cantidad, 1);
+    for (const seg of quit) aplica(seg.tipoId, seg.cantidad, 1);
+    for (const e of agr) aplica(e.tipoId, e.cantidad, -1);
     // las reubicaciones no cambian el conteo de entradas (son las mismas ventas)
 
     const esperadasTalonario = (c.entradasFisicasEsperadas ?? 0) + dTal;
-    const cortadas = this.recuentoRevision().entradasCortadas ?? null;
+    const restantes = this.recuentoRevision().entradasRestantes ?? null;
     return {
       esperadasTalonario,
-      cortadas,
-      diferenciaTalonario: cortadas === null ? null : esperadasTalonario - cortadas,
+      restantes,
+      // restantes − esperadas: negativo = faltan en el talonario, positivo = sobran.
+      diferenciaTalonario: restantes === null ? null : restantes - esperadasTalonario,
       cambio: dTal !== 0,
     };
   });
@@ -740,7 +742,7 @@ export class ResumenCierre {
     const c = this.caja();
     const r = this.recuentoRevision();
     if (r.efectivoContado !== (c.montoContado ?? 0)) return true;
-    if ((r.entradasCortadas ?? null) !== (c.entradasFisicasCortadas ?? null)) return true;
+    if ((r.entradasRestantes ?? null) !== (c.entradasFisicasRestantes ?? null)) return true;
     if ((cc.valor().dolaresContado ?? null) !== (c.dolaresContado ?? null)) return true;
     if (r.combinado !== this.combinadoPosnetGuardado()) return true;
     if (r.combinado) return r.posnetContado !== (c.totalCerradoPosnet ?? 0);
@@ -1040,7 +1042,7 @@ export class ResumenCierre {
       .corregirCaja(this.caja().id, {
         conteoEfectivo: v.conteoEfectivo,
         cierresPosnet: v.cierresPosnet,
-        entradasFisicasCortadas: v.entradasFisicasCortadas!,
+        entradasFisicasRestantes: v.entradasFisicasRestantes!,
         cambioContado: v.cambioContado,
         dolaresContado: v.dolaresContado,
         ajustes,

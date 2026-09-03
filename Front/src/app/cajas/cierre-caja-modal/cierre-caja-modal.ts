@@ -61,7 +61,7 @@ export class CierreCajaModal {
         this.cajaId()!,
         valor.conteoEfectivo,
         valor.cierresPosnet,
-        valor.entradasFisicasCortadas!,
+        valor.entradasFisicasRestantes!,
         valor.cambioContado,
         valor.dolaresContado
       )

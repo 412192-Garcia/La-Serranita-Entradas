@@ -127,14 +127,14 @@
   <section class="seccion-conteo">
     <h4>Entradas</h4>
     <label class="campo-apertura">
-      ¿Cuántas entradas cortaste del talonario?
+      ¿Cuántas entradas quedan en el talonario?
       <input
         type="number"
         min="0"
         inputmode="numeric"
         placeholder="0"
-        [ngModel]="entradasFisicasCortadas()"
-        (ngModelChange)="entradasFisicasCortadas.set($event)" />
+        [ngModel]="entradasFisicasRestantes()"
+        (ngModelChange)="entradasFisicasRestantes.set($event)" />
     </label>
   </section>
 
@@ -154,5 +154,8 @@
       </label>
     </section>
   }
+
+  <!-- Contenido extra en la columna derecha (el modal de cierre proyecta acá "Movimientos de caja"). -->
+  <ng-content />
   </div>
 </div>

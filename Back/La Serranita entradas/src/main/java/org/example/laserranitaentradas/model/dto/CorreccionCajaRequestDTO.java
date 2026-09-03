@@ -14,8 +14,8 @@ public class CorreccionCajaRequestDTO {
     /** Cuántos billetes de cada denominación se contaron; montoContado = Σ denominación×cantidad + cambioContado. */
     private List<ConteoDenominacionDTO> conteoEfectivo;
     private List<CierrePosnetRequestDTO> cierresPosnet;
-    /** Cuántas entradas físicas se cortaron del talonario durante el turno. */
-    private Integer entradasFisicasCortadas;
+    /** Cuántas entradas físicas quedan sin cortar en el talonario (contadas al cerrar). */
+    private Integer entradasFisicasRestantes;
     /** Total en billetes chicos, cargado de una vez. Opcional, default cero. */
     private BigDecimal cambioContado;
     /** Dólares contados. Sólo se exige si la caja tuvo alguna venta en dólares. */

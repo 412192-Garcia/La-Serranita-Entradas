@@ -49,12 +49,12 @@ public interface CajaService {
     CajaResponseDTO registrarIngresoEntradasComoAdmin(Long cajaId, Integer cantidad, String motivo, TipoMovimientoEntradas tipo);
 
     CajaResponseDTO cerrar(Long usuarioId, List<ConteoDenominacionDTO> conteoEfectivo,
-                            List<CierrePosnetRequestDTO> cierresPosnet, Integer entradasFisicasCortadas,
+                            List<CierrePosnetRequestDTO> cierresPosnet, Integer entradasFisicasRestantes,
                             BigDecimal cambioContado, BigDecimal dolaresContado);
 
     /** Igual que cerrar, pero para que un ADMIN cierre la caja de OTRO usuario por id (ADMIN-only, gateado en SecurityConfig). */
     CajaResponseDTO cerrarComoAdmin(Long cajaId, List<ConteoDenominacionDTO> conteoEfectivo,
-                                     List<CierrePosnetRequestDTO> cierresPosnet, Integer entradasFisicasCortadas,
+                                     List<CierrePosnetRequestDTO> cierresPosnet, Integer entradasFisicasRestantes,
                                      BigDecimal cambioContado, BigDecimal dolaresContado);
 
     /**
@@ -66,7 +66,7 @@ public interface CajaService {
      * puede venir null o vacío (corrección de recuento pura).
      */
     CajaResponseDTO corregirCaja(Long cajaId, List<ConteoDenominacionDTO> conteoEfectivo,
-                                  List<CierrePosnetRequestDTO> cierresPosnet, Integer entradasFisicasCortadas,
+                                  List<CierrePosnetRequestDTO> cierresPosnet, Integer entradasFisicasRestantes,
                                   BigDecimal cambioContado, BigDecimal dolaresContado,
                                   List<AjusteCajaRequestDTO> ajustes);
 

@@ -247,33 +247,33 @@ public class CajaServiceImpl implements CajaService {
     @Transactional
     @Override
     public CajaResponseDTO cerrar(Long usuarioId, List<ConteoDenominacionDTO> conteoEfectivo,
-                                   List<CierrePosnetRequestDTO> cierresPosnet, Integer entradasFisicasCortadas,
+                                   List<CierrePosnetRequestDTO> cierresPosnet, Integer entradasFisicasRestantes,
                                    BigDecimal cambioContado, BigDecimal dolaresContado) {
         Caja caja = getAbiertaOrThrow(usuarioId);
-        return cerrarCaja(caja, conteoEfectivo, cierresPosnet, entradasFisicasCortadas, cambioContado, dolaresContado);
+        return cerrarCaja(caja, conteoEfectivo, cierresPosnet, entradasFisicasRestantes, cambioContado, dolaresContado);
     }
 
     @Transactional
     @Override
     public CajaResponseDTO cerrarComoAdmin(Long cajaId, List<ConteoDenominacionDTO> conteoEfectivo,
-                                            List<CierrePosnetRequestDTO> cierresPosnet, Integer entradasFisicasCortadas,
+                                            List<CierrePosnetRequestDTO> cierresPosnet, Integer entradasFisicasRestantes,
                                             BigDecimal cambioContado, BigDecimal dolaresContado) {
         Caja caja = cajaRepository.findById(cajaId)
                 .orElseThrow(() -> new IllegalArgumentException("Caja no encontrada para id: " + cajaId));
         if (caja.getFechaCierre() != null) {
             throw new IllegalStateException("Esta caja ya está cerrada");
         }
-        return cerrarCaja(caja, conteoEfectivo, cierresPosnet, entradasFisicasCortadas, cambioContado, dolaresContado);
+        return cerrarCaja(caja, conteoEfectivo, cierresPosnet, entradasFisicasRestantes, cambioContado, dolaresContado);
     }
 
     /** El cálculo real de cerrar, sobre una caja ya resuelta (propia o, vía admin, ajena). */
     private CajaResponseDTO cerrarCaja(Caja caja, List<ConteoDenominacionDTO> conteoEfectivo,
-                                        List<CierrePosnetRequestDTO> cierresPosnet, Integer entradasFisicasCortadas,
+                                        List<CierrePosnetRequestDTO> cierresPosnet, Integer entradasFisicasRestantes,
                                         BigDecimal cambioContado, BigDecimal dolaresContado) {
         List<ConteoDenominacion> conteo = validarYMapearConteo(conteoEfectivo);
         List<CierrePosnetRequestDTO> cierres = validarCierresPosnet(cierresPosnet);
-        if (entradasFisicasCortadas == null || entradasFisicasCortadas < 0) {
-            throw new IllegalArgumentException("Indicá cuántas entradas cortaste del talonario");
+        if (entradasFisicasRestantes == null || entradasFisicasRestantes < 0) {
+            throw new IllegalArgumentException("Indicá cuántas entradas quedan en el talonario");
         }
         List<Compra> compras = compraRepository.findAllByCajaId(caja.getId());
         BigDecimal montoContado = calcularMontoContado(conteo, cambioContado);
@@ -290,7 +290,7 @@ public class CajaServiceImpl implements CajaService {
         caja.setCambioContado(cambioContado == null ? BigDecimal.ZERO : cambioContado);
         caja.getConteoEfectivo().clear();
         caja.getConteoEfectivo().addAll(conteo);
-        caja.setEntradasFisicasCortadas(entradasFisicasCortadas);
+        caja.setEntradasFisicasRestantes(entradasFisicasRestantes);
         caja.setDolaresContado(dolaresContadoValidado);
 
         Caja guardada = cajaRepository.save(caja);
@@ -395,7 +395,7 @@ public class CajaServiceImpl implements CajaService {
     @Transactional
     @Override
     public CajaResponseDTO corregirCaja(Long cajaId, List<ConteoDenominacionDTO> conteoEfectivo,
-                                         List<CierrePosnetRequestDTO> cierresPosnet, Integer entradasFisicasCortadas,
+                                         List<CierrePosnetRequestDTO> cierresPosnet, Integer entradasFisicasRestantes,
                                          BigDecimal cambioContado, BigDecimal dolaresContado,
                                          List<AjusteCajaRequestDTO> ajustes) {
         Caja caja = cajaRepository.findById(cajaId)
@@ -406,8 +406,8 @@ public class CajaServiceImpl implements CajaService {
 
         List<ConteoDenominacion> conteo = validarYMapearConteo(conteoEfectivo);
         List<CierrePosnetRequestDTO> cierres = validarCierresPosnet(cierresPosnet);
-        if (entradasFisicasCortadas == null || entradasFisicasCortadas < 0) {
-            throw new IllegalArgumentException("Indicá cuántas entradas cortaste del talonario");
+        if (entradasFisicasRestantes == null || entradasFisicasRestantes < 0) {
+            throw new IllegalArgumentException("Indicá cuántas entradas quedan en el talonario");
         }
 
         LocalDateTime ahora = LocalDateTime.now();
@@ -447,7 +447,7 @@ public class CajaServiceImpl implements CajaService {
         caja.setCambioContado(cambioContado == null ? BigDecimal.ZERO : cambioContado);
         caja.getConteoEfectivo().clear();
         caja.getConteoEfectivo().addAll(conteo);
-        caja.setEntradasFisicasCortadas(entradasFisicasCortadas);
+        caja.setEntradasFisicasRestantes(entradasFisicasRestantes);
         caja.setDolaresContado(dolaresContadoValidado);
 
         Caja guardada = cajaRepository.save(caja);
@@ -548,7 +548,7 @@ public class CajaServiceImpl implements CajaService {
         // cerrarCaja vuelve a guardar los cierres de posnet tal cual se le pasen: sin borrar
         // los viejos primero quedarían duplicados (mismo criterio que corregirCaja).
         cierrePosnetRepository.deleteAllByCajaId(cajaId);
-        return cerrarCaja(caja, conteo, posnet, caja.getEntradasFisicasCortadas(), caja.getCambioContado(), caja.getDolaresContado());
+        return cerrarCaja(caja, conteo, posnet, caja.getEntradasFisicasRestantes(), caja.getCambioContado(), caja.getDolaresContado());
     }
 
     @Override
@@ -576,7 +576,7 @@ public class CajaServiceImpl implements CajaService {
                     .mapToInt(i -> i.getTipo() == TipoMovimientoEntradas.RETIRO ? -i.getCantidad() : i.getCantidad())
                     .sum();
             entradasFisicasRestantes = caja.getEntradasFisicasInicial() + ingresosNetos
-                    - calcularEntradasEsperadas(compras, ajustes);
+                    - calcularEntradasEntregadas(compras, ajustes);
         }
 
         return CajaDetalleAbiertaDTO.builder()
@@ -844,11 +844,12 @@ public class CajaServiceImpl implements CajaService {
     }
 
     /**
-     * Cuántas entradas debería haber cortado el boletero según lo que el sistema registró como
-     * entregado, más el impacto de los ajustes manuales (una venta agregada suma sus pases al
-     * talonario esperado; una quitada los resta).
+     * Cuántas entradas del talonario entregó el sistema (pases de tipos con entregaEntrada en
+     * ventas no canceladas), más el impacto de los ajustes manuales (una venta agregada suma
+     * sus pases, una quitada los resta). Es "lo que se cortó según el sistema"; el talonario
+     * esperado que queda es inicial + ingresos − esto.
      */
-    private int calcularEntradasEsperadas(List<Compra> compras, List<AjusteCaja> ajustes) {
+    private int calcularEntradasEntregadas(List<Compra> compras, List<AjusteCaja> ajustes) {
         int base = compras.stream()
                 .filter(c -> c.getEstado() != EstadoCompra.CANCELADO)
                 .flatMap(c -> c.getDetalles().stream())
@@ -1130,15 +1131,22 @@ public class CajaServiceImpl implements CajaService {
                             .build())
                     .toList();
 
-            entradasFisicasEsperadas = calcularEntradasEsperadas(compras, ajustes);
-            if (caja.getEntradasFisicasCortadas() != null) {
-                // Mismo criterio que la diferencia de efectivo (contado − esperado): positivo es
-                // sobrante, negativo es faltante. Acá "lo esperado que quede en el talonario" es
-                // inicial − entradasFisicasEsperadas y "lo que quedó de verdad" es inicial −
-                // cortadas; restando el inicial de los dos lados queda esperadas − cortadas. Si
-                // cortó MÁS de lo que las ventas justifican (cortadas > esperadas), faltan
-                // entradas en el talonario — no sobran.
-                diferenciaEntradas = entradasFisicasEsperadas - caja.getEntradasFisicasCortadas();
+            // Cuántas entradas DEBERÍAN quedar en el talonario: con las que arrancó, más lo que
+            // se repuso a mitad de turno, menos lo que el sistema entregó. Null si la caja no
+            // tiene inicial cargado (turnos previos a ese campo) — sin eso no hay contra qué
+            // comparar. Misma fórmula que getOperacionesCaja para la caja abierta.
+            if (caja.getEntradasFisicasInicial() != null) {
+                int ingresosNetos = ingresosMovimientos.stream()
+                        .mapToInt(i -> i.getTipo() == TipoMovimientoEntradas.RETIRO ? -i.getCantidad() : i.getCantidad())
+                        .sum();
+                entradasFisicasEsperadas = caja.getEntradasFisicasInicial() + ingresosNetos
+                        - calcularEntradasEntregadas(compras, ajustes);
+                if (caja.getEntradasFisicasRestantes() != null) {
+                    // restantes − esperadas, mismo criterio que la diferencia de efectivo
+                    // (contado − esperado): negativo = faltan en el talonario (se cortaron de
+                    // más), positivo = sobran.
+                    diferenciaEntradas = caja.getEntradasFisicasRestantes() - entradasFisicasEsperadas;
+                }
             }
 
             operaciones = construirOperaciones(compras, movimientos, ingresosMovimientos);
@@ -1213,7 +1221,7 @@ public class CajaServiceImpl implements CajaService {
                 .cierresPosnet(cierresDto)
                 .ajustes(ajustesDto)
                 .entradasFisicasInicial(caja.getEntradasFisicasInicial())
-                .entradasFisicasCortadas(caja.getEntradasFisicasCortadas())
+                .entradasFisicasRestantes(caja.getEntradasFisicasRestantes())
                 .entradasFisicasEsperadas(entradasFisicasEsperadas)
                 .diferenciaEntradas(diferenciaEntradas)
                 .totalIngresosEntradas(totalIngresosEntradas)

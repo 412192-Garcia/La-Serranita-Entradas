@@ -60,9 +60,11 @@ public class CajaResponseDTO {
     private BigDecimal diferenciaDolares;
 
     private Integer entradasFisicasInicial;
-    private Integer entradasFisicasCortadas;
-    /** Null mientras sigue ABIERTA. */
+    /** Cuántas entradas quedaron sin cortar en el talonario, contadas al cerrar. Null mientras sigue ABIERTA. */
+    private Integer entradasFisicasRestantes;
+    /** Cuántas DEBERÍAN quedar en el talonario (inicial + ingresos − entregadas). Null si la caja no tiene inicial cargado o sigue ABIERTA. */
     private Integer entradasFisicasEsperadas;
+    /** restantes − esperadas: negativo = faltan en el talonario, positivo = sobran. */
     private Integer diferenciaEntradas;
     private Integer totalIngresosEntradas;
     private List<IngresoEntradasResponseDTO> ingresosEntradas;

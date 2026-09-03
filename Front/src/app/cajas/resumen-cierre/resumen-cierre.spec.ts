@@ -52,7 +52,7 @@ describe('ResumenCierre — matriz con descuentos', () => {
       totalVentasTarjeta: 0, totalVentasQr: 0, totalCerradoTarjeta: 0, totalCerradoQr: 0,
       diferenciaTarjeta: 0, diferenciaQr: 0, totalVentasPosnet: null, totalCerradoPosnet: null,
       diferenciaPosnet: null, cierresPosnet: [],
-      entradasFisicasInicial: 100, entradasFisicasCortadas: 4, entradasFisicasEsperadas: 4,
+      entradasFisicasInicial: 100, entradasFisicasRestantes: 4, entradasFisicasEsperadas: 4,
       diferenciaEntradas: 0, totalIngresosEntradas: 0, ingresosEntradas: [],
       operaciones, ajustes: [], totalEntradasPagas: 4, entradasVendidasPorTipo: [],
       huboVentaDolares: false, dolaresEsperado: null, dolaresContado: null, diferenciaDolares: null,
@@ -174,13 +174,13 @@ describe('ResumenCierre — matriz con descuentos', () => {
     const c = montar([venta(10, 18000)]);
     const conteo = c.conteoCierre();
 
-    // La cajera había puesto 55 entradas cortadas de más.
-    conteo.entradasFisicasCortadas.set(9);
+    // La cajera había contado mal las entradas que quedaban.
+    conteo.entradasFisicasRestantes.set(9);
     expect(c.hayCambios()).toBe(true);
 
     c.aplicar();
     const payload = corregirCaja.mock.calls[0][1];
-    expect(payload.entradasFisicasCortadas).toBe(9);
+    expect(payload.entradasFisicasRestantes).toBe(9);
     expect(payload.ajustes).toEqual([]);
   });
 });

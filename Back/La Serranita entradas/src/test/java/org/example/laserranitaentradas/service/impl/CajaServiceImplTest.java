@@ -486,7 +486,7 @@ class CajaServiceImplTest {
     }
 
     @Test
-    void cerrar_calculaLaDiferenciaDeEntradasFisicas_soloContandoLosTiposQueEntreganEntrada() {
+    void cerrar_calculaLasEntradasRestantesEsperadas_soloContandoLosTiposQueEntreganEntrada() {
         Caja cajaAbierta = cajaAbierta(7L, "5000", 100);
         when(cajaRepository.findByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(Optional.of(cajaAbierta));
 
@@ -509,22 +509,17 @@ class CajaServiceImplTest {
         when(cierrePosnetRepository.findAllByCajaIdOrderByIdAsc(7L)).thenReturn(List.of());
         when(cajaRepository.save(any(Caja.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        // Cortó 20 (menos de lo que el sistema dice que se entregó).
-        var respuesta = service.cerrar(USUARIO_ID, List.of(conteo(1000, 55)), List.of(), 20, null, null);
+        // El boletero contó 70 entradas todavía en el talonario.
+        var respuesta = service.cerrar(USUARIO_ID, List.of(conteo(1000, 55)), List.of(), 70, null, null);
 
-        // esperadas = 25 (sólo el tipo que entrega entrada; el menor no cuenta, el inicial ya no influye)
-        assertThat(respuesta.getEntradasFisicasEsperadas()).isEqualTo(25);
-        // diferencia = 25 (esperadas) - 20 (cortadas) = 5: cortó menos de lo que las ventas
-        // justificaban, así que sobran 5 entradas sin usar en el talonario (mismo criterio que
-        // la diferencia de efectivo: positivo es sobrante).
-        assertThat(respuesta.getDiferenciaEntradas()).isEqualTo(5);
+        // esperadas que queden = 100 (inicial) − 25 (entregadas; el menor no consume talonario) = 75
+        assertThat(respuesta.getEntradasFisicasEsperadas()).isEqualTo(75);
+        // 70 (restantes reales) − 75 (esperadas) = −5: faltan 5 en el talonario (se cortaron de más).
+        assertThat(respuesta.getDiferenciaEntradas()).isEqualTo(-5);
     }
 
     @Test
-    void cerrar_noUsaEntradasFisicasInicialNiIngresosParaLaDiferenciaDeEntradas() {
-        // A diferencia del régimen viejo (comparaba contra lo que "debería quedar" en el
-        // talonario), ahora sólo importa cuánto entregó el sistema vs. cuánto dice haber
-        // cortado el boletero — inicial e ingresos ya no entran en esta cuenta.
+    void cerrar_lasEntradasRestantesEsperadasCuentanLosIngresosDeTalonario() {
         Caja cajaAbierta = cajaAbierta(7L, "5000", 100);
         when(cajaRepository.findByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(Optional.of(cajaAbierta));
 
@@ -539,20 +534,23 @@ class CajaServiceImplTest {
         when(compraRepository.findAllByCajaId(7L)).thenReturn(List.of(compra));
         when(retiroCajaRepository.findAllByCajaIdOrderByFechaAsc(7L)).thenReturn(List.of());
         when(cierrePosnetRepository.findAllByCajaIdOrderByIdAsc(7L)).thenReturn(List.of());
+        IngresoEntradas reposicion = new IngresoEntradas();
+        reposicion.setCantidad(40);
+        reposicion.setTipo(TipoMovimientoEntradas.INGRESO);
+        when(ingresoEntradasRepository.findAllByCajaIdOrderByFechaAsc(7L)).thenReturn(List.of(reposicion));
         when(cajaRepository.save(any(Caja.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        var respuesta = service.cerrar(USUARIO_ID, List.of(conteo(1000, 60)), List.of(), 30, null, null);
+        var respuesta = service.cerrar(USUARIO_ID, List.of(conteo(1000, 60)), List.of(), 110, null, null);
 
-        // esperadas = 30 (lo entregado), ignora los 100 iniciales; cortó exactamente eso.
-        assertThat(respuesta.getEntradasFisicasEsperadas()).isEqualTo(30);
+        // esperadas = 100 (inicial) + 40 (repuestas a mitad de turno) − 30 (entregadas) = 110; cerró justo.
+        assertThat(respuesta.getEntradasFisicasEsperadas()).isEqualTo(110);
         assertThat(respuesta.getDiferenciaEntradas()).isEqualTo(0);
     }
 
     @Test
-    void cerrar_conCajaSinEntradasFisicasInicialCargada_igualCalculaLaDiferencia() {
-        // entradasFisicasInicial ya no interviene en el cálculo de entradas: aunque esta
-        // caja no lo tenga cargado (turnos previos a ese campo), la diferencia de cortadas
-        // se sigue calculando igual.
+    void cerrar_conCajaSinEntradasFisicasInicialCargada_noCalculaEsperadasNiDiferencia() {
+        // Sin inicial (turnos previos a ese campo) no hay contra qué comparar: sólo se guarda
+        // el número de restantes, sin esperadas ni diferencia.
         Caja cajaVieja = cajaAbierta(7L, "5000", null);
         when(cajaRepository.findByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(Optional.of(cajaVieja));
         when(compraRepository.findAllByCajaId(7L)).thenReturn(List.of());
@@ -562,10 +560,9 @@ class CajaServiceImplTest {
 
         var respuesta = service.cerrar(USUARIO_ID, List.of(), List.of(), 30, null, null);
 
-        // esperadas = 0 (no hubo ventas que entregaran entrada); cortó 30 sin que ninguna venta
-        // lo justifique = faltan 30 en el talonario (diferencia = 0 - 30 = -30).
-        assertThat(respuesta.getEntradasFisicasEsperadas()).isEqualTo(0);
-        assertThat(respuesta.getDiferenciaEntradas()).isEqualTo(-30);
+        assertThat(respuesta.getEntradasFisicasRestantes()).isEqualTo(30);
+        assertThat(respuesta.getEntradasFisicasEsperadas()).isNull();
+        assertThat(respuesta.getDiferenciaEntradas()).isNull();
     }
 
     @Test
@@ -880,7 +877,7 @@ class CajaServiceImplTest {
         // cuando se cerró la primera vez todavía está ahí (reabrir no lo toca).
         Caja cajaReabierta = cajaAbierta(7L, "5000", 50);
         cajaReabierta.setUsuario(usuarioConId(USUARIO_ID));
-        cajaReabierta.setEntradasFisicasCortadas(40);
+        cajaReabierta.setEntradasFisicasRestantes(40);
         cajaReabierta.getConteoEfectivo().add(new org.example.laserranitaentradas.model.entity.ConteoDenominacion(100, 500));
         when(cajaRepository.findById(7L)).thenReturn(Optional.of(cajaReabierta));
         when(cajaRepository.save(any(Caja.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -1029,7 +1026,6 @@ class CajaServiceImplTest {
         Caja caja = cajaCerradaDeUsuario(7L, USUARIO_ID);
         caja.setMontoContado(new BigDecimal("50000"));
         caja.setEntradasFisicasInicial(100);
-        caja.setEntradasFisicasCortadas(30);
         when(cajaRepository.findById(7L)).thenReturn(Optional.of(caja));
         when(cajaRepository.save(any(Caja.class))).thenAnswer(inv -> inv.getArgument(0));
         when(compraRepository.findAllByCajaId(7L)).thenReturn(List.of()); // base de entradas = 0
@@ -1059,10 +1055,12 @@ class CajaServiceImplTest {
         req.setDetalle("3x General");
         req.setLineas(Map.of(1L, 3));
 
+        // El boletero contó 30 entradas todavía en el talonario.
         var respuesta = service.corregirCaja(7L, List.of(conteo(100, 500)), List.of(), 30, null, null, List.of(req));
 
-        assertThat(respuesta.getEntradasFisicasEsperadas()).isEqualTo(6);   // base 0 + 6 del ajuste
-        assertThat(respuesta.getDiferenciaEntradas()).isEqualTo(6 - 30);     // esperadas − cortadas
+        // esperadas que queden = 100 (inicial) − 6 (entregadas por el ajuste) = 94
+        assertThat(respuesta.getEntradasFisicasEsperadas()).isEqualTo(94);
+        assertThat(respuesta.getDiferenciaEntradas()).isEqualTo(30 - 94);   // restantes − esperadas
         assertThat(respuesta.getTotalEntradasPagas()).isEqualTo(6);
         assertThat(respuesta.getEntradasVendidasPorTipo())
                 .anySatisfy(e -> {
