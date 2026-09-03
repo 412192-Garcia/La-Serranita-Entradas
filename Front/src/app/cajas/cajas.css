@@ -140,10 +140,14 @@
   flex-direction: column;
   gap: 14px;
   padding: 18px 16px;
-  margin-bottom: 4px;
+  margin-bottom: 14px;
   border-radius: 0 0 var(--radius-sm) var(--radius-sm);
   background-color: var(--color-bg-soft);
+  /* Recuadro completo (no sólo el borde superior): sin los lados y el fondo, cuesta ver dónde
+     termina el detalle desplegado y dónde sigue la lista de cajas. */
+  border: 1px solid var(--color-border);
   border-top: 2px solid var(--color-primary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
 /* ---------- Responsive ---------- */
