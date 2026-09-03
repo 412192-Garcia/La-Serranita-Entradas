@@ -942,6 +942,18 @@ public class CajaServiceImpl implements CajaService {
                 .map(d -> d.getTipoEntrada().getPrecio().multiply(BigDecimal.valueOf(d.getCantidad())))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
+        // Descuento de la compra, igual para todos sus segmentos: si fue una promo de %, ese %
+        // (exacto aunque la compra tenga varias líneas); si no, el $ que salió (promo de monto
+        // fijo o descuento manual, donde sólo se conoce el importe).
+        BigDecimal descuentoPorcentaje = compra.getPromocion() != null
+                ? compra.getPromocion().getPorcentajeDescuento() : null;
+        BigDecimal descuentoMonto = null;
+        if (descuentoPorcentaje == null
+                && compra.getDescuentoAplicado() != null
+                && compra.getDescuentoAplicado().signum() > 0) {
+            descuentoMonto = compra.getDescuentoAplicado();
+        }
+
         List<SegmentoEntradaDTO> out = new ArrayList<>();
         BigDecimal acumulado = BigDecimal.ZERO;
         for (int i = 0; i < lineas.size(); i++) {
@@ -961,6 +973,8 @@ public class CajaServiceImpl implements CajaService {
                     .tipoNombre(d.getTipoEntrada().getNombre())
                     .cantidad(d.getCantidad())
                     .monto(monto)
+                    .descuentoPorcentaje(descuentoPorcentaje)
+                    .descuentoMonto(descuentoMonto)
                     .build());
         }
         return out;

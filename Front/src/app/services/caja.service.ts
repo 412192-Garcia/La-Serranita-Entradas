@@ -49,6 +49,10 @@ export interface SegmentoEntrada {
   cantidad: number;
   /** Parte del monto de la compra atribuida a esta línea. */
   monto: number;
+  /** Descuento con el que se cobró: uno de los dos, o ninguno. `descuentoPorcentaje` si fue
+   * promo de %, `descuentoMonto` si fue promo de monto fijo o descuento manual. */
+  descuentoPorcentaje: number | null;
+  descuentoMonto: number | null;
 }
 
 export interface OperacionCaja {

@@ -365,6 +365,38 @@
 
 .firma-desglose {
   color: var(--color-text);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* "5x Pase General" cuando se abre en sub-líneas por descuento: es una línea más del resumen
+   (mismo estilo y monto que cualquier otra); lo único que la marca como grupo son las
+   sub-líneas rieladas que cuelgan debajo. */
+.fila-desglose-titulo {
+  padding-bottom: 1px;
+}
+
+/* Sub-líneas por descuento: rieladas, indentadas y más tenues que la fila que las agrupa. */
+.fila-desglose-sub {
+  margin-left: 3px;
+  padding: 2px 0 2px 12px;
+  border-left: 2px solid var(--color-border);
+  font-size: 0.8rem;
+}
+
+.fila-desglose-sub:last-of-type {
+  padding-bottom: 4px;
+}
+
+.fila-desglose-sub .firma-desglose,
+.fila-desglose-sub .cantidad-desglose {
+  color: var(--color-text-muted);
+}
+
+.fila-desglose-sub .monto-desglose {
+  font-weight: 500;
+  color: var(--color-text-muted);
 }
 
 .cantidad-desglose {
@@ -432,6 +464,52 @@
   border-bottom: none;
 }
 
+/* Bloque de un mismo tamaño de grupo con varias sub-filas (normal + con descuento): el "10×"
+   va una sola vez, centrado vertical a la izquierda, y las sub-filas cuelgan sin separador duro. */
+.grupo-multi {
+  position: relative;
+  border-bottom: 1px solid var(--color-border);
+  padding-left: 2px;
+}
+
+.grupo-multi:last-child {
+  border-bottom: none;
+}
+
+.grupo-multi-num {
+  position: absolute;
+  left: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.83rem;
+  color: var(--color-text);
+}
+
+.grupo-multi .fila-matriz {
+  border-bottom: none;
+  padding-top: 5px;
+  padding-bottom: 5px;
+}
+
+.grupo-multi .fila-matriz:not(:last-child) {
+  border-bottom: 1px dashed var(--color-border);
+}
+
+/* Deja lugar al "10×" absoluto y sangra las etiquetas para que se lean como parte del bloque. */
+.firma-en-grupo {
+  padding-left: 42px;
+}
+
+.etiqueta-sin-desc {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  background-color: var(--color-bg-soft);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+
 .fila-matriz-header {
   font-size: 0.7rem;
   font-weight: 800;
@@ -450,6 +528,26 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+
+/* Filas con descuento: la firma va en gris (el pill de descuento tiene su propio color). */
+.fila-matriz-descuento .firma-matriz {
+  color: var(--color-text-secondary);
+}
+
+.etiqueta-descuento {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--color-primary-dark);
+  background-color: var(--color-primary-light);
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+
+.preview-monto-nueva {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--color-text-secondary);
 }
 
 .btn-quitar-composicion {
