@@ -172,6 +172,12 @@
     }
 
     <p class="titulo-totales-revision">Cómo quedaría el cierre con estos cambios</p>
+    <p class="linea-arranque-caja">
+      La caja arrancó el turno con <strong>{{ caja().montoInicial | pesos }}</strong> de fondo
+      @if (caja().totalRetiros > 0) {
+        · retiros netos del turno <strong>{{ caja().totalRetiros | pesos }}</strong>
+      }
+    </p>
     <div class="tabla-simple tabla-totales-revision">
       <div class="fila-simple fila-simple-formaspago fila-simple-header">
         <span>Forma de pago</span><span>Esperado</span><span>Contado</span><span>Diferencia</span>
@@ -287,8 +293,26 @@
       </p>
     }
 
+    <div class="fila-toggles-extra">
+      <button
+        type="button"
+        class="btn-toggle-extra"
+        [class.activo]="mostrarFormVentaExtra()"
+        (click)="mostrarFormVentaExtra.set(!mostrarFormVentaExtra())">
+        {{ mostrarFormVentaExtra() ? '−' : '+' }} Agregar una venta
+      </button>
+      <button
+        type="button"
+        class="btn-toggle-extra"
+        [class.activo]="mostrarFormMontoSuelto()"
+        (click)="mostrarFormMontoSuelto.set(!mostrarFormMontoSuelto())">
+        {{ mostrarFormMontoSuelto() ? '−' : '+' }} Sumar o restar un monto
+      </button>
+    </div>
+
+    @if (mostrarFormVentaExtra()) {
     <div class="form-nueva-composicion">
-      <span class="form-titulo-composicion">¿Falta una venta que no se registró? Agrégala:</span>
+      <span class="form-titulo-composicion">Cargá la venta que faltó: se suma al esperado de esa forma de pago.</span>
       <input
         type="number"
         min="1"
@@ -328,6 +352,7 @@
       }
       <button type="button" class="btn-secundario-caja" (click)="agregarVenta()">Agregar</button>
     </div>
+    }
 
     @if (movimientos().traslados.length > 0 || movimientos().sacados.length > 0 || movimientos().agregados.length > 0) {
       <div class="lista-agregados">
@@ -352,6 +377,7 @@
       </div>
     }
 
+    @if (mostrarFormMontoSuelto()) {
     <div class="form-monto-suelto">
       <select [ngModel]="signoMontoSuelto()" (ngModelChange)="signoMontoSuelto.set($event)" aria-label="Sumar o restar">
         <option value="AGREGAR">Sumar</option>
@@ -378,6 +404,7 @@
         (ngModelChange)="notaMontoSuelto.set($event)" />
       <button type="button" class="btn-secundario-caja" (click)="agregarMontoSuelto()">Agregar</button>
     </div>
+    }
 
     @if (agregados().length > 0) {
       <div class="lista-agregados">

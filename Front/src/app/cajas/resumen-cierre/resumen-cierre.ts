@@ -404,6 +404,12 @@ export class ResumenCierre {
   deshaciendoId = signal<number | null>(null);
   errorRevision = signal<string | null>(null);
 
+  /** Los dos formularios de "agregar algo que falta" (venta no registrada / monto suelto)
+   * arrancan colapsados: la corrección típica es sólo recontar y mover ventas en la grilla,
+   * y tenerlos siempre desplegados amontonaba la columna. */
+  mostrarFormVentaExtra = signal(false);
+  mostrarFormMontoSuelto = signal(false);
+
   /** segmentoIds "sacados" con el − de una celda. Sin par (un +) al aplicar = venta fantasma; con par = reubicación. */
   private removidos = signal<Set<string>>(new Set());
   /** Ventas que el admin agrega (con el + de una celda o con el form). Con par (un −) al aplicar = reubicación; sin par = venta no registrada. */
@@ -912,6 +918,8 @@ export class ResumenCierre {
     this.removidos.set(new Set());
     this.ventasExtra.set([]);
     this.agregados.set([]);
+    this.mostrarFormVentaExtra.set(false);
+    this.mostrarFormMontoSuelto.set(false);
     this.montoSuelto.set(null);
     this.notaMontoSuelto.set('');
     this.nuevaVentaTipoId.set(null);

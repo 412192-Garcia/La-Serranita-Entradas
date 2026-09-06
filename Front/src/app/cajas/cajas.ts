@@ -219,6 +219,15 @@ export class ConfiguracionCajas implements OnInit {
    * (ver cargarCajasCerradas): el ranking necesita TODAS las cajas del rango para sumar por
    * boletero, pero el listado no necesita traerlas todas para mostrar sólo una página. */
   cargar(): void {
+    this.cargarResumen();
+    this.paginaCerradas.set(0);
+    this.cargarCajasCerradas();
+  }
+
+  /** Sólo el reporte agregado del rango (ranking de boleteros, chips de filtro y KPIs de
+   * faltantes/sobrantes). Separado de cargar() para poder refrescarlo sin resetear la
+   * paginación del listado (ver onCajaAjustada). */
+  private cargarResumen(): void {
     this.cargando.set(true);
     this.error.set(null);
     this.reporteService.getResumen(this.desde(), this.hasta()).subscribe({
@@ -232,8 +241,6 @@ export class ConfiguracionCajas implements OnInit {
         this.cargando.set(false);
       },
     });
-    this.paginaCerradas.set(0);
-    this.cargarCajasCerradas();
   }
 
   /** Rojo si faltó plata, verde si sobró o cerró justo. Sirve para cualquier diferencia (efectivo o posnet). */
@@ -269,11 +276,13 @@ export class ConfiguracionCajas implements OnInit {
   }
 
   /** El admin aplicó o deshizo un ajuste de formas de pago desde el resumen: la respuesta ya trae
-   * la caja recalculada. Refresca el detalle desplegado y la fila del listado (cambió la diferencia). */
+   * la caja recalculada. Refresca el detalle desplegado, la fila del listado y el reporte agregado
+   * (el ranking de boleteros y los KPIs de faltantes/sobrantes también cambian con el ajuste). */
   onCajaAjustada(c: Caja): void {
     if (this.filaExpandidaId() === c.id) {
       this.cajaDetalle.set(c);
     }
+    this.cargarResumen();
     this.cargarCajasCerradas();
   }
 

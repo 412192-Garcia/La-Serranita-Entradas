@@ -725,6 +725,15 @@
   min-width: 120px;
 }
 
+/* Al estar detrás de un toggle, se muestran como un panel desplegado, no como controles sueltos. */
+.form-nueva-composicion,
+.form-monto-suelto {
+  padding: 10px;
+  background-color: var(--color-bg-soft);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
 .lista-agregados {
   display: flex;
   flex-wrap: wrap;
@@ -823,6 +832,51 @@
   text-transform: uppercase;
   letter-spacing: 0.3px;
   color: var(--color-text-muted);
+}
+
+.linea-arranque-caja {
+  margin: 0 0 10px;
+  font-size: 0.82rem;
+  color: var(--color-text-secondary);
+}
+
+.linea-arranque-caja strong {
+  color: var(--color-text);
+  font-weight: 800;
+}
+
+/* Los dos "agregar algo que falta": chips desplegables para no amontonar la columna con
+   dos formularios siempre visibles y casi iguales. */
+.fila-toggles-extra {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.btn-toggle-extra {
+  padding: 6px 12px;
+  border: 1.5px dashed var(--color-border);
+  background-color: var(--color-card-bg);
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.btn-toggle-extra:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary-dark);
+}
+
+.btn-toggle-extra.activo {
+  border-style: solid;
+  border-color: var(--color-primary);
+  background-color: var(--color-bg-soft);
+  color: var(--color-primary-dark);
 }
 
 .tabla-totales-revision {
