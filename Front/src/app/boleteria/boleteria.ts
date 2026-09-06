@@ -17,6 +17,7 @@ import { PesosPipe } from '../shared/pesos.pipe';
 import { TourStep } from '../shared/tour/tour';
 import { DetectorEscaneoDni, esEscaneoDocumento, extraerDniDeEscaneo } from '../shared/escaner-dni.util';
 import { aFechaISO } from '../shared/fecha.util';
+import { ReservaVista, aVista, etiquetaGrupoFecha } from '../shared/reserva-vista.util';
 
 /** ~6 pasos, todos apuntando a elementos siempre presentes en el DOM (nada detrás de "Más
  * filtros" ni de una fila de resultado puntual, que dependen de los datos del momento). */
@@ -59,28 +60,6 @@ function fechaComoInput(d: Date): string {
 
 function hoyComoFechaInput(): string {
   return aFechaISO(new Date());
-}
-
-/** "Hoy"/"Mañana"/"Ayer" cuando aplica; null para el resto, que se muestra como día de semana + fecha corta. */
-function etiquetaRelativaFecha(fechaVisita: string, hoy: string): string | null {
-  if (fechaVisita === hoy) return 'Hoy';
-  const dHoy = new Date(hoy + 'T00:00:00');
-  const dVisita = new Date(fechaVisita + 'T00:00:00');
-  const diffDias = Math.round((dVisita.getTime() - dHoy.getTime()) / 86400000);
-  if (diffDias === 1) return 'Mañana';
-  if (diffDias === -1) return 'Ayer';
-  return null;
-}
-
-const DIAS_SEMANA = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
-
-/** Encabezado de cada "contenedor" del día en la vista agrupada: relativa si aplica (Hoy/Mañana/Ayer), si no día de semana + fecha completa. */
-function etiquetaGrupoFecha(fechaVisita: string, hoy: string): string {
-  const relativa = etiquetaRelativaFecha(fechaVisita, hoy);
-  if (relativa) return relativa;
-  const d = new Date(fechaVisita + 'T00:00:00');
-  return `${DIAS_SEMANA[d.getDay()]} ${d.getDate()} de ${MESES[d.getMonth()]}`;
 }
 
 /** Un "contenedor" de la vista agrupada por día (sólo se arma cuando `todasLasFechas()` está activo). */
@@ -132,64 +111,6 @@ function alternar<T>(actuales: ReadonlySet<T>, valor: T): ReadonlySet<T> {
 
 function mismosElementos<T>(conjunto: ReadonlySet<T>, esperados: readonly T[]): boolean {
   return conjunto.size === esperados.length && esperados.every((e) => conjunto.has(e));
-}
-
-/** A nivel de módulo para no reconstruir el objeto en cada lectura. */
-const ETIQUETAS_ESTADO: Record<EstadoCompra, string> = {
-  APROBADO: 'Pagada online',
-  RESERVADO_EFECTIVO: 'A cobrar en caja',
-  USADO: 'Ya utilizada',
-  PENDIENTE_PAGO: 'Pago pendiente',
-  CANCELADO: 'Cancelada',
-  VENDIDO_EN_PUERTA: 'Vendida en puerta',
-  REEMBOLSADA: 'Reembolsada',
-};
-
-interface DetalleLinea {
-  nombre: string;
-  cantidad: number;
-}
-
-/**
- * Reserva ya preparada para el template: pases/extras separados, etiqueta de estado
- * resuelta y la etiqueta relativa de fecha ("Hoy"/"Mañana"/"Ayer" o null si hay que
- * mostrar día de semana + fecha corta), todo calculado una sola vez por resultado en
- * lugar de recalcularse en cada ciclo de detección de cambios.
- */
-interface ReservaVista {
-  reserva: Reserva;
-  pases: DetalleLinea[];
-  extras: DetalleLinea[];
-  totalPases: number;
-  etiquetaFecha: string | null;
-  etiquetaEstado: string;
-}
-
-function aVista(reserva: Reserva, hoy: string): ReservaVista {
-  const pases: DetalleLinea[] = [];
-  const extras: DetalleLinea[] = [];
-  let totalPases = 0;
-
-  for (const detalle of reserva.detalles ?? []) {
-    const tipo = detalle.tipoEntrada;
-    if (!tipo) continue;
-
-    if (tipo.tipo === 'ENTRADA') {
-      pases.push({ nombre: tipo.nombre, cantidad: detalle.cantidad });
-      totalPases += detalle.cantidad;
-    } else {
-      extras.push({ nombre: tipo.nombre, cantidad: detalle.cantidad });
-    }
-  }
-
-  return {
-    reserva,
-    pases,
-    extras,
-    totalPases,
-    etiquetaFecha: reserva.fechaVisita ? etiquetaRelativaFecha(reserva.fechaVisita, hoy) : null,
-    etiquetaEstado: ETIQUETAS_ESTADO[reserva.estado] ?? reserva.estado,
-  };
 }
 
 const TAMANIO_PAGINA = 50;

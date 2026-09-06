@@ -74,12 +74,14 @@
   gap: 8px;
 }
 
+/* Cuatro columnas: quién/qué · cuándo/estado · monto · acción. Con columnas propias los
+   datos quedan alineados entre filas en vez de amontonados contra el borde izquierdo. */
 .fila-anticipada {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(72px, auto) 150px;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 14px;
+  column-gap: 18px;
+  padding: 12px 16px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background-color: var(--color-bg-soft);
@@ -92,7 +94,7 @@
 .datos-anticipada {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   min-width: 0;
 }
 
@@ -101,50 +103,147 @@
   color: var(--color-text);
 }
 
-.meta-anticipada {
-  font-size: 0.82rem;
+.codigo-anticipada {
+  font-size: 0.8rem;
+  font-weight: 600;
   color: var(--color-text-secondary);
 }
 
-.accion-anticipada {
-  flex-shrink: 0;
+/* Columna "cuándo": fecha arriba, badge de estado abajo, alineadas a la derecha para
+   que queden pegadas al monto y la acción (se leen como un bloque). */
+.cuando-col {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
+  text-align: right;
 }
 
-.monto-anticipada {
-  font-weight: 800;
+.fecha-anticipada {
+  font-size: 0.85rem;
+  font-weight: 700;
   color: var(--color-text);
   white-space: nowrap;
 }
 
-/* El .btn-cobrar de pos-caja.css es un botón de cobro a pantalla completa: acá es una acción
-   de fila, así que se compacta. */
-.accion-anticipada .btn-cobrar {
-  flex: 0 0 auto;
-  padding: 10px 16px;
+/* ---------- Badge de estado (mismo criterio de color que Control de Accesos) ---------- */
+.badge-anticipada {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+
+.badge-anticipada-APROBADO {
+  background-color: var(--color-primary-light);
+  color: var(--color-primary-dark);
+}
+
+.badge-anticipada-RESERVADO_EFECTIVO {
+  background-color: var(--color-accent-light);
+  color: var(--color-accent-dark);
+}
+
+.badge-anticipada-USADO {
+  background-color: var(--color-danger-light);
+  color: var(--color-danger-dark);
+}
+
+/* ---------- Pases y extras ---------- */
+.detalle-anticipada {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+}
+
+.detalle-anticipada .extra {
+  color: var(--color-accent-dark);
+}
+
+.monto-col {
+  justify-self: end;
+  text-align: right;
+}
+
+.monto-anticipada {
+  font-family: var(--font-heading);
+  font-weight: 800;
+  color: var(--color-accent-dark);
+  white-space: nowrap;
+}
+
+.accion-col {
+  justify-self: stretch;
+  text-align: right;
+}
+
+/* ---------- Botones de acción: verde para validar, ámbar para cobrar ---------- */
+.btn-fila-anticipada {
+  width: 100%;
+  padding: 10px 18px;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: inherit;
   font-size: 0.9rem;
+  font-weight: 700;
+  color: #fff;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.18s ease;
+}
+
+.btn-fila-validar {
+  background-color: var(--color-primary);
+}
+
+.btn-fila-validar:hover:not(:disabled) {
+  background-color: var(--color-primary-dark);
+}
+
+.btn-fila-cobrar {
+  background-color: var(--color-accent-dark);
+}
+
+.btn-fila-cobrar:hover:not(:disabled) {
+  background-color: #a35f1a;
+}
+
+.btn-fila-anticipada:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .texto-ingreso {
   font-size: 0.85rem;
   font-weight: 700;
-  color: var(--color-primary-dark);
+  color: var(--color-danger-dark);
   white-space: nowrap;
 }
 
-@media (max-width: 520px) {
+@media (max-width: 640px) {
+  /* En angosto se apila: datos, cuándo/estado, monto y el botón a lo ancho. */
   .fila-anticipada {
-    flex-direction: column;
-    align-items: stretch;
+    grid-template-columns: 1fr;
+    row-gap: 8px;
   }
 
-  .accion-anticipada {
-    justify-content: space-between;
+  .cuando-col {
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    text-align: left;
   }
 
-  .accion-anticipada .btn-cobrar {
-    flex: 1;
+  .monto-col,
+  .accion-col {
+    justify-self: stretch;
+    text-align: left;
   }
 }

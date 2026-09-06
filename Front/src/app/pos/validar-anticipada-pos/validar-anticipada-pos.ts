@@ -1,9 +1,11 @@
-import { Component, effect, inject, input, output, signal } from '@angular/core';
+import { Component, computed, effect, inject, input, output, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { BoleteriaService, Reserva } from '../../services/boleteria.service';
 import { PesosPipe } from '../../shared/pesos.pipe';
 import { Spinner } from '../../shared/spinner/spinner';
+import { aFechaISO } from '../../shared/fecha.util';
+import { ReservaVista, aVista } from '../../shared/reserva-vista.util';
 import { LucideX } from '@lucide/angular';
 
 /**
@@ -17,6 +19,9 @@ import { LucideX } from '@lucide/angular';
  *    el backend cierra la reserva existente en vez de crear otra compra.
  *
  * Todo lo demás (ventas de puerta, ya usadas, errores de tipeo) cae al link a Control de Accesos.
+ *
+ * La fila muestra lo mismo que Control de Accesos (ver reserva-vista.util): badge de estado,
+ * fecha relativa ("Hoy"/"Mañana"/"vie 12/09") y el detalle de pases y extras.
  */
 @Component({
   selector: 'app-validar-anticipada-pos',
@@ -39,6 +44,12 @@ export class ValidarAnticipadaPos {
   reservas = signal<Reserva[]>([]);
   procesandoId = signal<number | null>(null);
   errorAccion = signal<string | null>(null);
+
+  /** Reservas preparadas para el template (pases/extras separados, etiquetas resueltas). */
+  vistas = computed<ReservaVista[]>(() => {
+    const hoy = aFechaISO(new Date());
+    return this.reservas().map((r) => aVista(r, hoy));
+  });
 
   constructor() {
     // El DNI puede cambiar sin destruir el panel: si el boletero escanea otro documento
@@ -63,13 +74,6 @@ export class ValidarAnticipadaPos {
           this.cargando.set(false);
         },
       });
-  }
-
-  /** Unidades de entrada (no extras) de la reserva. */
-  pases(r: Reserva): number {
-    return (r.detalles ?? [])
-      .filter((d) => d.tipoEntrada?.tipo === 'ENTRADA')
-      .reduce((acc, d) => acc + d.cantidad, 0);
   }
 
   /** Compra pagada online (APROBADO) → habilita el ingreso y deja el POS limpio. */
