@@ -53,6 +53,10 @@ export class CrearReserva {
   etapa = signal(EtapaReserva.SELECCION);
   datos: DatosReserva = datosVacios();
 
+  /** El admin marcó "Entrada sin fecha": la reserva queda sin día fijo (fechaVisita null), a
+   * nombre del titular, para usar cualquier día — como un regalo pero sin receptor aparte. */
+  sinFecha = signal(false);
+
   creando = signal(false);
   error = signal<string | null>(null);
   resultado = signal<CompraResponseDTO | null>(null);
@@ -63,6 +67,11 @@ export class CrearReserva {
 
   onFecha(fecha: Date | null): void {
     this.datos.fechaVisita = fecha;
+  }
+
+  onSinFecha(valor: boolean): void {
+    this.sinFecha.set(valor);
+    if (valor) this.datos.fechaVisita = null;
   }
 
   onPasoSeleccion(datosPaso: any): void {
@@ -154,6 +163,7 @@ export class CrearReserva {
     this.resultado.set(null);
     this.error.set(null);
     this.datos = datosVacios();
+    this.sinFecha.set(false);
     this.etapa.set(EtapaReserva.SELECCION);
   }
 }

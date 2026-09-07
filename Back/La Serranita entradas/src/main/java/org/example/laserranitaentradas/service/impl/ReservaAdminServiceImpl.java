@@ -27,7 +27,9 @@ public class ReservaAdminServiceImpl implements PagoService {
     @Override
     public PagoResponseDTO procesarPago(Compra compra) {
         Long compraId = compra.getId();
-        boolean esRegalo = compra.getFechaVisita() == null;
+        // Sólo es un regalo (y amerita el mail al receptor) si además hay un receptor cargado.
+        // Una reserva admin sin fecha ni receptor es del propio titular: sólo va el comprobante.
+        boolean esRegalo = compra.getFechaVisita() == null && compra.getReceptorEmail() != null;
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override

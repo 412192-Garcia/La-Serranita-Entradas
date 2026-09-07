@@ -233,19 +233,28 @@ public class CompraServiceImpl implements CompraService {
                 throw new IllegalArgumentException("El parque está cerrado en la fecha solicitada: " + fechaVisita);
             }
         } else {
-            // Un regalo tiene que llegar pagado: si se reservara en efectivo, quien lo recibe
-            // terminaría pagando de su bolsillo en la boletería lo que se supone que le regalaron.
+            // fechaVisita null = sin día fijo. Dos casos:
+            //  - Regalo (compra online): quien compra no es quien entra -> hace falta el receptor
+            //    (a quién avisar y con qué DNI validar). Tiene que llegar pagado (nunca efectivo:
+            //    si no, quien lo recibe termina pagando en la puerta lo que le regalaron).
+            //  - Reserva abierta generada por un ADMIN (invitado, premio): el titular es quien
+            //    entra, se valida con SU DNI, no hace falta receptor.
             if (compraRequest.getFormaPago() == FormaPago.EFECTIVO_BOLETERIA) {
                 throw new IllegalArgumentException("Los regalos sólo se pueden pagar online: no se puede reservar en efectivo.");
             }
             ReceptorRegaloDTO receptor = compraRequest.getReceptor();
-            if (receptor == null || esBlanco(receptor.getNombre()) || esBlanco(receptor.getEmail()) || esBlanco(receptor.getDni())) {
+            boolean receptorCompleto = receptor != null && !esBlanco(receptor.getNombre())
+                    && !esBlanco(receptor.getEmail()) && !esBlanco(receptor.getDni());
+            if (receptorCompleto) {
+                receptorNombre = receptor.getNombre();
+                receptorEmail = receptor.getEmail();
+                receptorDni = receptor.getDni();
+                receptorTelefono = receptor.getTelefono();
+            } else if (compraRequest.getFormaPago() != FormaPago.RESERVA_ADMIN) {
                 throw new IllegalArgumentException("Para comprar como regalo hay que indicar nombre, DNI y email de quien lo recibe.");
+            } else if (clienteDTO == null || esBlanco(clienteDTO.getDni())) {
+                throw new IllegalArgumentException("Indicá el titular (nombre y DNI) para una reserva sin fecha.");
             }
-            receptorNombre = receptor.getNombre();
-            receptorEmail = receptor.getEmail();
-            receptorDni = receptor.getDni();
-            receptorTelefono = receptor.getTelefono();
         }
 
 
@@ -354,7 +363,7 @@ public class CompraServiceImpl implements CompraService {
 
         }
 
-        String codigoReserva = generarCodigoReserva(fechaVisita);
+        String codigoReserva = generarCodigoReserva(fechaVisita, receptorNombre != null);
 
         Compra nuevaCompra = Compra.builder()
                 .cliente(cliente)
@@ -785,15 +794,16 @@ public class CompraServiceImpl implements CompraService {
 
     /**
      * Código visible yyMMdd-N: N es el orden de esta reserva entre todas las que ya
-     * existen para ese mismo día de visita. Para regalos (sin fecha) se usa REGALO-N.
+     * existen para ese mismo día de visita. Sin fecha: REGALO-N si es un regalo (tiene
+     * receptor), ABIERTA-N si es una reserva sin día generada por un admin.
      */
-    private String generarCodigoReserva(LocalDate fechaVisita) {
+    private String generarCodigoReserva(LocalDate fechaVisita, boolean tieneReceptor) {
         if (fechaVisita != null) {
             long numeroDelDia = compraRepository.countByFechaVisita(fechaVisita) + 1;
             return fechaVisita.format(DateTimeFormatter.ofPattern("yyMMdd")) + "-" + numeroDelDia;
         }
-        long numeroRegalo = compraRepository.countByFechaVisitaIsNull() + 1;
-        return "REGALO-" + numeroRegalo;
+        long numeroSinFecha = compraRepository.countByFechaVisitaIsNull() + 1;
+        return (tieneReceptor ? "REGALO-" : "ABIERTA-") + numeroSinFecha;
     }
 
     @Transactional
@@ -893,7 +903,7 @@ public class CompraServiceImpl implements CompraService {
         Compra venta = Compra.builder()
                 .cliente(null)
                 .fechaVisita(hoy)
-                .codigoReserva(generarCodigoReserva(hoy))
+                .codigoReserva(generarCodigoReserva(hoy, false))
                 .montoTotal(montoFinal)
                 .descuentoAplicado(descuento)
                 .detalles(todosLosDetalles)
