@@ -20,6 +20,17 @@ export interface DesgloseTipoEntrada {
   montoBoleteria: number;
 }
 
+/** Personas que cruzaron la puerta por tipo de entrada, por fecha de validación (no de cobro).
+ * Reconcilia con `personasIngresadas`: una anticipada pre-pagada aparece el día que se usó. */
+export interface IngresoPorTipo {
+  tipoEntradaId: number;
+  nombre: string;
+  /** Entraron con una venta de puerta de este tipo. */
+  enPuerta: number;
+  /** Entraron validando una reserva anticipada de este tipo. */
+  conAnticipada: number;
+}
+
 export interface RecaudacionPorFormaPago {
   formaPago: FormaPagoType;
   etiqueta: string;
@@ -113,4 +124,8 @@ export interface ReporteResumen {
   ventasArticulosVarios: VentaArticuloVario[];
   usoPromociones: UsoPromocion[];
   ventasDolares: VentasDolares;
+  /** Ingresos reales por tipo (gente que cruzó la puerta hoy), separados en puerta vs anticipada. */
+  ingresosPorTipo: IngresoPorTipo[];
+  /** Entradas con cargo vendidas en la puerta (POS) y cobradas en el rango. Sin anticipadas ni gratis. */
+  entradasVendidasBoleteria: number;
 }

@@ -9,7 +9,7 @@
 
 .panel {
   width: 100%;
-  max-width: 1200px;
+  max-width: 1360px;
   margin: 0 auto;
   padding: 28px 36px 48px;
   box-sizing: border-box;
@@ -18,10 +18,23 @@
   gap: 20px;
 }
 
-.tarjeta-kpis-hoy {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
+/* El wrapper del tour agrupa la tarjeta de KPIs y la de "por tipo": sin esto quedaban pegadas
+   (el gap de .panel sólo separa a sus hijos directos, y acá el hijo es el wrapper). */
+[data-tour='resumen-hoy'] {
+  display: flex;
+  flex-direction: column;
   gap: 20px;
+}
+
+.tarjeta-kpis-hoy {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 16px 44px;
+}
+
+.tarjeta-kpis-hoy > div {
+  min-width: 0;
 }
 
 .kpi-numero {
@@ -30,9 +43,18 @@
   font-weight: 800;
   color: var(--color-primary-dark);
   margin: 4px 0;
+  /* Nunca partir un monto a mitad de un grupo de dígitos: si no entra, el bloque entero baja
+     a la fila siguiente (la tarjeta es flex-wrap). */
+  white-space: nowrap;
+}
+
+/* El dato principal del dashboard: la gente que entró hoy. La recaudación queda al lado, más chica. */
+.kpi-principal .kpi-numero {
+  font-size: 3rem;
 }
 
 .kpi-numero-secundario {
+  font-size: 1.7rem;
   color: var(--color-text);
 }
 
@@ -41,12 +63,14 @@
 }
 
 .fila-simple-cajas-abiertas {
-  grid-template-columns: 1.4fr 0.8fr 1fr 1.2fr 0.9fr;
+  grid-template-columns: 1.4fr 0.7fr 0.9fr 1.1fr 0.8fr 0.8fr;
 }
 
 @media (max-width: 900px) {
-  .tarjeta-kpis-hoy { grid-template-columns: 1fr; }
-  .fila-simple-desglose-hoy { grid-template-columns: 1fr; font-size: 0.8rem; }
+  .tarjeta-kpis-hoy { gap: 16px 40px; }
+  /* La tabla por tipo son 4 columnas cortas: en mobile se aprieta con letra chica en vez de
+     apilar los valores sin su etiqueta (que quedaba ilegible). */
+  .fila-simple-desglose-hoy { grid-template-columns: 1.5fr 1fr 1fr 0.9fr; font-size: 0.75rem; }
   .fila-simple-cajas-abiertas { grid-template-columns: 1fr; font-size: 0.8rem; }
 }
 

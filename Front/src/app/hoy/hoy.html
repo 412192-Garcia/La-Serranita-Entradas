@@ -16,36 +16,40 @@
     </div>
   } @else if (resumen(); as r) {
     <div class="tarjeta tarjeta-kpis-hoy">
+      <div class="kpi-principal">
+        <h2>Personas que entraron hoy</h2>
+        <p class="kpi-numero">{{ r.personasIngresadas }}</p>
+        @let personas = desglosePersonasHoy(r);
+        <p class="ayuda">
+          {{ personas.puerta }} en puerta@if (personas.anticipada > 0) { · {{ personas.anticipada }} con anticipada}
+        </p>
+      </div>
+      <div>
+        <h2>Entradas vendidas en puerta</h2>
+        <p class="kpi-numero kpi-numero-secundario">{{ r.entradasVendidasBoleteria }}</p>
+      </div>
       <div>
         <h2>Recaudación de hoy</h2>
-        <p class="kpi-numero">{{ r.recaudacionTotal | pesos }}</p>
-        <p class="ayuda">{{ r.cantidadCompras }} compra{{ r.cantidadCompras === 1 ? '' : 's' }} facturada{{ r.cantidadCompras === 1 ? '' : 's' }}</p>
-      </div>
-      <div>
-        <h2>Personas ingresadas</h2>
-        <p class="kpi-numero kpi-numero-secundario">{{ r.personasIngresadas }}</p>
-        <p class="ayuda">Venta en puerta + anticipadas validadas</p>
-      </div>
-      <div>
-        <h2>Entradas vendidas</h2>
-        <p class="kpi-numero kpi-numero-secundario">{{ totalEntradasHoy(r) }}</p>
-        <p class="ayuda">Anticipada + boletería</p>
+        <p class="kpi-numero kpi-numero-secundario">{{ r.recaudacionTotal | pesos }}</p>
+        <p class="ayuda">
+          {{ r.cantidadCompras }} compra{{ r.cantidadCompras === 1 ? '' : 's' }} cobrada{{ r.cantidadCompras === 1 ? '' : 's' }} hoy
+        </p>
       </div>
     </div>
 
-    @if (r.desglosePorTipo.length > 0) {
+    @if (r.ingresosPorTipo.length > 0) {
       <div class="tarjeta">
-        <h2>Por tipo de entrada</h2>
+        <h2>Ingresos por tipo de entrada</h2>
         <div class="tabla-simple">
           <div class="fila-simple fila-simple-desglose-hoy fila-simple-header">
-            <span>Tipo</span><span>Anticipada</span><span>Boletería</span><span>Total</span>
+            <span>Tipo</span><span>En puerta</span><span>Con anticipada</span><span>Total</span>
           </div>
-          @for (t of r.desglosePorTipo; track t.tipoEntradaId) {
+          @for (t of r.ingresosPorTipo; track t.tipoEntradaId) {
             <div class="fila-simple fila-simple-desglose-hoy">
               <span>{{ t.nombre }}</span>
-              <span>{{ t.cantidadAnticipada }}</span>
-              <span>{{ t.cantidadBoleteria }}</span>
-              <span>{{ t.cantidadAnticipada + t.cantidadBoleteria }}</span>
+              <span>{{ t.enPuerta }}</span>
+              <span>{{ t.conAnticipada }}</span>
+              <span>{{ t.enPuerta + t.conAnticipada }}</span>
             </div>
           }
         </div>
@@ -56,7 +60,6 @@
 
   <div class="tarjeta" data-tour="cajas-abiertas">
     <h2>Cajas abiertas ahora</h2>
-    <p class="ayuda">Quién está trabajando en este momento.</p>
     @if (cargandoCajas()) {
       <app-spinner />
     } @else if (cajasAbiertas().length === 0) {
@@ -64,7 +67,7 @@
     } @else {
       <div class="tabla-simple">
         <div class="fila-simple fila-simple-cajas-abiertas fila-simple-header">
-          <span>Boletero</span><span>Abrió</span><span>Inicial</span><span>Vendido hasta ahora</span><span>Entradas</span>
+          <span>Boletero</span><span>Abrió</span><span>Inicial</span><span>Vendido hasta ahora</span><span>Entradas</span><span>Personas</span>
         </div>
         @for (c of cajasAbiertas(); track c.id) {
           <div class="fila-simple fila-simple-cajas-abiertas">
@@ -73,6 +76,7 @@
             <span>{{ c.montoInicial | pesos }}</span>
             <span>{{ c.totalVendido | pesos }}</span>
             <span>{{ c.totalEntradasPagas }}</span>
+            <span>{{ c.personasIngresadas }}</span>
           </div>
         }
       </div>

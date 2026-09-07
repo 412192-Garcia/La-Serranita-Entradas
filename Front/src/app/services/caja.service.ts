@@ -204,6 +204,8 @@ export interface CajaAbierta {
   totalVendido: number;
   /** Entradas vendidas de tipos con precio > 0 (excluye gratis, extras y artículos). */
   totalEntradasPagas: number;
+  /** Personas que ingresaron por esta caja: todos los pases de entrada, incluidas las sin cargo. */
+  personasIngresadas: number;
 }
 
 /** Detalle de una caja todavía abierta (ADMIN) — ver obtenerOperaciones. */

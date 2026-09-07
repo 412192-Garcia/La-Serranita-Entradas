@@ -669,6 +669,7 @@ public class CajaServiceImpl implements CajaService {
                             .montoInicial(caja.getMontoInicial())
                             .totalVendido(totalVendido)
                             .totalEntradasPagas(contarEntradasPagas(compras, ajustes))
+                            .personasIngresadas(contarEntradasTotales(compras, ajustes))
                             .build();
                 })
                 .toList();
@@ -873,6 +874,18 @@ public class CajaServiceImpl implements CajaService {
                 .sum();
         return base + impactoAjustesEntradas(ajustes, tiposEntradaPorId(),
                 t -> t.getTipo() == Tipo.ENTRADA && t.getPrecio() != null && t.getPrecio().compareTo(BigDecimal.ZERO) > 0);
+    }
+
+    /** Igual que contarEntradasPagas pero SIN el filtro de precio: todas las entradas (con o sin
+     * cargo). Es la gente que ingresó por la caja; la diferencia con las pagas son las gratis. */
+    private int contarEntradasTotales(List<Compra> compras, List<AjusteCaja> ajustes) {
+        int base = compras.stream()
+                .filter(c -> c.getEstado() != EstadoCompra.CANCELADO)
+                .flatMap(c -> c.getDetalles().stream())
+                .filter(d -> d.getTipoEntrada() != null && d.getTipoEntrada().getTipo() == Tipo.ENTRADA)
+                .mapToInt(CompraDetalle::getCantidad)
+                .sum();
+        return base + impactoAjustesEntradas(ajustes, tiposEntradaPorId(), t -> t.getTipo() == Tipo.ENTRADA);
     }
 
     /** Cuenta las unidades vendidas por tipo de entrada (ignora extras y artículos varios, y las compras canceladas), aplicando también los ajustes manuales. */

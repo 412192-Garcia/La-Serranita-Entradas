@@ -4,6 +4,7 @@ import org.example.laserranitaentradas.model.dto.AfluenciaDiariaDTO;
 import org.example.laserranitaentradas.model.dto.CajaResumenReporteDTO;
 import org.example.laserranitaentradas.model.dto.ComprasPorEstadoDTO;
 import org.example.laserranitaentradas.model.dto.DesgloseTipoEntradaDTO;
+import org.example.laserranitaentradas.model.dto.IngresoPorTipoDTO;
 import org.example.laserranitaentradas.model.dto.RecaudacionPorFormaPagoDTO;
 import org.example.laserranitaentradas.model.dto.ReporteResumenDTO;
 import org.example.laserranitaentradas.model.dto.TipoListadoCompra;
@@ -100,10 +101,20 @@ public class ReporteServiceImpl implements ReporteService {
 
         BigDecimal recaudacionTotal = BigDecimal.ZERO;
         long cantidadCompras = 0;
+        // Entradas (con cargo) vendidas en la puerta y cobradas en el rango. Es la "producción"
+        // de venta de boletería del día: las anticipadas quedan afuera a propósito (se vendieron
+        // otro día, o por otro canal), y las gratis también (no son una venta).
+        long entradasVendidasBoleteria = 0;
 
         Map<LocalDate, Long> vendidosAnticipadaPorDia = new HashMap<>();
         Map<LocalDate, Long> validadosAnticipadaPorDia = new HashMap<>();
         Map<LocalDate, Long> vendidosBoleteriaPorDia = new HashMap<>();
+
+        // Ingresos reales por tipo (gente que cruzó la puerta), por fecha de validación —
+        // separado del desglose de ventas de arriba, que va por día de cobro.
+        Map<Long, String> nombreTipoIngresado = new HashMap<>();
+        Map<Long, Long> ingresadosPuertaPorTipo = new HashMap<>();
+        Map<Long, Long> ingresadosAnticipadaPorTipo = new HashMap<>();
 
         Map<Long, TipoEntrada> tiposPorId = new HashMap<>();
         Map<Long, Long> cantidadAnticipadaPorTipo = new HashMap<>();
@@ -260,6 +271,9 @@ public class ReporteServiceImpl implements ReporteService {
                         if (esBoleteria) {
                             cantidadBoleteriaPorTipo.merge(tipo.getId(), (long) detalle.getCantidad(), Long::sum);
                             montoBoleteriaPorTipo.merge(tipo.getId(), monto, BigDecimal::add);
+                            if (tipo.getPrecio() != null && tipo.getPrecio().compareTo(BigDecimal.ZERO) > 0) {
+                                entradasVendidasBoleteria += detalle.getCantidad();
+                            }
                         } else {
                             cantidadAnticipadaPorTipo.merge(tipo.getId(), (long) detalle.getCantidad(), Long::sum);
                             montoAnticipadaPorTipo.merge(tipo.getId(), monto, BigDecimal::add);
@@ -284,6 +298,16 @@ public class ReporteServiceImpl implements ReporteService {
 
             // Ingreso real: la persona cruzó la puerta ese día (por fechaValidacion).
             if (cuentaIngreso) {
+                Map<Long, Long> ingresadosPorTipoDestino = esBoleteria
+                        ? ingresadosPuertaPorTipo : ingresadosAnticipadaPorTipo;
+                for (CompraDetalle detalle : compra.getDetalles()) {
+                    TipoEntrada tipoDetalle = detalle.getTipoEntrada();
+                    if (tipoDetalle == null || tipoDetalle.getTipo() != Tipo.ENTRADA) {
+                        continue;
+                    }
+                    nombreTipoIngresado.putIfAbsent(tipoDetalle.getId(), tipoDetalle.getNombre());
+                    ingresadosPorTipoDestino.merge(tipoDetalle.getId(), (long) detalle.getCantidad(), Long::sum);
+                }
                 if (esBoleteria) {
                     vendidosBoleteriaPorDia.merge(diaIngreso, pasesEntrada, Long::sum);
                 } else {
@@ -434,11 +458,20 @@ public class ReporteServiceImpl implements ReporteService {
                         ? sumaCotizacionPonderada.divide(totalDolaresRecibidos, 2, RoundingMode.HALF_UP)
                         : null);
 
+        List<IngresoPorTipoDTO> ingresosPorTipo = nombreTipoIngresado.entrySet().stream()
+                .map(e -> new IngresoPorTipoDTO(
+                        e.getKey(),
+                        e.getValue(),
+                        ingresadosPuertaPorTipo.getOrDefault(e.getKey(), 0L),
+                        ingresadosAnticipadaPorTipo.getOrDefault(e.getKey(), 0L)))
+                .sorted((a, b) -> a.getNombre().compareToIgnoreCase(b.getNombre()))
+                .toList();
+
         return new ReporteResumenDTO(desde, hasta, recaudacionTotal, cantidadCompras, personasIngresadas, afluenciaDiaria,
                 desglosePorTipo, recaudacionPorFormaPago, comprasPorEstado, desgloseExtras, ventasPorHora,
                 ventasPorOrigen, totalDescuentos, cantidadComprasConDescuento,
                 cajas, totalRetirosCajas, totalFaltantesCajas, totalSobrantesCajas,
-                ventasArticulosVarios, usoPromociones, ventasDolares);
+                ventasArticulosVarios, usoPromociones, ventasDolares, ingresosPorTipo, entradasVendidasBoleteria);
     }
 
     /** true si `fecha` (puede ser null) cae dentro de [desde, hasta], ambos inclusive. */

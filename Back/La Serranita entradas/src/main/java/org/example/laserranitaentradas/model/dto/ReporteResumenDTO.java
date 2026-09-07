@@ -46,4 +46,14 @@ public class ReporteResumenDTO {
     private List<UsoPromocionDTO> usoPromociones;
     /** Ventas cobradas en efectivo-dólares en el rango. */
     private VentasDolaresDTO ventasDolares;
+
+    /** Ingresos reales del rango por tipo de entrada (gente que cruzó la puerta), separados en
+     * venta de puerta y anticipada validada. Va por fecha de validación, no por día de cobro:
+     * así una anticipada pre-pagada aparece el día que la persona entró. Reconcilia con
+     * personasIngresadas. */
+    private List<IngresoPorTipoDTO> ingresosPorTipo;
+
+    /** Entradas con cargo vendidas en la puerta (POS) y cobradas en el rango — la "producción" de
+     * venta de boletería. No incluye anticipadas ni entradas gratis. */
+    private long entradasVendidasBoleteria;
 }
