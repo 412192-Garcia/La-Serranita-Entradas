@@ -26,11 +26,13 @@
   gap: 20px;
 }
 
+/* Tres columnas que ocupan todo el ancho de la tarjeta (con flex quedaban apretadas a la
+   izquierda con medio metro de blanco al lado). */
 .tarjeta-kpis-hoy {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 16px 44px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px 36px;
+  align-items: start;
 }
 
 .tarjeta-kpis-hoy > div {
@@ -39,22 +41,21 @@
 
 .kpi-numero {
   font-family: var(--font-heading);
-  font-size: 2.4rem;
+  font-size: 2.9rem;
   font-weight: 800;
   color: var(--color-primary-dark);
   margin: 4px 0;
-  /* Nunca partir un monto a mitad de un grupo de dígitos: si no entra, el bloque entero baja
-     a la fila siguiente (la tarjeta es flex-wrap). */
+  /* Nunca partir un monto a mitad de un grupo de dígitos. */
   white-space: nowrap;
 }
 
-/* El dato principal del dashboard: la gente que entró hoy. La recaudación queda al lado, más chica. */
+/* El dato principal del dashboard: la gente que entró hoy. */
 .kpi-principal .kpi-numero {
-  font-size: 3rem;
+  font-size: 3.6rem;
 }
 
 .kpi-numero-secundario {
-  font-size: 1.7rem;
+  font-size: 2.3rem;
   color: var(--color-text);
 }
 
@@ -67,7 +68,10 @@
 }
 
 @media (max-width: 900px) {
-  .tarjeta-kpis-hoy { gap: 16px 40px; }
+  .tarjeta-kpis-hoy { grid-template-columns: 1fr; gap: 18px; }
+  .kpi-numero { font-size: 2.4rem; }
+  .kpi-principal .kpi-numero { font-size: 3rem; }
+  .kpi-numero-secundario { font-size: 2rem; }
   /* La tabla por tipo son 4 columnas cortas: en mobile se aprieta con letra chica en vez de
      apilar los valores sin su etiqueta (que quedaba ilegible). */
   .fila-simple-desglose-hoy { grid-template-columns: 1.5fr 1fr 1fr 0.9fr; font-size: 0.75rem; }

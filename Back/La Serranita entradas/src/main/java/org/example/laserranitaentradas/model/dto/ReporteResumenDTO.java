@@ -56,4 +56,10 @@ public class ReporteResumenDTO {
     /** Entradas con cargo vendidas en la puerta (POS) y cobradas en el rango — la "producción" de
      * venta de boletería. No incluye anticipadas ni entradas gratis. */
     private long entradasVendidasBoleteria;
+
+    /** Histograma de anticipación: días entre compra y uso de las anticipadas usadas en el rango. */
+    private List<AnticipacionCompraDTO> anticipacionCompra;
+
+    /** Cupones aplicados en el rango, agrupados por su valor de descuento. */
+    private List<UsoCuponDTO> usoCupones;
 }

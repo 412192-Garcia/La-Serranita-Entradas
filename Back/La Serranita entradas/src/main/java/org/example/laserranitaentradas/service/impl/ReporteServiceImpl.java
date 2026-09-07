@@ -1,6 +1,7 @@
 package org.example.laserranitaentradas.service.impl;
 
 import org.example.laserranitaentradas.model.dto.AfluenciaDiariaDTO;
+import org.example.laserranitaentradas.model.dto.AnticipacionCompraDTO;
 import org.example.laserranitaentradas.model.dto.CajaResumenReporteDTO;
 import org.example.laserranitaentradas.model.dto.ComprasPorEstadoDTO;
 import org.example.laserranitaentradas.model.dto.DesgloseTipoEntradaDTO;
@@ -8,6 +9,7 @@ import org.example.laserranitaentradas.model.dto.IngresoPorTipoDTO;
 import org.example.laserranitaentradas.model.dto.RecaudacionPorFormaPagoDTO;
 import org.example.laserranitaentradas.model.dto.ReporteResumenDTO;
 import org.example.laserranitaentradas.model.dto.TipoListadoCompra;
+import org.example.laserranitaentradas.model.dto.UsoCuponDTO;
 import org.example.laserranitaentradas.model.dto.UsoPromocionDTO;
 import org.example.laserranitaentradas.model.dto.VentaArticuloVarioDTO;
 import org.example.laserranitaentradas.model.dto.VentasDolaresDTO;
@@ -17,6 +19,7 @@ import org.example.laserranitaentradas.model.entity.ArticuloVario;
 import org.example.laserranitaentradas.model.entity.Caja;
 import org.example.laserranitaentradas.model.entity.Compra;
 import org.example.laserranitaentradas.model.entity.CompraDetalle;
+import org.example.laserranitaentradas.model.entity.Cupon;
 import org.example.laserranitaentradas.model.entity.EstadoCompra;
 import org.example.laserranitaentradas.model.entity.FormaPago;
 import org.example.laserranitaentradas.model.entity.Promocion;
@@ -36,6 +39,8 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.temporal.ChronoUnit;
+import java.util.LinkedHashMap;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.EnumSet;
@@ -57,6 +62,31 @@ public class ReporteServiceImpl implements ReporteService {
     /** Gente que realmente entró: el check-in por DNI y la venta en puerta valen igual. */
     private static final Set<EstadoCompra> ESTADOS_INGRESADOS =
             EnumSet.of(EstadoCompra.USADO, EstadoCompra.VENDIDO_EN_PUERTA);
+
+    /** Tramos del histograma de anticipación (días entre compra y uso), en orden. */
+    private static final String[] TRAMOS_ANTICIPACION =
+            {"Mismo día", "1 a 2 días", "3 a 7 días", "8 a 14 días", "15 a 30 días", "Más de 30 días"};
+
+    /** Índice de tramo para una diferencia en días (ya clampeada a >= 0). */
+    private static int tramoAnticipacion(long dias) {
+        if (dias <= 0) return 0;
+        if (dias <= 2) return 1;
+        if (dias <= 7) return 2;
+        if (dias <= 14) return 3;
+        if (dias <= 30) return 4;
+        return 5;
+    }
+
+    /** "15%" o "$1.000" según cómo esté definido el cupón. */
+    private static String etiquetaCupon(Cupon cupon) {
+        if (cupon.getPorcentajeDescuento() != null && cupon.getPorcentajeDescuento().compareTo(BigDecimal.ZERO) > 0) {
+            return cupon.getPorcentajeDescuento().stripTrailingZeros().toPlainString() + "%";
+        }
+        if (cupon.getMontoDescuento() != null && cupon.getMontoDescuento().compareTo(BigDecimal.ZERO) > 0) {
+            return "$" + cupon.getMontoDescuento().stripTrailingZeros().toPlainString();
+        }
+        return "Cupón";
+    }
 
     private final CompraRepository compraRepository;
     private final TipoEntradaRepository tipoEntradaRepository;
@@ -109,6 +139,12 @@ public class ReporteServiceImpl implements ReporteService {
         Map<LocalDate, Long> vendidosAnticipadaPorDia = new HashMap<>();
         Map<LocalDate, Long> validadosAnticipadaPorDia = new HashMap<>();
         Map<LocalDate, Long> vendidosBoleteriaPorDia = new HashMap<>();
+        Map<LocalDate, Long> compradosAnticipadaPorDia = new HashMap<>();
+
+        // Histograma de anticipación (días entre compra y uso) y uso de cupones por valor.
+        long[] anticipacionPorTramo = new long[TRAMOS_ANTICIPACION.length];
+        Map<String, Long> cantidadPorCupon = new LinkedHashMap<>();
+        Map<String, BigDecimal> descuentoPorCupon = new LinkedHashMap<>();
 
         // Ingresos reales por tipo (gente que cruzó la puerta), por fecha de validación —
         // separado del desglose de ventas de arriba, que va por día de cobro.
@@ -192,7 +228,11 @@ public class ReporteServiceImpl implements ReporteService {
             boolean cuentaDemanda = enRango(compra.getFechaVisita(), desde, hasta)
                     && ESTADOS_VENDIDOS.contains(compra.getEstado());
 
-            if (!cuentaRecaudacion && !cuentaIngreso && !cuentaDemanda) {
+            // Ritmo de venta anticipada: la reserva se GENERÓ ese día (por fechaCreacion).
+            boolean cuentaCompra = enRango(compra.getFechaCreacion().toLocalDate(), desde, hasta)
+                    && ESTADOS_VENDIDOS.contains(compra.getEstado());
+
+            if (!cuentaRecaudacion && !cuentaIngreso && !cuentaDemanda && !cuentaCompra) {
                 // El prefiltro la trajo por una fecha que en realidad cae fuera del rango exacto.
                 continue;
             }
@@ -220,6 +260,13 @@ public class ReporteServiceImpl implements ReporteService {
                     cantidadPorPromocion.merge(promo.getId(), 1L, Long::sum);
                     BigDecimal descuentoPromo = compra.getDescuentoAplicado() != null ? compra.getDescuentoAplicado() : BigDecimal.ZERO;
                     descuentoPorPromocion.merge(promo.getId(), descuentoPromo, BigDecimal::add);
+                }
+
+                if (compra.getCupon() != null) {
+                    String etiquetaCupon = etiquetaCupon(compra.getCupon());
+                    cantidadPorCupon.merge(etiquetaCupon, 1L, Long::sum);
+                    BigDecimal descuentoCupon = compra.getDescuentoAplicado() != null ? compra.getDescuentoAplicado() : BigDecimal.ZERO;
+                    descuentoPorCupon.merge(etiquetaCupon, descuentoCupon, BigDecimal::add);
                 }
                 if (compra.getDolaresRecibidos() != null) {
                     cantidadVentasDolares++;
@@ -296,6 +343,11 @@ public class ReporteServiceImpl implements ReporteService {
                 vendidosAnticipadaPorDia.merge(compra.getFechaVisita(), pasesEntrada, Long::sum);
             }
 
+            // "Comprado ese día": pases de anticipadas por el día que se generó la reserva.
+            if (cuentaCompra && !esBoleteria) {
+                compradosAnticipadaPorDia.merge(compra.getFechaCreacion().toLocalDate(), pasesEntrada, Long::sum);
+            }
+
             // Ingreso real: la persona cruzó la puerta ese día (por fechaValidacion).
             if (cuentaIngreso) {
                 Map<Long, Long> ingresadosPorTipoDestino = esBoleteria
@@ -312,6 +364,10 @@ public class ReporteServiceImpl implements ReporteService {
                     vendidosBoleteriaPorDia.merge(diaIngreso, pasesEntrada, Long::sum);
                 } else {
                     validadosAnticipadaPorDia.merge(diaIngreso, pasesEntrada, Long::sum);
+                    // Anticipación: cuántos días antes se compró esta anticipada que se está usando.
+                    long diasAntes = Math.max(0,
+                            ChronoUnit.DAYS.between(compra.getFechaCreacion().toLocalDate(), diaIngreso));
+                    anticipacionPorTramo[tramoAnticipacion(diasAntes)] += pasesEntrada;
                 }
                 personasIngresadas += pasesEntrada;
             }
@@ -344,8 +400,20 @@ public class ReporteServiceImpl implements ReporteService {
                     fecha,
                     vendidosAnticipadaPorDia.getOrDefault(fecha, 0L),
                     validadosAnticipadaPorDia.getOrDefault(fecha, 0L),
-                    vendidosBoleteriaPorDia.getOrDefault(fecha, 0L)));
+                    vendidosBoleteriaPorDia.getOrDefault(fecha, 0L),
+                    compradosAnticipadaPorDia.getOrDefault(fecha, 0L)));
         }
+
+        List<AnticipacionCompraDTO> anticipacionCompra = new ArrayList<>();
+        for (int i = 0; i < TRAMOS_ANTICIPACION.length; i++) {
+            anticipacionCompra.add(new AnticipacionCompraDTO(TRAMOS_ANTICIPACION[i], anticipacionPorTramo[i]));
+        }
+
+        List<UsoCuponDTO> usoCupones = cantidadPorCupon.entrySet().stream()
+                .map(e -> new UsoCuponDTO(e.getKey(), e.getValue(),
+                        descuentoPorCupon.getOrDefault(e.getKey(), BigDecimal.ZERO)))
+                .sorted((a, b) -> Long.compare(b.getCantidad(), a.getCantidad()))
+                .toList();
 
         List<DesgloseTipoEntradaDTO> desglosePorTipo = ordenarPorNombre(tiposPorId,
                 cantidadAnticipadaPorTipo, montoAnticipadaPorTipo, cantidadBoleteriaPorTipo, montoBoleteriaPorTipo);
@@ -471,7 +539,8 @@ public class ReporteServiceImpl implements ReporteService {
                 desglosePorTipo, recaudacionPorFormaPago, comprasPorEstado, desgloseExtras, ventasPorHora,
                 ventasPorOrigen, totalDescuentos, cantidadComprasConDescuento,
                 cajas, totalRetirosCajas, totalFaltantesCajas, totalSobrantesCajas,
-                ventasArticulosVarios, usoPromociones, ventasDolares, ingresosPorTipo, entradasVendidasBoleteria);
+                ventasArticulosVarios, usoPromociones, ventasDolares, ingresosPorTipo, entradasVendidasBoleteria,
+                anticipacionCompra, usoCupones);
     }
 
     /** true si `fecha` (puede ser null) cae dentro de [desde, hasta], ambos inclusive. */

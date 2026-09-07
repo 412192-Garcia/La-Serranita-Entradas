@@ -102,11 +102,41 @@
 }
 
 .grafico-torta {
-  height: 280px;
+  height: 300px;
 }
 
 .oculta {
   display: none;
+}
+
+/* Tarjetas con gráfico + tabla: en pantalla ancha van lado a lado (gráfico izq, tabla der) en
+   vez de apiladas, para no dejar medio metro de blanco al costado del gráfico. El título y las
+   líneas de ayuda ocupan todo el ancho. `:not(.oculta)` para que ocultar la tarjeta gane.
+   Flex con base en % (no grid con fr): el ancho del gráfico se resuelve al toque contra el
+   ancho de la tarjeta, así Chart.js lo mide bien aunque se dibuje antes del layout. */
+@media (min-width: 901px) {
+  .tarjeta-grafico-tabla:not(.oculta) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    column-gap: 32px;
+  }
+
+  .tarjeta-grafico-tabla > h2,
+  .tarjeta-grafico-tabla > .ayuda,
+  .tarjeta-grafico-tabla > .kpi-numero {
+    flex-basis: 100%;
+  }
+
+  .tarjeta-grafico-tabla > .grafico-contenedor {
+    flex: 0 0 38%;
+    margin-bottom: 0;
+  }
+
+  .tarjeta-grafico-tabla > .tabla-simple {
+    flex: 1 1 0;
+    min-width: 0;
+  }
 }
 
 .fila-simple-desglose {
