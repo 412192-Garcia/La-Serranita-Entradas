@@ -47,9 +47,9 @@
           @for (t of r.ingresosPorTipo; track t.tipoEntradaId) {
             <div class="fila-simple fila-simple-desglose-hoy">
               <span>{{ t.nombre }}</span>
-              <span>{{ t.enPuerta }}</span>
-              <span>{{ t.conAnticipada }}</span>
-              <span>{{ t.enPuerta + t.conAnticipada }}</span>
+              <span data-label="En puerta">{{ t.enPuerta }}</span>
+              <span data-label="Con anticipada">{{ t.conAnticipada }}</span>
+              <span data-label="Total">{{ t.enPuerta + t.conAnticipada }}</span>
             </div>
           }
         </div>
@@ -72,11 +72,11 @@
         @for (c of cajasAbiertas(); track c.id) {
           <div class="fila-simple fila-simple-cajas-abiertas">
             <span>{{ c.usuarioNombre }}</span>
-            <span>{{ c.fechaApertura | date: 'HH:mm' }}</span>
-            <span>{{ c.montoInicial | pesos }}</span>
-            <span>{{ c.totalVendido | pesos }}</span>
-            <span>{{ c.totalEntradasPagas }}</span>
-            <span>{{ c.personasIngresadas }}</span>
+            <span data-label="Abrió">{{ c.fechaApertura | date: 'HH:mm' }}</span>
+            <span data-label="Inicial">{{ c.montoInicial | pesos }}</span>
+            <span data-label="Vendido hasta ahora">{{ c.totalVendido | pesos }}</span>
+            <span data-label="Entradas">{{ c.totalEntradasPagas }}</span>
+            <span data-label="Personas">{{ c.personasIngresadas }}</span>
           </div>
         }
       </div>

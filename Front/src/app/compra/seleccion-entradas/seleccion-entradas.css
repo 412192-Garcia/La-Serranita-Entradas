@@ -124,6 +124,13 @@
   margin: 0;
 }
 
+/* El divisor se emite después de cada ítem, así que el último quedaba a 20px del borde
+   superior del footer: dos líneas paralelas con una franja muerta en el medio, que en
+   teléfono se leía como si faltara una entrada por cargar. */
+.linea-divisora:last-child {
+  display: none;
+}
+
 /* ==========================================================================
    4. FOOTER DE LIQUIDACIÓN Y CIERRE (TOTAL / SIGUIENTE)
    ========================================================================== */

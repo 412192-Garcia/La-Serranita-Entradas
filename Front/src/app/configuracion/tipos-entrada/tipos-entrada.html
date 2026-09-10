@@ -79,10 +79,10 @@
             </div>
             @for (d of descuentosDelTipoActual(); track d.id) {
               <div class="fila-simple fila-simple-descuentos">
-                <span>{{ d.cantidadPases }}</span>
-                <span>{{ d.precioPromocionalTotal | pesos }}</span>
-                <span>{{ precioPorPersona(d) | pesos }}</span>
-                <span>{{ ahorroDescuento(d) | pesos }}</span>
+                <span data-label="Cantidad">{{ d.cantidadPases }} pases</span>
+                <span data-label="Precio total">{{ d.precioPromocionalTotal | pesos }}</span>
+                <span data-label="Precio por persona">{{ precioPorPersona(d) | pesos }}</span>
+                <span data-label="Ahorro">{{ ahorroDescuento(d) | pesos }}</span>
                 <span class="acciones-tipo">
                   <button type="button" class="btn-secundario" (click)="editarDescuento(d)">Editar</button>
                   <button type="button" class="btn-secundario" (click)="eliminarDescuento(d)">Eliminar</button>
@@ -160,7 +160,7 @@
         </div>
         @for (t of tiposEntradaVisibles(); track t.id; let i = $index, ultimo = $last) {
           <div class="fila-simple fila-simple-tipos">
-            <span class="acciones-orden">
+            <span class="acciones-orden" data-label="Orden">
               @if (puedeReordenarManualmente()) {
                 <button type="button" class="btn-reordenar" [disabled]="i === 0 || !!reordenandoId()" (click)="moverArriba(t)" aria-label="Subir en el orden de venta">
                   <svg lucideArrowUp [strokeWidth]="2"></svg>
@@ -178,16 +178,16 @@
                 <span class="badge badge-inactivo">Solo POS</span>
               }
             </span>
-            <span>{{ t.tipo === 'ENTRADA' ? 'Entrada' : 'Extra' }}</span>
-            <span>{{ t.precio | pesos }}</span>
-            <span>
+            <span data-label="Categoría">{{ t.tipo === 'ENTRADA' ? 'Entrada' : 'Extra' }}</span>
+            <span data-label="Precio">{{ t.precio | pesos }}</span>
+            <span data-label="Obligatorio">
               @if (t.obligatorio) {
                 <span class="badge badge-activo">Sí</span>
               } @else {
                 <span class="ayuda">—</span>
               }
             </span>
-            <span>{{ t.maximoPorDia ?? '—' }}</span>
+            <span data-label="Máx/día">{{ t.maximoPorDia ?? '—' }}</span>
             <span class="badge" [class.badge-activo]="t.activo" [class.badge-inactivo]="!t.activo">
               {{ t.activo ? 'Activo' : 'Inactivo' }}
             </span>

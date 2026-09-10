@@ -1121,6 +1121,16 @@
   .buscador { flex-wrap: wrap; max-width: none; }
   .buscador-input { flex: 1 1 100%; }
 
+  /* Al envolverse, Buscar/Limpiar dejan de compartir renglón con el input y el
+     align-items:stretch del .buscador ya no les presta su altura: con padding sólo
+     horizontal quedaban en 17px, como un chip gris colgado. Se les da altura propia
+     (y de paso alcanzan el mínimo táctil) y se reparten el ancho del renglón. */
+  .btn-buscar,
+  .btn-limpiar {
+    flex: 1 1 0;
+    min-height: 44px;
+  }
+
   .selector-vista { flex-wrap: wrap; }
   .buscador-dia-input { flex: 1 1 100%; }
   .btn-vista { flex: 1 1 auto; }
@@ -1131,6 +1141,7 @@
   .fila-header { display: none; }
 
   .fila-reserva {
+    position: relative;
     display: flex;
     flex-direction: column;
     align-items: stretch;
@@ -1143,12 +1154,45 @@
     justify-content: space-between;
   }
 
+  /* El ⋮ va fijado arriba a la derecha de la tarjeta en vez de en su propio renglón al pie
+     (dejaba una banda vacía después del botón de acción). */
   .celda-menu {
-    justify-content: flex-end;
+    position: absolute;
+    top: 8px;
+    right: 8px;
+  }
+
+  .celda-titular {
+    padding-right: 36px;
   }
 
   .menu-dropdown {
-    top: auto;
-    bottom: 44px;
+    top: calc(100% + 4px);
+    bottom: auto;
+    right: 0;
+  }
+}
+
+@media (pointer: coarse) {
+  /* "Cobrar y Validar" / "Validar Ingreso" es la acción principal de la pantalla y venía en
+     31px de alto: con el dedo, sobre una lista de tarjetas apiladas, es el botón que más
+     conviene que sea difícil de errar. */
+  .btn-accion {
+    min-height: 44px;
+  }
+
+  /* Los encabezados ordenables sólo existen arriba de 900px, o sea que en táctil se ven en
+     tablet apaisada: ahí seguían midiendo 27px de alto. El padding les da altura sin mover
+     la grilla (el margen negativo lo compensa) y de paso separa el texto del ícono de orden
+     del borde de la celda. */
+  .col-ordenable {
+    padding: 9px 0;
+    margin: -9px 0;
+  }
+
+  /* "ESTADO" / "LISTADO" / "FORMA DE PAGO": 0.68rem son 10.9px, y encima en mayúsculas y en
+     gris claro. Es el rótulo que explica cada grupo de chips, conviene que se lea. */
+  .etiqueta-filtro {
+    font-size: 0.74rem;
   }
 }

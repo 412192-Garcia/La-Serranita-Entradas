@@ -104,5 +104,50 @@
 /* ---------- Responsive ---------- */
 @media (max-width: 900px) {
   .seccion-cupones { grid-template-columns: 1fr; }
-  .lote-resumen { grid-template-columns: 1fr 1fr; }
+
+  /* Igual que las .fila-simple (ver configuracion-shared.css): el resumen del lote deja de
+     ser una grilla y pasa a lista etiqueta/valor, con el nombre del lote como título. */
+  .lote-resumen {
+    display: block;
+    padding: 4px 4px 12px;
+  }
+
+  .lote-resumen > .lote-nombre {
+    font-size: 0.98rem;
+    padding-bottom: 8px;
+  }
+
+  .lote-resumen > .lote-prefijo,
+  .lote-resumen > .lote-descuento,
+  .lote-resumen > .lote-expira,
+  .lote-resumen > .lote-cantidad {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 14px;
+    padding: 5px 0;
+    border-top: 1px solid var(--color-bg-soft);
+  }
+
+  .lote-resumen > .lote-prefijo::before,
+  .lote-resumen > .lote-descuento::before,
+  .lote-resumen > .lote-expira::before,
+  .lote-resumen > .lote-cantidad::before {
+    font-size: 0.68rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: var(--color-text-muted);
+  }
+
+  .lote-resumen > .lote-prefijo::before { content: 'Prefijo'; }
+  .lote-resumen > .lote-descuento::before { content: 'Descuento'; }
+  .lote-resumen > .lote-expira::before { content: 'Expira'; }
+  .lote-resumen > .lote-cantidad::before { content: 'Cupones'; }
+
+  .lote-resumen > .lote-toggle {
+    display: block;
+    text-align: right;
+    padding-top: 8px;
+  }
 }

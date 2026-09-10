@@ -167,11 +167,13 @@
   color: var(--color-text-secondary);
 }
 
+/* "Ver billetes": el padding vertical no es decorativo, es el área que se toca — sin él
+   quedaba un blanco de 15px de alto. El margen negativo lo compensa para no mover el layout. */
 .btn-desglose-detalle {
   align-self: flex-start;
   display: block;
-  margin: -10px 0 14px;
-  padding: 0;
+  margin: -18px 0 6px;
+  padding: 10px 0;
   border: none;
   background: none;
   color: var(--color-primary-dark);
@@ -436,12 +438,41 @@
   line-height: 1.4;
 }
 
+/* La matriz (grupo × forma de pago) se desliza lateralmente cuando no entra. El desvanecido
+   del borde derecho avisa que hay más: va acá y no en un @media porque el desborde no
+   depende sólo del ancho de pantalla — en el layout de dos columnas del modo corrección la
+   matriz vive en una columna angosta y también se corta en tablet y desktop. Sin él, lo que
+   se ve es un − partido al ras del borde, que se lee como un bug de render y no como una
+   pista.
+   Son dos capas: la sombra va pegada al borde del marco (background-attachment: scroll) y
+   encima una "tapa" del color del fondo pegada al contenido (…: local). Mientras hay algo
+   más a la derecha la tapa está fuera de vista y se ve la sombra; al llegar al final la
+   tapa alcanza el borde y la apaga sola. Es lo que evita tener que saber por CSS si hay
+   desborde: con una máscara fija, cuando la matriz entera entra se desvanecería la columna
+   de QR sin que haya nada oculto detrás. */
 .matriz-tipo {
   background-color: var(--color-bg-soft);
   border-radius: var(--radius-sm);
   padding: 4px 10px 8px;
   margin-bottom: 10px;
   overflow-x: auto;
+  background-image:
+    linear-gradient(to left, var(--color-bg-soft), transparent),
+    linear-gradient(to left, rgba(0, 0, 0, 0.13), transparent);
+  background-position: right center, right center;
+  background-size: 24px 100%, 24px 100%;
+  background-repeat: no-repeat, no-repeat;
+  background-attachment: local, scroll;
+}
+
+/* La columna del grupo ("1×", "4×") queda fija mientras se desliza el resto: sin esto, al
+   deslizar se pierde de vista a qué fila corresponde cada −/+ y cada monto. En los grupos
+   con sub-filas el número va absoluto y ya queda a la izquierda, así que no necesita sticky. */
+.fila-matriz > span:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background-color: var(--color-bg-soft);
 }
 
 .cabecera-matriz-tipo {
@@ -812,7 +843,11 @@
   color: var(--color-text);
 }
 
-@media (max-width: 720px) {
+/* 900px y no 720: es el breakpoint con el que el resto del módulo interno pasa a una
+   columna. Con 720 la tablet en vertical (768) seguía partida en dos y la matriz quedaba
+   encajada en ~190px de ancho útil para 524px de contenido — se veía "GRUPO | EF" y nada
+   más. Apilado, la matriz se lleva el ancho completo y entra casi siempre sin deslizar. */
+@media (max-width: 900px) {
   .revision-dos-columnas {
     grid-template-columns: 1fr;
     gap: 20px;
@@ -822,6 +857,46 @@
     overflow: visible;
     min-height: 0;
     flex: 0 0 auto;
+  }
+}
+
+@media (max-width: 600px) {
+  /* En 375px la matriz no entra ni a lo ancho del panel: se compactan las columnas para que
+     cada celda conserve un ancho cómodo para sus dos botones y el monto, y se desliza. La
+     sombra del borde y la columna de grupo pegajosa que hacen usable ese deslizamiento están
+     en la regla base de .matriz-tipo, porque también hacen falta más arriba. */
+  .fila-matriz {
+    grid-template-columns: 40px repeat(var(--columnas, 3), 104px);
+    gap: 8px;
+  }
+}
+
+/* En pantalla táctil los −/+ de la matriz crecen: 24×24 es un blanco muy chico para una
+   acción que mueve plata de una forma de pago a otra, y estaban casi pegados entre sí.
+   Va por pointer y no por ancho porque el problema es el dedo, no la pantalla: con mouse
+   24px se apunta bien y conviene mantener la matriz compacta. La columna se ensancha lo
+   mismo que crecen los botones para que la celda no quede apretada. */
+@media (pointer: coarse) {
+  .btn-mover {
+    width: 34px;
+    height: 38px;
+  }
+
+  .fila-matriz {
+    gap: 10px;
+  }
+
+  /* El monto de cada celda ("$ 102.900") venía en 0.68rem = 10.9px y en gris: es plata, y
+     es justo el dato que se mira para decidir si el ajuste que se está por hacer es el
+     correcto. */
+  .valor-celda em {
+    font-size: 0.76rem;
+  }
+}
+
+@media (pointer: coarse) and (max-width: 600px) {
+  .fila-matriz {
+    grid-template-columns: 40px repeat(var(--columnas, 3), 124px);
   }
 }
 
@@ -1089,8 +1164,52 @@
   margin-bottom: 0;
 }
 
+/* Las tablas (.fila-simple-*) pasan a modo tarjeta con etiqueta por valor en ≤900px:
+   ver configuracion-shared.css. */
+@media (max-width: 900px) {
+  /* En operaciones la 1ra celda es el ícono del tipo, no un nombre: se oculta y el título
+     de la tarjeta pasa a ser el tipo de operación (3ra celda). El color de la fila
+     (retiro/aporte) ya distingue el signo. */
+  .fila-simple-operaciones > .icono-tipo-operacion {
+    display: none;
+  }
+
+  .fila-simple-operaciones > span:nth-child(3) {
+    justify-content: flex-start;
+    text-align: left;
+    font-weight: 700;
+    font-size: 0.92rem;
+    padding-bottom: 7px;
+    border-top: none;
+  }
+}
+
+@media (max-width: 600px) {
+  /* "Corregir caja" / "Borrar caja": apiladas a todo el ancho en vez de una a la izquierda y
+     la otra empujada a la derecha (quedaban de distinto ancho con un hueco desparejo al medio,
+     y peor todavía dentro del detalle desplegado de una caja en la lista). La destructiva va
+     abajo, separada. */
+  .acciones-resumen {
+    flex-direction: column;
+  }
+
+  .acciones-resumen .btn-corregir-cierre,
+  .acciones-resumen .btn-borrar-caja {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  /* Igual con Cancelar / Guardar corrección: "Guardar corrección" parte en dos líneas y
+     dejaba los dos botones de distinto alto. */
+  .acciones-revision {
+    flex-direction: column;
+  }
+
+  .acciones-revision .btn-limpiar {
+    width: 100%;
+  }
+}
+
 @media (max-width: 500px) {
   .tarjeta-kpis-detalle { grid-template-columns: 1fr; }
-  .fila-simple-formaspago { grid-template-columns: 1fr; font-size: 0.8rem; }
-  .fila-simple-operaciones { grid-template-columns: 1fr; font-size: 0.78rem; }
 }

@@ -84,8 +84,8 @@
         @for (u of usuariosVisibles(); track u.id) {
           <div class="fila-simple fila-simple-usuarios">
             <span>{{ u.username }}</span>
-            <span>{{ u.nombre }} {{ u.apellido }}</span>
-            <span>{{ u.rol === 'ADMIN' ? 'Administrador' : 'Boletero' }}</span>
+            <span data-label="Nombre">{{ u.nombre }} {{ u.apellido }}</span>
+            <span data-label="Rol">{{ u.rol === 'ADMIN' ? 'Administrador' : 'Boletero' }}</span>
             <span class="badge" [class.badge-activo]="u.activo" [class.badge-inactivo]="!u.activo">
               {{ u.activo ? 'Activo' : 'Inactivo' }}
             </span>

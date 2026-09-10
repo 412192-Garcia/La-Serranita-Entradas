@@ -31,37 +31,37 @@
   </div>
   <div class="fila-simple fila-simple-formaspago">
     <span>Efectivo</span>
-    <span>{{ caja().efectivoEsperado | pesos }}</span>
-    <span>{{ caja().montoContado | pesos }}</span>
-    <span [class]="claseDiferenciaValor(caja().diferencia)">{{ caja().diferencia | pesos }}</span>
+    <span data-label="Esperado">{{ caja().efectivoEsperado | pesos }}</span>
+    <span data-label="Contado">{{ caja().montoContado | pesos }}</span>
+    <span data-label="Diferencia" [class]="claseDiferenciaValor(caja().diferencia)">{{ caja().diferencia | pesos }}</span>
   </div>
   @if (caja().totalCerradoPosnet !== null && caja().totalCerradoPosnet !== undefined) {
     <div class="fila-simple fila-simple-formaspago">
       <span>Tarjeta + QR</span>
-      <span>{{ caja().totalVentasPosnet | pesos }}</span>
-      <span>{{ caja().totalCerradoPosnet | pesos }}</span>
-      <span [class]="claseDiferenciaValor(caja().diferenciaPosnet)">{{ caja().diferenciaPosnet | pesos }}</span>
+      <span data-label="Esperado">{{ caja().totalVentasPosnet | pesos }}</span>
+      <span data-label="Contado">{{ caja().totalCerradoPosnet | pesos }}</span>
+      <span data-label="Diferencia" [class]="claseDiferenciaValor(caja().diferenciaPosnet)">{{ caja().diferenciaPosnet | pesos }}</span>
     </div>
   } @else {
     <div class="fila-simple fila-simple-formaspago">
       <span>Tarjeta</span>
-      <span>{{ caja().totalVentasTarjeta | pesos }}</span>
-      <span>{{ caja().totalCerradoTarjeta | pesos }}</span>
-      <span [class]="claseDiferenciaValor(caja().diferenciaTarjeta)">{{ caja().diferenciaTarjeta | pesos }}</span>
+      <span data-label="Esperado">{{ caja().totalVentasTarjeta | pesos }}</span>
+      <span data-label="Contado">{{ caja().totalCerradoTarjeta | pesos }}</span>
+      <span data-label="Diferencia" [class]="claseDiferenciaValor(caja().diferenciaTarjeta)">{{ caja().diferenciaTarjeta | pesos }}</span>
     </div>
     <div class="fila-simple fila-simple-formaspago">
       <span>QR</span>
-      <span>{{ caja().totalVentasQr | pesos }}</span>
-      <span>{{ caja().totalCerradoQr | pesos }}</span>
-      <span [class]="claseDiferenciaValor(caja().diferenciaQr)">{{ caja().diferenciaQr | pesos }}</span>
+      <span data-label="Esperado">{{ caja().totalVentasQr | pesos }}</span>
+      <span data-label="Contado">{{ caja().totalCerradoQr | pesos }}</span>
+      <span data-label="Diferencia" [class]="claseDiferenciaValor(caja().diferenciaQr)">{{ caja().diferenciaQr | pesos }}</span>
     </div>
   }
   @if (caja().huboVentaDolares) {
     <div class="fila-simple fila-simple-formaspago">
       <span>Dólares</span>
-      <span>U$S {{ caja().dolaresEsperado | number: '1.2-2' }}</span>
-      <span>U$S {{ caja().dolaresContado | number: '1.2-2' }}</span>
-      <span [class]="claseDiferenciaValor(caja().diferenciaDolares)">U$S {{ caja().diferenciaDolares | number: '1.2-2' }}</span>
+      <span data-label="Esperado">U$S {{ caja().dolaresEsperado | number: '1.2-2' }}</span>
+      <span data-label="Contado">U$S {{ caja().dolaresContado | number: '1.2-2' }}</span>
+      <span data-label="Diferencia" [class]="claseDiferenciaValor(caja().diferenciaDolares)">U$S {{ caja().diferenciaDolares | number: '1.2-2' }}</span>
     </div>
   }
 </div>
@@ -185,9 +185,9 @@
       @for (total of totalesRevision(); track total.clave) {
         <div class="fila-simple fila-simple-formaspago">
           <span>{{ total.etiqueta }}</span>
-          <span>{{ total.esperado | pesos }}</span>
-          <span>{{ total.contado === null ? '—' : (total.contado | pesos) }}</span>
-          <span [class]="claseDiferenciaValor(total.diferencia)">{{ total.diferencia === null ? '—' : (total.diferencia | pesos) }}</span>
+          <span data-label="Esperado">{{ total.esperado | pesos }}</span>
+          <span data-label="Contado">{{ total.contado === null ? '—' : (total.contado | pesos) }}</span>
+          <span data-label="Diferencia" [class]="claseDiferenciaValor(total.diferencia)">{{ total.diferencia === null ? '—' : (total.diferencia | pesos) }}</span>
         </div>
       }
     </div>
@@ -545,10 +545,10 @@
                     @case ('RETIRO_ENTRADAS') { <svg lucideTicketMinus [strokeWidth]="2"></svg> }
                   }
                 </span>
-                <span>{{ op.fecha | date: 'HH:mm' }}</span>
+                <span data-label="Hora">{{ op.fecha | date: 'HH:mm' }}</span>
                 <span>{{ etiquetaTipoOperacion(op) }}</span>
-                <span>{{ op.detalle }}</span>
-                <span>{{ op.monto !== null ? (op.monto | pesos) : '' }}</span>
+                <span data-label="Detalle">{{ op.detalle }}</span>
+                <span data-label="Monto">{{ op.monto !== null ? (op.monto | pesos) : '' }}</span>
               </div>
             }
           </div>

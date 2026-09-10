@@ -171,3 +171,28 @@
      dos líneas — el color de fondo de la celda (.abierto/.cerrado) ya comunica el estado. */
   .estado-dia { display: none; }
 }
+
+@media (pointer: coarse) {
+  /* El tip de Ctrl+click / Shift+click no se puede seguir sin teclado: en una tablet o un
+     teléfono ocupa tres renglones para explicar algo que ahí no existe. La selección de a
+     un día y el toque sobre el nombre del día de la semana siguen funcionando igual. */
+  .ayuda-tip { display: none; }
+
+  /* 0.62rem son menos de 10px: en el celular de la boletería no se lee. Abajo de 600px esta
+     etiqueta directamente se oculta (ver más arriba), así que esto aplica de tablet en más,
+     donde la celda del día tiene ancho de sobra para un cuerpo más grande. */
+  .estado-dia { font-size: 0.72rem; }
+
+  /* Los nombres de los días son botones (seleccionan la columna entera), pero venían en
+     22px de alto y sin nada que los distinga de un encabezado: quedaban invisibles como
+     control y a la vez eran un blanco imposible para el dedo. */
+  .btn-dia-semana {
+    min-height: 40px;
+    padding: 4px 2px;
+  }
+
+  .btn-mes {
+    width: 44px;
+    height: 44px;
+  }
+}

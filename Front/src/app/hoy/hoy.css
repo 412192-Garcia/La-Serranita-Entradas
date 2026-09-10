@@ -72,10 +72,8 @@
   .kpi-numero { font-size: 2.4rem; }
   .kpi-principal .kpi-numero { font-size: 3rem; }
   .kpi-numero-secundario { font-size: 2rem; }
-  /* La tabla por tipo son 4 columnas cortas: en mobile se aprieta con letra chica en vez de
-     apilar los valores sin su etiqueta (que quedaba ilegible). */
-  .fila-simple-desglose-hoy { grid-template-columns: 1.5fr 1fr 1fr 0.9fr; font-size: 0.75rem; }
-  .fila-simple-cajas-abiertas { grid-template-columns: 1fr; font-size: 0.8rem; }
+  /* Las tablas (.fila-simple-*) pasan a modo tarjeta con etiqueta por valor: ver
+     configuracion-shared.css. */
 }
 
 @media (max-width: 600px) {

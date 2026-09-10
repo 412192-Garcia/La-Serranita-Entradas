@@ -34,15 +34,15 @@
     </div>
     <div class="fila-simple fila-simple-formaspago-abierta">
       <span>Efectivo{{ d.huboVentaDolares ? ' (incluye dólares)' : '' }}</span>
-      <span>{{ d.totalVentasEfectivo | pesos }}</span>
+      <span data-label="Vendido">{{ d.totalVentasEfectivo | pesos }}</span>
     </div>
     <div class="fila-simple fila-simple-formaspago-abierta">
       <span>Tarjeta</span>
-      <span>{{ d.totalVentasTarjeta | pesos }}</span>
+      <span data-label="Vendido">{{ d.totalVentasTarjeta | pesos }}</span>
     </div>
     <div class="fila-simple fila-simple-formaspago-abierta">
       <span>QR</span>
-      <span>{{ d.totalVentasQr | pesos }}</span>
+      <span data-label="Vendido">{{ d.totalVentasQr | pesos }}</span>
     </div>
   </div>
 
@@ -86,10 +86,10 @@
               @case ('RETIRO_ENTRADAS') { <svg lucideTicketMinus [strokeWidth]="2"></svg> }
             }
           </span>
-          <span>{{ op.fecha | date: 'HH:mm' }}</span>
+          <span data-label="Hora">{{ op.fecha | date: 'HH:mm' }}</span>
           <span>{{ etiquetaTipoOperacion(op) }}</span>
-          <span>{{ op.detalle }}</span>
-          <span>{{ op.monto !== null ? (op.monto | pesos) : '' }}</span>
+          <span data-label="Detalle">{{ op.detalle }}</span>
+          <span data-label="Monto">{{ op.monto !== null ? (op.monto | pesos) : '' }}</span>
           <span class="acciones-operacion">
             @if (op.compraId !== null && editandoCompraId() !== op.compraId) {
               <button type="button" class="btn-secundario" [disabled]="agregandoVenta()" (click)="iniciarEdicion(op)">Editar</button>

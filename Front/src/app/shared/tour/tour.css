@@ -134,3 +134,22 @@
   outline: none;
   box-shadow: 0 0 0 3px rgba(57, 169, 53, 0.35);
 }
+
+/* ---------- Mínimo táctil ----------
+   El tutorial se recorre casi siempre en tablet o teléfono (es donde se usa la app en la
+   puerta del parque) y sus tres botones venían entre 31 y 32px de alto. */
+@media (pointer: coarse) {
+  .tour-btn-saltar,
+  .tour-btn-secundario,
+  .tour-btn-primario {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .tour-cerrar {
+    width: 44px;
+    height: 44px;
+  }
+}

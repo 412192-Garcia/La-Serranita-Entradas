@@ -9,39 +9,47 @@
     </div>
   </div>
 
-  <div class="cabecera-acciones">
-    <!-- Acciones propias de la pantalla (ej. en el POS: Retiro/Aporte, Reponer talonario). -->
-    <ng-content select="[cabecera-acciones]"></ng-content>
+  <!-- En mobile (ver CSS) .cabecera-derecha usa display:contents y sus dos hijos se
+       reacomodan en la grilla de .cabecera: los controles de la app (Tutorial + menú, sólo
+       ícono) arriba a la derecha junto al título, y las acciones de pantalla abajo ocupando
+       el ancho. -->
+  <div class="cabecera-derecha">
+    <div class="cabecera-acciones">
+      <!-- Acciones propias de la pantalla (ej. en el POS: Retiro/Aporte, Reponer talonario). -->
+      <ng-content select="[cabecera-acciones]"></ng-content>
+    </div>
 
-    @if (!enLinea()) {
-      <span class="indicador-offline" title="Sin conexión a internet">
-        <svg lucideWifiOff [strokeWidth]="2"></svg>
-        Sin conexión
-      </span>
-    }
+    <div class="cabecera-controles">
+      @if (!enLinea()) {
+        <span class="indicador-offline" title="Sin conexión a internet">
+          <svg lucideWifiOff [strokeWidth]="2"></svg>
+          <span class="etiqueta-control">Sin conexión</span>
+        </span>
+      }
 
-    @if (pasosTutorial.length > 0) {
-      <button type="button" class="btn-tutorial" (click)="tourActivo.set(true)" aria-label="Ver tutorial de esta pantalla">
-        <svg lucideCircleHelp [strokeWidth]="2"></svg>
-        Tutorial
-      </button>
-    }
+      @if (pasosTutorial.length > 0) {
+        <button type="button" class="btn-tutorial" (click)="tourActivo.set(true)" aria-label="Ver tutorial de esta pantalla">
+          <svg lucideCircleHelp [strokeWidth]="2"></svg>
+          <span class="etiqueta-control">Tutorial</span>
+        </button>
+      }
 
-    <button type="button" class="btn-hamburguesa" (click)="toggleMenu()" [attr.aria-expanded]="menuAbierto()" aria-label="Abrir menú">
-      @if (operador(); as usuario) {
-        @if (usuario.fotoPerfil) {
-          <img class="avatar-operador" [src]="usuario.fotoPerfil" alt="" />
+      <button type="button" class="btn-hamburguesa" (click)="toggleMenu()" [attr.aria-expanded]="menuAbierto()" aria-label="Abrir menú">
+        @if (operador(); as usuario) {
+          @if (usuario.fotoPerfil) {
+            <img class="avatar-operador" [src]="usuario.fotoPerfil" alt="" />
+          } @else {
+            <svg lucideMenu [strokeWidth]="2"></svg>
+          }
+          <span class="operador etiqueta-control">{{ usuario.username }}</span>
         } @else {
           <svg lucideMenu [strokeWidth]="2"></svg>
         }
-        <span class="operador">{{ usuario.username }}</span>
-      } @else {
-        <svg lucideMenu [strokeWidth]="2"></svg>
-      }
-      @if (hayRechazosPendientes() && !esRutaActual('/acciones')) {
-        <span class="punto-notificacion-boton" aria-label="Hay operaciones rechazadas pendientes"></span>
-      }
-    </button>
+        @if (hayRechazosPendientes() && !esRutaActual('/acciones')) {
+          <span class="punto-notificacion-boton" aria-label="Hay operaciones rechazadas pendientes"></span>
+        }
+      </button>
+    </div>
   </div>
 </header>
 

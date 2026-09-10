@@ -223,16 +223,28 @@
 }
 
 @media (max-width: 700px) {
-  .fila-periodo-comparar { grid-template-columns: 1fr; }
-  .fila-simple-comparacion { grid-template-columns: 1fr; font-size: 0.8rem; }
+  /* Etiqueta + botón de quitar arriba, las dos fechas abajo lado a lado. Antes se apilaba
+     todo en 1 columna y el botón ✕ quedaba como una barra vacía a lo ancho. */
+  .fila-periodo-comparar {
+    grid-template-columns: 1fr 1fr auto;
+    grid-template-areas:
+      'etiqueta etiqueta quitar'
+      'desde    hasta    hasta';
+    gap: 8px 10px;
+  }
+  .fila-periodo-comparar .input-etiqueta-periodo { grid-area: etiqueta; }
+  .fila-periodo-comparar input[type='date']:nth-of-type(2) { grid-area: desde; }
+  .fila-periodo-comparar input[type='date']:nth-of-type(3) { grid-area: hasta; }
+  .fila-periodo-comparar .btn-quitar-periodo { grid-area: quitar; }
+
   .graficos-comparacion { grid-template-columns: 1fr; }
 }
 
 /* ---------- Responsive ---------- */
+/* Las tablas (.fila-simple-*) pasan a modo tarjeta con etiqueta por valor en ≤900px:
+   ver configuracion-shared.css. */
 @media (max-width: 900px) {
   .seccion-reportes, .tarjeta-kpis { grid-template-columns: 1fr; }
-  .fila-simple-desglose { grid-template-columns: 1fr; font-size: 0.8rem; }
-  .fila-simple-desglose-simple { grid-template-columns: 1fr 1fr 1fr; }
   .grafico-contenedor-grande { height: 320px; }
 }
 

@@ -53,7 +53,26 @@
   .panel { padding: 20px 16px 32px; }
 
   /* Las 4 pestañas no entran en una fila angosta: en vez de partirlas en dos líneas
-     (se ve raro con el subrayado activo), se desliza horizontalmente. */
-  .tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  .tab { white-space: nowrap; flex-shrink: 0; }
+     (se ve raro con el subrayado activo), se desliza horizontalmente. Se achica el padding
+     para que entre una más y se esconde la barra de scroll (la pestaña cortada ya avisa
+     que hay más). */
+  /* Sombra de scroll al borde derecho: sin ella "Usuarios" quedaba cortado a cuchillo contra
+     el borde del panel y se leía como un bug de layout, no como "seguí deslizando" (la barra
+     de scroll está oculta acá abajo, y en táctil ni siquiera aparece hasta que arrastrás).
+     Misma técnica de dos capas que la matriz de corrección de caja: la tapa va pegada al
+     contenido y apaga la sombra al llegar a la última pestaña. */
+  .tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    background-image:
+      linear-gradient(to left, var(--color-bg-page), transparent),
+      linear-gradient(to left, rgba(0, 0, 0, 0.13), transparent);
+    background-position: right center, right center;
+    background-size: 26px 100%, 26px 100%;
+    background-repeat: no-repeat, no-repeat;
+    background-attachment: local, scroll;
+  }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { white-space: nowrap; flex-shrink: 0; padding: 10px 12px; font-size: 0.86rem; }
 }

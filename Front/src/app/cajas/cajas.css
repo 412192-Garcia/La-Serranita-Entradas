@@ -151,11 +151,24 @@
 }
 
 /* ---------- Responsive ---------- */
+/* Las tablas (.fila-simple-cajas / -ranking / -cajas-abiertas) pasan a modo tarjeta con
+   etiqueta por valor en ≤900px: ver configuracion-shared.css. */
 @media (max-width: 900px) {
-  .fila-simple-cajas { grid-template-columns: 1fr; font-size: 0.8rem; }
-  .fila-simple-ranking { grid-template-columns: 1fr; font-size: 0.8rem; }
+  /* El botón "Cerrar caja" de cada caja abierta ocupa el ancho de la tarjeta. */
+  .fila-simple-cajas-abiertas .acciones-fila-caja-abierta { width: 100%; }
+  .fila-simple-cajas-abiertas .acciones-fila-caja-abierta .btn-secundario { flex: 1; }
 }
 
 @media (max-width: 600px) {
-  .panel { padding: 20px 16px 32px; }
+  .panel { padding: 20px 12px 32px; }
+
+  /* El detalle desplegado de una caja ya vive dentro de una .tarjeta (con su propio padding)
+     dentro del .panel: sumar acá 18/16px más dejaba el contenido en ~240px de ancho útil en
+     un celular. Se recorta al mínimo para separar del borde. */
+  .fila-detalle-expandida { padding: 12px 8px; }
+
+  /* "Anterior · Página X de Y · Siguiente" no entra a 375px con el gap y padding de escritorio. */
+  .paginador { gap: 10px; }
+  .paginador .btn-limpiar { padding: 10px 12px; font-size: 0.82rem; }
+  .paginador span { white-space: nowrap; }
 }

@@ -1,7 +1,7 @@
 import { Component, ElementRef, OnDestroy, OnInit, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Chart, registerables } from 'chart.js';
+import { Chart, ChartOptions, registerables } from 'chart.js';
 import { ReporteService } from '../services/reporte.service';
 import { ComprasPorEstado, RecaudacionPorFormaPago, ReporteResumen, VentasPorOrigen } from '../models/reporte';
 import { CabeceraInterna } from '../shared/cabecera-interna/cabecera-interna';
@@ -347,6 +347,33 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
     }
   }
 
+  /* La leyenda de las tortas va a la derecha para aprovechar el ancho sobrante y dejar la
+     torta más grande, pero en teléfono no hay ancho que sobre: las etiquetas largas
+     ("Efectivo en Boletería", "Boletería (venta de puerta)") se dibujaban cortadas contra el
+     borde del canvas, sin puntos suspensivos ni nada que avisara que faltaba texto. Chart.js
+     no entiende de media queries, así que la posición se decide acá y se rehace en onResize
+     (que también cubre el giro de pantalla). El umbral es por ancho de canvas, no de
+     ventana: es lo que realmente determina si la leyenda entra al costado. */
+  private posicionLeyendaTorta(anchoCanvas: number): 'right' | 'bottom' {
+    return anchoCanvas >= 520 ? 'right' : 'bottom';
+  }
+
+  private opcionesTorta(): ChartOptions<'doughnut'> {
+    return {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { position: this.posicionLeyendaTorta(window.innerWidth) } },
+      onResize: (chart, tamanio) => {
+        const posicion = this.posicionLeyendaTorta(tamanio.width);
+        // El guard es lo que evita el bucle: update() vuelve a disparar onResize.
+        if (chart.options.plugins?.legend && chart.options.plugins.legend.position !== posicion) {
+          chart.options.plugins.legend.position = posicion;
+          chart.update('none');
+        }
+      },
+    };
+  }
+
   private renderGraficos(r: ReporteResumen): void {
     if (this.afluenciaCanvas()) {
       this.afluenciaChart?.destroy();
@@ -393,7 +420,7 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
         type: 'bar',
         data: {
           labels: r.usoCupones.map((c) => c.etiqueta),
-          datasets: [{ label: 'Compras', data: r.usoCupones.map((c) => c.cantidad), backgroundColor: '#e0a72e' }],
+          datasets: [{ label: 'Compras', data: r.usoCupones.map((c) => c.cantidad), backgroundColor: '#e0a72e', maxBarThickness: 48 }],
         },
         options: {
           responsive: true,
@@ -436,12 +463,7 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
             backgroundColor: r.recaudacionPorFormaPago.map((f) => COLOR_POR_FORMA_PAGO[f.formaPago] ?? '#9aa0a6'),
           }],
         },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          // Leyenda a la derecha: aprovecha el ancho que sobraba y deja la torta más grande.
-          plugins: { legend: { position: 'right' } },
-        },
+        options: this.opcionesTorta(),
       });
     }
 
@@ -456,11 +478,7 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
             backgroundColor: r.comprasPorEstado.map((e) => COLOR_POR_ESTADO[e.estado]),
           }],
         },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: { legend: { position: 'right' } },
-        },
+        options: this.opcionesTorta(),
       });
     }
 
@@ -471,7 +489,7 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
         data: {
           labels: r.desgloseExtras.map((t) => t.nombre),
           // Los extras (ej. almuerzo) sólo se venden en la compra anticipada: en boletería/POS no se ofrecen.
-          datasets: [{ label: 'Unidades vendidas', data: r.desgloseExtras.map((t) => t.cantidadAnticipada), backgroundColor: '#39a935' }],
+          datasets: [{ label: 'Unidades vendidas', data: r.desgloseExtras.map((t) => t.cantidadAnticipada), backgroundColor: '#39a935', maxBarThickness: 48 }],
         },
         options: {
           responsive: true,
@@ -512,11 +530,7 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
             backgroundColor: r.ventasPorOrigen.map((o) => COLOR_POR_ORIGEN[o.origen]),
           }],
         },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: { legend: { position: 'right' } },
-        },
+        options: this.opcionesTorta(),
       });
     }
 
@@ -526,7 +540,9 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
         type: 'bar',
         data: {
           labels: r.ventasArticulosVarios.map((a) => a.nombre),
-          datasets: [{ label: 'Unidades vendidas', data: r.ventasArticulosVarios.map((a) => a.cantidad), backgroundColor: '#e0a72e' }],
+          // maxBarThickness: con un solo artículo la barra se repartía toda la altura de la
+          // banda y se veía como un bloque de color macizo, no como un gráfico.
+          datasets: [{ label: 'Unidades vendidas', data: r.ventasArticulosVarios.map((a) => a.cantidad), backgroundColor: '#e0a72e', maxBarThickness: 48 }],
         },
         options: {
           responsive: true,

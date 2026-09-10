@@ -90,6 +90,34 @@
 }
 
 /* ---------- Responsive ---------- */
+/* Las tablas pasan a modo tarjeta (ver configuracion-shared.css). En .fila-simple-tipos la
+   primera celda son las flechas de reordenar (con data-label="Orden"), así que el título de
+   la tarjeta es la 2da celda: el nombre del tipo. */
 @media (max-width: 900px) {
-  .fila-simple-tipos, .fila-simple-descuentos { grid-template-columns: 1fr 1fr; }
+  .fila-simple-tipos > span:nth-child(2) {
+    justify-content: flex-start;
+    text-align: left;
+    font-weight: 700;
+    font-size: 0.95rem;
+    padding-bottom: 7px;
+    border-top: none;
+  }
+
+  /* Fila de reordenar: etiqueta "ORDEN" a la izquierda, las dos flechas juntas a la derecha. */
+  .fila-simple-tipos > .acciones-orden {
+    gap: 6px;
+  }
+
+  .fila-simple-tipos > .acciones-orden::before {
+    margin-right: auto;
+  }
+}
+
+@media (pointer: coarse) {
+  /* Las flechas de reordenar venían en 30px: con el dedo, y estando pegadas una a la otra,
+     era fácil bajar un tipo de entrada queriendo subirlo. */
+  .btn-reordenar {
+    width: 44px;
+    height: 44px;
+  }
 }

@@ -106,9 +106,9 @@
         @for (c of cupones(); track c.id) {
           <div class="fila-simple">
             <span class="codigo-mono">{{ c.codigo }}</span>
-            <span>{{ descuentoLegible(c) }}</span>
-            <span>{{ c.usosActuales }} / {{ c.usosMaximos }}</span>
-            <span>{{ c.fechaExpiracion | date: 'dd/MM/yyyy' }}</span>
+            <span data-label="Descuento">{{ descuentoLegible(c) }}</span>
+            <span data-label="Usos">{{ c.usosActuales }} / {{ c.usosMaximos }}</span>
+            <span data-label="Expira">{{ c.fechaExpiracion | date: 'dd/MM/yyyy' }}</span>
             <span class="badge" [class.badge-activo]="c.activo" [class.badge-inactivo]="!c.activo">
               {{ c.activo ? 'Activo' : 'Inactivo' }}
             </span>

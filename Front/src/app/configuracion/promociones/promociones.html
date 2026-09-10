@@ -69,7 +69,7 @@
         @for (p of promocionesVisibles(); track p.id) {
           <div class="fila-simple fila-simple-promos">
             <span>{{ p.nombre }}</span>
-            <span>
+            <span data-label="Descuento">
               @if (p.montoDescuento !== null) {
                 {{ p.montoDescuento | pesos }}
               } @else {
