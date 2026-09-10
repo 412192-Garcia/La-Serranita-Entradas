@@ -17,8 +17,12 @@ export interface ReservaVista {
   pases: DetalleLinea[];
   extras: DetalleLinea[];
   totalPases: number;
-  /** "Hoy" / "Mañana" / "Ayer" cuando aplica, si no "vie 12/09"; null en los regalos (sin fecha). */
-  etiquetaFecha: string | null;
+  /**
+   * "Hoy" / "Mañana" / "Ayer" cuando aplica, si no "vie 12/09". Sin fecha de visita hay dos
+   * casos distintos y no se pueden mostrar igual: el regalo (lo usa quien lo recibe) y la
+   * reserva abierta que genera un admin (invitado, premio), donde el titular es quien entra.
+   */
+  etiquetaFecha: string;
   etiquetaEstado: string;
 }
 
@@ -91,7 +95,14 @@ export function aVista(reserva: Reserva, hoy: string): ReservaVista {
     pases,
     extras,
     totalPases,
-    etiquetaFecha: reserva.fechaVisita ? etiquetaFechaFila(reserva.fechaVisita, hoy) : null,
+    // Sin fecha: se distingue por receptor, no por el prefijo del código. El receptor es el
+    // dato de negocio (un regalo lo usa otra persona, y se valida con SU DNI); el REGALO-/
+    // ABIERTA- del código es sólo su representación visible.
+    etiquetaFecha: reserva.fechaVisita
+      ? etiquetaFechaFila(reserva.fechaVisita, hoy)
+      : reserva.receptorNombre
+        ? 'Regalo — cualquier día'
+        : 'Sin fecha — cualquier día',
     etiquetaEstado: etiquetaEstadoCompra(reserva.estado),
   };
 }

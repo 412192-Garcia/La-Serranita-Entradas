@@ -1,10 +1,12 @@
 package org.example.laserranitaentradas.service.impl;
 
 import org.example.laserranitaentradas.model.dto.AfluenciaDiariaDTO;
+import org.example.laserranitaentradas.model.dto.AnticipacionCompraDTO;
 import org.example.laserranitaentradas.model.dto.RecaudacionPorFormaPagoDTO;
 import org.example.laserranitaentradas.model.dto.ReporteResumenDTO;
 import org.example.laserranitaentradas.model.entity.Caja;
 import org.example.laserranitaentradas.model.entity.Compra;
+import org.example.laserranitaentradas.model.entity.Cupon;
 import org.example.laserranitaentradas.model.entity.CompraDetalle;
 import org.example.laserranitaentradas.model.entity.EstadoCompra;
 import org.example.laserranitaentradas.model.entity.FormaPago;
@@ -180,6 +182,89 @@ class ReporteServiceImplTest {
         assertThat(pasesReservados(marzo, MARZO)).isZero();
     }
 
+    @Test
+    void generarResumen_anticipacionDeCompra_caeEnElTramoDeDiasEntreCompraYUso() {
+        // Comprada el 10/8, usada el 15/8: 5 días de antelación -> tramo "3 a 7 días".
+        Compra cincoDias = mpUsada("5000", DIA.minusDays(5), DIA, DIA.atTime(11, 0));
+        // Comprada y usada el mismo día -> tramo "Mismo día".
+        Compra mismoDia = mpUsada("5000", DIA, DIA, DIA.atTime(12, 0));
+        // 40 días -> "Más de 30 días".
+        Compra cuarentaDias = mpUsada("5000", DIA.minusDays(40), DIA, DIA.atTime(13, 0));
+
+        stubReporte(cincoDias, mismoDia, cuarentaDias);
+        ReporteResumenDTO resumen = service.generarResumen(DIA.minusDays(60), DIA);
+
+        // Cada compra trae 2 pases (ver base()).
+        assertThat(anticipacion(resumen, "Mismo día")).isEqualTo(2);
+        assertThat(anticipacion(resumen, "3 a 7 días")).isEqualTo(2);
+        assertThat(anticipacion(resumen, "Más de 30 días")).isEqualTo(2);
+        assertThat(anticipacion(resumen, "1 a 2 días")).isZero();
+        assertThat(anticipacion(resumen, "8 a 14 días")).isZero();
+        assertThat(anticipacion(resumen, "15 a 30 días")).isZero();
+    }
+
+    @Test
+    void generarResumen_anticipacion_soloCuentaLasQueSeUsaron() {
+        // Reservada pero nunca validada: no entró nadie, así que no hay antelación que medir.
+        Compra sinUsar = mpAprobada("5000", DIA.minusDays(5), DIA);
+
+        stubReporte(sinUsar);
+        ReporteResumenDTO resumen = service.generarResumen(DIA.minusDays(60), DIA);
+
+        assertThat(resumen.getAnticipacionCompra()).allSatisfy(t -> assertThat(t.getCantidad()).isZero());
+    }
+
+    @Test
+    void generarResumen_pasesComprados_vanAlDiaQueSeGeneroLaReserva_yLaVentaDePuertaNoCuenta() {
+        // Reserva generada en enero para venir en marzo: el "ritmo de venta" es de enero.
+        Compra anticipada = mpAprobada("5000", ENERO, MARZO);
+        // La venta de puerta nunca fue una anticipada: no aporta a esta serie.
+        Compra puerta = ventaPuerta("3000", FormaPago.EFECTIVO_BOLETERIA, ENERO);
+
+        stubReporte(anticipada, puerta);
+        ReporteResumenDTO resumen = service.generarResumen(LocalDate.of(2026, 1, 1), LocalDate.of(2026, 3, 31));
+
+        assertThat(pasesComprados(resumen, ENERO)).isEqualTo(2);
+        // En marzo se la espera (demanda), pero no se compró nada ese día.
+        assertThat(pasesComprados(resumen, MARZO)).isZero();
+        assertThat(pasesReservados(resumen, MARZO)).isEqualTo(2);
+    }
+
+    @Test
+    void generarResumen_descuentoDePromocion_noSeReportaComoUsoDeCupon() {
+        // Una promo de puerta también carga descuentoAplicado. El desglose por cupón tiene que
+        // quedar vacío: es lo que mira la tarjeta "Cupones aplicados" del front, que antes
+        // mostraba el total de descuentos y se contradecía con su propia tabla.
+        Compra conPromo = ventaPuerta("3000", FormaPago.EFECTIVO_BOLETERIA, DIA);
+        conPromo.setDescuentoAplicado(new BigDecimal("500"));
+
+        stubReporte(conPromo);
+        ReporteResumenDTO resumen = service.generarResumen(DIA, DIA);
+
+        assertThat(resumen.getUsoCupones()).isEmpty();
+        // El total general de descuentos sí lo incluye: son cosas distintas a propósito.
+        assertThat(resumen.getTotalDescuentos()).isEqualByComparingTo("500");
+    }
+
+    @Test
+    void generarResumen_compraConCupon_seDesglosaPorEtiquetaDeCupon() {
+        Cupon cupon = new Cupon();
+        cupon.setId(7L);
+        cupon.setPorcentajeDescuento(new BigDecimal("15"));
+        Compra conCupon = ventaPuerta("3000", FormaPago.EFECTIVO_BOLETERIA, DIA);
+        conCupon.setDescuentoAplicado(new BigDecimal("450"));
+        conCupon.setCupon(cupon);
+
+        stubReporte(conCupon);
+        ReporteResumenDTO resumen = service.generarResumen(DIA, DIA);
+
+        assertThat(resumen.getUsoCupones()).singleElement().satisfies(u -> {
+            assertThat(u.getEtiqueta()).isEqualTo("15%");
+            assertThat(u.getCantidad()).isEqualTo(1);
+            assertThat(u.getMontoDescontado()).isEqualByComparingTo("450");
+        });
+    }
+
     // ---------- helpers ----------
 
     private void stubReporte(Compra... compras) {
@@ -258,6 +343,18 @@ class ReporteServiceImplTest {
 
     private static long pasesReservados(ReporteResumenDTO resumen, LocalDate dia) {
         return afluencia(resumen, dia).getPasesVendidosAnticipada();
+    }
+
+    private static long pasesComprados(ReporteResumenDTO resumen, LocalDate dia) {
+        return afluencia(resumen, dia).getPasesCompradosAnticipada();
+    }
+
+    private static long anticipacion(ReporteResumenDTO resumen, String tramo) {
+        return resumen.getAnticipacionCompra().stream()
+                .filter(a -> a.getEtiqueta().equals(tramo))
+                .mapToLong(AnticipacionCompraDTO::getCantidad)
+                .findFirst()
+                .orElseThrow();
     }
 
     private static AfluenciaDiariaDTO afluencia(ReporteResumenDTO resumen, LocalDate dia) {

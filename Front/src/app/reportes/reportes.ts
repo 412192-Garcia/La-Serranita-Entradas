@@ -145,6 +145,19 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
   vista = signal<'resumen' | 'comparacion'>('resumen');
   pasosTutorial = computed(() => (this.vista() === 'resumen' ? PASOS_RESUMEN : PASOS_COMPARACION));
 
+  /* La tarjeta "Cupones aplicados" mostraba totalDescuentos / cantidadComprasConDescuento, que
+     el backend acumula para CUALQUIER descuento: también las promociones de puerta y los
+     descuentos manuales. En un rango con una promo y ningún cupón, el número de arriba daba
+     distinto de cero y la tabla de abajo decía "No se aplicó ningún cupón en el rango": se
+     contradecían solos. Se suma usoCupones, que ya viene desglosado por cupón — una compra
+     tiene a lo sumo un cupón, así que no hay doble conteo. */
+  cuponesDescontado = computed(() =>
+    (this.resumen()?.usoCupones ?? []).reduce((total, c) => total + c.montoDescontado, 0),
+  );
+  cuponesCompras = computed(() =>
+    (this.resumen()?.usoCupones ?? []).reduce((total, c) => total + c.cantidad, 0),
+  );
+
   /** Arranca con el rango principal y ese mismo rango un año antes, como punto de partida
    * cómodo: el admin corrige las fechas de cualquier fila (o agrega más) antes de comparar. */
   periodos = signal<PeriodoComparacion[]>([
@@ -414,8 +427,15 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
       });
     }
 
+    /* Los tres gráficos cuyo canvas es condicional (cupones, extras, artículos varios) se
+       destruyen ANTES de preguntar si el canvas existe: si el rango nuevo no tiene datos, el
+       @if saca el canvas del DOM y el destroy de adentro del if nunca corría, así que la
+       instancia vieja quedaba viva con su ResizeObserver sobre un canvas ya desprendido hasta
+       que se saliera de la pantalla. Los demás gráficos no lo necesitan porque su canvas
+       siempre está en el DOM. */
+    this.cuponesChart?.destroy();
+    this.cuponesChart = null;
     if (this.cuponesCanvas()) {
-      this.cuponesChart?.destroy();
       this.cuponesChart = new Chart(this.cuponesCanvas()!.nativeElement, {
         type: 'bar',
         data: {
@@ -482,8 +502,9 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
       });
     }
 
+    this.extrasChart?.destroy();
+    this.extrasChart = null;
     if (this.extrasCanvas()) {
-      this.extrasChart?.destroy();
       this.extrasChart = new Chart(this.extrasCanvas()!.nativeElement, {
         type: 'bar',
         data: {
@@ -534,8 +555,9 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
       });
     }
 
+    this.articulosVariosChart?.destroy();
+    this.articulosVariosChart = null;
     if (this.articulosVariosCanvas()) {
-      this.articulosVariosChart?.destroy();
       this.articulosVariosChart = new Chart(this.articulosVariosCanvas()!.nativeElement, {
         type: 'bar',
         data: {

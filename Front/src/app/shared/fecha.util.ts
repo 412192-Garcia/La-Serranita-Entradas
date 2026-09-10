@@ -16,6 +16,23 @@ export function aFechaHoraISO(d: Date = new Date()): string {
   );
 }
 
+/**
+ * Pasa a hora local un timestamp que pueda venir con zona (`...Z` o `...-03:00`); si ya viene
+ * sin zona lo deja igual.
+ *
+ * Existe por la cola de operaciones offline del POS: vive en el localStorage del dispositivo,
+ * así que sobrevive a un deploy. Las entradas que dejó una versión anterior traen la fecha en
+ * UTC (`toISOString()`), y el backend la bindea a un LocalDateTime, que rechaza ese formato
+ * con un 400 — y un 400 la cola lo interpreta como rechazo de negocio, así que marcaría como
+ * error una venta que sólo estaba mal expresada. El instante era correcto: sólo hay que
+ * volver a escribirlo en hora local.
+ */
+export function aHoraLocalSinZona(fecha: string): string {
+  if (!/(?:Z|[+-]\d{2}:?\d{2})$/.test(fecha)) return fecha;
+  const d = new Date(fecha);
+  return Number.isNaN(d.getTime()) ? fecha : aFechaHoraISO(d);
+}
+
 /** Mismo día/mes un año antes (para comparativas año contra año en Reportes); si cae en 29/2,
  * JS corre la fecha sola al 1/3 del año no bisiesto — no hace falta un caso especial. */
 export function restarUnAnio(fechaISO: string): string {

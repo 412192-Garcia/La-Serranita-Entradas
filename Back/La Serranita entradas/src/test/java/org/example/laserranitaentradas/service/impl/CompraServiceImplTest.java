@@ -58,6 +58,10 @@ class CompraServiceImplTest {
     @Mock private PagoService efectivoEstrategia;
     @Mock private PagoService reservaAdminEstrategia;
     @Mock private EntityManager em;
+    /** El propio bean visto por el proxy de Spring. Sólo lo usa iniciarCompraConPago, que
+     *  ningún test de acá ejercita (necesitaría el contexto de Spring para que el proxy exista
+     *  de verdad): va un mock para poder construir el service. */
+    @Mock private CompraService autoReferencia;
 
     private CompraServiceImpl service;
 
@@ -67,10 +71,12 @@ class CompraServiceImplTest {
         lenient().when(efectivoEstrategia.getFormaPago()).thenReturn(FormaPago.EFECTIVO_BOLETERIA);
         lenient().when(reservaAdminEstrategia.getFormaPago()).thenReturn(FormaPago.RESERVA_ADMIN);
         lenient().when(reservaAdminEstrategia.getEstadoInicial()).thenReturn(EstadoCompra.APROBADO);
-
         service = new CompraServiceImpl(compraRepository, tipoEntradaService, cuponService, diaAperturaService,
                 clienteService, usuarioService, calculoPrecioService, emailService, cajaService, cajaRepository, promocionRepository,
-                articuloVarioRepository, List.of(mercadoPagoEstrategia, efectivoEstrategia, reservaAdminEstrategia), em);
+                articuloVarioRepository, List.of(mercadoPagoEstrategia, efectivoEstrategia, reservaAdminEstrategia), em,
+                // `self` sólo lo usa iniciarCompraConPago para cruzar el proxy de Spring; los
+                // tests llaman a create() directo, así que alcanza con el propio service.
+                autoReferencia);
     }
 
     // ---------- RESERVA_ADMIN: no cobra nada por acá, sin importar el precio de lista ----------
@@ -746,5 +752,285 @@ class CompraServiceImplTest {
 
         verify(clienteService, never()).create(any());
         assertThat(resultado.getReceptorDni()).isEqualTo("40999888");
+    }
+
+    // ---------- Cupo diario por tipo de entrada (maximoPorDia) ----------
+
+    /** Arma el escenario "un tipo de entrada con tope diario" y devuelve el request de compra. */
+    private CompraRequestDTO pedidoConTope(Integer maximoPorDia, int cantidadPedida, long yaVendidos) {
+        var tipo = org.example.laserranitaentradas.model.entity.TipoEntrada.builder()
+                .id(1L).nombre("General").tipo(org.example.laserranitaentradas.model.entity.Tipo.ENTRADA)
+                .obligatorio(true).precio(new java.math.BigDecimal("100")).maximoPorDia(maximoPorDia).build();
+        when(tipoEntradaService.findById(1L)).thenReturn(Optional.of(tipo));
+        when(diaAperturaService.getAbiertoByDate(any())).thenReturn(true);
+        lenient().when(compraRepository.findAllByFechaVisitaOrderByCodigoReservaAsc(any())).thenReturn(List.of());
+        lenient().when(calculoPrecioService.calcularTotal(any(), org.mockito.ArgumentMatchers.anyInt(), any()))
+                .thenReturn(new java.math.BigDecimal("100"));
+        lenient().when(compraRepository.contarPasesComprometidos(any(), org.mockito.ArgumentMatchers.eq(1L)))
+                .thenReturn(yaVendidos);
+        lenient().when(compraRepository.save(any(Compra.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        var detalle = new org.example.laserranitaentradas.model.dto.DetalleCompraDTO();
+        detalle.setTipoEntradaId(1L);
+        detalle.setCantidad(cantidadPedida);
+
+        CompraRequestDTO request = new CompraRequestDTO();
+        request.setFecha(LocalDate.now().plusDays(1));
+        request.setFormaPago(FormaPago.MERCADO_PAGO);
+        request.setEntradas(List.of(detalle));
+        return request;
+    }
+
+    @Test
+    void create_conCupoDiarioAgotado_rechazaLaCompra() {
+        CompraRequestDTO request = pedidoConTope(10, 1, 10);
+
+        assertThatThrownBy(() -> service.create(request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Ya no quedan entradas");
+
+        verify(compraRepository, never()).save(any());
+    }
+
+    @Test
+    void create_pidiendoMasDeLoQueQueda_rechazaYDiceCuantasQuedan() {
+        CompraRequestDTO request = pedidoConTope(10, 4, 8); // quedan 2, pide 4
+
+        assertThatThrownBy(() -> service.create(request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Sólo 2 entrada(s)");
+
+        verify(compraRepository, never()).save(any());
+    }
+
+    @Test
+    void create_justoHastaElTope_dejaPasar() {
+        CompraRequestDTO request = pedidoConTope(10, 2, 8); // quedan 2, pide 2
+
+        Compra resultado = service.create(request);
+
+        assertThat(resultado).isNotNull();
+        verify(compraRepository).save(any(Compra.class));
+    }
+
+    @Test
+    void create_sinTopeConfigurado_niSiquieraCuentaLoVendido() {
+        CompraRequestDTO request = pedidoConTope(null, 500, 0);
+
+        service.create(request);
+
+        // Sin maximoPorDia no tiene sentido pagar la consulta de conteo en cada compra.
+        verify(compraRepository, never()).contarPasesComprometidos(any(), any());
+    }
+
+    // ---------- Cupón: el límite de usos lo hace valer la base, no una lectura previa ----------
+
+    @Test
+    void create_conCuponQueOtraCompraAgotoRecienAhora_rechazaEnVezDeRegalarElDescuento() {
+        var cupon = org.example.laserranitaentradas.model.entity.Cupon.builder()
+                .id(9L).codigo("PROMO").activo(true).usosMaximos(1).usosActuales(0)
+                .porcentajeDescuento(new java.math.BigDecimal("50"))
+                .fechaExpiracion(LocalDate.now().plusYears(1)).build();
+        when(cuponService.getByCode("PROMO")).thenReturn(Optional.of(cupon));
+        // La lectura de arriba dice que queda 1 uso, pero entre esa lectura y el consumo otra
+        // compra se llevó el último: el consumo atómico devuelve false.
+        when(cuponService.consumirUso(9L)).thenReturn(false);
+
+        CompraRequestDTO request = pedidoConTope(null, 1, 0);
+        request.setCuponCodigo("PROMO");
+
+        assertThatThrownBy(() -> service.create(request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("ya no está disponible");
+
+        verify(compraRepository, never()).save(any());
+    }
+
+    @Test
+    void create_conCupon_elMontoACobrarYaVieneConElDescuentoRestado() {
+        var cupon = org.example.laserranitaentradas.model.entity.Cupon.builder()
+                .id(9L).codigo("MITAD").activo(true).usosMaximos(5).usosActuales(0)
+                .porcentajeDescuento(new java.math.BigDecimal("50"))
+                .fechaExpiracion(LocalDate.now().plusYears(1)).build();
+        when(cuponService.getByCode("MITAD")).thenReturn(Optional.of(cupon));
+        when(cuponService.consumirUso(9L)).thenReturn(true);
+
+        // pedidoConTope stubea el precio en 100 por unidad.
+        CompraRequestDTO request = pedidoConTope(null, 1, 0);
+        request.setCuponCodigo("MITAD");
+
+        Compra resultado = service.create(request);
+
+        // montoTotal es lo que se le cobra, no el bruto: si no, el front muestra 50 y Mercado
+        // Pago cobra 100.
+        assertThat(resultado.getMontoTotal()).isEqualByComparingTo("50");
+        assertThat(resultado.getDescuentoAplicado()).isEqualByComparingTo("50");
+    }
+
+    @Test
+    void create_conCuponMayorAlTotal_noDejaElMontoEnNegativo() {
+        var cupon = org.example.laserranitaentradas.model.entity.Cupon.builder()
+                .id(9L).codigo("GRANDE").activo(true).usosMaximos(5).usosActuales(0)
+                .montoDescuento(new java.math.BigDecimal("999999"))
+                .fechaExpiracion(LocalDate.now().plusYears(1)).build();
+        when(cuponService.getByCode("GRANDE")).thenReturn(Optional.of(cupon));
+        when(cuponService.consumirUso(9L)).thenReturn(true);
+
+        CompraRequestDTO request = pedidoConTope(null, 1, 0);
+        request.setCuponCodigo("GRANDE");
+
+        Compra resultado = service.create(request);
+
+        assertThat(resultado.getMontoTotal()).isEqualByComparingTo("0");
+        assertThat(resultado.getDescuentoAplicado()).isEqualByComparingTo("100");
+    }
+
+    @Test
+    void create_conCuponDisponible_loConsumeUnaSolaVezYAplicaElDescuento() {
+        var cupon = org.example.laserranitaentradas.model.entity.Cupon.builder()
+                .id(9L).codigo("PROMO").activo(true).usosMaximos(5).usosActuales(0)
+                .porcentajeDescuento(new java.math.BigDecimal("50"))
+                .fechaExpiracion(LocalDate.now().plusYears(1)).build();
+        when(cuponService.getByCode("PROMO")).thenReturn(Optional.of(cupon));
+        when(cuponService.consumirUso(9L)).thenReturn(true);
+
+        CompraRequestDTO request = pedidoConTope(null, 1, 0);
+        request.setCuponCodigo("PROMO");
+
+        Compra resultado = service.create(request);
+
+        assertThat(resultado.getDescuentoAplicado()).isEqualByComparingTo("50");
+        verify(cuponService, org.mockito.Mockito.times(1)).consumirUso(9L);
+        // El contador ya no se toca a mano: lo movió la misma sentencia que autorizó el uso.
+        verify(cuponService, never()).update(any());
+    }
+
+    // ---------- Checkout abandonado: qué pasa con una compra que SÍ se pagó ----------
+    //
+    // Es el escenario más caro de todos: el cliente pagó, el webhook se perdió, y a las 3 h
+    // pasa el barrido de checkouts abandonados. Si ahí se cancela la reserva, esa persona
+    // llega al parque y no existe — sin ningún aviso ni forma de enterarse.
+
+    /** Compra en PENDIENTE_PAGO, por Mercado Pago, vieja: candidata a que la barra el scheduler. */
+    private Compra checkoutPendiente(Long id) {
+        return Compra.builder()
+                .id(id)
+                .estado(EstadoCompra.PENDIENTE_PAGO)
+                .formaPago(FormaPago.MERCADO_PAGO)
+                .fechaVisita(LocalDate.now().plusDays(10))
+                .codigoReserva("260101-1")
+                .montoTotal(new java.math.BigDecimal("34300"))
+                .descuentoAplicado(java.math.BigDecimal.ZERO)
+                .detalles(new ArrayList<>())
+                .build();
+    }
+
+    @Test
+    void expirarCheckoutAbandonado_siMercadoPagoNoResponde_noCancelaLaCompra() throws Exception {
+        Compra pendiente = checkoutPendiente(70L);
+        CompraServiceImpl espia = org.mockito.Mockito.spy(service);
+        when(compraRepository.findById(70L)).thenReturn(Optional.of(pendiente));
+        // Mercado Pago caído / timeout / error de red: NO sabemos si pagó.
+        org.mockito.Mockito.doThrow(new RuntimeException("Mercado Pago no responde"))
+                .when(espia).hayPagoAprobadoEnMercadoPago(any());
+
+        espia.expirarCheckoutAbandonado(70L);
+
+        // Lo importante: sigue viva. Antes se cancelaba, porque "no pude preguntar" y
+        // "no pagó" se veían exactamente igual desde acá.
+        assertThat(pendiente.getEstado()).isEqualTo(EstadoCompra.PENDIENTE_PAGO);
+        verify(compraRepository, never()).save(any());
+    }
+
+    @Test
+    void expirarCheckoutAbandonado_siMercadoPagoConfirmaElPago_apruebaEnVezDeCancelar() throws Exception {
+        Compra pendiente = checkoutPendiente(71L);
+        CompraServiceImpl espia = org.mockito.Mockito.spy(service);
+        when(compraRepository.findById(71L)).thenReturn(Optional.of(pendiente));
+        org.mockito.Mockito.doReturn(true).when(espia).hayPagoAprobadoEnMercadoPago(any());
+
+        espia.expirarCheckoutAbandonado(71L);
+
+        assertThat(pendiente.getEstado()).isEqualTo(EstadoCompra.APROBADO);
+        // Y se le manda el comprobante, que es lo que nunca le llegó por el webhook perdido.
+        verify(emailService).enviarComprobanteCompra(71L);
+    }
+
+    @Test
+    void expirarCheckoutAbandonado_siMercadoPagoDiceQueNoPago_siLaCancela() throws Exception {
+        Compra pendiente = checkoutPendiente(72L);
+        CompraServiceImpl espia = org.mockito.Mockito.spy(service);
+        when(compraRepository.findById(72L)).thenReturn(Optional.of(pendiente));
+        org.mockito.Mockito.doReturn(false).when(espia).hayPagoAprobadoEnMercadoPago(any());
+
+        espia.expirarCheckoutAbandonado(72L);
+
+        // Este es el caso legítimo: se verificó y no hay pago, así que libera el lugar.
+        assertThat(pendiente.getEstado()).isEqualTo(EstadoCompra.CANCELADO);
+        verify(compraRepository).save(pendiente);
+    }
+
+    @Test
+    void iniciarCompraConPago_siNoSePuedeIniciarElPago_cancelaYDevuelveElUsoDelCupon() throws Exception {
+        Compra creada = checkoutPendiente(76L);
+        var cupon = org.example.laserranitaentradas.model.entity.Cupon.builder()
+                .id(9L).codigo("PROMO").activo(false).usosMaximos(1).usosActuales(1)
+                .porcentajeDescuento(new java.math.BigDecimal("50"))
+                .fechaExpiracion(LocalDate.now().plusYears(1)).build();
+        creada.setCupon(cupon);
+
+        // create() se llama a través del proxy de Spring (self), que en el test es un mock.
+        when(autoReferencia.create(any())).thenReturn(creada);
+        when(compraRepository.findById(76L)).thenReturn(Optional.of(creada));
+        when(mercadoPagoEstrategia.procesarPago(creada))
+                .thenThrow(new RuntimeException("Mercado Pago no responde"));
+
+        assertThatThrownBy(() -> service.iniciarCompraConPago(new CompraRequestDTO()))
+                .hasMessageContaining("Mercado Pago no responde");
+
+        // El cliente nunca vio el checkout, así que no pagó: no tiene sentido dejarle tomado
+        // el cupón ni el lugar del día hasta que pase el barrido tres horas después.
+        assertThat(creada.getEstado()).isEqualTo(EstadoCompra.CANCELADO);
+        assertThat(cupon.getUsosActuales()).isZero();
+        assertThat(cupon.getActivo()).isTrue();
+    }
+
+    @Test
+    void confirmarAprobado_sobreUnaCompraReembolsada_noLaRevive() {
+        Compra reembolsada = checkoutPendiente(74L);
+        reembolsada.setEstado(EstadoCompra.REEMBOLSADA);
+        when(compraRepository.findById(74L)).thenReturn(Optional.of(reembolsada));
+
+        // Aviso tardío de Mercado Pago sobre una compra a la que ya se le devolvió la plata.
+        assertThat(service.confirmarAprobado(74L)).isFalse();
+
+        assertThat(reembolsada.getEstado()).isEqualTo(EstadoCompra.REEMBOLSADA);
+        verify(emailService, never()).enviarComprobanteCompra(74L);
+    }
+
+    @Test
+    void confirmarAprobado_sobreUnaCanceladaQueSePagoDespues_siLaRevive() {
+        Compra cancelada = checkoutPendiente(75L);
+        cancelada.setEstado(EstadoCompra.CANCELADO);
+        when(compraRepository.findById(75L)).thenReturn(Optional.of(cancelada));
+
+        // Decisión deliberada: el cliente pagó, así que tiene que tener su entrada. Se prefiere
+        // un lugar de más en el día antes que dejarlo afuera habiendo pagado.
+        assertThat(service.confirmarAprobado(75L)).isTrue();
+
+        assertThat(cancelada.getEstado()).isEqualTo(EstadoCompra.APROBADO);
+        verify(emailService).enviarComprobanteCompra(75L);
+    }
+
+    @Test
+    void confirmarAprobado_dosVeces_noReenviaElComprobante() {
+        Compra pendiente = checkoutPendiente(73L);
+        when(compraRepository.findById(73L)).thenReturn(Optional.of(pendiente));
+
+        assertThat(service.confirmarAprobado(73L)).isTrue();
+        // Segunda notificación de Mercado Pago para el mismo pago (las reintenta).
+        assertThat(service.confirmarAprobado(73L)).isFalse();
+
+        verify(emailService, org.mockito.Mockito.times(1)).enviarComprobanteCompra(73L);
     }
 }

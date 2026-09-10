@@ -141,8 +141,8 @@
   @if (resumen(); as r) {
     <div class="tarjeta tarjeta-ancha" [class.tarjeta-grafico-tabla]="r.usoCupones.length > 0">
       <h2>Cupones aplicados</h2>
-      <p class="kpi-numero kpi-numero-secundario">{{ r.totalDescuentos | pesos }}</p>
-      <p class="ayuda">{{ r.cantidadComprasConDescuento }} compra{{ r.cantidadComprasConDescuento === 1 ? '' : 's' }} con cupón · descuento total otorgado</p>
+      <p class="kpi-numero kpi-numero-secundario">{{ cuponesDescontado() | pesos }}</p>
+      <p class="ayuda">{{ cuponesCompras() }} compra{{ cuponesCompras() === 1 ? '' : 's' }} con cupón · descuento total otorgado</p>
       @if (r.usoCupones.length > 0) {
         <div class="grafico-contenedor">
           <canvas #cuponesCanvas></canvas>

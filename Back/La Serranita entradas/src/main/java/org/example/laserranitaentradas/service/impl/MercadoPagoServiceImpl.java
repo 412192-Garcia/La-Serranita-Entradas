@@ -17,6 +17,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import jakarta.annotation.PostConstruct;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -53,6 +54,26 @@ public class MercadoPagoServiceImpl implements PagoService {
                             .build();
                     items.add(itemRequest);
                 }
+            }
+
+            // Lo que cobra Mercado Pago tiene que ser exactamente compra.getMontoTotal(): es el
+            // total que el cliente vio en pantalla, el que se guarda como recaudación y el que
+            // usa la verificación de respaldo para reconocer el pago (compara el monto). Los
+            // items de arriba van a precio de lista, así que cuando hubo descuento por cupón no
+            // coinciden. Mercado Pago no admite un descuento a nivel de orden ni un item en
+            // negativo: la forma de que el total cierre es mandar una sola línea por el importe
+            // final. Se pierde el desglose por tipo de entrada en el checkout, que es cosmético,
+            // a cambio de que nadie pague de más.
+            BigDecimal descuento = compra.getDescuentoAplicado();
+            if (descuento != null && descuento.compareTo(BigDecimal.ZERO) > 0) {
+                items.clear();
+                items.add(PreferenceItemRequest.builder()
+                        .id(compra.getCodigoReserva())
+                        .title("Entradas " + compra.getCodigoReserva() + " (descuento aplicado)")
+                        .quantity(1)
+                        .unitPrice(compra.getMontoTotal())
+                        .currencyId("ARS")
+                        .build());
             }
 
             PreferenceRequest.PreferenceRequestBuilder requestBuilder = PreferenceRequest.builder()

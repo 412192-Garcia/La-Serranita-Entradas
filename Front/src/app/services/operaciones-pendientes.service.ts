@@ -5,7 +5,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { BoleteriaService, Reserva, VentaPosRequest } from './boleteria.service';
 import { Caja, CajaService, TipoMovimientoCaja, TipoMovimientoEntradas } from './caja.service';
 import { ConectividadService } from './conectividad.service';
-import { aFechaHoraISO } from '../shared/fecha.util';
+import { aFechaHoraISO, aHoraLocalSinZona } from '../shared/fecha.util';
 
 const COLA_KEY = 'serranita.pos.operacionesPendientes';
 
@@ -246,7 +246,11 @@ export class OperacionesPendientesService {
   private leerCola(): EntradaCola[] {
     try {
       const crudo = localStorage.getItem(COLA_KEY);
-      return crudo ? (JSON.parse(crudo) as EntradaCola[]) : [];
+      if (!crudo) return [];
+      return (JSON.parse(crudo) as EntradaCola[]).map((e) => ({
+        ...e,
+        fechaOriginal: aHoraLocalSinZona(e.fechaOriginal),
+      }));
     } catch {
       return [];
     }
