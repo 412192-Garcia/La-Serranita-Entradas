@@ -14,7 +14,7 @@
   } @else if (error()) {
     <p class="alerta-error">No se pudo buscar. Revisá la conexión.</p>
     <button type="button" class="btn-secundario-caja" (click)="buscar()">Reintentar</button>
-  } @else if (reservas().length === 0) {
+  } @else if (vistas().length === 0) {
     <div class="sin-anticipadas">
       <p>No hay anticipadas pendientes a nombre de este DNI.</p>
       <a class="btn-secundario-caja" routerLink="/boleteria" [queryParams]="{ dni: dni() }">
@@ -26,7 +26,8 @@
       <p class="alerta-error">{{ errorAccion() }}</p>
     }
     <ul class="lista-anticipadas">
-      @for (r of reservas(); track r.id) {
+      @for (v of vistas(); track v.reserva.id) {
+        @let r = v.reserva;
         <li class="fila-anticipada" [class.fila-usada]="r.estado === 'USADO'">
           <div class="datos-anticipada">
             <strong>
@@ -38,36 +39,49 @@
                 Anticipada
               }
             </strong>
-            <span class="meta-anticipada">
-              #{{ r.codigoReserva }}
-              ·
-              @if (r.fechaVisita) {
-                {{ r.fechaVisita | date: 'dd/MM' }}
-              } @else {
-                Regalo — cualquier día
-              }
-              @if (pases(r) > 0) {
-                · {{ pases(r) }} {{ pases(r) === 1 ? 'entrada' : 'entradas' }}
-              }
-            </span>
+
+            <span class="codigo-anticipada">#{{ r.codigoReserva }}</span>
+
+            @if (v.pases.length || v.extras.length) {
+              <div class="detalle-anticipada">
+                @for (p of v.pases; track p.nombre) {
+                  <span>{{ p.cantidad }}× {{ p.nombre }}</span>
+                }
+                @for (e of v.extras; track e.nombre) {
+                  <span class="extra">{{ e.cantidad }}× {{ e.nombre }}</span>
+                }
+              </div>
+            }
           </div>
 
-          <div class="accion-anticipada">
+          <div class="cuando-col">
+            <span class="fecha-anticipada">{{ v.etiquetaFecha }}</span>
+            <span class="badge-anticipada" [class]="'badge-anticipada-' + r.estado">{{ v.etiquetaEstado }}</span>
+          </div>
+
+          <div class="monto-col">
+            @if (r.estado === 'RESERVADO_EFECTIVO') {
+              <span class="monto-anticipada">{{ r.montoTotal | pesos }}</span>
+            }
+          </div>
+
+          <div class="accion-col">
             @switch (r.estado) {
               @case ('APROBADO') {
-                <button type="button" class="btn-cobrar" [disabled]="procesando(r)" (click)="validar(r)">
+                <button type="button" class="btn-fila-anticipada btn-fila-validar" [disabled]="procesando(r)" (click)="validar(r)">
                   {{ procesando(r) ? 'Validando…' : 'Validar ingreso' }}
                 </button>
               }
               @case ('RESERVADO_EFECTIVO') {
-                <span class="monto-anticipada">{{ r.montoTotal | pesos }}</span>
-                <button type="button" class="btn-cobrar" (click)="cobrarEnPos.emit(r)">Cobrar en el POS</button>
+                <button type="button" class="btn-fila-anticipada btn-fila-cobrar" (click)="cobrarEnPos.emit(r)">
+                  Cobrar
+                </button>
               }
               @case ('USADO') {
                 <span class="texto-ingreso">
                   Ingresó
                   @if (r.fechaValidacion) {
-                    {{ r.fechaValidacion | date: 'HH:mm' }}
+                    {{ r.fechaValidacion | date: 'dd/MM HH:mm' }}
                   }
                 </span>
               }

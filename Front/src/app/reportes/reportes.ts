@@ -1,7 +1,7 @@
 import { Component, ElementRef, OnDestroy, OnInit, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Chart, registerables } from 'chart.js';
+import { Chart, ChartOptions, registerables } from 'chart.js';
 import { ReporteService } from '../services/reporte.service';
 import { ComprasPorEstado, RecaudacionPorFormaPago, ReporteResumen, VentasPorOrigen } from '../models/reporte';
 import { CabeceraInterna } from '../shared/cabecera-interna/cabecera-interna';
@@ -108,6 +108,8 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
    * `@ViewChild` clásico eso no pasaba (la query no forma parte del grafo reactivo) y volver a
    * una pestaña ya cargada dejaba los gráficos en blanco. */
   private afluenciaCanvas = viewChild<ElementRef<HTMLCanvasElement>>('afluenciaCanvas');
+  private anticipacionCanvas = viewChild<ElementRef<HTMLCanvasElement>>('anticipacionCanvas');
+  private cuponesCanvas = viewChild<ElementRef<HTMLCanvasElement>>('cuponesCanvas');
   private desgloseCanvas = viewChild<ElementRef<HTMLCanvasElement>>('desgloseCanvas');
   private formaPagoCanvas = viewChild<ElementRef<HTMLCanvasElement>>('formaPagoCanvas');
   private estadoCanvas = viewChild<ElementRef<HTMLCanvasElement>>('estadoCanvas');
@@ -119,6 +121,8 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
   private comparacionPersonasCanvas = viewChild<ElementRef<HTMLCanvasElement>>('comparacionPersonasCanvas');
   private comparacionTiposCanvas = viewChild<ElementRef<HTMLCanvasElement>>('comparacionTiposCanvas');
   private afluenciaChart: Chart | null = null;
+  private anticipacionChart: Chart | null = null;
+  private cuponesChart: Chart | null = null;
   private desgloseChart: Chart | null = null;
   private formaPagoChart: Chart | null = null;
   private estadoChart: Chart | null = null;
@@ -140,6 +144,19 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
 
   vista = signal<'resumen' | 'comparacion'>('resumen');
   pasosTutorial = computed(() => (this.vista() === 'resumen' ? PASOS_RESUMEN : PASOS_COMPARACION));
+
+  /* La tarjeta "Cupones aplicados" mostraba totalDescuentos / cantidadComprasConDescuento, que
+     el backend acumula para CUALQUIER descuento: también las promociones de puerta y los
+     descuentos manuales. En un rango con una promo y ningún cupón, el número de arriba daba
+     distinto de cero y la tabla de abajo decía "No se aplicó ningún cupón en el rango": se
+     contradecían solos. Se suma usoCupones, que ya viene desglosado por cupón — una compra
+     tiene a lo sumo un cupón, así que no hay doble conteo. */
+  cuponesDescontado = computed(() =>
+    (this.resumen()?.usoCupones ?? []).reduce((total, c) => total + c.montoDescontado, 0),
+  );
+  cuponesCompras = computed(() =>
+    (this.resumen()?.usoCupones ?? []).reduce((total, c) => total + c.cantidad, 0),
+  );
 
   /** Arranca con el rango principal y ese mismo rango un año antes, como punto de partida
    * cómodo: el admin corrige las fechas de cualquier fila (o agrega más) antes de comparar. */
@@ -174,6 +191,8 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.afluenciaChart?.destroy();
+    this.anticipacionChart?.destroy();
+    this.cuponesChart?.destroy();
     this.desgloseChart?.destroy();
     this.formaPagoChart?.destroy();
     this.estadoChart?.destroy();
@@ -189,6 +208,26 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
   /** Plata cobrada para el origen dado (BOLETERIA = venta en puerta, ANTICIPADA = reservas); null si no hay datos. */
   recaudacionPorOrigen(r: ReporteResumen, origen: VentasPorOrigen['origen']): number | null {
     return r.ventasPorOrigen.find((o) => o.origen === origen)?.monto ?? null;
+  }
+
+  /** Qué fracción del total de anticipadas usadas cae en este tramo de antelación. "—" si no hubo. */
+  porcentajeAnticipacion(r: ReporteResumen, cantidad: number): string {
+    const total = r.anticipacionCompra.reduce((acc, a) => acc + a.cantidad, 0);
+    if (total === 0) return '—';
+    return Math.round((cantidad / total) * 100) + '%';
+  }
+
+  /** Unidades de entrada (tipo ENTRADA) vendidas y cobradas en el rango, separadas por origen —
+   * el total coincide con la suma de la tabla "Desglose por tipo de entrada". */
+  entradasVendidas(r: ReporteResumen): { total: number; anticipada: number; boleteria: number } {
+    return r.desglosePorTipo.reduce(
+      (acc, t) => ({
+        total: acc.total + t.cantidadAnticipada + t.cantidadBoleteria,
+        anticipada: acc.anticipada + t.cantidadAnticipada,
+        boleteria: acc.boleteria + t.cantidadBoleteria,
+      }),
+      { total: 0, anticipada: 0, boleteria: 0 },
+    );
   }
 
   etiquetaEstado(estado: ComprasPorEstado['estado']): string {
@@ -321,6 +360,33 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
     }
   }
 
+  /* La leyenda de las tortas va a la derecha para aprovechar el ancho sobrante y dejar la
+     torta más grande, pero en teléfono no hay ancho que sobre: las etiquetas largas
+     ("Efectivo en Boletería", "Boletería (venta de puerta)") se dibujaban cortadas contra el
+     borde del canvas, sin puntos suspensivos ni nada que avisara que faltaba texto. Chart.js
+     no entiende de media queries, así que la posición se decide acá y se rehace en onResize
+     (que también cubre el giro de pantalla). El umbral es por ancho de canvas, no de
+     ventana: es lo que realmente determina si la leyenda entra al costado. */
+  private posicionLeyendaTorta(anchoCanvas: number): 'right' | 'bottom' {
+    return anchoCanvas >= 520 ? 'right' : 'bottom';
+  }
+
+  private opcionesTorta(): ChartOptions<'doughnut'> {
+    return {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { position: this.posicionLeyendaTorta(window.innerWidth) } },
+      onResize: (chart, tamanio) => {
+        const posicion = this.posicionLeyendaTorta(tamanio.width);
+        // El guard es lo que evita el bucle: update() vuelve a disparar onResize.
+        if (chart.options.plugins?.legend && chart.options.plugins.legend.position !== posicion) {
+          chart.options.plugins.legend.position = posicion;
+          chart.update('none');
+        }
+      },
+    };
+  }
+
   private renderGraficos(r: ReporteResumen): void {
     if (this.afluenciaCanvas()) {
       this.afluenciaChart?.destroy();
@@ -332,12 +398,56 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
             { label: 'Reservado para ese día', data: r.afluenciaDiaria.map((d) => d.pasesVendidosAnticipada), backgroundColor: '#39a935' },
             { label: 'Ingresos de anticipada/regalo ese día', data: r.afluenciaDiaria.map((d) => d.pasesValidadosAnticipada), backgroundColor: '#1f6b1c' },
             { label: 'Venta de puerta ese día', data: r.afluenciaDiaria.map((d) => d.pasesVendidosBoleteria), backgroundColor: '#4a7fc9' },
+            // Ritmo de venta anticipada (cuándo se compró, no cuándo se usa): línea encima de las barras.
+            { type: 'line', label: 'Anticipadas compradas ese día', data: r.afluenciaDiaria.map((d) => d.pasesCompradosAnticipada), borderColor: '#c96bb0', backgroundColor: '#c96bb0', tension: 0.3, pointRadius: 2 },
           ],
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
           scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+        },
+      });
+    }
+
+    if (this.anticipacionCanvas()) {
+      this.anticipacionChart?.destroy();
+      this.anticipacionChart = new Chart(this.anticipacionCanvas()!.nativeElement, {
+        type: 'bar',
+        data: {
+          labels: r.anticipacionCompra.map((a) => a.etiqueta),
+          datasets: [{ label: 'Pases', data: r.anticipacionCompra.map((a) => a.cantidad), backgroundColor: '#7a5bc9' }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+        },
+      });
+    }
+
+    /* Los tres gráficos cuyo canvas es condicional (cupones, extras, artículos varios) se
+       destruyen ANTES de preguntar si el canvas existe: si el rango nuevo no tiene datos, el
+       @if saca el canvas del DOM y el destroy de adentro del if nunca corría, así que la
+       instancia vieja quedaba viva con su ResizeObserver sobre un canvas ya desprendido hasta
+       que se saliera de la pantalla. Los demás gráficos no lo necesitan porque su canvas
+       siempre está en el DOM. */
+    this.cuponesChart?.destroy();
+    this.cuponesChart = null;
+    if (this.cuponesCanvas()) {
+      this.cuponesChart = new Chart(this.cuponesCanvas()!.nativeElement, {
+        type: 'bar',
+        data: {
+          labels: r.usoCupones.map((c) => c.etiqueta),
+          datasets: [{ label: 'Compras', data: r.usoCupones.map((c) => c.cantidad), backgroundColor: '#e0a72e', maxBarThickness: 48 }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          indexAxis: 'y',
+          plugins: { legend: { display: false } },
+          scales: { x: { beginAtZero: true, ticks: { precision: 0 } } },
         },
       });
     }
@@ -355,6 +465,7 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
         },
         options: {
           responsive: true,
+          maintainAspectRatio: false,
           indexAxis: 'y',
           scales: { x: { stacked: true, beginAtZero: true, ticks: { precision: 0 } }, y: { stacked: true } },
         },
@@ -372,7 +483,7 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
             backgroundColor: r.recaudacionPorFormaPago.map((f) => COLOR_POR_FORMA_PAGO[f.formaPago] ?? '#9aa0a6'),
           }],
         },
-        options: { responsive: true },
+        options: this.opcionesTorta(),
       });
     }
 
@@ -387,24 +498,23 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
             backgroundColor: r.comprasPorEstado.map((e) => COLOR_POR_ESTADO[e.estado]),
           }],
         },
-        options: {
-          responsive: true,
-          plugins: { legend: { position: 'bottom' } },
-        },
+        options: this.opcionesTorta(),
       });
     }
 
+    this.extrasChart?.destroy();
+    this.extrasChart = null;
     if (this.extrasCanvas()) {
-      this.extrasChart?.destroy();
       this.extrasChart = new Chart(this.extrasCanvas()!.nativeElement, {
         type: 'bar',
         data: {
           labels: r.desgloseExtras.map((t) => t.nombre),
           // Los extras (ej. almuerzo) sólo se venden en la compra anticipada: en boletería/POS no se ofrecen.
-          datasets: [{ label: 'Unidades vendidas', data: r.desgloseExtras.map((t) => t.cantidadAnticipada), backgroundColor: '#39a935' }],
+          datasets: [{ label: 'Unidades vendidas', data: r.desgloseExtras.map((t) => t.cantidadAnticipada), backgroundColor: '#39a935', maxBarThickness: 48 }],
         },
         options: {
           responsive: true,
+          maintainAspectRatio: false,
           indexAxis: 'y',
           scales: { x: { beginAtZero: true, ticks: { precision: 0 } } },
         },
@@ -424,6 +534,7 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
         },
         options: {
           responsive: true,
+          maintainAspectRatio: false,
           scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } } },
         },
       });
@@ -440,20 +551,24 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
             backgroundColor: r.ventasPorOrigen.map((o) => COLOR_POR_ORIGEN[o.origen]),
           }],
         },
-        options: { responsive: true },
+        options: this.opcionesTorta(),
       });
     }
 
+    this.articulosVariosChart?.destroy();
+    this.articulosVariosChart = null;
     if (this.articulosVariosCanvas()) {
-      this.articulosVariosChart?.destroy();
       this.articulosVariosChart = new Chart(this.articulosVariosCanvas()!.nativeElement, {
         type: 'bar',
         data: {
           labels: r.ventasArticulosVarios.map((a) => a.nombre),
-          datasets: [{ label: 'Unidades vendidas', data: r.ventasArticulosVarios.map((a) => a.cantidad), backgroundColor: '#e0a72e' }],
+          // maxBarThickness: con un solo artículo la barra se repartía toda la altura de la
+          // banda y se veía como un bloque de color macizo, no como un gráfico.
+          datasets: [{ label: 'Unidades vendidas', data: r.ventasArticulosVarios.map((a) => a.cantidad), backgroundColor: '#e0a72e', maxBarThickness: 48 }],
         },
         options: {
           responsive: true,
+          maintainAspectRatio: false,
           indexAxis: 'y',
           scales: { x: { beginAtZero: true, ticks: { precision: 0 } } },
         },

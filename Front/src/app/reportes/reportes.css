@@ -9,7 +9,7 @@
 
 .panel {
   width: 100%;
-  max-width: 1200px;
+  max-width: 1360px;
   margin: 0 auto;
   padding: 28px 36px 48px;
   box-sizing: border-box;
@@ -63,7 +63,7 @@
    1, ya cubierto por el media query de abajo) en vez de apretarlos. */
 .tarjeta-kpis {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 20px;
 }
 
@@ -76,15 +76,14 @@
 
 .kpi-numero {
   font-family: var(--font-heading);
-  font-size: 2.4rem;
+  font-size: 1.9rem;
   font-weight: 800;
   color: var(--color-primary-dark);
   margin: 4px 0;
-  /* Sólo como red de contención para un valor realmente fuera de lo común: rompe en el
-     espacio después del "$" (que el pipe "pesos" ya deja) antes que forzar la columna más
-     ancha. Sin word-break: break-all a propósito — partía cualquier número normal a la mitad
-     de un grupo de dígitos, ilegible. */
-  overflow-wrap: break-word;
+  /* Nunca partir el número (antes rompía a mitad de un grupo de dígitos, "$ 11.886.80" / "0"):
+     con nowrap + este tamaño entran de sobra incluso montos de cientos de millones en la
+     columna más angosta (minmax 220px). */
+  white-space: nowrap;
 }
 
 .kpi-numero-secundario {
@@ -103,11 +102,41 @@
 }
 
 .grafico-torta {
-  height: 280px;
+  height: 300px;
 }
 
 .oculta {
   display: none;
+}
+
+/* Tarjetas con gráfico + tabla: en pantalla ancha van lado a lado (gráfico izq, tabla der) en
+   vez de apiladas, para no dejar medio metro de blanco al costado del gráfico. El título y las
+   líneas de ayuda ocupan todo el ancho. `:not(.oculta)` para que ocultar la tarjeta gane.
+   Flex con base en % (no grid con fr): el ancho del gráfico se resuelve al toque contra el
+   ancho de la tarjeta, así Chart.js lo mide bien aunque se dibuje antes del layout. */
+@media (min-width: 901px) {
+  .tarjeta-grafico-tabla:not(.oculta) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    column-gap: 32px;
+  }
+
+  .tarjeta-grafico-tabla > h2,
+  .tarjeta-grafico-tabla > .ayuda,
+  .tarjeta-grafico-tabla > .kpi-numero {
+    flex-basis: 100%;
+  }
+
+  .tarjeta-grafico-tabla > .grafico-contenedor {
+    flex: 0 0 38%;
+    margin-bottom: 0;
+  }
+
+  .tarjeta-grafico-tabla > .tabla-simple {
+    flex: 1 1 0;
+    min-width: 0;
+  }
 }
 
 .fila-simple-desglose {
@@ -194,16 +223,28 @@
 }
 
 @media (max-width: 700px) {
-  .fila-periodo-comparar { grid-template-columns: 1fr; }
-  .fila-simple-comparacion { grid-template-columns: 1fr; font-size: 0.8rem; }
+  /* Etiqueta + botón de quitar arriba, las dos fechas abajo lado a lado. Antes se apilaba
+     todo en 1 columna y el botón ✕ quedaba como una barra vacía a lo ancho. */
+  .fila-periodo-comparar {
+    grid-template-columns: 1fr 1fr auto;
+    grid-template-areas:
+      'etiqueta etiqueta quitar'
+      'desde    hasta    hasta';
+    gap: 8px 10px;
+  }
+  .fila-periodo-comparar .input-etiqueta-periodo { grid-area: etiqueta; }
+  .fila-periodo-comparar input[type='date']:nth-of-type(2) { grid-area: desde; }
+  .fila-periodo-comparar input[type='date']:nth-of-type(3) { grid-area: hasta; }
+  .fila-periodo-comparar .btn-quitar-periodo { grid-area: quitar; }
+
   .graficos-comparacion { grid-template-columns: 1fr; }
 }
 
 /* ---------- Responsive ---------- */
+/* Las tablas (.fila-simple-*) pasan a modo tarjeta con etiqueta por valor en ≤900px:
+   ver configuracion-shared.css. */
 @media (max-width: 900px) {
   .seccion-reportes, .tarjeta-kpis { grid-template-columns: 1fr; }
-  .fila-simple-desglose { grid-template-columns: 1fr; font-size: 0.8rem; }
-  .fila-simple-desglose-simple { grid-template-columns: 1fr 1fr 1fr; }
   .grafico-contenedor-grande { height: 320px; }
 }
 

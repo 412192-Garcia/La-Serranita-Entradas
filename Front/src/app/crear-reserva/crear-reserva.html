@@ -9,13 +9,19 @@
     </div>
   } @else {
     <div class="layout-crear-reserva">
-      <app-calendario data-tour="calendario" [mostrarOpcionRegalo]="false" (fechaSeleccionadaChange)="onFecha($event)" />
+      <app-calendario
+        data-tour="calendario"
+        [mostrarOpcionRegalo]="false"
+        [mostrarOpcionSinFecha]="true"
+        (fechaSeleccionadaChange)="onFecha($event)"
+        (esRegaloChange)="onSinFecha($event)" />
 
       <div class="panel-paso" data-tour="panel-paso">
         @switch (etapa()) {
           @case (etapaReserva.SELECCION) {
             <app-seleccion-entradas
               [fechaSeleccionada]="datos.fechaVisita"
+              [esRegalo]="sinFecha()"
               [entradasPrevias]="datos.entradas"
               [mostrarOpcionRegalo]="false"
               (pasoSiguiente)="onPasoSeleccion($event)" />
@@ -32,7 +38,11 @@
 
               <div class="resumen-reserva">
                 <p><strong>{{ datos.cliente?.nombre }} {{ datos.cliente?.apellido }}</strong> · DNI {{ datos.cliente?.dni }}</p>
-                <p>{{ datos.fechaVisita | date: 'EEEE d/MM/yyyy' }}</p>
+                @if (datos.fechaVisita) {
+                  <p>{{ datos.fechaVisita | date: 'EEEE d/MM/yyyy' }}</p>
+                } @else {
+                  <p>Sin fecha fija · la usa cualquier día (90 días)</p>
+                }
                 <ul class="lista-entradas-resumen">
                   @for (e of datos.entradas; track e.id) {
                     <li>{{ e.cantidad }}× {{ e.nombre }} <span>{{ e.subtotal | pesos }}</span></li>

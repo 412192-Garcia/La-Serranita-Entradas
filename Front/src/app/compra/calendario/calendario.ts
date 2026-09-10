@@ -24,8 +24,12 @@ export class Calendario implements OnInit, OnDestroy {
 
   esRegalo: boolean = false;
 
-  /** Falso en pantallas donde una entrada "sin fecha fija" no tiene sentido (ej. crear-reserva del admin: siempre es una entrada normal con día, sólo que gratis). */
+  /** El toggle "Comprar como Regalo" del flujo online (quien compra ≠ quien entra). */
   @Input() mostrarOpcionRegalo: boolean = true;
+
+  /** El toggle "Entrada sin fecha" del generador de reservas del admin: misma mecánica (fecha
+   * null), pero a nombre del propio titular y con otra redacción — no es un regalo. */
+  @Input() mostrarOpcionSinFecha: boolean = false;
 
   nombreMes: string = MESES_LETRAS[new Date().getMonth()];
   anioActual: number = new Date().getFullYear();

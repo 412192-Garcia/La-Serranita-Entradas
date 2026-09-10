@@ -31,7 +31,7 @@
   </div>
     </div>
   </div>
-  @if (mostrarOpcionRegalo) {
+  @if (mostrarOpcionRegalo || mostrarOpcionSinFecha) {
     <div class="footer-regalo" [class.modo-activo]="esRegalo">
       <label class="checkbox-regalo-label">
         <input
@@ -41,15 +41,19 @@
           (ngModelChange)="onCambioRegalo($event)"
         >
         <div class="info-regalo">
-          <span class="titulo-regalo">Comprar como Regalo</span>
-          <span class="desc-regalo">Sin fecha</span>
+          <span class="titulo-regalo">{{ mostrarOpcionRegalo ? 'Comprar como Regalo' : 'Entrada sin fecha' }}</span>
+          <span class="desc-regalo">{{ mostrarOpcionRegalo ? 'Sin fecha' : 'La usa el día que quiera' }}</span>
         </div>
       </label>
     </div>
 
     @if (esRegalo) {
       <div class="feedback-regalo-activo">
-        Quien lo reciba va a poder usarlo el día que prefiera, dentro de los 90 días desde la compra.
+        @if (mostrarOpcionRegalo) {
+          Quien lo reciba va a poder usarlo el día que prefiera, dentro de los 90 días desde la compra.
+        } @else {
+          Sin día asignado: entra el día que quiera dentro de los 90 días, mostrando el DNI del titular en boletería.
+        }
       </div>
     }
   }

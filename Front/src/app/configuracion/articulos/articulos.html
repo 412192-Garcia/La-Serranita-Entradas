@@ -65,7 +65,7 @@
         @for (a of articulosVisibles(); track a.id) {
           <div class="fila-simple fila-simple-articulos">
             <span>{{ a.nombre }}</span>
-            <span>{{ a.precioSugerido !== null ? (a.precioSugerido | pesos) : '—' }}</span>
+            <span data-label="Precio sugerido">{{ a.precioSugerido !== null ? (a.precioSugerido | pesos) : '—' }}</span>
             <span class="badge" [class.badge-activo]="a.activo" [class.badge-inactivo]="!a.activo">
               {{ a.activo ? 'Activo' : 'Inactivo' }}
             </span>

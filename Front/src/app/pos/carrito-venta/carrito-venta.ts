@@ -15,6 +15,7 @@ import { MoneyInputDirective } from '../../shared/money-input/money-input.direct
 import { ConectividadService } from '../../services/conectividad.service';
 import { DescuentoEfectivo } from '../../services/configuracion.service';
 import { cotizarLocalmente } from '../../shared/calculo-precio.util';
+import { aFechaISO, aFechaHoraISO } from '../../shared/fecha.util';
 import { PesosPipe } from '../../shared/pesos.pipe';
 import { LucideTrash2 } from '@lucide/angular';
 
@@ -416,13 +417,13 @@ export class CarritoVenta {
       cliente: reserva?.cliente ?? null,
       contactEmail: null,
       contactPhone: null,
-      fechaVisita: reserva?.fechaVisita ?? new Date().toISOString().slice(0, 10),
+      fechaVisita: reserva?.fechaVisita ?? aFechaISO(new Date()),
       montoTotal: total,
       descuentoAplicado: 0,
       estado: reserva ? 'USADO' : 'VENDIDO_EN_PUERTA',
       formaPago,
       detalles: null,
-      fechaValidacion: new Date().toISOString(),
+      fechaValidacion: aFechaHoraISO(),
       usuarioValidador: null,
       receptorNombre: null,
       receptorEmail: null,

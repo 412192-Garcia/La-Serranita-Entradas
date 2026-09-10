@@ -5,6 +5,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { BoleteriaService, Reserva, VentaPosRequest } from './boleteria.service';
 import { Caja, CajaService, TipoMovimientoCaja, TipoMovimientoEntradas } from './caja.service';
 import { ConectividadService } from './conectividad.service';
+import { aFechaHoraISO, aHoraLocalSinZona } from '../shared/fecha.util';
 
 const COLA_KEY = 'serranita.pos.operacionesPendientes';
 
@@ -104,7 +105,9 @@ export class OperacionesPendientesService {
       idempotencyKey: crypto.randomUUID(),
       tipo: operacion.tipo,
       payload: operacion.payload,
-      fechaOriginal: new Date().toISOString(),
+      // Hora LOCAL (no toISOString/UTC): el backend la guarda como LocalDateTime — si va en
+      // UTC, la venta/retiro queda 3 h adelantada y hasta puede caer en el día siguiente.
+      fechaOriginal: aFechaHoraISO(),
       estado: 'pendiente',
     };
     // Se persiste ANTES de tocar la red: si el navegador se cierra en medio del intento, la
@@ -243,7 +246,11 @@ export class OperacionesPendientesService {
   private leerCola(): EntradaCola[] {
     try {
       const crudo = localStorage.getItem(COLA_KEY);
-      return crudo ? (JSON.parse(crudo) as EntradaCola[]) : [];
+      if (!crudo) return [];
+      return (JSON.parse(crudo) as EntradaCola[]).map((e) => ({
+        ...e,
+        fechaOriginal: aHoraLocalSinZona(e.fechaOriginal),
+      }));
     } catch {
       return [];
     }

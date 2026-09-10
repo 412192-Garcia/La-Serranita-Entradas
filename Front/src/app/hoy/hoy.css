@@ -9,7 +9,7 @@
 
 .panel {
   width: 100%;
-  max-width: 1200px;
+  max-width: 1360px;
   margin: 0 auto;
   padding: 28px 36px 48px;
   box-sizing: border-box;
@@ -18,21 +18,44 @@
   gap: 20px;
 }
 
+/* El wrapper del tour agrupa la tarjeta de KPIs y la de "por tipo": sin esto quedaban pegadas
+   (el gap de .panel sólo separa a sus hijos directos, y acá el hijo es el wrapper). */
+[data-tour='resumen-hoy'] {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Tres columnas que ocupan todo el ancho de la tarjeta (con flex quedaban apretadas a la
+   izquierda con medio metro de blanco al lado). */
 .tarjeta-kpis-hoy {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
+  gap: 20px 36px;
+  align-items: start;
+}
+
+.tarjeta-kpis-hoy > div {
+  min-width: 0;
 }
 
 .kpi-numero {
   font-family: var(--font-heading);
-  font-size: 2.4rem;
+  font-size: 2.9rem;
   font-weight: 800;
   color: var(--color-primary-dark);
   margin: 4px 0;
+  /* Nunca partir un monto a mitad de un grupo de dígitos. */
+  white-space: nowrap;
+}
+
+/* El dato principal del dashboard: la gente que entró hoy. */
+.kpi-principal .kpi-numero {
+  font-size: 3.6rem;
 }
 
 .kpi-numero-secundario {
+  font-size: 2.3rem;
   color: var(--color-text);
 }
 
@@ -41,13 +64,16 @@
 }
 
 .fila-simple-cajas-abiertas {
-  grid-template-columns: 1.4fr 0.8fr 1fr 1.2fr 0.9fr;
+  grid-template-columns: 1.4fr 0.7fr 0.9fr 1.1fr 0.8fr 0.8fr;
 }
 
 @media (max-width: 900px) {
-  .tarjeta-kpis-hoy { grid-template-columns: 1fr; }
-  .fila-simple-desglose-hoy { grid-template-columns: 1fr; font-size: 0.8rem; }
-  .fila-simple-cajas-abiertas { grid-template-columns: 1fr; font-size: 0.8rem; }
+  .tarjeta-kpis-hoy { grid-template-columns: 1fr; gap: 18px; }
+  .kpi-numero { font-size: 2.4rem; }
+  .kpi-principal .kpi-numero { font-size: 3rem; }
+  .kpi-numero-secundario { font-size: 2rem; }
+  /* Las tablas (.fila-simple-*) pasan a modo tarjeta con etiqueta por valor: ver
+     configuracion-shared.css. */
 }
 
 @media (max-width: 600px) {

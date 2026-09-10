@@ -13,7 +13,7 @@ const PASOS_TUTORIAL: TourStep[] = [
   {
     selector: '[data-tour="resumen-hoy"]',
     titulo: 'Cómo viene el día',
-    texto: 'Recaudación, personas que entraron y entradas vendidas hoy, actualizado en vivo.',
+    texto: 'Cuánta gente entró hoy (con el desglose por tipo de entrada) y cuánto se recaudó, actualizado en vivo. Para el análisis fino de ventas está Reportes.',
   },
   {
     selector: '[data-tour="cajas-abiertas"]',
@@ -79,8 +79,15 @@ export class DashboardHoy implements OnInit {
     });
   }
 
-  /** Entradas (no extras) vendidas hoy, sumando anticipada + venta en puerta. */
-  totalEntradasHoy(r: ReporteResumen): number {
-    return r.desglosePorTipo.reduce((acc, t) => acc + t.cantidadAnticipada + t.cantidadBoleteria, 0);
+  /** Cómo se compone "Personas ingresadas" de hoy: gente que compró y entró en la puerta vs
+   * gente que entró validando una anticipada (comprada hoy o cualquier otro día). */
+  desglosePersonasHoy(r: ReporteResumen): { puerta: number; anticipada: number } {
+    return r.afluenciaDiaria.reduce(
+      (acc, d) => ({
+        puerta: acc.puerta + d.pasesVendidosBoleteria,
+        anticipada: acc.anticipada + d.pasesValidadosAnticipada,
+      }),
+      { puerta: 0, anticipada: 0 },
+    );
   }
 }

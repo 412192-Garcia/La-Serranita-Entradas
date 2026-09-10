@@ -131,6 +131,7 @@
   margin: 4px 0 18px;
 }
 
+
 .swatch-disenio {
   display: flex;
   align-items: center;
@@ -169,6 +170,30 @@
   font-weight: 600;
   color: var(--color-text-secondary);
   white-space: nowrap;
+}
+
+/* En teléfono el flex-wrap dejaba una lista desprolija: como cada píldora mide lo que mide
+   su nombre ("Sol amarillo" vs "Turquesa tropical"), entraban dos en un renglón y una en el
+   siguiente, sin alineación posible entre filas. En grilla de dos columnas todas miden igual
+   y la lista se lee de un vistazo. El nombre pasa a partirse en dos renglones (de ahí el
+   white-space: normal, que pisa el nowrap de arriba): son nombres de tema y hay que poder
+   leerlos enteros — "Esmeralda nocturna" y "Esmeralda…" no se distinguen. Como los ítems de
+   la grilla se estiran, las dos píldoras de cada fila quedan igual de altas. */
+@media (max-width: 600px) {
+  .grilla-disenios {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .swatch-disenio {
+    min-width: 0;
+  }
+
+  .swatch-disenio-nombre {
+    min-width: 0;
+    white-space: normal;
+    line-height: 1.25;
+  }
 }
 
 /* ---------- Foto de perfil ---------- */

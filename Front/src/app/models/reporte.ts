@@ -9,6 +9,21 @@ export interface AfluenciaDiaria {
   pasesValidadosAnticipada: number;
   /** Vendido directamente en la puerta (POS) ese día: ingresa en el momento. */
   pasesVendidosBoleteria: number;
+  /** Pases de anticipada comprados ese día (por fecha de creación), para venir cualquier otro día. */
+  pasesCompradosAnticipada: number;
+}
+
+/** Un tramo del histograma de anticipación: días entre compra y uso de las anticipadas usadas en el rango. */
+export interface AnticipacionCompra {
+  etiqueta: string;
+  cantidad: number;
+}
+
+/** Cupones aplicados en el rango, agrupados por el valor del descuento del cupón. */
+export interface UsoCupon {
+  etiqueta: string;
+  cantidad: number;
+  montoDescontado: number;
 }
 
 export interface DesgloseTipoEntrada {
@@ -18,6 +33,17 @@ export interface DesgloseTipoEntrada {
   montoAnticipada: number;
   cantidadBoleteria: number;
   montoBoleteria: number;
+}
+
+/** Personas que cruzaron la puerta por tipo de entrada, por fecha de validación (no de cobro).
+ * Reconcilia con `personasIngresadas`: una anticipada pre-pagada aparece el día que se usó. */
+export interface IngresoPorTipo {
+  tipoEntradaId: number;
+  nombre: string;
+  /** Entraron con una venta de puerta de este tipo. */
+  enPuerta: number;
+  /** Entraron validando una reserva anticipada de este tipo. */
+  conAnticipada: number;
 }
 
 export interface RecaudacionPorFormaPago {
@@ -113,4 +139,12 @@ export interface ReporteResumen {
   ventasArticulosVarios: VentaArticuloVario[];
   usoPromociones: UsoPromocion[];
   ventasDolares: VentasDolares;
+  /** Ingresos reales por tipo (gente que cruzó la puerta hoy), separados en puerta vs anticipada. */
+  ingresosPorTipo: IngresoPorTipo[];
+  /** Entradas con cargo vendidas en la puerta (POS) y cobradas en el rango. Sin anticipadas ni gratis. */
+  entradasVendidasBoleteria: number;
+  /** Histograma: con cuántos días de anticipación se compraron las anticipadas usadas en el rango. */
+  anticipacionCompra: AnticipacionCompra[];
+  /** Cupones aplicados en el rango, por valor de descuento, ordenados de más a menos usado. */
+  usoCupones: UsoCupon[];
 }

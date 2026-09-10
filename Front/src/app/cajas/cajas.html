@@ -24,10 +24,10 @@
             [class.fila-expandida]="filaExpandidaAbiertaId() === c.id"
             (click)="toggleOperaciones(c)">
             <span>{{ c.usuarioNombre }}</span>
-            <span>{{ c.fechaApertura | date: 'dd/MM HH:mm' }}</span>
-            <span>{{ c.montoInicial | pesos }}</span>
-            <span>{{ c.totalVendido | pesos }}</span>
-            <span>{{ c.totalEntradasPagas }}</span>
+            <span data-label="Abrió">{{ c.fechaApertura | date: 'dd/MM HH:mm' }}</span>
+            <span data-label="Inicial">{{ c.montoInicial | pesos }}</span>
+            <span data-label="Vendido hasta ahora">{{ c.totalVendido | pesos }}</span>
+            <span data-label="Entradas">{{ c.totalEntradasPagas }}</span>
             <span class="acciones-fila-caja-abierta">
               <button type="button" class="btn-secundario" (click)="$event.stopPropagation(); iniciarCierre(c.id)">Cerrar caja</button>
             </span>
@@ -106,11 +106,11 @@
           @for (c of cajasCerradas(); track c.id) {
             <div class="fila-simple fila-simple-cajas fila-clickable" [class.fila-expandida]="filaExpandidaId() === c.id" (click)="toggleDetalle(c.id)">
               <span>{{ c.usuarioNombre }}</span>
-              <span>{{ c.fechaCierre | date: 'dd/MM HH:mm' }}</span>
-              <span>{{ c.totalRetiros | pesos }}</span>
-              <span>{{ c.montoEsperado | pesos }}</span>
-              <span [class]="claseDiferencia(c.diferencia)">{{ c.diferencia | pesos }}</span>
-              <span [class]="claseDiferencia(c.diferenciaPosnet)">{{ c.diferenciaPosnet | pesos }}</span>
+              <span data-label="Cierre">{{ c.fechaCierre | date: 'dd/MM HH:mm' }}</span>
+              <span data-label="Retiros">{{ c.totalRetiros | pesos }}</span>
+              <span data-label="Esperado">{{ c.montoEsperado | pesos }}</span>
+              <span data-label="Dif. efectivo" [class]="claseDiferencia(c.diferencia)">{{ c.diferencia | pesos }}</span>
+              <span data-label="Dif. posnet" [class]="claseDiferencia(c.diferenciaPosnet)">{{ c.diferenciaPosnet | pesos }}</span>
             </div>
             @if (filaExpandidaId() === c.id) {
               <div class="fila-detalle-expandida" (click)="$event.stopPropagation()">
@@ -156,11 +156,11 @@
             @for (b of rankingBoleteros(r); track b.nombre) {
               <div class="fila-simple fila-simple-ranking">
                 <span>{{ b.nombre }}</span>
-                <span>{{ b.turnos }}</span>
-                <span>{{ b.efectivoVendido | pesos }}</span>
-                <span>{{ b.retiros | pesos }}</span>
-                <span [class]="claseDiferencia(b.diferencia)">{{ b.diferencia | pesos }}</span>
-                <span [class]="claseDiferencia(b.diferenciaPosnet)">{{ b.diferenciaPosnet | pesos }}</span>
+                <span data-label="Turnos">{{ b.turnos }}</span>
+                <span data-label="Efectivo vendido">{{ b.efectivoVendido | pesos }}</span>
+                <span data-label="Retiros">{{ b.retiros | pesos }}</span>
+                <span data-label="Dif. efectivo" [class]="claseDiferencia(b.diferencia)">{{ b.diferencia | pesos }}</span>
+                <span data-label="Dif. posnet" [class]="claseDiferencia(b.diferenciaPosnet)">{{ b.diferenciaPosnet | pesos }}</span>
               </div>
             }
           </div>

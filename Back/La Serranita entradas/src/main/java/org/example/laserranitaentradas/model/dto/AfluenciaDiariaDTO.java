@@ -17,4 +17,7 @@ public class AfluenciaDiariaDTO {
     private long pasesValidadosAnticipada;
     /** Pases vendidos directamente en la puerta (POS) ese día: ingresan en el momento. */
     private long pasesVendidosBoleteria;
+    /** Pases de anticipada COMPRADOS ese día (por fechaCreacion), para venir cualquier otro día.
+     * Es el ritmo de venta anticipada, independiente de cuándo se use. */
+    private long pasesCompradosAnticipada;
 }

@@ -7,6 +7,7 @@ import { ArticuloVarioService } from '../services/articulo-vario.service';
 import { ConfiguracionService, DescuentoEfectivo } from '../services/configuracion.service';
 import { PosCacheService } from '../services/pos-cache.service';
 import { PayloadRetiroAporte, PayloadIngresoEntradas } from '../services/operaciones-pendientes.service';
+import { aFechaHoraISO } from '../shared/fecha.util';
 import { TipoEntrada } from '../models/tipo-entrada';
 import { Promocion } from '../models/promocion';
 import { ArticuloVario } from '../models/articulo-vario';
@@ -220,7 +221,7 @@ export class Pos implements OnInit, OnDestroy {
         totalRetiros: actual.totalRetiros + signo * mov.monto,
         retiros: [
           ...actual.retiros,
-          { id: 0, monto: mov.monto, motivo: mov.motivo, tipo: mov.tipo, fecha: new Date().toISOString() },
+          { id: 0, monto: mov.monto, motivo: mov.motivo, tipo: mov.tipo, fecha: aFechaHoraISO() },
         ],
       });
     }
@@ -242,7 +243,7 @@ export class Pos implements OnInit, OnDestroy {
         totalIngresosEntradas: actual.totalIngresosEntradas + signo * mov.cantidad,
         ingresosEntradas: [
           ...actual.ingresosEntradas,
-          { id: 0, cantidad: mov.cantidad, motivo: mov.motivo ?? null, tipo: mov.tipo, fecha: new Date().toISOString() },
+          { id: 0, cantidad: mov.cantidad, motivo: mov.motivo ?? null, tipo: mov.tipo, fecha: aFechaHoraISO() },
         ],
       });
     }

@@ -233,9 +233,33 @@
   font-weight: 700;
 }
 
+/* Las tablas (.fila-simple-*) pasan a modo tarjeta con etiqueta por valor en ≤900px:
+   ver configuracion-shared.css. */
+@media (max-width: 900px) {
+  /* 1ra celda = ícono del tipo (no un nombre): se oculta y el título de la tarjeta pasa a
+     ser el tipo de operación (3ra celda). */
+  .fila-simple-operaciones-admin > .icono-tipo-operacion {
+    display: none;
+  }
+
+  .fila-simple-operaciones-admin > span:nth-child(3) {
+    justify-content: flex-start;
+    text-align: left;
+    font-weight: 700;
+    font-size: 0.92rem;
+    padding-bottom: 7px;
+    border-top: none;
+  }
+}
+
 @media (max-width: 720px) {
-  .fila-simple-operaciones-admin { grid-template-columns: 1fr; font-size: 0.78rem; }
   .tarjeta-kpis-detalle,
   .tarjeta-kpis-detalle-3 { grid-template-columns: 1fr; }
-  .fila-simple-formaspago-abierta { grid-template-columns: 1fr; font-size: 0.8rem; }
+}
+
+@media (max-width: 600px) {
+  /* "Anterior · Página X de Y · Siguiente" no entra a 375px con el gap/padding de escritorio. */
+  .paginador { gap: 10px; }
+  .paginador .btn-limpiar { padding: 10px 12px; font-size: 0.82rem; }
+  .paginador span { white-space: nowrap; }
 }

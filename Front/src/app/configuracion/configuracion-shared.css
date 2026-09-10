@@ -306,6 +306,142 @@ input:focus, select:focus {
 @keyframes girar { to { transform: rotate(360deg); } }
 
 /* ---------- Responsive ---------- */
+/* En teléfono/tablet angosta las grillas de datos (.fila-simple y variantes) dejan de ser
+   tabla: cada fila pasa a ser una tarjeta y cada valor muestra su etiqueta de columna al
+   lado (data-label en el template). Antes se colapsaban a 1-2 columnas sin encabezado, así
+   que los valores quedaban apilados sin saber a qué correspondían ("Juan Pérez / 26/07 /
+   $18.000 / ..."). El breakpoint es 900px para alinear con el resto de la app; arriba de eso
+   se sigue viendo la tabla real. Las variantes por pantalla que pisan grid-template-columns
+   dentro de su propio @media 900 quedan inertes acá (mandamos display:block). */
 @media (max-width: 900px) {
-  .fila-simple { grid-template-columns: 1fr 1fr; }
+  .tabla-simple { gap: 10px; }
+
+  .tabla-simple .fila-simple-header {
+    display: none;
+  }
+
+  .fila-simple {
+    display: block;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 8px 14px;
+    /* pisa font-size chico que algunas variantes bajaban para que entrara la tabla apretada */
+    font-size: 0.9rem;
+  }
+
+  .fila-simple:last-child {
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .fila-simple.fila-clickable {
+    padding: 8px 14px;
+  }
+
+  .fila-simple > * {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 16px;
+    padding: 5px 0;
+    text-align: right;
+    min-width: 0;
+  }
+
+  .fila-simple > * + * {
+    border-top: 1px solid var(--color-bg-soft);
+  }
+
+  .fila-simple > *[data-label]::before {
+    content: attr(data-label);
+    flex: 0 0 auto;
+    text-align: left;
+    font-size: 0.68rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+  }
+
+  /* Nombre/concepto (primera celda, sin data-label): sin etiqueta, hace de título de la
+     tarjeta. Las pantallas cuya primera celda NO es un nombre (ej. tipos-entrada, que arranca
+     con las flechas de reordenar) le ponen data-label a esa celda para que no caiga acá, y
+     marcan el título aparte en su propio CSS. */
+  .fila-simple > *:first-child:not([data-label]) {
+    justify-content: flex-start;
+    text-align: left;
+    font-weight: 700;
+    font-size: 0.95rem;
+    padding-bottom: 7px;
+  }
+
+  /* Celda de acciones (botones): ocupa el ancho, botones alineados a la derecha. Se reconoce
+     por la clase (.acciones-*), no por "no tiene data-label" — así una celda de dato sin
+     etiqueta (ej. el nombre en la 2da columna de tipos-entrada) no cae acá por error. */
+  .fila-simple > [class*='acciones']:not([data-label]) {
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    padding-top: 9px;
+  }
+
+  /* Un badge (.badge tiene su propio fondo tipo píldora) no puede ser la fila flex o el
+     fondo se estira a todo el ancho: queda como píldora suelta en su renglón. El texto del
+     badge ("Activo"/"Inactivo", el rol) ya se explica solo, así que no lleva etiqueta. */
+  .fila-simple > .badge {
+    display: inline-flex;
+    align-items: center;
+    width: fit-content;
+    justify-content: flex-start;
+    /* pisa el padding: 5px 0 de .fila-simple > * para que la píldora no quede alta y ovalada */
+    padding: 3px 10px;
+    margin-top: 8px;
+    border-top: none;
+  }
+
+  .fila-simple > .badge::before {
+    content: none;
+  }
+}
+
+@media (max-width: 600px) {
+  /* Menos padding lateral en teléfono: gana ancho útil, sobre todo cuando una tarjeta vive
+     anidada dentro de otra (ej. el detalle desplegado de una caja). */
+  .tarjeta {
+    padding: 16px 14px;
+  }
+
+  .tarjeta-formulario {
+    padding-left: 12px;
+  }
+}
+
+/* ---------- Mínimo táctil ----------
+   Los botones del módulo interno definen padding horizontal y dejan que el alto lo dé la
+   línea de texto: con mouse alcanza, pero en tablet/teléfono quedaban en 29-31px, por
+   debajo del mínimo cómodo para el dedo. Se piden 44px sólo donde el puntero es grueso
+   para no engordar la interfaz de escritorio, que es donde más densidad se quiere. */
+@media (pointer: coarse) {
+  /* inline-flex y no sólo min-height: un <button> inline-block con min-height crece pero
+     deja el texto pegado arriba en vez de centrarlo. */
+  .btn-primario,
+  .btn-secundario {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Las casillas de "Mostrar inactivas/inactivos" venían en 15px. */
+  .toggle-inactivos input[type='checkbox'] {
+    width: 20px;
+    height: 20px;
+  }
+
+  /* Los encabezados ordenables sólo existen arriba de 900px, o sea que en táctil se ven en
+     tablet apaisada: ahí seguían midiendo 27px de alto. El margen negativo compensa el
+     padding para que la fila de encabezado no cambie de altura. */
+  .col-ordenable {
+    padding: 9px 0;
+    margin: -9px 0;
+  }
 }

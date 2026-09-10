@@ -19,10 +19,10 @@ const TODOS_LOS_ENLACES: EnlaceCabecera[] = [
   { texto: 'Control de accesos', ruta: '/boleteria' },
   { texto: 'Vender entradas', ruta: '/pos' },
   { texto: 'Hoy', ruta: '/hoy', soloAdmin: true },
-  { texto: 'Acciones', ruta: '/acciones', soloAdmin: true },
-  { texto: 'Configuración', ruta: '/configuracion', soloAdmin: true },
-  { texto: 'Reportes', ruta: '/reportes', soloAdmin: true },
   { texto: 'Cajas', ruta: '/cajas', soloAdmin: true },
+  { texto: 'Reportes', ruta: '/reportes', soloAdmin: true },
+  { texto: 'Configuración', ruta: '/configuracion', soloAdmin: true },
+  { texto: 'Acciones', ruta: '/acciones', soloAdmin: true },
   { texto: 'Mi cuenta', ruta: '/mi-cuenta' },
 ];
 

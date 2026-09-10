@@ -13,6 +13,26 @@
   display: flex;
   align-items: center;
   gap: 14px;
+  min-width: 0;
+}
+
+.cabecera-derecha {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.cabecera-controles {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+/* Sin acciones de pantalla proyectadas, el contenedor no debe ocupar lugar ni sumar gap. */
+.cabecera-acciones:empty {
+  display: none;
 }
 
 .logo-cabecera {
@@ -36,12 +56,15 @@
 }
 
 .cabecera-acciones {
-  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: flex-end;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.cabecera-acciones:not(:empty) {
+  flex-shrink: 0;
 }
 
 .indicador-offline {
@@ -195,6 +218,7 @@
   justify-content: space-between;
   padding: 18px 20px;
   border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
 }
 
 .operador-slider {
@@ -212,6 +236,16 @@
   display: flex;
 }
 
+/* El aspa de cerrar el cajón quedaba en 30px, y es un botón que se usa siempre con el dedo
+   porque el cajón sólo existe en pantalla angosta. El margen negativo absorbe el padding
+   extra para que no empuje la cabecera del cajón. */
+@media (pointer: coarse) {
+  .btn-cerrar-slider {
+    padding: 11px;
+    margin: -7px -7px -7px 0;
+  }
+}
+
 .btn-cerrar-slider:hover {
   color: var(--color-danger-dark);
 }
@@ -221,10 +255,18 @@
   height: 22px;
 }
 
+/* La lista de pantallas es la parte elástica del cajón: se queda con el alto sobrante y
+   scrollea sola. Sin esto, en teléfono apaisado (390px de alto) los ~515px de menú se
+   desbordaban por abajo del aside (que es fixed con bottom:0) y "Mi cuenta" y "Cerrar
+   sesión" quedaban fuera de pantalla sin forma de llegar. El min-height:0 es lo que
+   habilita que un hijo flex se encoja por debajo de su contenido y pueda scrollear. */
 .menu-slider-nav {
   display: flex;
   flex-direction: column;
   padding: 8px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .menu-slider-item {
@@ -276,15 +318,84 @@
 
 .menu-slider-salir {
   margin-top: auto;
+  flex-shrink: 0;
   border-top: 1px solid var(--color-border);
   border-radius: 0;
   color: var(--color-text-muted);
   padding: 18px 20px;
 }
 
+/* ---------- Mobile: cabecera compacta ----------
+   Grilla de 2 columnas: el bloque de título ocupa la fila de arriba a la izquierda y el botón
+   de menú queda arriba a la derecha (al alcance del pulgar); las acciones de la pantalla y el
+   botón Tutorial bajan a una segunda fila a todo el ancho. .cabecera-derecha usa
+   display:contents para que sus dos hijos entren directo en esta grilla. */
 @media (max-width: 600px) {
   .cabecera {
-    flex-direction: column;
-    gap: 12px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: start;
+    gap: 10px 12px;
+  }
+
+  .cabecera-texto {
+    grid-row: 1;
+    grid-column: 1;
+    gap: 10px;
+  }
+
+  /* Disuelve el contenedor para que .cabecera-controles y .cabecera-acciones entren directo
+     en la grilla de .cabecera. */
+  .cabecera-derecha {
+    display: contents;
+  }
+
+  /* Tutorial + menú, sólo ícono, arriba a la derecha junto al título. */
+  .cabecera-controles {
+    grid-row: 1;
+    grid-column: 2;
+    gap: 8px;
+  }
+
+  /* Acciones de la pantalla (POS: Retiro/Aporte, etc.): fila propia abajo, a todo el ancho. */
+  .cabecera-acciones {
+    grid-row: 2;
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+
+  /* Botones del header: sólo ícono para ocupar menos (el aria-label mantiene la accesibilidad). */
+  .etiqueta-control {
+    display: none;
+  }
+
+  .btn-tutorial,
+  .btn-hamburguesa {
+    gap: 0;
+    padding: 9px;
+  }
+
+  .indicador-offline {
+    gap: 0;
+    padding: 8px;
+  }
+
+  /* El logo es un wordmark ancho ("LA SERRANITA · Parque Recreativo") que en mobile come
+     demasiado espacio horizontal y aprieta el título. Se oculta: el título de pantalla + el
+     verde de marca alcanzan, y el menú deslizable ya muestra la identidad del parque. */
+  .logo-cabecera {
+    display: none;
+  }
+
+  .cabecera h1 {
+    font-size: 1.35rem;
+    line-height: 1.2;
+    margin: 0;
+  }
+
+  /* La bajada de cada pantalla se saca en mobile: ocupa 2-3 renglones de alto y el título
+     ya dice dónde estás. */
+  .cabecera p {
+    display: none;
   }
 }
