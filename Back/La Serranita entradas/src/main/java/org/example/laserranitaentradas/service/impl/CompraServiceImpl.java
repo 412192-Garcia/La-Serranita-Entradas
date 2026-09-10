@@ -1200,6 +1200,15 @@ public class CompraServiceImpl implements CompraService {
             log.warn("La compra ID {} ({}) estaba CANCELADA por checkout abandonado y llegó el pago: "
                     + "se reactiva. Ojo: su lugar en el cupo del {} ya se había liberado.",
                     compraId, compra.getCodigoReserva(), compra.getFechaVisita());
+            // Al cancelarla se le devolvió el uso del cupón, así que hay que volver a tomarlo:
+            // si no, ese uso queda disponible para otra compra y el cupón termina aplicado dos
+            // veces. Si ya no quedan usos (alguien se lo llevó mientras tanto) igual se aprueba
+            // —la persona pagó y tiene que entrar—, pero queda avisado para poder corregirlo.
+            if (compra.getCupon() != null && !cuponService.consumirUso(compra.getCupon().getId())) {
+                log.error("Se reactivó la compra ID {} pero el cupón {} ya no tenía usos libres: "
+                        + "quedó aplicado una vez de más. Revisar a mano.",
+                        compraId, compra.getCupon().getCodigo());
+            }
         }
         compra.setEstado(EstadoCompra.APROBADO);
         compraRepository.save(compra);
@@ -1308,22 +1317,19 @@ public class CompraServiceImpl implements CompraService {
 
     /**
      * Devuelve el uso de cupón que una compra había consumido al crearse (ver create()), cuando
-     * esa compra se cancela sin haberse pagado. Si el cupón se había desactivado solo por llegar
-     * al máximo de usos, se reactiva al liberar uno (mientras no esté vencido).
+     * esa compra se cancela o se reembolsa. Si el cupón se había desactivado solo por llegar al
+     * máximo de usos, se reactiva al liberar uno (mientras no esté vencido).
+     *
+     * La resta la hace la base en una sentencia (cuponService.liberarUso) y no este método
+     * leyendo la entidad y guardándola: si otra compra consumía un uso en el medio, el save
+     * pisaba ese incremento con un contador viejo.
      */
     private void liberarCupon(Compra compra) {
         Cupon cupon = compra.getCupon();
-        if (cupon == null || cupon.getUsosActuales() == null) {
+        if (cupon == null) {
             return;
         }
-        cupon.setUsosActuales(Math.max(0, cupon.getUsosActuales() - 1));
-        if (Boolean.FALSE.equals(cupon.getActivo())
-                && cupon.getUsosMaximos() != null
-                && cupon.getUsosActuales() < cupon.getUsosMaximos()
-                && !cupon.getFechaExpiracion().isBefore(LocalDate.now())) {
-            cupon.setActivo(true);
-        }
-        cuponService.update(cupon);
+        cuponService.liberarUso(cupon.getId());
     }
 
     @Transactional

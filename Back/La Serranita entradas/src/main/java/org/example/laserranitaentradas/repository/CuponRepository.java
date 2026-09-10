@@ -46,5 +46,30 @@ public interface CuponRepository extends JpaRepository<Cupon, Long> {
                AND c.fechaExpiracion >= :hoy
             """)
     int consumirUso(@Param("id") Long id, @Param("hoy") LocalDate hoy);
+
+    /**
+     * Devuelve un uso del cupón, cuando la compra que lo había consumido se cancela o se
+     * reembolsa. Si al liberarlo vuelve a haber lugar y no está vencido, se reactiva (un cupón
+     * se apaga solo al agotarse; ver consumirUso).
+     *
+     * Atómico por el mismo motivo que consumirUso, pero al revés: antes esto se hacía leyendo
+     * la entidad, restándole uno en Java y guardándola entera. Si en el medio otra compra
+     * consumía un uso, ese save pisaba el incremento con un valor viejo — el uso de esa otra
+     * compra desaparecía del contador y el cupón podía revivir antes de tiempo.
+     *
+     * El guard usosActuales > 0 lo hace idempotente: liberar dos veces no deja el contador en
+     * negativo ni regala usos.
+     */
+    @Modifying(flushAutomatically = true)
+    @Query("""
+            UPDATE Cupon c
+               SET c.usosActuales = c.usosActuales - 1,
+                   c.activo = CASE WHEN c.usosActuales - 1 < c.usosMaximos
+                                    AND c.fechaExpiracion >= :hoy
+                                   THEN true ELSE c.activo END
+             WHERE c.id = :id
+               AND c.usosActuales > 0
+            """)
+    int liberarUso(@Param("id") Long id, @Param("hoy") LocalDate hoy);
 }
 

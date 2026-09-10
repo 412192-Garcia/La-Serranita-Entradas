@@ -23,4 +23,10 @@ public interface CuponService {
      * compras simultáneas con el mismo cupón de un solo uso.
      */
     boolean consumirUso(Long cuponId);
+
+    /**
+     * Devuelve un uso del cupón (compra cancelada o reembolsada) y lo reactiva si vuelve a
+     * haber lugar. Idempotente: llamarlo de más no deja el contador en negativo.
+     */
+    void liberarUso(Long cuponId);
 }

@@ -1007,8 +1007,10 @@ class CompraServiceImplTest {
         // El cliente nunca vio el checkout, así que no pagó: no tiene sentido dejarle tomado
         // el cupón ni el lugar del día hasta que pase el barrido tres horas después.
         assertThat(creada.getEstado()).isEqualTo(EstadoCompra.CANCELADO);
-        assertThat(cupon.getUsosActuales()).isZero();
-        assertThat(cupon.getActivo()).isTrue();
+        // La devolución del uso la hace la base en una sentencia atómica, no este código
+        // restándole uno a la entidad cargada (eso pisaba el consumo de otra compra).
+        verify(cuponService).liberarUso(9L);
+        verify(cuponService, never()).update(any());
     }
 
     @Test
@@ -1036,6 +1038,43 @@ class CompraServiceImplTest {
 
         assertThat(cancelada.getEstado()).isEqualTo(EstadoCompra.APROBADO);
         verify(emailService).enviarComprobanteCompra(75L);
+    }
+
+    @Test
+    void confirmarAprobado_alRevivirUnaCancelada_vuelveATomarElUsoDelCupon() {
+        Compra cancelada = checkoutPendiente(77L);
+        cancelada.setEstado(EstadoCompra.CANCELADO);
+        var cupon = org.example.laserranitaentradas.model.entity.Cupon.builder()
+                .id(9L).codigo("PROMO").activo(true).usosMaximos(1).usosActuales(0)
+                .fechaExpiracion(LocalDate.now().plusYears(1)).build();
+        cancelada.setCupon(cupon);
+        when(compraRepository.findById(77L)).thenReturn(Optional.of(cancelada));
+        when(cuponService.consumirUso(9L)).thenReturn(true);
+
+        assertThat(service.confirmarAprobado(77L)).isTrue();
+
+        // Al cancelarla se le había devuelto el uso: si no se vuelve a tomar, ese uso queda
+        // libre para otra compra y el cupón termina aplicado dos veces.
+        verify(cuponService).consumirUso(9L);
+    }
+
+    @Test
+    void confirmarAprobado_alRevivirYNoQuedarUsosDelCupon_apruebaIgualPeroAvisa() {
+        Compra cancelada = checkoutPendiente(78L);
+        cancelada.setEstado(EstadoCompra.CANCELADO);
+        var cupon = org.example.laserranitaentradas.model.entity.Cupon.builder()
+                .id(9L).codigo("PROMO").activo(false).usosMaximos(1).usosActuales(1)
+                .fechaExpiracion(LocalDate.now().plusYears(1)).build();
+        cancelada.setCupon(cupon);
+        when(compraRepository.findById(78L)).thenReturn(Optional.of(cancelada));
+        when(cuponService.consumirUso(9L)).thenReturn(false); // otro se llevó el último uso
+
+        // La persona pagó: se aprueba igual. El cupón sobreaplicado queda logueado para
+        // corregirlo a mano, que es preferible a dejarla sin entrada.
+        assertThat(service.confirmarAprobado(78L)).isTrue();
+
+        assertThat(cancelada.getEstado()).isEqualTo(EstadoCompra.APROBADO);
+        verify(emailService).enviarComprobanteCompra(78L);
     }
 
     @Test

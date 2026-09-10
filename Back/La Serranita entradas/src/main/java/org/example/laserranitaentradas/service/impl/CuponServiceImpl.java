@@ -63,6 +63,11 @@ public class CuponServiceImpl implements CuponService {
     }
 
     @Override
+    public void liberarUso(Long cuponId) {
+        cuponRepository.liberarUso(cuponId, LocalDate.now());
+    }
+
+    @Override
     public Cupon create(CrearCuponRequest request) {
         boolean tienePorcentaje = request.getPorcentajeDescuento() != null && request.getPorcentajeDescuento().compareTo(BigDecimal.ZERO) > 0;
         boolean tieneMonto = request.getMontoDescuento() != null && request.getMontoDescuento().compareTo(BigDecimal.ZERO) > 0;
