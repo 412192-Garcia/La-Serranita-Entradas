@@ -220,11 +220,17 @@ public class CompraServiceImpl implements CompraService {
         try {
             respuestaPago = estrategia.procesarPago(compraGuardada);
         } catch (Exception e) {
-            // No se pudo ni arrancar el pago, así que el cliente nunca vio el checkout y no
-            // pagó nada. Antes, cuando esto estaba todo en una transacción, el rollback
-            // deshacía la compra sola; ahora hay que compensar a mano. Sin esto, el uso de
-            // cupón y el lugar en el cupo del día quedaban tomados hasta que el barrido de
-            // abandonados pasara, hasta 3 h después.
+            // Se libera el cupón y el lugar del día en vez de esperar las 3 h del barrido
+            // (antes, con todo en una transacción, el rollback lo hacía solo).
+            //
+            // Una excepción acá NO prueba que Mercado Pago no haya creado la preferencia: un
+            // timeout puede caer después de que MP la aceptó. Se compensa igual, por dos
+            // razones. Primero, la respuesta que sale de este método es un error, así que el
+            // cliente nunca recibe el init_point y no tiene por dónde llegar a pagar esa
+            // preferencia. Segundo, si aun así entrara un pago, confirmarAprobado revive una
+            // compra CANCELADA a propósito (ver el comentario ahí): la persona termina con su
+            // entrada igual, a costa de un lugar de más en el día, que es el error barato.
+            // Si alguna vez se saca esa reactivación, hay que sacar también esta compensación.
             liberarReservaNoIniciada(compraGuardada.getId());
             throw e;
         }
@@ -407,18 +413,9 @@ public class CompraServiceImpl implements CompraService {
 
         validarPaseObligatorio(detalles);
         validarNingunoSoloPos(detalles);
-        validarCupoDiario(detalles, fechaVisita);
 
         BigDecimal descuentoAplicado = BigDecimal.ZERO;
         if (cupon != null) {
-            // Acá se decide de verdad si este cupón se puede usar: una sola sentencia que
-            // valida y descuenta a la vez. Si otra compra simultánea se llevó el último uso,
-            // esta devuelve false y la compra se rechaza en vez de regalar el descuento.
-            if (!cuponService.consumirUso(cupon.getId())) {
-                throw new IllegalArgumentException(
-                        "El cupón " + compraRequest.getCuponCodigo() + " ya no está disponible.");
-            }
-
             if (cupon.getPorcentajeDescuento() != null) {
                 descuentoAplicado = montoTotal.multiply(cupon.getPorcentajeDescuento()).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
             } else if (cupon.getMontoDescuento() != null) {
@@ -427,6 +424,29 @@ public class CompraServiceImpl implements CompraService {
 
             if (descuentoAplicado.compareTo(montoTotal) > 0) {
                 descuentoAplicado = montoTotal;
+            }
+
+            // Un cupón de monto fijo puede tapar el total entero. Mercado Pago no acepta una
+            // preferencia por $0, así que esa compra fallaría al pedir el checkout — y hasta
+            // hace un rato fallaba DESPUÉS de haber consumido el uso del cupón. Se rechaza
+            // antes de tocar nada: un cupón que cubre todo es para la boletería, no para el
+            // pago online, que necesita algo que cobrar.
+            if (compraRequest.getFormaPago() == FormaPago.MERCADO_PAGO
+                    && montoTotal.subtract(descuentoAplicado).compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalArgumentException("El cupón " + compraRequest.getCuponCodigo()
+                        + " cubre el total de la compra: no hay importe que pagar online. "
+                        + "Usalo en la boletería del parque.");
+            }
+
+            // Recién acá se decide de verdad si este cupón se puede usar: una sola sentencia
+            // que valida y descuenta a la vez. Si otra compra simultánea se llevó el último
+            // uso, devuelve false y la compra se rechaza en vez de regalar el descuento. Va
+            // último a propósito: cualquier validación que pueda tirar la compra abajo tiene
+            // que estar antes, para no quemar un uso del cupón por una compra que no va a
+            // existir.
+            if (!cuponService.consumirUso(cupon.getId())) {
+                throw new IllegalArgumentException(
+                        "El cupón " + compraRequest.getCuponCodigo() + " ya no está disponible.");
             }
 
             // montoTotal es lo que se le cobra al cliente, no el bruto: si no se resta acá, el
@@ -721,6 +741,16 @@ public class CompraServiceImpl implements CompraService {
     private Map<Long, Integer> cantidadVendidaPorTipoEnElDia(LocalDate fechaVisita, Long excluirCompraId) {
         Map<Long, Integer> cantidadVendidaPorTipo = new HashMap<>();
         if (fechaVisita == null) return cantidadVendidaPorTipo;
+
+        // Este conteo se mira y recién después se escribe la compra, así que sin lock dos
+        // ventas simultáneas para el último lugar leen las dos "queda 1" y entran las dos.
+        // El lock va acá y no en quien valida porque este método es el que alimenta a TODOS
+        // los caminos que controlan cupo: compra online, venta en puerta, cobro de una reserva
+        // en el POS y edición de una venta. Se libera solo al terminar la transacción y es el
+        // mismo que serializa la numeración del código de reserva del día.
+        compraRepository.bloquearFechaDeVisita(
+                fechaVisita.format(DateTimeFormatter.ofPattern("yyMMdd")).hashCode());
+
         for (Compra otra : compraRepository.findAllByFechaVisitaOrderByCodigoReservaAsc(fechaVisita)) {
             if ((excluirCompraId != null && excluirCompraId.equals(otra.getId()))
                     || otra.getEstado() == EstadoCompra.CANCELADO || otra.getDetalles() == null) continue;
@@ -859,63 +889,6 @@ public class CompraServiceImpl implements CompraService {
      * por si alguien arma el request a mano. No se usa desde crearVenta (POS): ahí vender
      * un tipo "Solo POS" es exactamente el caso de uso que existe para.
      */
-    /**
-     * Hace valer el "Máx/día" que se configura por tipo de entrada. Hasta ahora ese campo se
-     * guardaba y se mostraba en Configuración pero no lo leía nadie: se podían vender 5.000
-     * entradas para un día con tope 200.
-     *
-     * Sólo aplica a las compras con fecha de visita: un regalo o una reserva abierta no eligen
-     * día, así que no hay cupo de ningún día que puedan consumir (lo consumen recién cuando se
-     * validan en la puerta, y ahí ya es una venta de puerta).
-     *
-     * El lock por fecha es lo que lo hace confiable: sin él, dos compras simultáneas para el
-     * último lugar leen las dos "quedan 1" y entran las dos. Es el mismo lock que usa el
-     * número del código de reserva, y como es re-entrante pedirlo de nuevo no cuesta nada.
-     */
-    private void validarCupoDiario(List<CompraDetalle> detalles, LocalDate fechaVisita) {
-        if (fechaVisita == null) {
-            return;
-        }
-        boolean hayTope = detalles.stream()
-                .anyMatch(d -> d.getTipoEntrada() != null && d.getTipoEntrada().getMaximoPorDia() != null);
-        if (!hayTope) {
-            return;
-        }
-
-        compraRepository.bloquearFechaDeVisita(
-                fechaVisita.format(DateTimeFormatter.ofPattern("yyMMdd")).hashCode());
-
-        // Se agrupa por tipo: el pedido puede traer el mismo tipo en más de una línea y el tope
-        // es por tipo y día, no por línea.
-        Map<Long, Long> pedidoPorTipo = new HashMap<>();
-        for (CompraDetalle detalle : detalles) {
-            TipoEntrada tipo = detalle.getTipoEntrada();
-            if (tipo != null && tipo.getMaximoPorDia() != null) {
-                pedidoPorTipo.merge(tipo.getId(), (long) detalle.getCantidad(), Long::sum);
-            }
-        }
-
-        for (CompraDetalle detalle : detalles) {
-            TipoEntrada tipo = detalle.getTipoEntrada();
-            if (tipo == null || tipo.getMaximoPorDia() == null) {
-                continue;
-            }
-            Long pedidos = pedidoPorTipo.remove(tipo.getId());
-            if (pedidos == null) {
-                continue; // ya se validó este tipo en otra línea
-            }
-            long yaComprometidos = compraRepository.contarPasesComprometidos(fechaVisita, tipo.getId());
-            long disponibles = tipo.getMaximoPorDia() - yaComprometidos;
-            if (pedidos > disponibles) {
-                throw new IllegalArgumentException(disponibles <= 0
-                        ? "Ya no quedan entradas de tipo \"" + tipo.getNombre() + "\" para el "
-                          + fechaVisita + "."
-                        : "Sólo " + disponibles + " entrada(s) de tipo \"" + tipo.getNombre()
-                          + "\" quedan disponibles para el " + fechaVisita + ".");
-            }
-        }
-    }
-
     private void validarNingunoSoloPos(List<CompraDetalle> detalles) {
         boolean haySoloPos = detalles.stream()
                 .anyMatch(d -> d.getTipoEntrada() != null && Boolean.TRUE.equals(d.getTipoEntrada().getSoloPos()));

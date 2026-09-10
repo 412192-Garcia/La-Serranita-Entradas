@@ -756,18 +756,29 @@ class CompraServiceImplTest {
 
     // ---------- Cupo diario por tipo de entrada (maximoPorDia) ----------
 
-    /** Arma el escenario "un tipo de entrada con tope diario" y devuelve el request de compra. */
-    private CompraRequestDTO pedidoConTope(Integer maximoPorDia, int cantidadPedida, long yaVendidos) {
+    /**
+     * Arma el escenario "un tipo de entrada con tope diario" y devuelve el request de compra.
+     * `yaVendidos` se simula con compras existentes de ese día, que es de donde sale el conteo
+     * real (cantidadVendidaPorTipoEnElDia recorre las compras de la fecha).
+     */
+    private CompraRequestDTO pedidoConTope(Integer maximoPorDia, int cantidadPedida, int yaVendidos) {
         var tipo = org.example.laserranitaentradas.model.entity.TipoEntrada.builder()
                 .id(1L).nombre("General").tipo(org.example.laserranitaentradas.model.entity.Tipo.ENTRADA)
                 .obligatorio(true).precio(new java.math.BigDecimal("100")).maximoPorDia(maximoPorDia).build();
         when(tipoEntradaService.findById(1L)).thenReturn(Optional.of(tipo));
         when(diaAperturaService.getAbiertoByDate(any())).thenReturn(true);
-        lenient().when(compraRepository.findAllByFechaVisitaOrderByCodigoReservaAsc(any())).thenReturn(List.of());
+
+        List<Compra> yaExistentes = yaVendidos == 0 ? List.of() : List.of(Compra.builder()
+                .id(999L).estado(EstadoCompra.APROBADO)
+                .detalles(new ArrayList<>(List.of(
+                        org.example.laserranitaentradas.model.entity.CompraDetalle.builder()
+                                .tipoEntrada(tipo).cantidad(yaVendidos).build())))
+                .build());
+        lenient().when(compraRepository.findAllByFechaVisitaOrderByCodigoReservaAsc(any()))
+                .thenReturn(yaExistentes);
+
         lenient().when(calculoPrecioService.calcularTotal(any(), org.mockito.ArgumentMatchers.anyInt(), any()))
                 .thenReturn(new java.math.BigDecimal("100"));
-        lenient().when(compraRepository.contarPasesComprometidos(any(), org.mockito.ArgumentMatchers.eq(1L)))
-                .thenReturn(yaVendidos);
         lenient().when(compraRepository.save(any(Compra.class))).thenAnswer(inv -> inv.getArgument(0));
 
         var detalle = new org.example.laserranitaentradas.model.dto.DetalleCompraDTO();
@@ -787,18 +798,18 @@ class CompraServiceImplTest {
 
         assertThatThrownBy(() -> service.create(request))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Ya no quedan entradas");
+                .hasMessageContaining("Se alcanzó el cupo diario");
 
         verify(compraRepository, never()).save(any());
     }
 
     @Test
-    void create_pidiendoMasDeLoQueQueda_rechazaYDiceCuantasQuedan() {
+    void create_pidiendoMasDeLoQueQueda_rechaza() {
         CompraRequestDTO request = pedidoConTope(10, 4, 8); // quedan 2, pide 4
 
         assertThatThrownBy(() -> service.create(request))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Sólo 2 entrada(s)");
+                .hasMessageContaining("Se alcanzó el cupo diario");
 
         verify(compraRepository, never()).save(any());
     }
@@ -814,13 +825,13 @@ class CompraServiceImplTest {
     }
 
     @Test
-    void create_sinTopeConfigurado_niSiquieraCuentaLoVendido() {
-        CompraRequestDTO request = pedidoConTope(null, 500, 0);
+    void create_conFechaDeVisita_tomaElLockQueSerializaElCupoYLaNumeracion() {
+        CompraRequestDTO request = pedidoConTope(10, 1, 0);
 
         service.create(request);
 
-        // Sin maximoPorDia no tiene sentido pagar la consulta de conteo en cada compra.
-        verify(compraRepository, never()).contarPasesComprometidos(any(), any());
+        // Sin este lock, dos compras simultáneas para el último lugar leen las dos "queda 1".
+        verify(compraRepository, org.mockito.Mockito.atLeastOnce()).bloquearFechaDeVisita(anyLong());
     }
 
     // ---------- Cupón: el límite de usos lo hace valer la base, no una lectura previa ----------
@@ -868,21 +879,26 @@ class CompraServiceImplTest {
     }
 
     @Test
-    void create_conCuponMayorAlTotal_noDejaElMontoEnNegativo() {
+    void create_conCuponQueCubreTodoYPagoOnline_rechazaSinQuemarElUsoDelCupon() {
         var cupon = org.example.laserranitaentradas.model.entity.Cupon.builder()
                 .id(9L).codigo("GRANDE").activo(true).usosMaximos(5).usosActuales(0)
                 .montoDescuento(new java.math.BigDecimal("999999"))
                 .fechaExpiracion(LocalDate.now().plusYears(1)).build();
         when(cuponService.getByCode("GRANDE")).thenReturn(Optional.of(cupon));
-        when(cuponService.consumirUso(9L)).thenReturn(true);
 
         CompraRequestDTO request = pedidoConTope(null, 1, 0);
         request.setCuponCodigo("GRANDE");
 
-        Compra resultado = service.create(request);
+        // Mercado Pago no acepta una preferencia por $0: se corta antes, con un mensaje que
+        // explica qué hacer, en vez de reventar al pedir el checkout.
+        assertThatThrownBy(() -> service.create(request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("cubre el total");
 
-        assertThat(resultado.getMontoTotal()).isEqualByComparingTo("0");
-        assertThat(resultado.getDescuentoAplicado()).isEqualByComparingTo("100");
+        // Y sobre todo: no se consumió el uso. Antes el consumo iba primero, así que una
+        // compra que igual iba a fallar se llevaba puesto un uso del cupón.
+        verify(cuponService, never()).consumirUso(any());
+        verify(compraRepository, never()).save(any());
     }
 
     @Test

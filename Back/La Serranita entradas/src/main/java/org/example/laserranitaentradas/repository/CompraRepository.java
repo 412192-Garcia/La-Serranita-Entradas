@@ -39,22 +39,7 @@ public interface CompraRepository extends JpaRepository<Compra, Long>, JpaSpecif
     @Query(value = "SELECT cast(pg_advisory_xact_lock(:clave) as text)", nativeQuery = true)
     String bloquearFechaDeVisita(@Param("clave") long clave);
 
-    /**
-     * Pases ya comprometidos de un tipo de entrada para una fecha de visita, para controlar el
-     * máximo diario. Cuentan todos los estados salvo los que liberaron el lugar (cancelada y
-     * reembolsada); un checkout PENDIENTE_PAGO también ocupa, porque hasta que se abandone
-     * (3 h) esa persona todavía puede terminar de pagar.
-     */
-    @Query("""
-            SELECT COALESCE(SUM(d.cantidad), 0)
-              FROM CompraDetalle d
-             WHERE d.compra.fechaVisita = :fecha
-               AND d.tipoEntrada.id = :tipoEntradaId
-               AND d.compra.estado NOT IN (
-                     org.example.laserranitaentradas.model.entity.EstadoCompra.CANCELADO,
-                     org.example.laserranitaentradas.model.entity.EstadoCompra.REEMBOLSADA)
-            """)
-    long contarPasesComprometidos(@Param("fecha") LocalDate fecha, @Param("tipoEntradaId") Long tipoEntradaId);
+
     /**
      * Todas las compras que "tocan" el rango del reporte por alguna de sus tres fechas: día de
      * compra (fechaCreacion), día de visita elegido (fechaVisita) o día de ingreso real
