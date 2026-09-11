@@ -58,7 +58,13 @@ export interface ComprasPorEstado {
   cantidad: number;
 }
 
+export type DiaSemana = 'MONDAY' | 'TUESDAY' | 'WEDNESDAY' | 'THURSDAY' | 'FRIDAY' | 'SATURDAY' | 'SUNDAY';
+
+/** Grilla completa de 7 días x 24 horas (siempre 168 filas, haya habido ventas o no en cada
+ * combinación): permite filtrar "Compras por hora del día" por día de semana sin volver a
+ * pedirle nada al back, ver reportes.ts. */
 export interface VentasPorHora {
+  diaSemana: DiaSemana;
   hora: number;
   cantidadComprasAnticipada: number;
   cantidadPasesAnticipada: number;

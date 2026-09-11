@@ -3,7 +3,7 @@ import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Chart, ChartOptions, registerables } from 'chart.js';
 import { ReporteService } from '../services/reporte.service';
-import { ComprasPorEstado, RecaudacionPorFormaPago, ReporteResumen, VentasPorOrigen } from '../models/reporte';
+import { ComprasPorEstado, DiaSemana, RecaudacionPorFormaPago, ReporteResumen, VentasPorOrigen } from '../models/reporte';
 import { CabeceraInterna } from '../shared/cabecera-interna/cabecera-interna';
 import { FiltroRangoFechas } from '../shared/filtro-rango-fechas/filtro-rango-fechas';
 import { aFechaISO, restarUnAnio } from '../shared/fecha.util';
@@ -92,6 +92,19 @@ const COLOR_POR_ORIGEN: Record<VentasPorOrigen['origen'], string> = {
  * fijo por nombre. */
 const PALETA_TIPOS = ['#39a935', '#4a7fc9', '#e0a72e', '#7a5bc9', '#c94f4f', '#1f6b1c', '#8a3a3a', '#9aa0a6'];
 
+/** Sólo para el filtro de "Compras por hora del día": es el único gráfico del resumen que se
+ * filtra por día de semana (los demás ya tienen su propia atribución por fecha, ver
+ * ReporteServiceImpl). Lunes primero, como en el calendario del resto de la app. */
+const DIAS_SEMANA: { valor: DiaSemana; etiqueta: string }[] = [
+  { valor: 'MONDAY', etiqueta: 'Lun' },
+  { valor: 'TUESDAY', etiqueta: 'Mar' },
+  { valor: 'WEDNESDAY', etiqueta: 'Mié' },
+  { valor: 'THURSDAY', etiqueta: 'Jue' },
+  { valor: 'FRIDAY', etiqueta: 'Vie' },
+  { valor: 'SATURDAY', etiqueta: 'Sáb' },
+  { valor: 'SUNDAY', etiqueta: 'Dom' },
+];
+
 @Component({
   selector: 'app-configuracion-reportes',
   imports: [FormsModule, PesosPipe, DecimalPipe, CabeceraInterna, FiltroRangoFechas],
@@ -145,6 +158,26 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
   vista = signal<'resumen' | 'comparacion'>('resumen');
   pasosTutorial = computed(() => (this.vista() === 'resumen' ? PASOS_RESUMEN : PASOS_COMPARACION));
 
+  /** Filtro sólo de "Compras por hora del día" (ver DIAS_SEMANA): arranca con los 7 tildados,
+   * y no dispara ningún pedido nuevo al back — el resumen ya trae la grilla completa 7x24
+   * (VentasPorHora.diaSemana), así que tocar un día sólo reprocesa este gráfico en el cliente. */
+  readonly diasSemanaOpciones = DIAS_SEMANA;
+  diasSemanaSeleccionados = signal<Set<DiaSemana>>(new Set(DIAS_SEMANA.map((d) => d.valor)));
+
+  toggleDiaSemana(dia: DiaSemana): void {
+    this.diasSemanaSeleccionados.update((actuales) => {
+      const nuevos = new Set(actuales);
+      if (nuevos.has(dia)) {
+        // Al menos uno tildado siempre: si se pudieran destildar todos, el gráfico quedaría
+        // vacío sin ninguna pista de por qué (parece roto, no "sin selección").
+        if (nuevos.size > 1) nuevos.delete(dia);
+      } else {
+        nuevos.add(dia);
+      }
+      return nuevos;
+    });
+  }
+
   /* La tarjeta "Cupones aplicados" mostraba totalDescuentos / cantidadComprasConDescuento, que
      el backend acumula para CUALQUIER descuento: también las promociones de puerta y los
      descuentos manuales. En un rango con una promo y ningún cupón, el número de arriba daba
@@ -175,6 +208,16 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
       if (this.vista() === 'resumen') {
         const r = this.resumen();
         if (r) this.renderGraficos(r);
+      }
+    });
+
+    // Aparte del effect de arriba: tildar/destildar un día de semana no debería redibujar los
+    // otros diez gráficos del resumen (parpadeo de balde), así que el gráfico de hora vive en su
+    // propio effect — sólo éste depende de diasSemanaSeleccionados().
+    effect(() => {
+      if (this.vista() === 'resumen') {
+        const r = this.resumen();
+        if (r) this.renderGraficoHora(r);
       }
     });
 
@@ -521,25 +564,6 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
       });
     }
 
-    if (this.horaCanvas()) {
-      this.horaChart?.destroy();
-      this.horaChart = new Chart(this.horaCanvas()!.nativeElement, {
-        type: 'bar',
-        data: {
-          labels: r.ventasPorHora.map((h) => `${String(h.hora).padStart(2, '0')}h`),
-          datasets: [
-            { label: 'Anticipada', data: r.ventasPorHora.map((h) => h.cantidadComprasAnticipada), backgroundColor: '#39a935' },
-            { label: 'Boletería', data: r.ventasPorHora.map((h) => h.cantidadComprasBoleteria), backgroundColor: '#4a7fc9' },
-          ],
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } } },
-        },
-      });
-    }
-
     if (this.origenCanvas()) {
       this.origenChart?.destroy();
       this.origenChart = new Chart(this.origenCanvas()!.nativeElement, {
@@ -574,5 +598,37 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
         },
       });
     }
+  }
+
+  /** Suma r.ventasPorHora (grilla de 168 filas: 7 días x 24 horas) sólo para los días tildados,
+   * en las 24 horas de un día — es lo único que hace falta para que el filtro de día de semana
+   * reprocese este gráfico sin volver a pedirle nada al back. */
+  private renderGraficoHora(r: ReporteResumen): void {
+    if (!this.horaCanvas()) return;
+
+    const seleccionados = this.diasSemanaSeleccionados();
+    const porHora = Array.from({ length: 24 }, (_, hora) => ({ hora, anticipada: 0, boleteria: 0 }));
+    for (const fila of r.ventasPorHora) {
+      if (!seleccionados.has(fila.diaSemana)) continue;
+      porHora[fila.hora].anticipada += fila.cantidadComprasAnticipada;
+      porHora[fila.hora].boleteria += fila.cantidadComprasBoleteria;
+    }
+
+    this.horaChart?.destroy();
+    this.horaChart = new Chart(this.horaCanvas()!.nativeElement, {
+      type: 'bar',
+      data: {
+        labels: porHora.map((h) => `${String(h.hora).padStart(2, '0')}h`),
+        datasets: [
+          { label: 'Anticipada', data: porHora.map((h) => h.anticipada), backgroundColor: '#39a935' },
+          { label: 'Boletería', data: porHora.map((h) => h.boleteria), backgroundColor: '#4a7fc9' },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } } },
+      },
+    });
   }
 }

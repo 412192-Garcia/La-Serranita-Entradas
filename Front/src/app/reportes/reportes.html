@@ -199,6 +199,17 @@
   <div class="tarjeta tarjeta-ancha" [class.oculta]="!resumen()">
     <h2>Compras por hora del día</h2>
     <p class="ayuda">A qué hora se hacen más compras.</p>
+    <div class="filtro-dias-semana">
+      @for (dia of diasSemanaOpciones; track dia.valor) {
+        <button
+          type="button"
+          class="btn-dia-semana"
+          [class.activo]="diasSemanaSeleccionados().has(dia.valor)"
+          (click)="toggleDiaSemana(dia.valor)">
+          {{ dia.etiqueta }}
+        </button>
+      }
+    </div>
     <div class="grafico-contenedor">
       <canvas #horaCanvas></canvas>
     </div>

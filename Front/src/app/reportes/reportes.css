@@ -96,6 +96,39 @@
   margin-bottom: 16px;
 }
 
+/* Filtro de "Compras por hora del día": el único gráfico del resumen con un filtro propio
+   (los demás ya se filtran con el rango de fechas de arriba), así que vive pegado a su
+   gráfico y no en la barra de filtros general. */
+.filtro-dias-semana {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.btn-dia-semana {
+  padding: 6px 14px;
+  border: 1.5px solid var(--color-border);
+  border-radius: 999px;
+  background-color: var(--color-card-bg);
+  color: var(--color-text-secondary);
+  font-size: 0.82rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-dia-semana:hover {
+  border-color: var(--color-primary);
+}
+
+.btn-dia-semana.activo {
+  border-color: var(--color-primary);
+  background-color: var(--color-primary);
+  color: #fff;
+}
+
 /** Afluencia diaria tiene 3 series y hasta 30 días: necesita más aire vertical que el resto. */
 .grafico-contenedor-grande {
   height: 420px;
