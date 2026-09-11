@@ -34,6 +34,15 @@
   align-items: start;
 }
 
+/* Sin esto, un total con más dígitos (ej. $102.900 vs $95.700) agranda el ancho mínimo de
+   contenido del carrito y, como las columnas son fr, la grilla le da ese espacio de más
+   corriéndoselo al catálogo — que se ve compactado sin haber cambiado nada del lado
+   izquierdo. min-width:0 deja que cada columna se achique por debajo del contenido y que
+   el carrito scrollee/ajuste internamente en vez de empujar a su vecino. */
+.pos-layout > * {
+  min-width: 0;
+}
+
 /* Retiro/Aporte y Reponer talonario, proyectados en la cabecera común (ver pos.html).
    Mismo pill que el botón "Tutorial" de al lado para que la fila de acciones quede pareja. */
 .acciones-caja-cabecera {
@@ -109,6 +118,17 @@
      la pantalla. */
   .pos-layout {
     grid-template-columns: 1fr;
+  }
+}
+
+/* Tablet apaisada: poca altura y el carrito (forma de pago + descuento + vuelto + Cobrar)
+   es alto de por sí, así que el margen entre la cabecera y el resto es de los pocos lugares
+   donde se puede recuperar alto sin tocar el contenido. */
+@media (orientation: landscape) and (max-height: 900px) {
+  .panel-pos {
+    padding-top: 14px;
+    padding-bottom: 24px;
+    gap: 8px;
   }
 }
 

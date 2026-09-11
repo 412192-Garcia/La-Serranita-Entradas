@@ -127,25 +127,26 @@
 
     @if (formaPago() === 'EFECTIVO_BOLETERIA' && hayItems()) {
       <div class="bloque-vuelto">
-        <label class="check-dolares">
-          <input
-            type="checkbox"
-            [ngModel]="pagoEnDolares()"
-            (ngModelChange)="setPagoEnDolares($event)" />
-          Pagó en dólares
-        </label>
-
         @if (pagoEnDolares()) {
-          <label>
-            Cotización del dólar
-            <input
-              type="text"
-              inputmode="numeric"
-              placeholder="Ej: 1200"
-              appMoneyInput
-              [ngModel]="cotizacionDolar()"
-              (ngModelChange)="cotizacionDolar.set($event)" />
-          </label>
+          <div class="fila-paga-con">
+            <label class="campo-paga-con">
+              Cotización del dólar
+              <input
+                type="text"
+                inputmode="numeric"
+                placeholder="Ej: 1200"
+                appMoneyInput
+                [ngModel]="cotizacionDolar()"
+                (ngModelChange)="cotizacionDolar.set($event)" />
+            </label>
+            <label class="check-dolares-inline">
+              <input
+                type="checkbox"
+                [ngModel]="pagoEnDolares()"
+                (ngModelChange)="setPagoEnDolares($event)" />
+              USD
+            </label>
+          </div>
 
           @if (montoEnDolares(); as monto) {
             <div class="equivale-dolares">
@@ -177,16 +178,25 @@
             }
           }
         } @else {
-          <label>
-            Paga con
-            <input
-              type="text"
-              inputmode="numeric"
-              placeholder="Opcional"
-              appMoneyInput
-              [ngModel]="pagaCon()"
-              (ngModelChange)="pagaCon.set($event)" />
-          </label>
+          <div class="fila-paga-con">
+            <label class="campo-paga-con">
+              Paga con
+              <input
+                type="text"
+                inputmode="numeric"
+                placeholder="Opcional"
+                appMoneyInput
+                [ngModel]="pagaCon()"
+                (ngModelChange)="pagaCon.set($event)" />
+            </label>
+            <label class="check-dolares-inline">
+              <input
+                type="checkbox"
+                [ngModel]="pagoEnDolares()"
+                (ngModelChange)="setPagoEnDolares($event)" />
+              USD
+            </label>
+          </div>
           @if (vuelto() !== null) {
             <div class="vuelto-resultado">
               <span>Vuelto</span>

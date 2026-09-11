@@ -325,12 +325,14 @@
   padding: 18px 20px;
 }
 
-/* ---------- Mobile: cabecera compacta ----------
+/* ---------- Mobile/tablet vertical: cabecera compacta ----------
    Grilla de 2 columnas: el bloque de título ocupa la fila de arriba a la izquierda y el botón
-   de menú queda arriba a la derecha (al alcance del pulgar); las acciones de la pantalla y el
-   botón Tutorial bajan a una segunda fila a todo el ancho. .cabecera-derecha usa
-   display:contents para que sus dos hijos entren directo en esta grilla. */
-@media (max-width: 600px) {
+   de menú queda arriba a la derecha (al alcance del pulgar). Sin acciones de pantalla (la
+   mayoría de las pantallas) ahí termina la cabecera, en una sola fila. .cabecera-derecha usa
+   display:contents para que sus dos hijos entren directo en esta grilla. 900px (no 600) para
+   que entren también las tablets en vertical (mismo corte que las grillas ↔ tarjetas del
+   módulo interno, ver .fila-simple), no sólo el celular. */
+@media (max-width: 900px) {
   .cabecera {
     display: grid;
     grid-template-columns: 1fr auto;
@@ -362,6 +364,23 @@
     grid-row: 2;
     grid-column: 1 / -1;
     justify-content: flex-start;
+  }
+
+  /* Con acciones de pantalla (hoy sólo el POS): esa fila de abajo casi nunca se llena sola
+     (2-3 botones angostos en todo el ancho), así que Tutorial + menú bajan a compartirla en
+     vez de dejarles su propia fila arriba — una fila de controles en vez de dos. El título
+     pasa a ocupar solo, a todo el ancho, la fila de arriba. */
+  .cabecera:has(.cabecera-acciones:not(:empty)) .cabecera-texto {
+    grid-column: 1 / -1;
+  }
+
+  .cabecera:has(.cabecera-acciones:not(:empty)) .cabecera-controles {
+    grid-row: 2;
+    grid-column: 2;
+  }
+
+  .cabecera:has(.cabecera-acciones:not(:empty)) .cabecera-acciones {
+    grid-column: 1;
   }
 
   /* Botones del header: sólo ícono para ocupar menos (el aria-label mantiene la accesibilidad). */
