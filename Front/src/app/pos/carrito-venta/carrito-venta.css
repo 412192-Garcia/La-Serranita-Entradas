@@ -9,6 +9,10 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  /* Para el @container de .valor-total más abajo: en tablet vertical esta columna queda
+     angosta (ver .pos-layout en pos.css) y un total de varios dígitos no entra al 2.6rem
+     de siempre — achicarlo ahí evita que se recorte contra el borde de la tarjeta. */
+  container: carrito / inline-size;
 }
 
 .carrito-lineas {
@@ -98,19 +102,34 @@
   gap: 8px;
 }
 
-.check-dolares {
+/* Fila que junta "Paga con"/"Cotización del dólar" con el toggle de dólares: antes el
+   checkbox tenía su propio renglón arriba, y en tablet apaisado eso era una fila entera de
+   alto que el POS no siempre tiene para regalar (ver comentario de .panel-pos en pos.css). */
+.fila-paga-con {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.campo-paga-con {
+  flex: 1;
+  min-width: 0;
+}
+
+.check-dolares-inline {
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex-direction: row !important;
-  font-size: 0.85rem;
-  font-weight: 600;
+  gap: 4px;
+  flex-shrink: 0;
+  padding-bottom: 10px;
+  font-size: 0.72rem;
+  font-weight: 700;
   color: var(--color-text-secondary);
 }
 
-.check-dolares input[type='checkbox'] {
-  width: 16px;
-  height: 16px;
+.check-dolares-inline input[type='checkbox'] {
+  width: 14px;
+  height: 14px;
   accent-color: var(--color-primary);
 }
 
@@ -328,6 +347,20 @@
   font-weight: 800;
   line-height: 1.1;
   color: var(--color-primary);
+  min-width: 0;
+}
+
+/* Ídem min-width:0 en .etiqueta-total/.valor-total: son ítems flex, y sin esto un total
+   largo no se achica con el @container de abajo — sigue empujando por su min-content. */
+.fila-total { min-width: 0; }
+.fila-total > * { min-width: 0; }
+
+@container carrito (max-width: 340px) {
+  .valor-total { font-size: 2rem; }
+}
+
+@container carrito (max-width: 280px) {
+  .valor-total { font-size: 1.6rem; }
 }
 
 .bloque-vuelto {
