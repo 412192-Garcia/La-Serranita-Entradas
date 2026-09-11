@@ -17,6 +17,7 @@ import org.example.laserranitaentradas.repository.CompraRepository;
 import org.example.laserranitaentradas.repository.RetiroCajaRepository;
 import org.example.laserranitaentradas.repository.TipoEntradaRepository;
 import org.example.laserranitaentradas.service.CajaService;
+import org.example.laserranitaentradas.service.CalculoPrecioService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -31,6 +32,8 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
@@ -50,6 +53,7 @@ class ReporteServiceImplTest {
     @Mock private CajaRepository cajaRepository;
     @Mock private RetiroCajaRepository retiroCajaRepository;
     @Mock private CajaService cajaService;
+    @Mock private CalculoPrecioService calculoPrecioService;
 
     private ReporteServiceImpl service;
 
@@ -59,11 +63,26 @@ class ReporteServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        service = new ReporteServiceImpl(compraRepository, tipoEntradaRepository, cajaRepository, retiroCajaRepository, cajaService);
+        service = new ReporteServiceImpl(compraRepository, tipoEntradaRepository, cajaRepository, retiroCajaRepository,
+                cajaService, calculoPrecioService);
         lenient().when(tipoEntradaRepository.findAll()).thenReturn(List.of());
         lenient().when(cajaRepository.findAllByFechaCierreBetweenOrderByFechaCierreDesc(any(), any())).thenReturn(List.of());
         lenient().when(cajaRepository.findIdsDeshabilitadas()).thenReturn(List.of());
         lenient().when(cajaService.diferenciaPosnetPorCaja(any())).thenReturn(java.util.Map.of());
+        // Sin descuento por grupo salvo que un test lo pise explícitamente: el desglose por tipo
+        // recalcula el bruto de cada línea con esto (ver ReporteServiceImpl), y por defecto tiene
+        // que coincidir con precio de lista para no romper los tests que no prueban ese caso.
+        // Guarda tipo == null: un test que registra OTRO stub más específico para este mismo
+        // método (ver el test de precio por grupo) dispara esta respuesta una vez de más, con
+        // argumentos placeholder, mientras Mockito resuelve a qué stubbing engancha el nuevo
+        // when(...) — sin la guarda, esa pasada de más revienta con NPE antes de llegar a
+        // registrar el stub específico.
+        lenient().when(calculoPrecioService.calcularTotal(any(), anyInt(), any()))
+                .thenAnswer(inv -> {
+                    TipoEntrada tipo = inv.getArgument(0);
+                    int cantidad = inv.getArgument(1);
+                    return tipo != null ? tipo.getPrecio().multiply(BigDecimal.valueOf(cantidad)) : BigDecimal.ZERO;
+                });
     }
 
     @Test
@@ -263,6 +282,29 @@ class ReporteServiceImplTest {
             assertThat(u.getCantidad()).isEqualTo(1);
             assertThat(u.getMontoDescontado()).isEqualByComparingTo("450");
         });
+    }
+
+    @Test
+    void generarResumen_ventaConPrecioPorGrupoYDescuentoManual_desgloseUsaElMontoRealmenteCobrado() {
+        // 4 pases con precio por grupo (CalculoPrecioService, no tipo.getPrecio() a secas):
+        // el escalón cobra 16000 en vez de los 18000 de lista (4 x 4500). Encima el boletero
+        // cargó un descuento manual de 500: la compra queda en 15500.
+        when(calculoPrecioService.calcularTotal(any(TipoEntrada.class), eq(4), eq(FormaPago.EFECTIVO_BOLETERIA)))
+                .thenReturn(new BigDecimal("16000"));
+
+        Compra venta = ventaPuerta("15500", FormaPago.EFECTIVO_BOLETERIA, DIA);
+        venta.setDetalles(new ArrayList<>(List.of(detalleEntrada(4))));
+        venta.setDescuentoAplicado(new BigDecimal("500"));
+
+        stubReporte(venta);
+        ReporteResumenDTO resumen = service.generarResumen(DIA, DIA);
+
+        // Antes de este fix el desglose sumaba tipo.getPrecio() x cantidad a secas (18000),
+        // más que la recaudación real: ni el precio por grupo ni el descuento manual pisaban
+        // esa cuenta. Ahora tiene que coincidir con lo efectivamente cobrado.
+        assertThat(resumen.getDesglosePorTipo()).singleElement().satisfies(fila ->
+                assertThat(fila.getMontoBoleteria()).isEqualByComparingTo("15500"));
+        assertThat(resumen.getRecaudacionTotal()).isEqualByComparingTo("15500");
     }
 
     // ---------- helpers ----------

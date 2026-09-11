@@ -63,7 +63,7 @@
 
   <div class="tarjeta tarjeta-ancha" data-tour="graficos-reportes" [class.oculta]="!resumen()">
     <h2>Afluencia diaria</h2>
-    <p class="ayuda">Barras: reservado para ese día, ingresos reales y venta de puerta. Línea: anticipadas compradas ese día (el ritmo de venta, sin importar para cuándo).</p>
+    <p class="ayuda">Barras: reservado para ese día, ingresos reales y venta de puerta. Línea: anticipadas compradas ese día.</p>
     <div class="grafico-contenedor grafico-contenedor-grande">
       <canvas #afluenciaCanvas></canvas>
     </div>
@@ -71,7 +71,7 @@
 
   <div class="tarjeta tarjeta-ancha tarjeta-grafico-tabla" [class.oculta]="!resumen()">
     <h2>Anticipación de compra</h2>
-    <p class="ayuda">De las anticipadas que se usaron en el rango, con cuántos días de antelación se habían comprado (fecha de uso − fecha de compra).</p>
+    <p class="ayuda">De las anticipadas que se usaron en el rango, con cuántos días de antelación se habían comprado.</p>
     <div class="grafico-contenedor">
       <canvas #anticipacionCanvas></canvas>
     </div>
@@ -235,7 +235,7 @@
   @if (resumen(); as r) {
     <div class="tarjeta tarjeta-ancha">
       <h2>Uso de promociones en puerta</h2>
-      <p class="ayuda">Sólo cuenta ventas hechas desde que se empezó a registrar qué promo se usó en cada una.</p>
+      <p class="ayuda">Descuentos usados en puerta, por ejemplo folleto de cabañeros.</p>
       @if (r.usoPromociones.length === 0) {
         <p class="ayuda">No se aplicaron promociones en el rango.</p>
       } @else {

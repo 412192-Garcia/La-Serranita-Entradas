@@ -31,6 +31,7 @@ import org.example.laserranitaentradas.repository.CompraRepository;
 import org.example.laserranitaentradas.repository.RetiroCajaRepository;
 import org.example.laserranitaentradas.repository.TipoEntradaRepository;
 import org.example.laserranitaentradas.service.CajaService;
+import org.example.laserranitaentradas.service.CalculoPrecioService;
 import org.example.laserranitaentradas.service.ReporteService;
 import org.springframework.stereotype.Service;
 
@@ -93,15 +94,17 @@ public class ReporteServiceImpl implements ReporteService {
     private final CajaRepository cajaRepository;
     private final RetiroCajaRepository retiroCajaRepository;
     private final CajaService cajaService;
+    private final CalculoPrecioService calculoPrecioService;
 
     public ReporteServiceImpl(CompraRepository compraRepository, TipoEntradaRepository tipoEntradaRepository,
                               CajaRepository cajaRepository, RetiroCajaRepository retiroCajaRepository,
-                              CajaService cajaService) {
+                              CajaService cajaService, CalculoPrecioService calculoPrecioService) {
         this.compraRepository = compraRepository;
         this.tipoEntradaRepository = tipoEntradaRepository;
         this.cajaRepository = cajaRepository;
         this.retiroCajaRepository = retiroCajaRepository;
         this.cajaService = cajaService;
+        this.calculoPrecioService = calculoPrecioService;
     }
 
     @Override
@@ -292,27 +295,51 @@ public class ReporteServiceImpl implements ReporteService {
                     cantidadPasesAnticipadaPorHora.merge(hora, pasesEntrada, Long::sum);
                 }
 
-                for (CompraDetalle detalle : compra.getDetalles()) {
+                // Bruto de cada línea YA con el precio por grupo aplicado (el tramo de
+                // DescuentoEfectivo, si corresponde: ver CalculoPrecioServiceImpl) — a diferencia
+                // de tipo.getPrecio() a secas, que es precio de lista y ciego a cualquier
+                // promoción. El bruto total de la compra sirve para repartir descuentoAplicado
+                // (promo con nombre o manual, cargado una sola vez por compra entera, nunca por
+                // línea) proporcional al peso de cada línea, así el desglose por tipo/extra/
+                // artículo suma exactamente compra.montoTotal en vez de sumar de más cuando hubo
+                // cualquiera de los dos descuentos.
+                List<CompraDetalle> detallesCompra = compra.getDetalles();
+                List<BigDecimal> brutoPorLinea = new ArrayList<>(detallesCompra.size());
+                BigDecimal brutoCompra = BigDecimal.ZERO;
+                for (CompraDetalle detalle : detallesCompra) {
+                    BigDecimal bruto = detalle.getTipoEntrada() != null
+                            ? calculoPrecioService.calcularTotal(
+                                    detalle.getTipoEntrada(), detalle.getCantidad(), compra.getFormaPago())
+                            : (detalle.getPrecioUnitario() != null
+                                    ? detalle.getPrecioUnitario().multiply(BigDecimal.valueOf(detalle.getCantidad()))
+                                    : BigDecimal.ZERO);
+                    brutoPorLinea.add(bruto);
+                    brutoCompra = brutoCompra.add(bruto);
+                }
+
+                for (int i = 0; i < detallesCompra.size(); i++) {
+                    CompraDetalle detalle = detallesCompra.get(i);
+                    BigDecimal monto = brutoCompra.compareTo(BigDecimal.ZERO) > 0
+                            ? brutoPorLinea.get(i).multiply(compra.getMontoTotal())
+                                    .divide(brutoCompra, 2, RoundingMode.HALF_UP)
+                            : BigDecimal.ZERO;
+
                     // Las líneas de artículo vario (venta en puerta) no tienen tipoEntrada: no
                     // entran en el desglose por tipo/extra, van al reporte de artículos varios aparte.
                     if (detalle.getTipoEntrada() == null) {
-                        BigDecimal montoLinea = detalle.getPrecioUnitario() != null
-                                ? detalle.getPrecioUnitario().multiply(BigDecimal.valueOf(detalle.getCantidad()))
-                                : BigDecimal.ZERO;
                         if (detalle.getArticuloVario() != null) {
                             ArticuloVario articulo = detalle.getArticuloVario();
                             articulosPorId.putIfAbsent(articulo.getId(), articulo);
                             cantidadPorArticulo.merge(articulo.getId(), (long) detalle.getCantidad(), Long::sum);
-                            montoPorArticulo.merge(articulo.getId(), montoLinea, BigDecimal::add);
+                            montoPorArticulo.merge(articulo.getId(), monto, BigDecimal::add);
                         } else {
                             // Línea suelta que el cajero tipeó sin cargarla al catálogo (descripcionLibre).
                             cantidadArticulosSinCatalogo += detalle.getCantidad();
-                            montoArticulosSinCatalogo = montoArticulosSinCatalogo.add(montoLinea);
+                            montoArticulosSinCatalogo = montoArticulosSinCatalogo.add(monto);
                         }
                         continue;
                     }
                     TipoEntrada tipo = detalle.getTipoEntrada();
-                    BigDecimal monto = tipo.getPrecio().multiply(BigDecimal.valueOf(detalle.getCantidad()));
                     if (tipo.getTipo() == Tipo.ENTRADA) {
                         tiposPorId.putIfAbsent(tipo.getId(), tipo);
                         if (esBoleteria) {
