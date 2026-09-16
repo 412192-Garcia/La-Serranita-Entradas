@@ -30,7 +30,6 @@
   width: 100%;
   display: flex;
   flex-direction: column;
-  background: var(--gradient-accent);
   padding: 16px 20px;
   gap: 10px; /* Mantiene la separación sana entre el calendario y el cartel */
   justify-content: flex-start; /* ⚡ Obliga a los elementos a acomodarse uno abajo del otro en orden natural */
@@ -232,25 +231,10 @@ app-calendario {
 .btn-revisar-datos:hover {
   background-color: rgba(0, 0, 0, 0.05);
 }
-@container modulo (max-width: 600px) {
-  .columna-izquierda-contenido{
-    min-width: 100%;
-    padding: 10px 10px
-  }
-}
 
-@container modulo (max-width: 1200px) {
-  .modulo-compra-container {
-    flex-direction: column;
-    align-items: center;
-    gap: 30px;
-    padding: 0px;
-  }
-
-  .panel-derecho  {
-    flex: none;
-    width: 100%;
-  }
-}
-
+/* Los dos @container de acá abajo (los puntos de quiebre a 600px/1200px) NO viven en
+   este archivo: los genera aplicarBreakpointsDesdeUrl() en entradas.ts, con esos mismos
+   valores por defecto, porque una condición de @container no acepta var() — la única
+   forma de que ?anchoMovil=/?anchoApilado= puedan pisar el número es armando la regla
+   entera desde JS. Ver ese método antes de tocar el layout responsive de este módulo. */
 

@@ -59,6 +59,8 @@ export class App {
       const esRutaPublica = RUTAS_PUBLICAS.some((ruta) => e.urlAfterRedirects.startsWith(ruta));
       this.rutaPublica.set(esRutaPublica);
       this.sesion.aplicarTema(esRutaPublica ? null : this.sesion.usuario());
+      // Del fondo de body se encarga la página del parque cuando está embebido (ver styles.css).
+      document.body.classList.toggle('ruta-publica', esRutaPublica);
     });
   }
 

@@ -212,6 +212,31 @@ Snippet a pegar en la página del sitio:
 El `height: 780px` inicial es sólo un valor de arranque razonable hasta que llega el primer aviso
 de altura (llega casi de inmediato).
 
+### Configurar el embebido por query param
+
+Para no tener que redeployar el frontend por cada ajuste visual, el módulo acepta esta
+configuración en el `src` del iframe (agregala como `?clave=valor&clave2=valor2...`):
+
+| Parámetro       | Valor                       | Qué hace                                                                 |
+|-----------------|------------------------------|---------------------------------------------------------------------------|
+| `primario`      | hex sin `#` (ej. `2563eb`)   | Color principal (botones, acentos, calendario).                          |
+| `fondo`         | hex sin `#`                  | Fondo detrás de la tarjeta. Sin este parámetro queda **transparente** (lo pinta la página del parque). |
+| `tarjeta`       | hex sin `#`                  | Fondo de la tarjeta de compra.                                           |
+| `borde`         | hex sin `#`                  | Color del borde fino de la tarjeta.                                     |
+| `radio`         | número (px, ej. `12`)        | Redondeo de las esquinas de tarjetas/paneles.                            |
+| `anchoMovil`    | número (px, default `600`)   | Punto de quiebre del `@container`: por debajo, la columna del calendario pasa a ancho completo y achica el padding. |
+| `anchoApilado`  | número (px, default `1200`)  | Punto de quiebre del `@container`: por debajo, las dos columnas se apilan verticalmente. Subilo si el iframe queda angosto (por ej. para dejarle lugar a un widget flotante del sitio) y el layout de dos columnas se ve apretado. |
+| `ocultarInfo`   | `1` o `true`                 | Oculta el panel de "Horarios / Seguro de lluvia / Prioridad de ingreso". |
+
+Ejemplo: `src="https://<dominio-de-producción>/entradas?primario=2563eb&anchoApilado=900&ocultarInfo=1"`.
+El `#` no se puede usar en el hex porque en una URL abre el fragmento y cortaría el resto de los
+parámetros; por eso va sin él. Un valor inválido u omitido vuelve al color/valor por defecto.
+
+El horario que se muestra en el panel de info ("Horarios del Parque") ya no es texto fijo: se trae
+en vivo de `GET /api/configuracion/horario` (el horario general que administra el ADMIN en "Días y
+Horarios"). Si la consulta falla, ese renglón directamente no se muestra — antes que arriesgarse a
+mostrar un horario viejo.
+
 ## Seguridad
 
 El módulo interno usa JWT: `POST /api/usuarios/login` devuelve un token (válido 12 h) que el

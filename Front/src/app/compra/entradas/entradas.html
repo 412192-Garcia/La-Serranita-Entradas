@@ -5,30 +5,34 @@
       (esRegaloChange)="onEsRegaloCambio($event)">
     </app-calendario>
 
-    <div class="contenedor-info-util">
+    @if (!ocultarInfoUtil) {
+      <div class="contenedor-info-util">
 
-      <div class="item-info">
-        <svg lucideClock class="icono-svg" [strokeWidth]="2.5"></svg>
-        <p class="texto-info">
-          <strong>Horarios del Parque:</strong> Abierto de 11:00 a 18:30 hs.
-        </p>
+        @if (horario) {
+          <div class="item-info">
+            <svg lucideClock class="icono-svg" [strokeWidth]="2.5"></svg>
+            <p class="texto-info">
+              <strong>Horarios del Parque:</strong> Abierto de {{ horario.apertura }} a {{ horario.cierre }} hs.
+            </p>
+          </div>
+        }
+
+        <div class="item-info">
+          <svg lucideCloudRain class="icono-svg" [strokeWidth]="2.5"></svg>
+          <p class="texto-info">
+            <strong>Seguro de Lluvia:</strong> Si llueve, es posible utilizar la entrada otro dia en el que el parque esté abierto.
+          </p>
+        </div>
+
+        <div class="item-info">
+          <svg lucideTriangleAlert class="icono-svg" [strokeWidth]="2.5"></svg>
+          <p class="texto-info">
+            <strong>Prioridad de Ingreso:</strong> Las entradas online aseguran tu lugar pero no otorgan prioridad de ingreso ni egreso respecto a la boletería física.
+          </p>
+        </div>
+
       </div>
-
-      <div class="item-info">
-        <svg lucideCloudRain class="icono-svg" [strokeWidth]="2.5"></svg>
-        <p class="texto-info">
-          <strong>Seguro de Lluvia:</strong> Si llueve, es posible utilizar la entrada otro dia en el que el parque esté abierto.
-        </p>
-      </div>
-
-      <div class="item-info">
-        <svg lucideTriangleAlert class="icono-svg" [strokeWidth]="2.5"></svg>
-        <p class="texto-info">
-          <strong>Prioridad de Ingreso:</strong> Las entradas online aseguran tu lugar pero no otorgan prioridad de ingreso ni egreso respecto a la boletería física.
-        </p>
-      </div>
-
-    </div>
+    }
   </div>
 
   @switch (etapa)
