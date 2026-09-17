@@ -1,10 +1,13 @@
 import {ChangeDetectorRef, Component, NgZone, OnDestroy, OnInit} from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import { Calendario } from '../calendario/calendario';
 import { SeleccionEntradas } from '../seleccion-entradas/seleccion-entradas';
 import { FormCliente } from '../form-cliente/form-cliente';
 import { Resumen } from '../resumen/resumen';
 import { CompraService } from '../../services/compra.service';
+import { ConfiguracionService } from '../../services/configuracion.service';
+import { ThemeService } from '../../services/theme.service';
 import { PagoExitoso } from '../../resultado-pago/pago-exitoso/pago-exitoso';
 import {FormaPagoType, ResumenCompraData} from "../../models/compra";
 import { Cupon } from '../../models/cupon';
@@ -48,10 +51,122 @@ export class Entradas implements OnInit, OnDestroy {
 
   etapa: etapaCompra = etapaCompra.SELECCION;
 
-  // Inyectamos únicamente CompraService
   constructor(private compraService: CompraService,
   private cdr: ChangeDetectorRef,
-              private ngZone: NgZone) {}
+              private ngZone: NgZone,
+              private route: ActivatedRoute,
+              private themeService: ThemeService,
+              private configuracionService: ConfiguracionService) {}
+
+  /** Puntos de quiebre por defecto del layout responsive (ver aplicarBreakpoints()). */
+  private static readonly ANCHO_MOVIL_DEFECTO = 600;
+  private static readonly ANCHO_APILADO_DEFECTO = 1200;
+
+  /** <style> inyectado por aplicarBreakpoints(); se guarda la referencia para poder sacarlo en ngOnDestroy. */
+  private estiloBreakpoints: HTMLStyleElement | null = null;
+
+  /**
+   * El sitio del parque no puede tocar código ni redeployar para probar un ajuste
+   * visual: por eso el embebido acepta esta configuración por query param, en vez de
+   * quedar todo hardcodeado. Cubre colores (reusa ThemeService, el mismo motor de "Mi
+   * cuenta" del módulo interno), radio de esquinas, los puntos de quiebre del layout
+   * responsive y el on/off del panel de info. Los hex viajan SIN "#" (ej.
+   * ?primario=2563eb) porque "#" en una URL abre el fragmento y cortaría el resto de
+   * los parámetros.
+   */
+  private aplicarConfigDesdeUrl(): void {
+    const params = this.route.snapshot.queryParamMap;
+    const aHex = (valor: string | null): string | null => (valor && /^[0-9a-fA-F]{6}$/.test(valor)) ? `#${valor}` : null;
+    const aEntero = (valor: string | null): number | null => {
+      const n = Number(valor);
+      return valor !== null && Number.isFinite(n) && n > 0 ? Math.round(n) : null;
+    };
+
+    this.themeService.aplicarPrimario(aHex(params.get('primario')));
+    this.themeService.aplicarTarjeta(aHex(params.get('tarjeta')));
+    this.themeService.aplicarBorde(aHex(params.get('borde')));
+
+    // Fondo detrás de la tarjeta: por defecto transparente (ver styles.css,
+    // body.ruta-publica) para que el fondo lo ponga la página del parque. Si en cambio
+    // viene ?fondo=, se pisa el body con ese color puntual (el estilo inline gana
+    // siempre por sobre la clase, sin necesitar !important).
+    const fondo = aHex(params.get('fondo'));
+    this.themeService.aplicarFondo(fondo);
+    document.body.style.backgroundColor = fondo ?? '';
+
+    // Radio de esquinas de tarjetas/paneles (--radius-lg, ver styles.css). En px.
+    const radio = aEntero(params.get('radio'));
+    if (radio !== null) {
+      document.documentElement.style.setProperty('--radius-lg', `${radio}px`);
+    } else {
+      document.documentElement.style.removeProperty('--radius-lg');
+    }
+
+    const ocultarInfo = params.get('ocultarInfo');
+    this.ocultarInfoUtil = ocultarInfo === '1' || ocultarInfo === 'true';
+
+    this.aplicarBreakpoints(
+      aEntero(params.get('anchoMovil')) ?? Entradas.ANCHO_MOVIL_DEFECTO,
+      aEntero(params.get('anchoApilado')) ?? Entradas.ANCHO_APILADO_DEFECTO
+    );
+  }
+
+  /**
+   * Genera los dos @container de entradas.css (colapsar a una columna, achicar padding)
+   * con el ancho que se les pida. Van por acá y no por CSS con var() porque una condición
+   * de @container NO acepta custom properties — la única forma de que el número sea
+   * configurable es armar la regla entera en JS. Siempre corre (con los valores por
+   * defecto si no vinieron por query param) para que sea la ÚNICA fuente de estos dos
+   * breakpoints; entradas.css ya no los declara, así nunca conviven dos reglas para el
+   * mismo quiebre pisándose entre sí de forma confusa.
+   *
+   * Las propiedades van con !important a propósito: este <style> es CSS plano, sin el
+   * atributo "_ngcontent-ng-cXXX" que Angular agrega a cada regla del componente (View
+   * Encapsulation emulada) — así que aunque este <style> se inserte después, pierde por
+   * especificidad contra la regla base (no-condicional) de .modulo-compra-container, que
+   * sí tiene ese atributo. Sin !important, cambiar el breakpoint no tendría ningún efecto.
+   */
+  private aplicarBreakpoints(anchoMovil: number, anchoApilado: number): void {
+    this.estiloBreakpoints ??= document.createElement('style');
+    this.estiloBreakpoints.textContent = `
+      @container modulo (max-width: ${anchoMovil}px) {
+        .columna-izquierda-contenido { min-width: 100% !important; padding: 10px 10px !important; }
+      }
+      @container modulo (max-width: ${anchoApilado}px) {
+        .modulo-compra-container { flex-direction: column !important; align-items: center !important; gap: 30px !important; padding: 0px !important; }
+        .panel-derecho { flex: none !important; width: 100% !important; }
+      }
+    `;
+    if (!this.estiloBreakpoints.isConnected) {
+      document.head.appendChild(this.estiloBreakpoints);
+    }
+  }
+
+  /** Panel de "Horarios / Seguro de lluvia / Prioridad de ingreso": ver ?ocultarInfo en aplicarConfigDesdeUrl(). */
+  ocultarInfoUtil = false;
+
+  /**
+   * Antes era texto fijo ("Abierto de 11:00 a 18:30 hs."): si el ADMIN cambiaba el
+   * horario general desde "Días y Horarios" (ConfiguracionService), el módulo público
+   * seguía mostrando el horario viejo. Ahora se trae de GET /api/configuracion/horario
+   * (endpoint público, ver SecurityConfig). Es el horario GENERAL nada más — no el
+   * horario especial por fecha puntual, que hoy no tiene endpoint público.
+   * Null mientras carga o si falla la consulta: el renglón directamente no se muestra
+   * en vez de arriesgarse a mostrar un horario que ya no es el real.
+   */
+  horario: { apertura: string; cierre: string } | null = null;
+
+  private cargarHorarioGeneral(): void {
+    this.configuracionService.getHorarioGeneral().pipe(
+      map((h) => ({ apertura: h.horaApertura.slice(0, 5), cierre: h.horaCierre.slice(0, 5) })),
+      catchError(() => of(null))
+    ).subscribe((horario) => {
+      this.ngZone.run(() => {
+        this.horario = horario;
+        this.cdr.detectChanges();
+      });
+    });
+  }
 
   /**
    * Embebido en un <iframe> del sitio del parque, en un origen distinto: el padre no
@@ -64,6 +179,9 @@ export class Entradas implements OnInit, OnDestroy {
   private observadorAltura: ResizeObserver | null = null;
 
   ngOnInit(): void {
+    this.aplicarConfigDesdeUrl();
+    this.cargarHorarioGeneral();
+
     if (window.parent === window) return; // no está embebido, no hay a quién avisarle
 
     const avisarAltura = () => {
@@ -82,6 +200,12 @@ export class Entradas implements OnInit, OnDestroy {
     this.detenerVerificacion();
     this.ventanaPago = null;
     this.observadorAltura?.disconnect();
+    this.estiloBreakpoints?.remove();
+    // aplicarConfigDesdeUrl() pisa estos dos directo en body/:root (no vía ThemeService):
+    // sin deshacerlos acá, navegar por SPA desde /entradas?fondo=...&radio=... hacia una
+    // pantalla interna deja el fondo y el radio de esquinas contaminados fuera de esta ruta.
+    document.body.style.backgroundColor = '';
+    document.documentElement.style.removeProperty('--radius-lg');
   }
 
   procesandoPago: boolean = false;

@@ -98,6 +98,10 @@ public interface CajaService {
     /** Todas las cajas abiertas ahora mismo, sin importar de qué boletero — para el dashboard del admin. */
     List<CajaAbiertaDTO> getCajasAbiertas();
 
+    /** Ids de cajas sin cerrar cuya apertura fue un día anterior a hoy: quedaron pendientes de que
+     * un admin haga el control de cierre. Candidatas del aviso CAJA_ATRASADA (ver NotificacionController). */
+    List<Long> getIdsCajasAtrasadas();
+
     /**
      * Ventas, retiros/aportes e ingresos de entradas de una caja, en orden cronológico, más un
      * resumen de lo vendido hasta el momento (por forma de pago y por tipo de entrada) — a

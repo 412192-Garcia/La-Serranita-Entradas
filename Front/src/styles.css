@@ -81,6 +81,13 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* El módulo público (/entradas) se embebe en el sitio del parque: del fondo alrededor
+   de la tarjeta se encarga esa página, no este body. La clase la pone app.ts según la
+   ruta, así el módulo interno de gestión conserva su fondo de siempre. */
+body.ruta-publica {
+  background-color: transparent;
+}
+
 /* A diferencia de casi cualquier otro elemento, los controles de formulario NO heredan
    --color en el user-agent stylesheet de los navegadores (Chrome les aplica un negro fijo
    por default). Sin esto, cualquier input/select al que sólo se le haya pisado el FONDO para

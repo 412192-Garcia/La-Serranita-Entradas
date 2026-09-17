@@ -23,7 +23,12 @@
             class="fila-simple fila-simple-cajas-abiertas fila-clickable"
             [class.fila-expandida]="filaExpandidaAbiertaId() === c.id"
             (click)="toggleOperaciones(c)">
-            <span>{{ c.usuarioNombre }}</span>
+            <span>
+              {{ c.usuarioNombre }}
+              @if (esAtrasada(c)) {
+                <span class="badge badge-atrasada" title="Quedó abierta de un día anterior: hace falta cerrarla">Atrasada</span>
+              }
+            </span>
             <span data-label="Abrió">{{ c.fechaApertura | date: 'dd/MM HH:mm' }}</span>
             <span data-label="Inicial">{{ c.montoInicial | pesos }}</span>
             <span data-label="Vendido hasta ahora">{{ c.totalVendido | pesos }}</span>

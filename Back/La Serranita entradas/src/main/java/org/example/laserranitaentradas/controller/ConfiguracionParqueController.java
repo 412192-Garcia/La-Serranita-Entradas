@@ -1,6 +1,7 @@
 package org.example.laserranitaentradas.controller;
 
 import org.example.laserranitaentradas.model.dto.HorarioRequest;
+import org.example.laserranitaentradas.model.dto.HorarioResponseDTO;
 import org.example.laserranitaentradas.model.entity.ConfiguracionParque;
 import org.example.laserranitaentradas.service.ConfiguracionParqueService;
 import org.springframework.http.ResponseEntity;
@@ -20,9 +21,10 @@ public class ConfiguracionParqueController {
     }
 
     @GetMapping("/horario")
-    @Operation(summary = "Obtener horario general", description = "Devuelve el horario por defecto del parque (rige salvo horario especial por día)")
-    public ResponseEntity<ConfiguracionParque> obtenerHorarioGeneral() {
-        return ResponseEntity.ok(configuracionParqueService.getHorarioGeneral());
+    @Operation(summary = "Obtener horario general", description = "Devuelve el horario por defecto del parque (rige salvo horario especial por día) — endpoint público, sin autenticación")
+    public ResponseEntity<HorarioResponseDTO> obtenerHorarioGeneral() {
+        ConfiguracionParque config = configuracionParqueService.getHorarioGeneral();
+        return ResponseEntity.ok(new HorarioResponseDTO(config.getHoraApertura(), config.getHoraCierre()));
     }
 
     @PutMapping("/horario")

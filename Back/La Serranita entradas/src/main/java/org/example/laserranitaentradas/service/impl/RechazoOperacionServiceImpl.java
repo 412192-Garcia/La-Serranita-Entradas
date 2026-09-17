@@ -72,6 +72,13 @@ public class RechazoOperacionServiceImpl implements RechazoOperacionService {
         return rechazos.stream().map(this::toDto).toList();
     }
 
+    @Override
+    public List<Long> getIdsPendientes() {
+        return repository.findAllByResueltoOrderByFechaCreacionDesc(false).stream()
+                .map(OperacionRechazada::getId)
+                .toList();
+    }
+
     @Transactional
     @Override
     public OperacionRechazadaResponseDTO resolver(Long id, String nota) {

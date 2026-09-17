@@ -18,6 +18,10 @@ public interface RechazoOperacionService {
     /** Null = todas; true/false = sólo pendientes o sólo resueltas. */
     List<OperacionRechazadaResponseDTO> listar(Boolean resuelto);
 
+    /** Ids de rechazos pendientes (resuelto=false). Candidatos del aviso RECHAZO_OPERACION
+     * (ver NotificacionController) — evita traer el DTO completo cuando sólo hace falta saber cuáles hay. */
+    List<Long> getIdsPendientes();
+
     OperacionRechazadaResponseDTO resolver(Long id, String nota);
 
     /**

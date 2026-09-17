@@ -17,7 +17,6 @@ export interface DiaApertura {
 }
 
 export interface HorarioGeneral {
-  id: number;
   horaApertura: string;
   horaCierre: string;
 }

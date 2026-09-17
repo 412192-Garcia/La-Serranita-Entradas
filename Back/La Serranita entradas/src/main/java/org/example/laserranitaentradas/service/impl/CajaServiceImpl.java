@@ -98,16 +98,27 @@ public class CajaServiceImpl implements CajaService {
         this.usuarioService = usuarioService;
     }
 
+    /** La caja sin cerrar de este usuario que arrancó HOY, si existe. Bajo operación normal hay a
+     * lo sumo una (abrir() no deja abrir dos el mismo día); las cajas sin cerrar de días
+     * anteriores (ver getIdsCajasAtrasadas) NO cuentan como "operativa" — son la caja vieja que
+     * quedó pendiente de que un admin la cierre, y no deben mezclarse con las ventas de hoy. */
+    private Optional<Caja> getCajaOperativaHoy(Long usuarioId) {
+        LocalDateTime inicioDeHoy = LocalDate.now().atStartOfDay();
+        return cajaRepository.findAllByUsuarioIdAndFechaCierreIsNull(usuarioId).stream()
+                .filter(c -> c.getFechaApertura() != null && !c.getFechaApertura().isBefore(inicioDeHoy))
+                .findFirst();
+    }
+
     @Override
     public CajaResponseDTO getActual(Long usuarioId) {
-        return cajaRepository.findByUsuarioIdAndFechaCierreIsNull(usuarioId)
+        return getCajaOperativaHoy(usuarioId)
                 .map(this::toDto)
                 .orElse(null);
     }
 
     @Override
     public Caja getAbiertaOrThrow(Long usuarioId) {
-        return cajaRepository.findByUsuarioIdAndFechaCierreIsNull(usuarioId)
+        return getCajaOperativaHoy(usuarioId)
                 .orElseThrow(() -> new IllegalStateException("No hay una caja abierta: abrí la caja antes de cobrar."));
     }
 
@@ -120,7 +131,7 @@ public class CajaServiceImpl implements CajaService {
         if (entradasFisicasInicial == null || entradasFisicasInicial < 0) {
             throw new IllegalArgumentException("Indicá con cuántas entradas físicas arranca el turno");
         }
-        if (cajaRepository.findByUsuarioIdAndFechaCierreIsNull(usuarioId).isPresent()) {
+        if (getCajaOperativaHoy(usuarioId).isPresent()) {
             throw new IllegalStateException("Ya hay una caja abierta para este usuario");
         }
         Usuario usuario = usuarioService.obtenerUsuarioPorId(usuarioId)
@@ -672,6 +683,14 @@ public class CajaServiceImpl implements CajaService {
                             .personasIngresadas(contarEntradasTotales(compras, ajustes))
                             .build();
                 })
+                .toList();
+    }
+
+    @Override
+    public List<Long> getIdsCajasAtrasadas() {
+        LocalDateTime inicioDeHoy = LocalDate.now().atStartOfDay();
+        return cajaRepository.findAllByFechaCierreIsNullAndFechaAperturaBefore(inicioDeHoy).stream()
+                .map(Caja::getId)
                 .toList();
     }
 

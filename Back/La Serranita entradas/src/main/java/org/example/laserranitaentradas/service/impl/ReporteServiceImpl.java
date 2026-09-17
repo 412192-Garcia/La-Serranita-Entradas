@@ -37,6 +37,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -77,6 +78,11 @@ public class ReporteServiceImpl implements ReporteService {
         if (dias <= 30) return 4;
         return 5;
     }
+
+    /** Clave del mapa de ventas por hora (ver más abajo): el gráfico "Compras por hora del día"
+     * es el único del resumen que se filtra por día de semana en el front, así que junta ambos
+     * en vez de bucketear sólo por hora como antes. */
+    private record ClaveHora(DayOfWeek dia, int hora) {}
 
     /** "15%" o "$1.000" según cómo esté definido el cupón. */
     private static String etiquetaCupon(Cupon cupon) {
@@ -175,10 +181,10 @@ public class ReporteServiceImpl implements ReporteService {
             cantidadPorEstado.put(estado, 0L);
         }
 
-        Map<Integer, Long> cantidadComprasAnticipadaPorHora = new HashMap<>();
-        Map<Integer, Long> cantidadPasesAnticipadaPorHora = new HashMap<>();
-        Map<Integer, Long> cantidadComprasBoleteriaPorHora = new HashMap<>();
-        Map<Integer, Long> cantidadPasesBoleteriaPorHora = new HashMap<>();
+        Map<ClaveHora, Long> cantidadComprasAnticipadaPorHora = new HashMap<>();
+        Map<ClaveHora, Long> cantidadPasesAnticipadaPorHora = new HashMap<>();
+        Map<ClaveHora, Long> cantidadComprasBoleteriaPorHora = new HashMap<>();
+        Map<ClaveHora, Long> cantidadPasesBoleteriaPorHora = new HashMap<>();
 
         Map<TipoListadoCompra, Long> cantidadPorOrigen = new EnumMap<>(TipoListadoCompra.class);
         Map<TipoListadoCompra, BigDecimal> montoPorOrigen = new EnumMap<>(TipoListadoCompra.class);
@@ -286,13 +292,14 @@ public class ReporteServiceImpl implements ReporteService {
                 montoPorOrigen.merge(origen, compra.getMontoTotal(), BigDecimal::add);
 
                 // Hora del cobro: para MP la del checkout, para el resto la del cobro en puerta.
-                int hora = (esMercadoPago ? compra.getFechaCreacion() : compra.getFechaValidacion()).getHour();
+                LocalDateTime momentoCobro = esMercadoPago ? compra.getFechaCreacion() : compra.getFechaValidacion();
+                ClaveHora claveHora = new ClaveHora(momentoCobro.getDayOfWeek(), momentoCobro.getHour());
                 if (esBoleteria) {
-                    cantidadComprasBoleteriaPorHora.merge(hora, 1L, Long::sum);
-                    cantidadPasesBoleteriaPorHora.merge(hora, pasesEntrada, Long::sum);
+                    cantidadComprasBoleteriaPorHora.merge(claveHora, 1L, Long::sum);
+                    cantidadPasesBoleteriaPorHora.merge(claveHora, pasesEntrada, Long::sum);
                 } else {
-                    cantidadComprasAnticipadaPorHora.merge(hora, 1L, Long::sum);
-                    cantidadPasesAnticipadaPorHora.merge(hora, pasesEntrada, Long::sum);
+                    cantidadComprasAnticipadaPorHora.merge(claveHora, 1L, Long::sum);
+                    cantidadPasesAnticipadaPorHora.merge(claveHora, pasesEntrada, Long::sum);
                 }
 
                 // Bruto de cada línea YA con el precio por grupo aplicado (el tramo de
@@ -461,13 +468,19 @@ public class ReporteServiceImpl implements ReporteService {
             comprasPorEstado.add(new ComprasPorEstadoDTO(estado, cantidadPorEstado.get(estado)));
         }
 
+        // Las 168 combinaciones (7 días x 24 horas) siempre, aunque no haya ventas en algunas:
+        // el front arma el gráfico sumando las horas de los días que estén tildados, y necesita
+        // la grilla completa para no tener que adivinar qué falta.
         List<VentasPorHoraDTO> ventasPorHora = new ArrayList<>();
-        for (int hora = 0; hora < 24; hora++) {
-            ventasPorHora.add(new VentasPorHoraDTO(hora,
-                    cantidadComprasAnticipadaPorHora.getOrDefault(hora, 0L),
-                    cantidadPasesAnticipadaPorHora.getOrDefault(hora, 0L),
-                    cantidadComprasBoleteriaPorHora.getOrDefault(hora, 0L),
-                    cantidadPasesBoleteriaPorHora.getOrDefault(hora, 0L)));
+        for (DayOfWeek dia : DayOfWeek.values()) {
+            for (int hora = 0; hora < 24; hora++) {
+                ClaveHora clave = new ClaveHora(dia, hora);
+                ventasPorHora.add(new VentasPorHoraDTO(dia, hora,
+                        cantidadComprasAnticipadaPorHora.getOrDefault(clave, 0L),
+                        cantidadPasesAnticipadaPorHora.getOrDefault(clave, 0L),
+                        cantidadComprasBoleteriaPorHora.getOrDefault(clave, 0L),
+                        cantidadPasesBoleteriaPorHora.getOrDefault(clave, 0L)));
+            }
         }
 
         List<VentasPorOrigenDTO> ventasPorOrigen = new ArrayList<>();
