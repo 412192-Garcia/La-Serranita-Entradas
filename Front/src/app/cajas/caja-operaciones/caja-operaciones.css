@@ -93,7 +93,11 @@
 }
 
 .fila-simple-operaciones-admin {
-  grid-template-columns: 22px 60px 100px 1fr 100px auto;
+  /* Ancho fijo (no "auto") en la columna de acciones: como cada fila es su propio grid
+   * independiente, un "auto" reserva un ancho distinto según si esa fila tiene los botones
+   * Editar/Cancelar (las ventas), sólo uno, o ninguno (retiros/ingresos de entradas, y el
+   * header) — eso desalineaba "Monto" y "Detalle" contra los valores reales de cada fila. */
+  grid-template-columns: 22px 60px 100px 1fr 100px 145px;
   font-size: 0.8rem;
   align-items: center;
   /* Más compacta que una fila de tabla admin común: acá puede haber muchas ventas en una

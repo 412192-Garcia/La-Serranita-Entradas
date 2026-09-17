@@ -3,13 +3,15 @@ import { Router, RouterLink } from '@angular/router';
 import { LucideMenu, LucideX, LucideLogOut, LucideWifiOff, LucideCircleHelp } from '@lucide/angular';
 import { SesionService } from '../../services/sesion.service';
 import { ConectividadService } from '../../services/conectividad.service';
-import { RechazoService } from '../../services/rechazo.service';
+import { NotificacionService, ResumenNotificaciones, TipoNotificacion } from '../../services/notificacion.service';
 import { Tour, TourStep } from '../tour/tour';
 
 interface EnlaceCabecera {
   texto: string;
   ruta: string;
   soloAdmin?: boolean;
+  /** Si este destino tiene un aviso asociado (ver resumenNotificaciones), qué tipo es. */
+  tipoNotificacion?: TipoNotificacion;
 }
 
 /** Todos los destinos del módulo interno: cada uno se resalta como activo cuando corresponde
@@ -19,10 +21,10 @@ const TODOS_LOS_ENLACES: EnlaceCabecera[] = [
   { texto: 'Control de accesos', ruta: '/boleteria' },
   { texto: 'Vender entradas', ruta: '/pos' },
   { texto: 'Hoy', ruta: '/hoy', soloAdmin: true },
-  { texto: 'Cajas', ruta: '/cajas', soloAdmin: true },
+  { texto: 'Cajas', ruta: '/cajas', soloAdmin: true, tipoNotificacion: 'CAJA_ATRASADA' },
   { texto: 'Reportes', ruta: '/reportes', soloAdmin: true },
   { texto: 'Configuración', ruta: '/configuracion', soloAdmin: true },
-  { texto: 'Acciones', ruta: '/acciones', soloAdmin: true },
+  { texto: 'Acciones', ruta: '/acciones', soloAdmin: true, tipoNotificacion: 'RECHAZO_OPERACION' },
   { texto: 'Mi cuenta', ruta: '/mi-cuenta' },
 ];
 
@@ -45,7 +47,7 @@ const TODOS_LOS_ENLACES: EnlaceCabecera[] = [
 export class CabeceraInterna implements OnInit {
   private sesion = inject(SesionService);
   private router = inject(Router);
-  private rechazoService = inject(RechazoService);
+  private notificacionService = inject(NotificacionService);
 
   @Input({ required: true }) titulo = '';
   @Input() descripcion = '';
@@ -69,17 +71,17 @@ export class CabeceraInterna implements OnInit {
     return TODOS_LOS_ENLACES.filter((e) => esAdmin || !e.soloAdmin);
   });
 
-  /** Punto rojo de aviso: hay operaciones rechazadas pendientes de revisión (ver Acciones ›
-   * Operaciones rechazadas). Sólo se consulta para ADMIN — BOLETERO no tiene acceso a ese endpoint. */
-  hayRechazosPendientes = signal(false);
+  /** Qué tipos de aviso están prendidos ahora mismo (ver ngOnInit). Sólo se consulta para ADMIN
+   * — BOLETERO no tiene acceso a ese endpoint. */
+  private resumenNotificaciones = signal<ResumenNotificaciones>({});
 
   menuAbierto = signal(false);
 
   ngOnInit(): void {
     if (this.sesion.rol() === 'ADMIN') {
-      this.rechazoService.listar(false).subscribe({
-        next: (rs) => this.hayRechazosPendientes.set(rs.length > 0),
-        error: (err) => console.error('Error al consultar operaciones rechazadas pendientes:', err),
+      this.notificacionService.obtenerResumen().subscribe({
+        next: (r) => this.resumenNotificaciones.set(r),
+        error: (err) => console.error('Error al consultar notificaciones pendientes:', err),
       });
     }
   }
@@ -87,6 +89,16 @@ export class CabeceraInterna implements OnInit {
   esRutaActual(ruta: string): boolean {
     return this.rutaActual.startsWith(ruta);
   }
+
+  /** El aviso de este enlace está prendido y no es la pantalla en la que ya está parado el
+   * usuario (si está ahí, ya la está viendo — no hace falta el puntito). */
+  avisoSinVer(enlace: EnlaceCabecera): boolean {
+    if (!enlace.tipoNotificacion) return false;
+    return !!this.resumenNotificaciones()[enlace.tipoNotificacion] && !this.esRutaActual(enlace.ruta);
+  }
+
+  /** Para el puntito del botón hamburguesa: si cualquier enlace visible tiene un aviso sin ver. */
+  readonly hayAlgunAvisoSinVer = computed(() => this.enlacesVisibles().some((e) => this.avisoSinVer(e)));
 
   toggleMenu(): void {
     this.menuAbierto.update((v) => !v);

@@ -52,7 +52,11 @@
 }
 
 .fila-simple-cajas-abiertas {
-  grid-template-columns: 1.3fr 0.9fr 0.9fr 1fr 0.8fr auto;
+  /* Ancho fijo (no "auto") en la columna de acciones: como cada fila es su propio grid
+   * independiente, un "auto" reserva un ancho distinto según si esa fila tiene el botón
+   * "Cerrar caja" (las de datos) o queda vacía (el header) — eso hacía que las columnas fr
+   * de la izquierda se recalcularan distinto entre el header y las filas, desalineándolas. */
+  grid-template-columns: 1.3fr 0.9fr 0.9fr 1fr 0.8fr 110px;
   align-items: center;
 }
 
@@ -118,6 +122,14 @@
 
 .diferencia-exacta {
   color: var(--color-text-secondary);
+}
+
+/* Caja sin cerrar de un día anterior a hoy (ver esAtrasada en cajas.ts): reusa la píldora
+   .badge de configuracion-shared.css con el mismo tono que .diferencia-faltante. */
+.badge-atrasada {
+  background-color: var(--color-danger-light);
+  color: var(--color-danger-dark);
+  margin-left: 8px;
 }
 
 .fila-clickable {

@@ -94,16 +94,50 @@ class CajaServiceImplTest {
 
     @Test
     void abrir_conCajaYaAbiertaParaEseUsuario_rechaza() {
-        when(cajaRepository.findByUsuarioIdAndFechaCierreIsNull(USUARIO_ID))
-                .thenReturn(Optional.of(new Caja()));
+        Caja cajaDeHoy = new Caja();
+        cajaDeHoy.setFechaApertura(LocalDateTime.now());
+        when(cajaRepository.findAllByUsuarioIdAndFechaCierreIsNull(USUARIO_ID))
+                .thenReturn(List.of(cajaDeHoy));
 
         assertThatThrownBy(() -> service.abrir(USUARIO_ID, new BigDecimal("5000"), 50))
                 .isInstanceOf(IllegalStateException.class);
     }
 
     @Test
+    void abrir_conSoloCajaDeUnDiaAnteriorSinCerrar_permiteAbrirUnaNueva() {
+        Caja cajaVieja = cajaAbierta(1L, "5000", 50);
+        cajaVieja.setFechaApertura(LocalDateTime.now().minusDays(1));
+        when(cajaRepository.findAllByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(List.of(cajaVieja));
+        when(usuarioService.obtenerUsuarioPorId(USUARIO_ID)).thenReturn(Optional.of(new Usuario()));
+        when(cajaRepository.save(any(Caja.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        service.abrir(USUARIO_ID, new BigDecimal("3000"), 20);
+
+        verify(cajaRepository).save(any(Caja.class));
+    }
+
+    @Test
+    void getActual_conSoloCajaAbiertaDeUnDiaAnterior_devuelveNull() {
+        Caja cajaVieja = cajaAbierta(1L, "5000", 50);
+        cajaVieja.setFechaApertura(LocalDateTime.now().minusDays(1));
+        when(cajaRepository.findAllByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(List.of(cajaVieja));
+
+        assertThat(service.getActual(USUARIO_ID)).isNull();
+    }
+
+    @Test
+    void getAbiertaOrThrow_conSoloCajaAbiertaDeUnDiaAnterior_lanza() {
+        Caja cajaVieja = cajaAbierta(1L, "5000", 50);
+        cajaVieja.setFechaApertura(LocalDateTime.now().minusDays(1));
+        when(cajaRepository.findAllByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(List.of(cajaVieja));
+
+        assertThatThrownBy(() -> service.getAbiertaOrThrow(USUARIO_ID))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
     void abrir_casoNormal_creaLaCajaConElMontoInicialYLasEntradasFisicas() {
-        when(cajaRepository.findByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(Optional.empty());
+        when(cajaRepository.findAllByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(List.of());
         when(usuarioService.obtenerUsuarioPorId(USUARIO_ID)).thenReturn(Optional.of(new Usuario()));
         when(cajaRepository.save(any(Caja.class))).thenAnswer(inv -> inv.getArgument(0));
         lenient().when(retiroCajaRepository.findAllByCajaIdOrderByFechaAsc(any())).thenReturn(List.of());
@@ -173,7 +207,7 @@ class CajaServiceImplTest {
         // El motivo es opcional también en un retiro de entradas (a diferencia del motivo de un
         // retiro de efectivo, que sí es obligatorio).
         Caja cajaAbierta = cajaAbierta(7L, "5000", 50);
-        when(cajaRepository.findByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(Optional.of(cajaAbierta));
+        when(cajaRepository.findAllByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(List.of(cajaAbierta));
         when(compraRepository.findAllByCajaId(7L)).thenReturn(List.of());
         when(retiroCajaRepository.findAllByCajaIdOrderByFechaAsc(7L)).thenReturn(List.of());
         when(ingresoEntradasRepository.findAllByCajaIdOrderByFechaAsc(7L)).thenReturn(List.of());
@@ -191,7 +225,7 @@ class CajaServiceImplTest {
         // El servidor no bloquea un retiro que deja el conteo en negativo: el frontend ya avisó
         // y pidió confirmación antes de mandarlo (ver stockActual en el modal).
         Caja cajaAbierta = cajaAbierta(7L, "5000", 50);
-        when(cajaRepository.findByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(Optional.of(cajaAbierta));
+        when(cajaRepository.findAllByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(List.of(cajaAbierta));
         when(compraRepository.findAllByCajaId(7L)).thenReturn(List.of());
         when(retiroCajaRepository.findAllByCajaIdOrderByFechaAsc(7L)).thenReturn(List.of());
         when(ingresoEntradasRepository.findAllByCajaIdOrderByFechaAsc(7L)).thenReturn(List.of());
@@ -206,7 +240,7 @@ class CajaServiceImplTest {
     @Test
     void cerrar_conDenominacionInvalida_rechaza() {
         Caja cajaAbierta = cajaAbierta(7L, "5000", 50);
-        when(cajaRepository.findByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(Optional.of(cajaAbierta));
+        when(cajaRepository.findAllByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(List.of(cajaAbierta));
 
         assertThatThrownBy(() -> service.cerrar(USUARIO_ID, List.of(conteo(300, 2)), List.of(), 50, null, null))
                 .isInstanceOf(IllegalArgumentException.class);
@@ -215,7 +249,7 @@ class CajaServiceImplTest {
     @Test
     void cerrar_sinEntradasFisicasFinal_rechaza() {
         Caja cajaAbierta = cajaAbierta(7L, "5000", 50);
-        when(cajaRepository.findByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(Optional.of(cajaAbierta));
+        when(cajaRepository.findAllByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(List.of(cajaAbierta));
 
         assertThatThrownBy(() -> service.cerrar(USUARIO_ID, List.of(conteo(1000, 5)), List.of(), null, null, null))
                 .isInstanceOf(IllegalArgumentException.class);
@@ -224,7 +258,7 @@ class CajaServiceImplTest {
     @Test
     void cerrar_conCierreDePosnetDeFormaPagoInvalida_rechaza() {
         Caja cajaAbierta = cajaAbierta(7L, "5000", 50);
-        when(cajaRepository.findByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(Optional.of(cajaAbierta));
+        when(cajaRepository.findAllByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(List.of(cajaAbierta));
 
         CierrePosnetRequestDTO cierreInvalido = new CierrePosnetRequestDTO();
         cierreInvalido.setFormaPago(FormaPago.EFECTIVO_BOLETERIA);
@@ -237,7 +271,7 @@ class CajaServiceImplTest {
     @Test
     void cerrar_calculaMontoContadoComoLaSumaDeDenominacionPorCantidad() {
         Caja cajaAbierta = cajaAbierta(7L, "5000", 50);
-        when(cajaRepository.findByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(Optional.of(cajaAbierta));
+        when(cajaRepository.findAllByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(List.of(cajaAbierta));
 
         Compra efectivoValida = compraConMontoFormaEstado("68600", FormaPago.EFECTIVO_BOLETERIA, EstadoCompra.VENDIDO_EN_PUERTA);
         Compra efectivoCancelada = compraConMontoFormaEstado("34300", FormaPago.EFECTIVO_BOLETERIA, EstadoCompra.CANCELADO);
@@ -260,7 +294,7 @@ class CajaServiceImplTest {
     void cerrar_sumaElCambioContadoAlMontoContado() {
         // El boletero no cuenta los billetes chicos uno por uno, carga el total directo.
         Caja cajaAbierta = cajaAbierta(7L, "5000", 50);
-        when(cajaRepository.findByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(Optional.of(cajaAbierta));
+        when(cajaRepository.findAllByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(List.of(cajaAbierta));
         when(compraRepository.findAllByCajaId(7L)).thenReturn(List.of());
         when(retiroCajaRepository.findAllByCajaIdOrderByFechaAsc(7L)).thenReturn(List.of());
         when(cajaRepository.save(any(Caja.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -275,7 +309,7 @@ class CajaServiceImplTest {
     @Test
     void cerrar_restaLosRetirosDelMontoEsperado() {
         Caja cajaAbierta = cajaAbierta(7L, "5000", 50);
-        when(cajaRepository.findByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(Optional.of(cajaAbierta));
+        when(cajaRepository.findAllByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(List.of(cajaAbierta));
         when(compraRepository.findAllByCajaId(7L)).thenReturn(List.of(
                 compraConMontoFormaEstado("68600", FormaPago.EFECTIVO_BOLETERIA, EstadoCompra.VENDIDO_EN_PUERTA)));
 
@@ -297,7 +331,7 @@ class CajaServiceImplTest {
         // Un aporte es plata que entra a la caja: al revés de un retiro, tiene que sumar al
         // esperado, no restar.
         Caja cajaAbierta = cajaAbierta(7L, "5000", 50);
-        when(cajaRepository.findByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(Optional.of(cajaAbierta));
+        when(cajaRepository.findAllByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(List.of(cajaAbierta));
         when(compraRepository.findAllByCajaId(7L)).thenReturn(List.of(
                 compraConMontoFormaEstado("68600", FormaPago.EFECTIVO_BOLETERIA, EstadoCompra.VENDIDO_EN_PUERTA)));
 
@@ -319,7 +353,7 @@ class CajaServiceImplTest {
     @Test
     void registrarRetiro_guardaElTipoIndicado() {
         Caja cajaAbierta = cajaAbierta(7L, "5000", 50);
-        when(cajaRepository.findByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(Optional.of(cajaAbierta));
+        when(cajaRepository.findAllByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(List.of(cajaAbierta));
         when(compraRepository.findAllByCajaId(7L)).thenReturn(List.of());
         when(retiroCajaRepository.findAllByCajaIdOrderByFechaAsc(7L)).thenReturn(List.of());
         when(ingresoEntradasRepository.findAllByCajaIdOrderByFechaAsc(7L)).thenReturn(List.of());
@@ -335,7 +369,7 @@ class CajaServiceImplTest {
     void registrarRetiro_sinTipo_guardaComoRetiro() {
         // Compatibilidad: si no se manda tipo, se asume RETIRO (comportamiento de siempre).
         Caja cajaAbierta = cajaAbierta(7L, "5000", 50);
-        when(cajaRepository.findByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(Optional.of(cajaAbierta));
+        when(cajaRepository.findAllByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(List.of(cajaAbierta));
         when(compraRepository.findAllByCajaId(7L)).thenReturn(List.of());
         when(retiroCajaRepository.findAllByCajaIdOrderByFechaAsc(7L)).thenReturn(List.of());
         when(ingresoEntradasRepository.findAllByCajaIdOrderByFechaAsc(7L)).thenReturn(List.of());
@@ -379,7 +413,7 @@ class CajaServiceImplTest {
         LocalDateTime cuandoPasoDeVerdad = LocalDateTime.of(2026, 8, 10, 14, 0);
         Caja cajaAbierta = cajaAbierta(7L, "5000", 50);
         when(retiroCajaRepository.findByIdempotencyKey("clave-2")).thenReturn(Optional.empty());
-        when(cajaRepository.findByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(Optional.of(cajaAbierta));
+        when(cajaRepository.findAllByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(List.of(cajaAbierta));
         when(compraRepository.findAllByCajaId(7L)).thenReturn(List.of());
         when(retiroCajaRepository.findAllByCajaIdOrderByFechaAsc(7L)).thenReturn(List.of());
         when(ingresoEntradasRepository.findAllByCajaIdOrderByFechaAsc(7L)).thenReturn(List.of());
@@ -417,7 +451,7 @@ class CajaServiceImplTest {
     void cerrar_sumaVariosCierresDePosnetDelMismoTipo_yCalculaLaDiferenciaContraLoVendido() {
         // Simula el posnet reiniciado a mitad de turno: dos cierres de TARJETA que se suman.
         Caja cajaAbierta = cajaAbierta(7L, "5000", 50);
-        when(cajaRepository.findByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(Optional.of(cajaAbierta));
+        when(cajaRepository.findAllByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(List.of(cajaAbierta));
         when(compraRepository.findAllByCajaId(7L)).thenReturn(List.of(
                 compraConMontoFormaEstado("40000", FormaPago.TARJETA, EstadoCompra.VENDIDO_EN_PUERTA),
                 compraConMontoFormaEstado("15000", FormaPago.MERCADO_PAGO_QR, EstadoCompra.VENDIDO_EN_PUERTA)));
@@ -446,7 +480,7 @@ class CajaServiceImplTest {
     @Test
     void cerrar_conCierresPosnetCombinadosYSeparados_rechaza() {
         Caja cajaAbierta = cajaAbierta(7L, "5000", 50);
-        when(cajaRepository.findByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(Optional.of(cajaAbierta));
+        when(cajaRepository.findAllByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(List.of(cajaAbierta));
 
         CierrePosnetRequestDTO separado = cierreRequest(FormaPago.TARJETA, "1000");
         CierrePosnetRequestDTO combinado = new CierrePosnetRequestDTO();
@@ -459,7 +493,7 @@ class CajaServiceImplTest {
     @Test
     void cerrar_conCierrePosnetCombinado_sumaTarjetaYQrJuntosParaLoContadoPeroMandaLasVentasPorSeparado() {
         Caja cajaAbierta = cajaAbierta(7L, "5000", 50);
-        when(cajaRepository.findByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(Optional.of(cajaAbierta));
+        when(cajaRepository.findAllByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(List.of(cajaAbierta));
         when(compraRepository.findAllByCajaId(7L)).thenReturn(List.of(
                 compraConMontoFormaEstado("40000", FormaPago.TARJETA, EstadoCompra.VENDIDO_EN_PUERTA),
                 compraConMontoFormaEstado("15000", FormaPago.MERCADO_PAGO_QR, EstadoCompra.VENDIDO_EN_PUERTA)));
@@ -488,7 +522,7 @@ class CajaServiceImplTest {
     @Test
     void cerrar_calculaLasEntradasRestantesEsperadas_soloContandoLosTiposQueEntreganEntrada() {
         Caja cajaAbierta = cajaAbierta(7L, "5000", 100);
-        when(cajaRepository.findByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(Optional.of(cajaAbierta));
+        when(cajaRepository.findAllByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(List.of(cajaAbierta));
 
         TipoEntrada general = new TipoEntrada();
         general.setEntregaEntrada(true);
@@ -521,7 +555,7 @@ class CajaServiceImplTest {
     @Test
     void cerrar_lasEntradasRestantesEsperadasCuentanLosIngresosDeTalonario() {
         Caja cajaAbierta = cajaAbierta(7L, "5000", 100);
-        when(cajaRepository.findByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(Optional.of(cajaAbierta));
+        when(cajaRepository.findAllByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(List.of(cajaAbierta));
 
         TipoEntrada general = new TipoEntrada();
         general.setEntregaEntrada(true);
@@ -552,7 +586,7 @@ class CajaServiceImplTest {
         // Sin inicial (turnos previos a ese campo) no hay contra qué comparar: sólo se guarda
         // el número de restantes, sin esperadas ni diferencia.
         Caja cajaVieja = cajaAbierta(7L, "5000", null);
-        when(cajaRepository.findByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(Optional.of(cajaVieja));
+        when(cajaRepository.findAllByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(List.of(cajaVieja));
         when(compraRepository.findAllByCajaId(7L)).thenReturn(List.of());
         when(retiroCajaRepository.findAllByCajaIdOrderByFechaAsc(7L)).thenReturn(List.of());
         when(cierrePosnetRepository.findAllByCajaIdOrderByIdAsc(7L)).thenReturn(List.of());
@@ -568,7 +602,7 @@ class CajaServiceImplTest {
     @Test
     void cerrar_cuentaLasEntradasVendidasPorTipo_ignorandoExtrasYCompraCancelada() {
         Caja cajaAbierta = cajaAbierta(7L, "5000", 50);
-        when(cajaRepository.findByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(Optional.of(cajaAbierta));
+        when(cajaRepository.findAllByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(List.of(cajaAbierta));
 
         TipoEntrada general = new TipoEntrada();
         general.setNombre("General");
@@ -626,7 +660,7 @@ class CajaServiceImplTest {
         // ve incluso con la caja ABIERTA, porque el frontend lo necesita para saber si
         // mostrar el campo de dólares contados al cerrar.
         Caja cajaAbierta = cajaAbierta(7L, "5000", 50);
-        when(cajaRepository.findByUsuarioIdAndFechaCierreIsNull(2L)).thenReturn(Optional.of(cajaAbierta));
+        when(cajaRepository.findAllByUsuarioIdAndFechaCierreIsNull(2L)).thenReturn(List.of(cajaAbierta));
         when(compraRepository.findAllByCajaId(7L)).thenReturn(List.of(
                 compraDolares("50000", "1200", "50", EstadoCompra.VENDIDO_EN_PUERTA)));
         when(retiroCajaRepository.findAllByCajaIdOrderByFechaAsc(7L)).thenReturn(List.of());
@@ -642,7 +676,7 @@ class CajaServiceImplTest {
     @Test
     void getActual_sinVentaEnDolares_huboVentaDolaresEsFalse() {
         Caja cajaAbierta = cajaAbierta(7L, "5000", 50);
-        when(cajaRepository.findByUsuarioIdAndFechaCierreIsNull(2L)).thenReturn(Optional.of(cajaAbierta));
+        when(cajaRepository.findAllByUsuarioIdAndFechaCierreIsNull(2L)).thenReturn(List.of(cajaAbierta));
         when(compraRepository.findAllByCajaId(7L)).thenReturn(List.of(
                 compraConMontoFormaEstado("50000", FormaPago.EFECTIVO_BOLETERIA, EstadoCompra.VENDIDO_EN_PUERTA)));
         when(retiroCajaRepository.findAllByCajaIdOrderByFechaAsc(7L)).thenReturn(List.of());
@@ -656,7 +690,7 @@ class CajaServiceImplTest {
     @Test
     void cerrar_conVentaEnDolares_sinDolaresContado_rechaza() {
         Caja cajaAbierta = cajaAbierta(7L, "5000", 50);
-        when(cajaRepository.findByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(Optional.of(cajaAbierta));
+        when(cajaRepository.findAllByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(List.of(cajaAbierta));
         when(compraRepository.findAllByCajaId(7L)).thenReturn(List.of(
                 compraDolares("50000", "1200", "60", EstadoCompra.VENDIDO_EN_PUERTA)));
 
@@ -671,7 +705,7 @@ class CajaServiceImplTest {
         // vuelto. totalVentasEfectivo (revenue) sí suma el precio de lista igual que cualquier
         // venta; efectivoEsperado (lo que tiene que haber físicamente) no.
         Caja cajaAbierta = cajaAbierta(7L, "5000", 50);
-        when(cajaRepository.findByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(Optional.of(cajaAbierta));
+        when(cajaRepository.findAllByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(List.of(cajaAbierta));
 
         // Venta en pesos: entran 3000 pesos limpios.
         Compra ventaPesos = compraConMontoFormaEstado("3000", FormaPago.EFECTIVO_BOLETERIA, EstadoCompra.VENDIDO_EN_PUERTA);
@@ -699,7 +733,7 @@ class CajaServiceImplTest {
     @Test
     void cerrar_cajaSinVentasEnDolares_noExigeNiExponeDolaresContado() {
         Caja cajaAbierta = cajaAbierta(7L, "5000", 50);
-        when(cajaRepository.findByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(Optional.of(cajaAbierta));
+        when(cajaRepository.findAllByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(List.of(cajaAbierta));
         when(compraRepository.findAllByCajaId(7L)).thenReturn(List.of());
         when(retiroCajaRepository.findAllByCajaIdOrderByFechaAsc(7L)).thenReturn(List.of());
         when(cierrePosnetRepository.findAllByCajaIdOrderByIdAsc(7L)).thenReturn(List.of());
@@ -1199,6 +1233,7 @@ class CajaServiceImplTest {
         caja.setId(id);
         caja.setMontoInicial(new BigDecimal(montoInicial));
         caja.setEntradasFisicasInicial(entradasFisicasInicial);
+        caja.setFechaApertura(LocalDateTime.now()); // para que cuente como "de hoy" (ver getCajaOperativaHoy)
         return caja;
     }
 

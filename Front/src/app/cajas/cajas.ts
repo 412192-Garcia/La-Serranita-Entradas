@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ReporteService } from '../services/reporte.service';
 import { ReporteResumen } from '../models/reporte';
 import { CajaService, Caja, CajaAbierta, CajaCerrada } from '../services/caja.service';
+import { NotificacionService } from '../services/notificacion.service';
 import { CabeceraInterna } from '../shared/cabecera-interna/cabecera-interna';
 import { FiltroRangoFechas } from '../shared/filtro-rango-fechas/filtro-rango-fechas';
 import { Spinner } from '../shared/spinner/spinner';
@@ -51,6 +52,7 @@ const PASOS_TUTORIAL: TourStep[] = [
 export class ConfiguracionCajas implements OnInit {
   private reporteService = inject(ReporteService);
   private cajaService = inject(CajaService);
+  private notificacionService = inject(NotificacionService);
 
   readonly pasosTutorial = PASOS_TUTORIAL;
 
@@ -169,12 +171,32 @@ export class ConfiguracionCajas implements OnInit {
       next: (cs) => {
         this.cajasAbiertas.set(cs);
         this.cargandoCajasAbiertas.set(false);
+        // Con sólo mostrar la lista ya se "vieron": apaga el aviso CAJA_ATRASADA para este
+        // admin (otros admins que no entraron a esta pantalla lo siguen viendo prendido).
+        const idsAtrasadas = cs.filter((c) => this.esAtrasada(c)).map((c) => c.id);
+        if (idsAtrasadas.length > 0) {
+          this.notificacionService.marcarVistas('CAJA_ATRASADA', idsAtrasadas).subscribe({
+            error: (err) => console.error('Error al marcar como vistas las cajas atrasadas:', err),
+          });
+        }
       },
       error: (err) => {
         console.error('Error al cargar las cajas abiertas:', err);
         this.cargandoCajasAbiertas.set(false);
       },
     });
+  }
+
+  /** Caja sin cerrar cuya apertura fue un día distinto a hoy: quedó pendiente de que un admin
+   * la cierre (ver "caja operativa" en CajaServiceImpl del backend). */
+  esAtrasada(c: CajaAbierta): boolean {
+    const apertura = new Date(c.fechaApertura);
+    const hoy = new Date();
+    return (
+      apertura.getFullYear() !== hoy.getFullYear() ||
+      apertura.getMonth() !== hoy.getMonth() ||
+      apertura.getDate() !== hoy.getDate()
+    );
   }
 
   /** Despliega el detalle (ventas/retiros/ingresos) de una caja abierta, para revisar o corregir un error mientras el boletero sigue trabajando — mismo patrón que toggleDetalle en "Cajas cerradas". */

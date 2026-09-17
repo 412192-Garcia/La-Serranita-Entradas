@@ -45,8 +45,8 @@
         } @else {
           <svg lucideMenu [strokeWidth]="2"></svg>
         }
-        @if (hayRechazosPendientes() && !esRutaActual('/acciones')) {
-          <span class="punto-notificacion-boton" aria-label="Hay operaciones rechazadas pendientes"></span>
+        @if (hayAlgunAvisoSinVer()) {
+          <span class="punto-notificacion-boton" aria-label="Hay avisos pendientes"></span>
         }
       </button>
     </div>
@@ -76,8 +76,8 @@
     @for (e of enlacesVisibles(); track e.ruta) {
       <a class="menu-slider-item" [class.activo]="esRutaActual(e.ruta)" [routerLink]="e.ruta" (click)="cerrarMenu()">
         {{ e.texto }}
-        @if (e.ruta === '/acciones' && hayRechazosPendientes() && !esRutaActual('/acciones')) {
-          <span class="punto-notificacion-item" aria-label="Hay operaciones rechazadas pendientes"></span>
+        @if (avisoSinVer(e)) {
+          <span class="punto-notificacion-item" aria-label="Hay un aviso pendiente"></span>
         }
       </a>
     }

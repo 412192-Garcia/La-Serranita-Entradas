@@ -84,6 +84,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/interno/caja/*/deshabilitar").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.DELETE, "/api/interno/caja/*/ajustes/*").hasRole("ADMIN")
                 .requestMatchers("/api/interno/rechazos/**").hasRole("ADMIN")
+                .requestMatchers("/api/interno/notificaciones/**").hasRole("ADMIN")
 
                 // ---------- Boletería (BOLETERO o ADMIN) ----------
                 // Antes que la regla general de /api/usuarios/** (ADMIN-only, más abajo): cualquier
