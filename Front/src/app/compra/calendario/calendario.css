@@ -77,6 +77,13 @@
   font-size: 1.25rem;
   font-weight: 700;
   letter-spacing: 0.5px;
+  /* Meses largos (NOVIEMBRE, SEPTIEMBRE...) no se parten en dos líneas — eso desbordaba la
+   * tarjeta y amontonaba los días de la semana. Si igual no entrara a min-width, se recorta
+   * con "…" en vez de romper el layout. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .calendario-body {
@@ -96,6 +103,10 @@
   font-weight: 800;
   color: var(--color-text);
   padding: 4px 0;
+  /* Si la columna queda demasiado angosta para "LUN"/"MAR"/etc., que se recorte en su propia
+   * celda de la grilla en vez de desbordar sobre el nombre del día siguiente (text-align:
+   * center ya viene heredado de .dias-semana-header). */
+  overflow: hidden;
 }
 
 .semanas-contenedor {
@@ -196,24 +207,26 @@
 
 .btn-nav:disabled:hover { background-color: transparent; }
 
-.spinner-contenedor {
+/* Cambio de mes: la grilla del mes anterior se queda atenuada (en vez de desaparecer) hasta
+   que llega la respuesta nueva — evita el colapso-y-reexpansión brusco de reemplazarla por un
+   spinner de otro alto (ver cargarDatosMes en calendario.ts). */
+.semanas-contenedor-wrapper {
+  position: relative;
+}
+
+.semanas-contenedor-wrapper.cargando .semanas-contenedor {
+  opacity: 0.35;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+.overlay-carga {
+  position: absolute;
+  inset: 0;
   display: flex;
-  justify-content: center;
   align-items: center;
-  min-height: 250px;
-  width: 100%;
+  justify-content: center;
 }
-
-.spinner {
-  width: 45px;
-  height: 45px;
-  border: 5px solid rgba(0, 0, 0, 0.1);
-  border-top-color: var(--color-primary);
-  border-radius: 50%;
-  animation: girar 1s linear infinite;
-}
-
-@keyframes girar { to { transform: rotate(360deg); } }
 
 .feedback-reserva {
   width: 100%;
@@ -242,6 +255,22 @@
 @container modulo (max-width: 1200px) {
   .calendario-card {
     max-width: 800px;
+  }
+}
+
+/* Calendario angosto (columna chica en el layout de dos columnas): antes de recortar el
+ * nombre del mes con "…", primero se prueba con letra más chica y menos padding alrededor. */
+@container calendario (max-width: 300px) {
+  .calendario-header {
+    padding: 10px 8px;
+  }
+  .calendario-header h2 {
+    font-size: 1rem;
+    letter-spacing: 0.2px;
+  }
+  .btn-nav {
+    padding: 4px 6px;
+    font-size: 1.2rem;
   }
 }
 

@@ -13,6 +13,15 @@
      calendario; sin esto la tarjeta blanca sólo ocupa lo que pide su contenido y
      queda mucho más baja que el naranja de al lado. */
   flex: 1;
+  /* display:flex column para que .contenido-entradas pueda crecer y empujar el footer
+     de Total/Siguiente al fondo de la tarjeta (ver comentario en el html) en vez de
+     dejarlo flotando con un hueco vacío debajo. */
+  display: flex;
+  flex-direction: column;
+}
+
+.contenido-entradas {
+  flex: 1 1 auto;
 }
 
 .titulo-seccion {

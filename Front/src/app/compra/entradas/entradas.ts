@@ -1,4 +1,4 @@
-import {ChangeDetectorRef, Component, NgZone, OnDestroy, OnInit} from '@angular/core';
+import {ChangeDetectorRef, Component, ElementRef, NgZone, OnDestroy, OnInit} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { Calendario } from '../calendario/calendario';
@@ -56,7 +56,8 @@ export class Entradas implements OnInit, OnDestroy {
               private ngZone: NgZone,
               private route: ActivatedRoute,
               private themeService: ThemeService,
-              private configuracionService: ConfiguracionService) {}
+              private configuracionService: ConfiguracionService,
+              private elementRef: ElementRef<HTMLElement>) {}
 
   /** Puntos de quiebre por defecto del layout responsive (ver aplicarBreakpoints()). */
   private static readonly ANCHO_MOVIL_DEFECTO = 600;
@@ -184,15 +185,21 @@ export class Entradas implements OnInit, OnDestroy {
 
     if (window.parent === window) return; // no está embebido, no hay a quién avisarle
 
+    // document.documentElement/body NO sirven acá: styles.css los fija a height:100% (para el
+    // resto de la app, que sí necesita llenar el viewport), así que su propio tamaño queda
+    // pegado al viewport y nunca "crece" cuando el contenido lo desborda — el ResizeObserver
+    // no dispara nunca más allá del primer aviso. El host de este componente (todo el módulo
+    // /entradas) no tiene esa restricción: su alto sí sigue al contenido real.
+    const elementoRaiz = this.elementRef.nativeElement;
     const avisarAltura = () => {
-      const alto = document.documentElement.scrollHeight;
+      const alto = elementoRaiz.scrollHeight;
       // "*" porque el origen del padre varía (sitio real, túnel de prueba, etc.) y acá
       // sólo viaja un número de píxeles, nada sensible.
       window.parent.postMessage({ type: Entradas.MENSAJE_ALTURA, alto }, '*');
     };
 
     this.observadorAltura = new ResizeObserver(avisarAltura);
-    this.observadorAltura.observe(document.documentElement);
+    this.observadorAltura.observe(elementoRaiz);
     avisarAltura();
   }
 

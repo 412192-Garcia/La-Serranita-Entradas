@@ -63,10 +63,28 @@ export class ConfiguracionTiposEntrada implements OnInit {
 
   reordenandoId = signal<number | null>(null);
 
-  /** Intercambia este tipo con su vecino (arriba u abajo) dentro de la lista visible y persiste el nuevo orden. */
+  /** tiposEntradaVisibles() mezcla Entradas y Extras en una sola tabla, pero "orden" sólo importa
+   * separado por categoría: el catálogo de venta (POS y compra online) muestra cada tipo en su
+   * propia lista filtrada por `tipo`. Sin este filtro, subir/bajar una Entrada podía terminar
+   * intercambiándola con un Extra vecino en la tabla — sin ningún efecto visible en el catálogo
+   * de venta, que ni siquiera muestra ese Extra ahí. */
+  private visiblesDeLaMismaCategoria(t: TipoEntrada): TipoEntrada[] {
+    return this.tiposEntradaVisibles().filter((x) => x.tipo === t.tipo);
+  }
+
+  esPrimeroEnCategoria(t: TipoEntrada): boolean {
+    return this.visiblesDeLaMismaCategoria(t)[0]?.id === t.id;
+  }
+
+  esUltimoEnCategoria(t: TipoEntrada): boolean {
+    const visibles = this.visiblesDeLaMismaCategoria(t);
+    return visibles[visibles.length - 1]?.id === t.id;
+  }
+
+  /** Intercambia este tipo con su vecino (arriba u abajo) DE LA MISMA CATEGORÍA y persiste el nuevo orden. */
   private moverEnVisibles(t: TipoEntrada, delta: -1 | 1): void {
     if (this.reordenandoId()) return;
-    const visibles = this.tiposEntradaVisibles();
+    const visibles = this.visiblesDeLaMismaCategoria(t);
     const i = visibles.findIndex((x) => x.id === t.id);
     const j = i + delta;
     if (i < 0 || j < 0 || j >= visibles.length) return;
