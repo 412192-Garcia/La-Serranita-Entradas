@@ -42,6 +42,10 @@ public class NotificacionServiceImpl implements NotificacionService {
         if (refIds == null || refIds.isEmpty()) {
             return;
         }
+        if (!tipo.isDesapareceAlVerse()) {
+            // hayPendientes nunca consulta las vistas de este tipo: guardarlas sería estado muerto.
+            return;
+        }
         Set<Long> yaVistos = repository.findAllByTipoAndUsuarioIdAndRefIdIn(tipo, usuarioId, refIds).stream()
                 .map(NotificacionVista::getRefId)
                 .collect(Collectors.toSet());

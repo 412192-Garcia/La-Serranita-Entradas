@@ -14,6 +14,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -98,6 +99,16 @@ class NotificacionServiceImplTest {
     void marcarVistas_conListaVacia_noConsultaElRepository() {
         service.marcarVistas(TipoNotificacion.CAJA_ATRASADA, List.of(), USUARIO_ID);
 
+        verify(repository, never()).saveAll(anyList());
+    }
+
+    @Test
+    void marcarVistas_tipoQueNoDesaparece_noConsultaNiGuardaNada() {
+        // hayPendientes ignora las vistas para este tipo (ver arriba): guardarlas sería estado
+        // muerto que nadie lee.
+        service.marcarVistas(TipoNotificacion.RECHAZO_OPERACION, List.of(1L, 2L), USUARIO_ID);
+
+        verify(repository, never()).findAllByTipoAndUsuarioIdAndRefIdIn(any(), any(), anyList());
         verify(repository, never()).saveAll(anyList());
     }
 

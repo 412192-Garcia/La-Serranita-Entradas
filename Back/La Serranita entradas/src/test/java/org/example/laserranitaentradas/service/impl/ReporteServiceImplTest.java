@@ -4,6 +4,7 @@ import org.example.laserranitaentradas.model.dto.AfluenciaDiariaDTO;
 import org.example.laserranitaentradas.model.dto.AnticipacionCompraDTO;
 import org.example.laserranitaentradas.model.dto.RecaudacionPorFormaPagoDTO;
 import org.example.laserranitaentradas.model.dto.ReporteResumenDTO;
+import org.example.laserranitaentradas.model.dto.VentasPorHoraDTO;
 import org.example.laserranitaentradas.model.entity.Caja;
 import org.example.laserranitaentradas.model.entity.Compra;
 import org.example.laserranitaentradas.model.entity.Cupon;
@@ -25,6 +26,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -307,6 +309,41 @@ class ReporteServiceImplTest {
         assertThat(resumen.getRecaudacionTotal()).isEqualByComparingTo("15500");
     }
 
+    @Test
+    void generarResumen_ventasPorHora_devuelveGrillaCompletaYAgrupaPorDiaYHora() {
+        // Sábado (DIA) 14:30hs: venta de puerta — la hora de cobro es la de validación.
+        Compra puerta = ventaPuerta("10000", FormaPago.EFECTIVO_BOLETERIA, DIA);
+        puerta.setFechaCreacion(DIA.atTime(14, 30));
+        puerta.setFechaValidacion(DIA.atTime(14, 30));
+        // Viernes (MARZO) 20:15hs: reserva por Mercado Pago — la hora de cobro es la de la
+        // compra, no la de la visita (que además cae en otro día, para no confundir la grilla).
+        Compra anticipada = mpAprobada("5000", MARZO, MARZO.plusDays(10));
+        anticipada.setFechaCreacion(MARZO.atTime(20, 15));
+
+        stubReporte(puerta, anticipada);
+        ReporteResumenDTO resumen = service.generarResumen(LocalDate.of(2026, 1, 1), LocalDate.of(2026, 12, 31));
+
+        // Las 168 combinaciones (7 días x 24 horas) siempre están, haya o no ventas en cada una.
+        assertThat(resumen.getVentasPorHora()).hasSize(7 * 24);
+
+        VentasPorHoraDTO slotPuerta = slotHora(resumen, DIA.getDayOfWeek(), 14);
+        assertThat(slotPuerta.getCantidadComprasBoleteria()).isEqualTo(1);
+        assertThat(slotPuerta.getCantidadPasesBoleteria()).isEqualTo(2);
+        assertThat(slotPuerta.getCantidadComprasAnticipada()).isZero();
+
+        VentasPorHoraDTO slotAnticipada = slotHora(resumen, MARZO.getDayOfWeek(), 20);
+        assertThat(slotAnticipada.getCantidadComprasAnticipada()).isEqualTo(1);
+        assertThat(slotAnticipada.getCantidadPasesAnticipada()).isEqualTo(2);
+        assertThat(slotAnticipada.getCantidadComprasBoleteria()).isZero();
+
+        // Nada se filtró a otro día/hora por error: el total de cada serie en TODA la grilla
+        // coincide exactamente con lo cargado.
+        assertThat(resumen.getVentasPorHora().stream().mapToLong(VentasPorHoraDTO::getCantidadComprasBoleteria).sum())
+                .isEqualTo(1);
+        assertThat(resumen.getVentasPorHora().stream().mapToLong(VentasPorHoraDTO::getCantidadComprasAnticipada).sum())
+                .isEqualTo(1);
+    }
+
     // ---------- helpers ----------
 
     private void stubReporte(Compra... compras) {
@@ -395,6 +432,13 @@ class ReporteServiceImplTest {
         return resumen.getAnticipacionCompra().stream()
                 .filter(a -> a.getEtiqueta().equals(tramo))
                 .mapToLong(AnticipacionCompraDTO::getCantidad)
+                .findFirst()
+                .orElseThrow();
+    }
+
+    private static VentasPorHoraDTO slotHora(ReporteResumenDTO resumen, DayOfWeek dia, int hora) {
+        return resumen.getVentasPorHora().stream()
+                .filter(v -> v.getDiaSemana() == dia && v.getHora() == hora)
                 .findFirst()
                 .orElseThrow();
     }

@@ -205,6 +205,7 @@
           type="button"
           class="btn-dia-semana"
           [class.activo]="diasSemanaSeleccionados().has(dia.valor)"
+          [attr.aria-pressed]="diasSemanaSeleccionados().has(dia.valor)"
           (click)="toggleDiaSemana(dia.valor)">
           {{ dia.etiqueta }}
         </button>

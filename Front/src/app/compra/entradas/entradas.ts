@@ -201,6 +201,11 @@ export class Entradas implements OnInit, OnDestroy {
     this.ventanaPago = null;
     this.observadorAltura?.disconnect();
     this.estiloBreakpoints?.remove();
+    // aplicarConfigDesdeUrl() pisa estos dos directo en body/:root (no vía ThemeService):
+    // sin deshacerlos acá, navegar por SPA desde /entradas?fondo=...&radio=... hacia una
+    // pantalla interna deja el fondo y el radio de esquinas contaminados fuera de esta ruta.
+    document.body.style.backgroundColor = '';
+    document.documentElement.style.removeProperty('--radius-lg');
   }
 
   procesandoPago: boolean = false;
