@@ -205,6 +205,9 @@
         } @else {
           Deberían quedar en el talonario: <strong>{{ e.esperadasTalonario }}</strong>
         }
+        @if (e.vendidasPagas !== null) {
+          · vendidas <strong>{{ e.vendidasPagas }}</strong>
+        }
       </p>
     }
 

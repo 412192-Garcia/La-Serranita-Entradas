@@ -100,6 +100,21 @@ describe('ResumenCierre — matriz con descuentos', () => {
     expect(fila(c, '0').descLabel).toBeNull();
   });
 
+  it('las entradas vendidas (pagas) siguen a las ventas que se quitan o agregan; mover no las cambia', () => {
+    const c = montar([venta(10, 18000), venta(11, 16200, { pct: 10 })]);
+    expect(c.entradasRevision().vendidasPagas).toBe(4);
+
+    // Sólo mover de forma de pago: son las mismas ventas.
+    c.quitar(1, 2, '0', 'EFECTIVO_BOLETERIA');
+    c.agregar(1, 2, fila(c, '0').desc, 'TARJETA');
+    expect(c.entradasRevision().vendidasPagas).toBe(4);
+
+    // Quitar una venta de 2 entradas sin reponerla: bajan las vendidas y sube lo esperado en el talonario.
+    c.quitar(1, 2, 'P10', 'EFECTIVO_BOLETERIA');
+    expect(c.entradasRevision().vendidasPagas).toBe(2);
+    expect(c.entradasRevision().esperadasTalonario).toBe(6);
+  });
+
   it('mover la venta −10% genera un ajuste por el monto real cobrado', () => {
     const c = montar([venta(10, 18000), venta(11, 16200, { pct: 10 })]);
     const f = fila(c, 'P10');
