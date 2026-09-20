@@ -89,6 +89,7 @@ public class SecurityConfig {
                 // ---------- Boletería (BOLETERO o ADMIN) ----------
                 // Antes que la regla general de /api/usuarios/** (ADMIN-only, más abajo): cualquier
                 // usuario logueado puede cambiar su propia contraseña o su tema, no sólo el admin.
+                .requestMatchers(HttpMethod.POST, "/api/usuarios/renovar-sesion").hasAnyRole("BOLETERO", "ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/api/usuarios/me/password").hasAnyRole("BOLETERO", "ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/api/usuarios/me/tema").hasAnyRole("BOLETERO", "ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/api/usuarios/me/foto").hasAnyRole("BOLETERO", "ADMIN")

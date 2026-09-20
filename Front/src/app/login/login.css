@@ -210,3 +210,77 @@ input:focus {
 
 .btn-primario:hover:not(:disabled) { background-color: var(--color-primary-dark); }
 .btn-primario:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* Contraseña con el botón de ojo adentro del campo: el padding derecho le deja lugar. */
+.campo-password {
+  position: relative;
+  display: flex;
+}
+
+.campo-password input {
+  flex: 1;
+  min-width: 0;
+  padding-right: 46px;
+}
+
+.btn-ver-password {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: none;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.btn-ver-password:hover {
+  color: var(--color-primary-dark);
+  background-color: var(--color-bg-soft);
+}
+
+.btn-ver-password:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(57, 169, 53, 0.35);
+}
+
+.btn-ver-password svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* "Mantener sesión iniciada": casilla y texto en una fila (el label base apila en columna). */
+.opcion-mantener {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.opcion-mantener input {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  margin: 0;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+
+/* Mínimo táctil (ver pos-caja.css): por tipo de puntero, no por ancho. */
+@media (pointer: coarse) {
+  .btn-ver-password {
+    width: 44px;
+    height: 44px;
+    right: 2px;
+  }
+
+  .opcion-mantener {
+    min-height: 44px;
+  }
+}

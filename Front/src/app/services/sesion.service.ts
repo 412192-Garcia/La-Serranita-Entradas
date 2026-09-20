@@ -49,6 +49,23 @@ const STORAGE_KEY = 'serranita.sesion';
 const CUENTAS_KEY = 'serranita.cuentasRecientes';
 const MAX_CUENTAS_RECIENTES = 5;
 
+/** Cuánto antes del vencimiento se renueva el token de "Mantener sesión iniciada" (el backend lo
+ * emite por 14 días, ver `jwt.remember-expiration-ms`): con 7 quedan siempre días de margen. */
+const UMBRAL_RENOVACION_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** Lo que este cliente necesita leer del JWT: cuándo vence (ms epoch) y si es de "Mantener sesión
+ * iniciada". Null si no se puede leer. No valida la firma: es sólo para decidir cuándo pedir uno
+ * nuevo; quien decide si vale es el backend. */
+function leerToken(token: string): { venceEn: number; sesionLarga: boolean } | null {
+  try {
+    const payload = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    const { exp, mantener } = JSON.parse(atob(payload));
+    return typeof exp === 'number' ? { venceEn: exp * 1000, sesionLarga: mantener === true } : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Sesión del módulo interno (boletería/configuración). El login real valida usuario y
  * contraseña contra el backend (POST /api/usuarios/login); lo que se guarda acá es sólo
@@ -63,6 +80,8 @@ export class SesionService {
   private http = inject(HttpClient);
   private theme = inject(ThemeService);
   private loginUrl = `${environment.apiBase}/usuarios/login`;
+  private renovarUrl = `${environment.apiBase}/usuarios/renovar-sesion`;
+  private renovacionIntentada = false;
 
   private usuarioActual = signal<UsuarioSesion | null>(this.leerDeStorage());
   private cuentasRecientesActual = signal<CuentaReciente[]>(this.leerCuentasRecientes());
@@ -81,30 +100,83 @@ export class SesionService {
     return this.usuarioActual()?.token ?? null;
   }
 
-  login(username: string, password: string): Observable<UsuarioSesion> {
-    return this.http.post<LoginResponse>(this.loginUrl, { username, password }).pipe(
-      tap((res) =>
-        this.iniciarSesion({
-          id: res.id,
-          username: res.username,
-          nombre: res.nombre,
-          rol: res.rol,
-          token: res.token,
-          colorTema: res.colorTema,
-          colorFondo: res.colorFondo,
-          colorTarjeta: res.colorTarjeta,
-          colorBorde: res.colorBorde,
-          fotoPerfil: res.fotoPerfil,
-        })
-      )
+  /** `mantener`: la sesión sobrevive a cerrar el navegador (localStorage) y el backend emite un
+   * token de varios días (`jwt.remember-expiration-ms`), para no tener que ingresar cada día. Sin
+   * él, dura lo que la pestaña (sessionStorage) y el token, un turno (`jwt.expiration-ms`). Cuando
+   * el token vence, el interceptor cierra la sesión. */
+  login(username: string, password: string, mantener = true): Observable<UsuarioSesion> {
+    return this.http.post<LoginResponse>(this.loginUrl, { username, password, mantenerSesion: mantener }).pipe(
+      tap((res) => this.iniciarSesion(this.aUsuarioSesion(res), mantener))
     );
   }
 
-  iniciarSesion(usuario: UsuarioSesion): void {
+  private aUsuarioSesion(res: LoginResponse): UsuarioSesion {
+    return {
+      id: res.id,
+      username: res.username,
+      nombre: res.nombre,
+      rol: res.rol,
+      token: res.token,
+      colorTema: res.colorTema,
+      colorFondo: res.colorFondo,
+      colorTarjeta: res.colorTarjeta,
+      colorBorde: res.colorBorde,
+      fotoPerfil: res.fotoPerfil,
+    };
+  }
+
+  /**
+   * Sesión deslizante de "Mantener sesión iniciada": cuando al token le quedan menos de
+   * UMBRAL_RENOVACION_MS, pide uno nuevo (otra vuelta de la duración larga) — así quien usa la app
+   * seguido no vuelve a ingresar nunca, y quien la deja de usar más que esa duración sí.
+   *
+   * Sólo aplica a sesiones guardadas en localStorage (las de pestaña son de un turno y no se
+   * renuevan) y se intenta una vez por carga de la página. Si el backend responde 401 (usuario
+   * dado de baja) lo maneja el interceptor cerrando la sesión; cualquier otro fallo (sin conexión,
+   * un token de turno viejo que el backend no renueva) se ignora: es un intento de oportunidad.
+   */
+  renovarSiHaceFalta(): void {
+    const actual = this.usuarioActual();
+    if (!actual || this.renovacionIntentada || localStorage.getItem(STORAGE_KEY) === null) return;
+
+    // Un token de turno (sin el claim `mantener`) el backend no lo renueva: ni se intenta.
+    const token = leerToken(actual.token);
+    if (!token?.sesionLarga || token.venceEn - Date.now() > UMBRAL_RENOVACION_MS) return;
+
+    this.renovacionIntentada = true;
+    this.http.post<LoginResponse>(this.renovarUrl, {}).subscribe({
+      next: (res) => {
+        // Sin aplicarTema/recordarCuenta a propósito: esto corre también con la ruta pública
+        // abierta y no es un login nuevo; el tema lo aplica App en cada navegación.
+        const renovado = this.aUsuarioSesion(res);
+        this.usuarioActual.set(renovado);
+        this.guardarSesion(renovado, true);
+      },
+      // Sin conexión (status 0): se reintenta en la próxima navegación en vez de esperar a recargar.
+      error: (err) => {
+        if (err?.status === 0) this.renovacionIntentada = false;
+      },
+    });
+  }
+
+  iniciarSesion(usuario: UsuarioSesion, mantener = true): void {
     this.usuarioActual.set(usuario);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(usuario));
+    this.guardarSesion(usuario, mantener);
     this.aplicarTema(usuario);
     this.recordarCuenta(usuario);
+  }
+
+  /** Guarda la sesión en un solo lugar: si quedara una copia en el otro storage, `leerDeStorage`
+   * podría levantar una sesión vieja después de cerrar la nueva. */
+  private guardarSesion(usuario: UsuarioSesion, persistente: boolean): void {
+    localStorage.removeItem(STORAGE_KEY);
+    sessionStorage.removeItem(STORAGE_KEY);
+    (persistente ? localStorage : sessionStorage).setItem(STORAGE_KEY, JSON.stringify(usuario));
+  }
+
+  /** Actualiza la sesión activa en el storage donde ya estaba (no la "promueve" a persistente). */
+  private reescribirSesion(usuario: UsuarioSesion): void {
+    this.guardarSesion(usuario, localStorage.getItem(STORAGE_KEY) !== null);
   }
 
   /** Saca esa cuenta de la lista de "usados recientemente" en este dispositivo (botón "x" del login). */
@@ -133,7 +205,7 @@ export class SesionService {
     if (!actual) return;
     const actualizado = { ...actual, colorTema, colorFondo, colorTarjeta, colorBorde };
     this.usuarioActual.set(actualizado);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(actualizado));
+    this.reescribirSesion(actualizado);
     this.aplicarTema(actualizado);
   }
 
@@ -143,12 +215,13 @@ export class SesionService {
     if (!actual) return;
     const actualizado = { ...actual, fotoPerfil };
     this.usuarioActual.set(actualizado);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(actualizado));
+    this.reescribirSesion(actualizado);
   }
 
   cerrarSesion(): void {
     this.usuarioActual.set(null);
     localStorage.removeItem(STORAGE_KEY);
+    sessionStorage.removeItem(STORAGE_KEY);
     this.theme.aplicarPrimario(null);
     this.theme.aplicarFondo(null);
     this.theme.aplicarTarjeta(null);
@@ -173,7 +246,8 @@ export class SesionService {
 
   private leerDeStorage(): UsuarioSesion | null {
     try {
-      const crudo = localStorage.getItem(STORAGE_KEY);
+      // sessionStorage primero: una sesión sin "mantener" vive sólo ahí; una persistente, en localStorage.
+      const crudo = sessionStorage.getItem(STORAGE_KEY) ?? localStorage.getItem(STORAGE_KEY);
       return crudo ? (JSON.parse(crudo) as UsuarioSesion) : null;
     } catch {
       return null;

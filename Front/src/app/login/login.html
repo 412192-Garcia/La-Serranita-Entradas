@@ -21,14 +21,38 @@
       </label>
       <label>
         Contraseña
+        <span class="campo-password">
+          <input
+            #inputPassword
+            [type]="mostrarPassword() ? 'text' : 'password'"
+            autocomplete="current-password"
+            [ngModel]="password()"
+            (ngModelChange)="password.set($event)"
+            name="password"
+          />
+          <button
+            type="button"
+            class="btn-ver-password"
+            [attr.aria-label]="mostrarPassword() ? 'Ocultar contraseña' : 'Mostrar contraseña'"
+            [attr.aria-pressed]="mostrarPassword()"
+            (click)="mostrarPassword.set(!mostrarPassword())">
+            @if (mostrarPassword()) {
+              <svg lucideEyeOff [strokeWidth]="2"></svg>
+            } @else {
+              <svg lucideEye [strokeWidth]="2"></svg>
+            }
+          </button>
+        </span>
+      </label>
+
+      <label class="opcion-mantener">
         <input
-          #inputPassword
-          type="password"
-          autocomplete="current-password"
-          [ngModel]="password()"
-          (ngModelChange)="password.set($event)"
-          name="password"
+          type="checkbox"
+          name="mantenerSesion"
+          [ngModel]="mantenerSesion()"
+          (ngModelChange)="mantenerSesion.set($event)"
         />
+        Mantener sesión iniciada
       </label>
 
       <button type="submit" class="btn-primario" [disabled]="ingresando() || !username().trim() || !password()">

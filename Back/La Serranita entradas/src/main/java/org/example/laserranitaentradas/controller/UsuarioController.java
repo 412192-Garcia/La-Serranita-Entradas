@@ -49,7 +49,35 @@ public class UsuarioController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Usuario o contraseña incorrectos");
         }
         LoginResponseDTO dto = entityToLoginDto(autenticado.get());
-        dto.setToken(jwtService.generarToken(autenticado.get()));
+        dto.setToken(jwtService.generarToken(autenticado.get(), request.isMantenerSesion()));
+        return ResponseEntity.ok(dto);
+    }
+
+    @PostMapping("/renovar-sesion")
+    @Operation(summary = "Renovar la sesión", description = "Devuelve un token nuevo (otra vuelta de la duración larga) a quien inició sesión con \"Mantener sesión iniciada\", así no vence mientras use la app. Vuelve a consultar el usuario: si se dio de baja, no renueva.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Sesión renovada, con los datos actuales del usuario"),
+            @ApiResponse(responseCode = "400", description = "La sesión no se inició con \"Mantener sesión iniciada\""),
+            @ApiResponse(responseCode = "401", description = "El usuario ya no existe o está inactivo")
+    })
+    public ResponseEntity<?> renovarSesion(@RequestHeader("Authorization") String authorization,
+                                           @AuthenticationPrincipal UsuarioAutenticado operador) {
+        String token = authorization.startsWith("Bearer ") ? authorization.substring(7) : authorization;
+        boolean sesionLarga = jwtService.validarYExtraerClaims(token).map(jwtService::esSesionLarga).orElse(false);
+        if (!sesionLarga) {
+            return ResponseEntity.badRequest().body("Esta sesión no se inició con \"Mantener sesión iniciada\": no se renueva.");
+        }
+
+        // Se relee de la base a propósito: es lo que cierra el hueco de un token de días que no se
+        // puede revocar — un usuario dado de baja no logra renovar, y uno al que le cambiaron el
+        // rol recibe el token con el rol actual.
+        Optional<Usuario> usuario = usuarioService.obtenerUsuarioPorId(operador.id())
+                .filter(u -> Boolean.TRUE.equals(u.getActivo()));
+        if (usuario.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("El usuario ya no está habilitado");
+        }
+        LoginResponseDTO dto = entityToLoginDto(usuario.get());
+        dto.setToken(jwtService.generarToken(usuario.get(), true));
         return ResponseEntity.ok(dto);
     }
 
