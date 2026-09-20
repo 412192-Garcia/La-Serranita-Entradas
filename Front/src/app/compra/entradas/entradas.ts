@@ -410,8 +410,8 @@ export class Entradas implements OnInit, OnDestroy {
 
         // EVALUAMOS LA ESTRATEGIA DEVUELTA POR EL BACKEND
         if (res.formaPago === 'MERCADO_PAGO' && res.initPoint) {
-          const ancho = 500;
-          const alto = 650;
+          const ancho = 1000;
+          const alto = 700;
           const izquierda = (window.screen.width - ancho) / 2;
           const arriba = (window.screen.height - alto) / 2;
 

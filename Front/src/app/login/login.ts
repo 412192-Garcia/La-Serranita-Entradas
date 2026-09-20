@@ -47,7 +47,8 @@ export class Login {
     this.sesion.login(username, password).subscribe({
       next: () => {
         this.ingresando.set(false);
-        this.router.navigateByUrl('/boleteria');
+        // El boletero no tiene Control de Accesos (lo hace desde el POS): entra directo a vender.
+        this.router.navigateByUrl(this.sesion.rol() === 'ADMIN' ? '/boleteria' : '/pos');
       },
       error: (err) => {
         console.error('Error al iniciar sesión:', err);

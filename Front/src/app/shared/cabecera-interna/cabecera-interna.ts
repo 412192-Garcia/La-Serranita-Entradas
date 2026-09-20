@@ -18,7 +18,7 @@ interface EnlaceCabecera {
  * (ver esRutaActual), pero ninguno se saca de la lista por estar parado ahí — antes se sacaba,
  * y eso hacía que el menú cambiara de contenido según la pantalla, algo confuso. */
 const TODOS_LOS_ENLACES: EnlaceCabecera[] = [
-  { texto: 'Control de accesos', ruta: '/boleteria' },
+  { texto: 'Control de accesos', ruta: '/boleteria', soloAdmin: true },
   { texto: 'Vender entradas', ruta: '/pos' },
   { texto: 'Hoy', ruta: '/hoy', soloAdmin: true },
   { texto: 'Cajas', ruta: '/cajas', soloAdmin: true, tipoNotificacion: 'CAJA_ATRASADA' },

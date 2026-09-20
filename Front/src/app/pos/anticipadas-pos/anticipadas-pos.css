@@ -1,0 +1,11 @@
+:host {
+  display: block;
+  font-family: var(--font-body);
+  color: var(--color-text);
+}
+
+.panel-anticipadas {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}

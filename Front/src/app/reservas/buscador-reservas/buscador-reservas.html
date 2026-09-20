@@ -1,0 +1,62 @@
+<div class="controles">
+  <div class="buscador" data-tour="buscador">
+    <input
+      #campo
+      type="text"
+      class="buscador-input"
+      placeholder="DNI, nombre, email o N° de reserva"
+      aria-label="Buscar por DNI, nombre, email o código de reserva"
+      [ngModel]="busqueda.texto()"
+      (ngModelChange)="busqueda.texto.set($event)"
+      (keyup.enter)="busqueda.buscar()"
+    />
+    <button type="button" class="btn-buscar" (click)="busqueda.buscar()" [disabled]="!busqueda.texto().trim() || busqueda.buscando()">
+      {{ busqueda.buscando() ? 'Buscando…' : 'Buscar' }}
+    </button>
+    @if (busqueda.texto()) {
+      <button type="button" class="btn-limpiar" (click)="busqueda.limpiar()">Limpiar</button>
+    }
+  </div>
+
+  <div class="selector-vista" data-tour="fecha">
+    <input
+      type="date"
+      class="buscador-dia-input"
+      aria-label="Día de visita a consultar"
+      [ngModel]="busqueda.fecha()"
+      (ngModelChange)="busqueda.fecha.set($event)"
+    />
+    <button
+      type="button"
+      class="btn-vista"
+      [class.activo]="!busqueda.todasLasFechas()"
+      (click)="busqueda.verEsaFecha()"
+      [disabled]="!busqueda.fecha() || busqueda.buscando()">
+      Ver esa fecha
+    </button>
+    <button
+      type="button"
+      class="btn-vista"
+      [class.activo]="busqueda.todasLasFechas()"
+      (click)="busqueda.verTodasLasFechas()"
+      [disabled]="busqueda.buscando()">
+      Ver todas las fechas
+    </button>
+  </div>
+
+  <!-- Regalos (fechaVisita null): no dependen de qué día/página se esté mirando, así que el
+       botón vive acá, junto a los controles fijos, en vez de adentro de los resultados (que
+       cambian con cada búsqueda). El panel expandido es su propio bloque (app-panel-regalos). -->
+  @if (busqueda.totalRegalos() > 0) {
+    <button
+      type="button"
+      class="btn-regalos"
+      [class.activo]="busqueda.regalosExpandido()"
+      [attr.aria-expanded]="busqueda.regalosExpandido()"
+      (click)="busqueda.toggleRegalos()">
+      <svg lucideGift [strokeWidth]="2"></svg>
+      <span>{{ busqueda.totalRegalos() }} regalo{{ busqueda.totalRegalos() === 1 ? '' : 's' }}</span>
+      <svg lucideChevronDown class="icono-regalos" [strokeWidth]="2.5"></svg>
+    </button>
+  }
+</div>
