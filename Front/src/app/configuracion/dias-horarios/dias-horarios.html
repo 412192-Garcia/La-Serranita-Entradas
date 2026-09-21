@@ -12,10 +12,29 @@
         Cierre
         <input type="time" [ngModel]="horaCierreGeneral()" (ngModelChange)="horaCierreGeneral.set($event)" />
       </label>
+      <label class="campo-limite-compra">
+        Cortar la compra del día
+        <span class="con-sufijo">
+          <input
+            type="number"
+            min="0"
+            [max]="MAX_MINUTOS_LIMITE_COMPRA"
+            step="5"
+            inputmode="numeric"
+            aria-label="Minutos antes del cierre en que se corta la compra online del día"
+            [ngModel]="minutosLimiteCompra()"
+            (ngModelChange)="minutosLimiteCompra.set($event)" />
+          <span class="sufijo">min antes del cierre</span>
+        </span>
+      </label>
       <button type="button" class="btn-primario" [disabled]="guardandoHorarioGeneral()" (click)="guardarHorarioGeneral()">
         {{ guardandoHorarioGeneral() ? 'Guardando…' : 'Guardar' }}
       </button>
     </div>
+    <p class="ayuda ayuda-limite-compra">
+      Pasado ese momento ya no se puede comprar online para el mismo día (el calendario público deja de ofrecerlo), aunque el parque siga abierto.
+      Cuenta contra el cierre de ese día: con un horario especial, contra el suyo. Con 0 se compra hasta la hora de cierre. No afecta a las ventas en boletería ni a las reservas que carga un admin.
+    </p>
     @if (mensajeHorarioGeneral()) {
       <p class="mensaje">{{ mensajeHorarioGeneral() }}</p>
     }

@@ -108,6 +108,50 @@ class CompraServiceImplTest {
         verify(calculoPrecioService, never()).calcularTotal(any(), org.mockito.ArgumentMatchers.anyInt(), any());
     }
 
+    // ---------- Límite de compra online para el mismo día ----------
+
+    private CompraRequestDTO pedidoParaHoy(FormaPago formaPago) {
+        var detalle = new org.example.laserranitaentradas.model.dto.DetalleCompraDTO();
+        detalle.setTipoEntradaId(1L);
+        detalle.setCantidad(1);
+        CompraRequestDTO request = new CompraRequestDTO();
+        request.setFecha(LocalDate.now());
+        request.setFormaPago(formaPago);
+        request.setEntradas(List.of(detalle));
+        return request;
+    }
+
+    @Test
+    void create_paraHoyPasadoElLimiteDeCompra_rechazaYNoGuardaNada() {
+        when(diaAperturaService.getAbiertoByDate(any())).thenReturn(true);
+        when(diaAperturaService.compraDelDiaCerrada(any(), any())).thenReturn(true);
+        when(diaAperturaService.getLimiteDeCompra(any())).thenReturn(java.time.LocalDateTime.of(LocalDate.now(), java.time.LocalTime.of(17, 0)));
+
+        assertThatThrownBy(() -> service.create(pedidoParaHoy(FormaPago.MERCADO_PAGO)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("ya cerró")
+                .hasMessageContaining("17:00");
+
+        verify(compraRepository, never()).save(any());
+    }
+
+    @Test
+    void create_reservaDeAdminParaHoy_noSeCortaPorElLimite() {
+        // Una reserva que carga un admin (invitado, premio) no es una compra del público: el corte no la toca.
+        org.example.laserranitaentradas.model.entity.TipoEntrada general = org.example.laserranitaentradas.model.entity.TipoEntrada.builder()
+                .id(1L).nombre("General").tipo(org.example.laserranitaentradas.model.entity.Tipo.ENTRADA)
+                .obligatorio(true).precio(new java.math.BigDecimal("111")).build();
+        when(tipoEntradaService.findById(1L)).thenReturn(Optional.of(general));
+        when(diaAperturaService.getAbiertoByDate(any())).thenReturn(true);
+        when(compraRepository.findAllByFechaVisitaOrderByCodigoReservaAsc(any())).thenReturn(List.of());
+        when(compraRepository.save(any(Compra.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Compra resultado = service.create(pedidoParaHoy(FormaPago.RESERVA_ADMIN));
+
+        assertThat(resultado.getEstado()).isEqualTo(EstadoCompra.APROBADO);
+        verify(diaAperturaService, never()).compraDelDiaCerrada(any(), any());
+    }
+
     // ---------- Un tipo "Solo POS" no se puede comprar por la vía pública, aunque el request lo pida a mano ----------
 
     @Test

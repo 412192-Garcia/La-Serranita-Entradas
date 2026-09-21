@@ -16,7 +16,10 @@ export class Dia {
   @Output() diaSeleccionado = new EventEmitter<Date>();
 
   onDiaClick():void{
-    if (!this.dia.esPasado && !this.dia.esHoy && this.dia.abierto && this.dia.numero)
+    // "Hoy" se puede elegir mientras el servidor lo ofrezca como abierto: el backend lo saca de la
+    // lista de días abiertos pasado el límite de compra (ver DiaAperturaService.getDiasAbiertos), y
+    // rechaza la compra igual por si la página quedó abierta más allá de ese momento.
+    if (!this.dia.esPasado && this.dia.abierto && this.dia.numero)
     {
       this.diaSeleccionado.emit(this.dia.fecha);
     }

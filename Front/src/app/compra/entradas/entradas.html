@@ -13,6 +13,9 @@
             <svg lucideClock class="icono-svg" [strokeWidth]="2.5"></svg>
             <p class="texto-info">
               <strong>Horarios del Parque:</strong> Abierto de {{ horario.apertura }} a {{ horario.cierre }} hs.
+              @if (horario.limiteCompra) {
+                Las entradas para el mismo día se pueden comprar hasta {{ horario.limiteCompra }} antes del cierre.
+              }
             </p>
           </div>
         }

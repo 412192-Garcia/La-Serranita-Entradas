@@ -6,7 +6,7 @@
       class="btn-dia"
       [ngClass]="clasesEstado"
       [class.dia-hoy]="dia.esHoy"
-      [disabled]="dia.esPasado || !dia.abierto || dia.esHoy">
+      [disabled]="dia.esPasado || !dia.abierto">
       {{dia.numero}}
     </button>
   } @else {

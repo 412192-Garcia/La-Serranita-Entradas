@@ -295,6 +295,16 @@ public class CompraServiceImpl implements CompraService {
             if (abierto == null || !abierto) {
                 throw new IllegalArgumentException("El parque está cerrado en la fecha solicitada: " + fechaVisita);
             }
+            // La compra online para HOY se corta un rato antes del cierre (configurable junto al
+            // horario). Una reserva que carga un admin (RESERVA_ADMIN) queda afuera: es una decisión
+            // suya, no una compra del público.
+            if (compraRequest.getFormaPago() != FormaPago.RESERVA_ADMIN
+                    && diaAperturaService.compraDelDiaCerrada(fechaVisita, LocalDateTime.now())) {
+                LocalDateTime limite = diaAperturaService.getLimiteDeCompra(fechaVisita);
+                throw new IllegalArgumentException("La compra online para hoy ya cerró: se corta a las "
+                        + limite.toLocalTime().format(DateTimeFormatter.ofPattern("HH:mm"))
+                        + " hs. Podés elegir otro día.");
+            }
         } else {
             // fechaVisita null = sin día fijo. Dos casos:
             //  - Regalo (compra online): quien compra no es quien entra -> hace falta el receptor

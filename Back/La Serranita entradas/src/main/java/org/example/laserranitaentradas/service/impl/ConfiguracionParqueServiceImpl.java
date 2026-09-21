@@ -31,10 +31,17 @@ public class ConfiguracionParqueServiceImpl implements ConfiguracionParqueServic
     }
 
     @Override
-    public ConfiguracionParque actualizarHorarioGeneral(LocalTime horaApertura, LocalTime horaCierre) {
+    public ConfiguracionParque actualizarHorarioGeneral(LocalTime horaApertura, LocalTime horaCierre, Integer minutosLimiteCompra) {
+        if (minutosLimiteCompra != null && (minutosLimiteCompra < 0 || minutosLimiteCompra > MAX_MINUTOS_LIMITE_COMPRA)) {
+            throw new IllegalArgumentException("El límite de compra tiene que estar entre 0 y "
+                    + MAX_MINUTOS_LIMITE_COMPRA + " minutos antes del cierre.");
+        }
         ConfiguracionParque config = getHorarioGeneral();
         config.setHoraApertura(horaApertura);
         config.setHoraCierre(horaCierre);
+        if (minutosLimiteCompra != null) {
+            config.setMinutosLimiteCompra(minutosLimiteCompra);
+        }
         return configuracionParqueRepository.save(config);
     }
 }

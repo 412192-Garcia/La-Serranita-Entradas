@@ -19,6 +19,8 @@ export interface DiaApertura {
 export interface HorarioGeneral {
   horaApertura: string;
   horaCierre: string;
+  /** Minutos antes del cierre en que se corta la compra online para el mismo día. */
+  minutosLimiteCompra: number;
 }
 
 export interface FamiliaCupon {
@@ -100,8 +102,8 @@ export class ConfiguracionService {
     return this.http.get<HorarioGeneral>(`${this.configUrl}/horario`);
   }
 
-  actualizarHorarioGeneral(horaApertura: string, horaCierre: string): Observable<HorarioGeneral> {
-    return this.http.put<HorarioGeneral>(`${this.configUrl}/horario`, { horaApertura, horaCierre });
+  actualizarHorarioGeneral(horaApertura: string, horaCierre: string, minutosLimiteCompra: number): Observable<HorarioGeneral> {
+    return this.http.put<HorarioGeneral>(`${this.configUrl}/horario`, { horaApertura, horaCierre, minutosLimiteCompra });
   }
 
   // ---------- Cupones y familias ----------
