@@ -1,4 +1,4 @@
-import {Component, Input, OnInit, OnDestroy, ChangeDetectorRef, Output, EventEmitter} from '@angular/core';
+import {Component, Input, OnInit, OnDestroy, ChangeDetectorRef, Output, EventEmitter, ViewChild, ElementRef} from '@angular/core';
 import { Semana } from './semana/semana';
 import { DiaCalendario } from './calendario-models';
 import { DatePipe } from '@angular/common';
@@ -48,6 +48,45 @@ export class Calendario implements OnInit, OnDestroy {
   /** Mes/año de la fecha abierta más lejana ya cargada; null si no hay ninguna (no limita el avance). */
   private ultimaFechaAbierta: Date | null = null;
 
+  /** Envuelve la grilla de semanas (ver calendario.html): algunos meses tienen 5 filas y otros
+   * 6, así que cambiar de mes puede cambiar la altura de esto — animarCambioDeAltura() lo
+   * suaviza en vez de dejar que salte de golpe. */
+  @ViewChild('semanasWrapper') private semanasWrapperRef?: ElementRef<HTMLElement>;
+
+  /** Corre "actualizar" (que cambia this.semanas) y anima la transición si el alto de la
+   * grilla cambió: fija el alto viejo, fuerza un reflow, y en el frame siguiente pasa al alto
+   * nuevo con una transición CSS — al terminar, limpia el alto inline para que vuelva a
+   * seguir el contenido normalmente (ej. si el ancho del embed cambia después). */
+  private animarCambioDeAltura(actualizar: () => void): void {
+    const el = this.semanasWrapperRef?.nativeElement;
+    if (!el) {
+      actualizar();
+      return;
+    }
+
+    const alturaAnterior = el.getBoundingClientRect().height;
+    actualizar();
+    const alturaNueva = el.getBoundingClientRect().height;
+
+    if (Math.abs(alturaNueva - alturaAnterior) < 1) return;
+
+    el.style.transition = 'none';
+    el.style.height = `${alturaAnterior}px`;
+    el.getBoundingClientRect(); // fuerza el reflow con el alto viejo antes de animar
+
+    const limpiar = () => {
+      el.style.transition = '';
+      el.style.height = '';
+      el.removeEventListener('transitionend', limpiar);
+    };
+    el.addEventListener('transitionend', limpiar);
+
+    requestAnimationFrame(() => {
+      el.style.transition = 'height 0.25s ease';
+      el.style.height = `${alturaNueva}px`;
+    });
+  }
+
   constructor(
     private diaService: DiaAperturaService,
     private cdr: ChangeDetectorRef
@@ -90,7 +129,9 @@ export class Calendario implements OnInit, OnDestroy {
 
     this.esMesMinimo = (anioDestino === hoy.getFullYear() && mesDestino === hoy.getMonth());
     this.actualizarLimiteMaximo();
-    this.semanas = [];
+    // No se vacía "semanas" acá: al cambiar de mes se queda viendo la grilla del mes anterior
+    // (atenuada, ver overlay-carga en el html) hasta que llega la respuesta nueva, en vez de
+    // colapsar a un spinner de otro alto y volver a expandirse de golpe cuando se reemplaza.
 
     if (this.subscripcionApertura) this.subscripcionApertura.unsubscribe();
 
@@ -100,14 +141,14 @@ export class Calendario implements OnInit, OnDestroy {
         this.anioActual = anioDestino;
 
         const setFechasAbiertas = new Set(fechasAbiertas);
-        this.generarCalendario(anioDestino, mesDestino, setFechasAbiertas);
+        this.animarCambioDeAltura(() => this.generarCalendario(anioDestino, mesDestino, setFechasAbiertas));
 
         this.cargando = false;
         this.cdr.detectChanges();
       },
       error: (err) => {
         console.error('Error del backend:', err);
-        this.generarCalendario(anioDestino, mesDestino, new Set());
+        this.animarCambioDeAltura(() => this.generarCalendario(anioDestino, mesDestino, new Set()));
 
         this.cargando = false;
         this.cdr.detectChanges();

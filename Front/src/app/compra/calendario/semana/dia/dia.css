@@ -68,18 +68,22 @@
 }
 
 .dia-abierto {
-  background-color: var(--color-calendar-day);
+  /* Mismo verde + texto blanco que el header del mes (.calendario-header): un solo verde
+   * "de marca" en todo el calendario, en vez de una variante clarita aparte sólo para esto. */
+  background-color: var(--color-primary);
   color: #ffffff;
   pointer-events: auto !important;
 }
 .dia-abierto:hover {
-  background-color: var(--color-primary);
+  filter: brightness(0.92);
   transform: scale(1.04);
 }
 .dia-seleccionado {
   background-color: var(--color-primary-dark);
   color: #ffffff;
-  box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);
+  /* Más notorio que un simple cambio de tono: un agrandado leve (no sólo al pasar el mouse,
+   * como .dia-abierto:hover) para que se note de un vistazo cuál es el día elegido. */
+  transform: scale(1.06);
   pointer-events: auto !important;
 }
 
@@ -93,7 +97,10 @@
   /* Mismo verde de "abierto" pero apagado hacia el gris de "cerrado": así se nota que ya pasó
      sin perder la relación con el color de tema elegido (antes era un verde fijo aparte). */
   background-color: color-mix(in srgb, var(--color-calendar-day) 55%, #e0e0e0);
-  color: color-mix(in srgb, var(--color-calendar-day) 45%, #757575);
+  /* Mismo gris apagado que .dia-cerrado (no un color-mix entre dos tonos parecidos, que
+   * quedaba ~1.9:1 e ilegible): tiene que leerse como "no se puede tocar", igual que
+   * cualquier otro día deshabilitado — no como un día activo más. */
+  color: #757575;
   cursor: default;
 }
 .dia-pasado-cerrado {

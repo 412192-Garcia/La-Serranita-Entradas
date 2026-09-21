@@ -158,14 +158,14 @@
           </button>
           <span>Acción</span>
         </div>
-        @for (t of tiposEntradaVisibles(); track t.id; let i = $index, ultimo = $last) {
+        @for (t of tiposEntradaVisibles(); track t.id) {
           <div class="fila-simple fila-simple-tipos">
             <span class="acciones-orden" data-label="Orden">
               @if (puedeReordenarManualmente()) {
-                <button type="button" class="btn-reordenar" [disabled]="i === 0 || !!reordenandoId()" (click)="moverArriba(t)" aria-label="Subir en el orden de venta">
+                <button type="button" class="btn-reordenar" [disabled]="esPrimeroEnCategoria(t) || !!reordenandoId()" (click)="moverArriba(t)" aria-label="Subir en el orden de venta">
                   <svg lucideArrowUp [strokeWidth]="2"></svg>
                 </button>
-                <button type="button" class="btn-reordenar" [disabled]="ultimo || !!reordenandoId()" (click)="moverAbajo(t)" aria-label="Bajar en el orden de venta">
+                <button type="button" class="btn-reordenar" [disabled]="esUltimoEnCategoria(t) || !!reordenandoId()" (click)="moverAbajo(t)" aria-label="Bajar en el orden de venta">
                   <svg lucideArrowDown [strokeWidth]="2"></svg>
                 </button>
               } @else {

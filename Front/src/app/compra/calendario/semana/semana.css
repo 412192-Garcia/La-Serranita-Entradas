@@ -9,8 +9,11 @@
   width: 100%;
   justify-content: space-between;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
+  /* Un poco menos de separación entre días = un poco más de ancho (y alto, por el
+   * aspect-ratio 1:1 de cada celda, ver dia.css) para cada uno — así el número de "HOY"
+   * tiene más lugar antes de empezar a tocar la cintita de arriba. */
+  gap: 1px;
+  margin-bottom: 1px;
 }
 
 app-dia {

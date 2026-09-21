@@ -16,15 +16,25 @@
       }
     </div>
 
-    @if (cargando) {
+    @if (cargando && semanas.length === 0) {
+      <!-- Primera carga: todavía no hay ninguna grilla para mostrar atenuada. -->
       <app-spinner />
     } @else {
-    <div class="semanas-contenedor">
-      @for (semana of semanas; track $index){
-        <app-semana
-        [dias]="semana"
-        (diaSeleccionado)="onDiaSeleccionado($event)">
-        </app-semana>
+    <div class="semanas-contenedor-wrapper" [class.cargando]="cargando" #semanasWrapper>
+      <div class="semanas-contenedor">
+        @for (semana of semanas; track $index){
+          <app-semana
+          [dias]="semana"
+          (diaSeleccionado)="onDiaSeleccionado($event)">
+          </app-semana>
+        }
+      </div>
+      @if (cargando) {
+        <!-- Cambio de mes: se queda viendo la grilla del mes anterior atenuada hasta que
+             llega la respuesta, en vez de colapsar a un spinner y volver a expandirse. -->
+        <div class="overlay-carga">
+          <app-spinner />
+        </div>
       }
     </div>
     }
