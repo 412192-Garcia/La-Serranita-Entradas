@@ -28,7 +28,7 @@
       }
 
       @if (pasosTutorial.length > 0) {
-        <button type="button" class="btn-tutorial" (click)="tourActivo.set(true)" aria-label="Ver tutorial de esta pantalla">
+        <button type="button" class="btn-tutorial" (click)="iniciarTutorial()" aria-label="Ver tutorial de esta pantalla">
           <svg lucideCircleHelp [strokeWidth]="2"></svg>
           <span class="etiqueta-control">Tutorial</span>
         </button>
@@ -92,5 +92,5 @@
 </aside>
 
 @if (pasosTutorial.length > 0) {
-  <app-tour [pasos]="pasosTutorial" [(activo)]="tourActivo" />
+  <app-tour [pasos]="pasosTutorial" [(activo)]="tourActivo" (activoChange)="!$event && tutorialCerrado.emit()" />
 }

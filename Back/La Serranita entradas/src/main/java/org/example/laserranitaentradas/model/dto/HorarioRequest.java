@@ -8,4 +8,6 @@ import java.time.LocalTime;
 public class HorarioRequest {
     private LocalTime horaApertura;
     private LocalTime horaCierre;
+    /** Minutos antes del cierre en que se corta la compra online del día. Null = no cambiarlo. */
+    private Integer minutosLimiteCompra;
 }

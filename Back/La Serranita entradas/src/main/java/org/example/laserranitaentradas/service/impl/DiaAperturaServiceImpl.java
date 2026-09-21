@@ -2,10 +2,12 @@ package org.example.laserranitaentradas.service.impl;
 
 import org.example.laserranitaentradas.model.entity.DiaApertura;
 import org.example.laserranitaentradas.repository.DiaAperturaRepository;
+import org.example.laserranitaentradas.service.ConfiguracionParqueService;
 import org.example.laserranitaentradas.service.DiaAperturaService;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -17,9 +19,12 @@ import java.util.Optional;
 public class DiaAperturaServiceImpl implements DiaAperturaService {
 
     private final DiaAperturaRepository diaAperturaRepository;
+    private final ConfiguracionParqueService configuracionParqueService;
 
-    public DiaAperturaServiceImpl(DiaAperturaRepository diaAperturaRepository) {
+    public DiaAperturaServiceImpl(DiaAperturaRepository diaAperturaRepository,
+                                  ConfiguracionParqueService configuracionParqueService) {
         this.diaAperturaRepository = diaAperturaRepository;
+        this.configuracionParqueService = configuracionParqueService;
     }
 
     @Override
@@ -89,11 +94,40 @@ public class DiaAperturaServiceImpl implements DiaAperturaService {
 
     @Override
     public List<String> getDiasAbiertos(Integer year, Integer month) {
+        return getDiasAbiertos(year, month, LocalDateTime.now());
+    }
+
+    @Override
+    public List<String> getDiasAbiertos(Integer year, Integer month, LocalDateTime ahora) {
         List<DiaApertura> dias = getMonthStatus(year, month);
         return dias.stream()
                 .filter(DiaApertura::getAbierto)
+                // Hoy deja de ofrecerse para comprar una vez pasado el límite, aunque el parque siga abierto.
+                .filter(dia -> !compraDelDiaCerrada(dia.getFecha(), ahora))
                 .map(dia -> dia.getFecha().toString())
                 .toList();
+    }
+
+    @Override
+    public LocalDateTime getLimiteDeCompra(LocalDate fecha) {
+        var config = configuracionParqueService.getHorarioGeneral();
+        LocalTime cierre = diaAperturaRepository.findByFecha(fecha)
+                .map(DiaApertura::getHoraCierre)
+                .orElse(config.getHoraCierre());
+        if (cierre == null) {
+            cierre = config.getHoraCierre();
+        }
+        // Se resta sobre el LocalDateTime y no sobre la hora: con un cierre pasada la medianoche o un
+        // lapso largo, restar sobre LocalTime daría la vuelta al día anterior.
+        return LocalDateTime.of(fecha, cierre).minusMinutes(config.getMinutosLimiteCompra());
+    }
+
+    @Override
+    public boolean compraDelDiaCerrada(LocalDate fecha, LocalDateTime ahora) {
+        if (fecha == null || !fecha.equals(ahora.toLocalDate())) {
+            return false;
+        }
+        return !ahora.isBefore(getLimiteDeCompra(fecha));
     }
 
     @Override

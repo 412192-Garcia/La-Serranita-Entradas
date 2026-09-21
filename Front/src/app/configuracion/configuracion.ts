@@ -16,7 +16,7 @@ const PASOS_POR_TAB: Record<'dias' | 'descuentos' | 'catalogo' | 'usuarios', Tou
     {
       selector: '[data-tour="horario-general"]',
       titulo: 'Horario general',
-      texto: 'Rige todos los días abiertos, salvo que cargues un horario especial para un día puntual.',
+      texto: 'Rige todos los días abiertos, salvo que cargues un horario especial para un día puntual. Ahí mismo se define cuántos minutos antes del cierre se corta la compra online del día: pasado ese momento, el calendario público deja de ofrecer "hoy".',
     },
     {
       selector: '[data-tour="calendario-dias"]',

@@ -1,0 +1,193 @@
+/* ---------- Controles ---------- */
+.controles {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 24px;
+}
+
+.buscador {
+  display: flex;
+  gap: 10px;
+  flex: 1 1 380px;
+  max-width: 520px;
+}
+
+.buscador-input {
+  flex: 1;
+  padding: 12px 16px;
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  font-family: inherit;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-card-bg);
+  color: var(--color-text);
+  outline: none;
+  transition: all 0.2s ease;
+  min-width: 0;
+}
+
+.buscador-input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(57, 169, 53, 0.15);
+}
+
+.btn-buscar,
+.btn-limpiar {
+  flex-shrink: 0;
+  padding: 0 18px;
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+}
+
+.btn-buscar {
+  border: none;
+  background-color: var(--color-primary);
+  color: #fff;
+}
+
+.btn-buscar:hover:not(:disabled) { background-color: var(--color-primary-dark); }
+
+.btn-buscar:disabled {
+  background-color: var(--color-border);
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.btn-limpiar {
+  border: 1px solid #d1d5db;
+  background-color: var(--color-card-bg);
+  color: var(--color-text-secondary);
+}
+
+.btn-limpiar:hover { background-color: var(--color-bg-soft); }
+
+/* ---------- Selector de vista (fecha / todas) ---------- */
+.selector-vista {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.buscador-dia-input {
+  padding: 10px 12px;
+  font-size: 0.88rem;
+  font-family: inherit;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-card-bg);
+  outline: none;
+  color: var(--color-text);
+}
+
+.buscador-dia-input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(57, 169, 53, 0.15);
+}
+
+.btn-vista {
+  flex-shrink: 0;
+  padding: 9px 16px;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-card-bg);
+  color: var(--color-text-secondary);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+}
+
+.btn-vista:hover:not(:disabled) { border-color: var(--color-primary); }
+
+.btn-vista.activo {
+  border-color: var(--color-primary);
+  background-color: var(--color-primary);
+  color: #fff;
+}
+
+.btn-vista:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ---------- Botón colapsable de regalos (fechaVisita null) ----------
+   Vive junto a los controles fijos (buscador/selector de fecha) en vez de adentro de los
+   resultados: los regalos no tienen fecha propia, así que no encajan en ninguna paginación
+   de arriba, y este botón no depende de qué modo/búsqueda esté activa. Directamente ausente
+   cuando no hay ninguno. El panel expandido es su propio bloque, más abajo (ver .tabla-regalos). */
+.btn-regalos {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 8px;
+  padding: 10px 16px;
+  border: 1.5px solid var(--color-border);
+  background-color: var(--color-card-bg);
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  font-family: inherit;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.btn-regalos:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary-dark);
+}
+
+.btn-regalos.activo {
+  border-color: var(--color-primary);
+  background-color: var(--color-primary);
+  color: #fff;
+}
+
+.icono-regalos {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  transition: transform 0.18s ease;
+}
+
+.btn-regalos.activo .icono-regalos {
+  transform: rotate(180deg);
+}
+
+.btn-vista:focus-visible,
+.btn-regalos:focus-visible,
+.btn-buscar:focus-visible,
+.btn-limpiar:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(57, 169, 53, 0.35);
+}
+
+@media (max-width: 860px) {
+  .buscador { flex-wrap: wrap; max-width: none; }
+  .buscador-input { flex: 1 1 100%; }
+
+  /* Al envolverse, Buscar/Limpiar dejan de compartir renglón con el input y el
+     align-items:stretch del .buscador ya no les presta su altura: con padding sólo
+     horizontal quedaban en 17px, como un chip gris colgado. Se les da altura propia
+     (y de paso alcanzan el mínimo táctil) y se reparten el ancho del renglón. */
+  .btn-buscar,
+  .btn-limpiar {
+    flex: 1 1 0;
+    min-height: 44px;
+  }
+
+  .selector-vista { flex-wrap: wrap; }
+  .buscador-dia-input { flex: 1 1 100%; }
+  .btn-vista { flex: 1 1 auto; }
+  .btn-regalos { flex: 1 1 100%; justify-content: center; }
+}

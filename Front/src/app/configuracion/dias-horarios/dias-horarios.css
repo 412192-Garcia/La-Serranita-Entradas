@@ -14,6 +14,29 @@
   grid-column: 1 / -1;
 }
 
+/* Lapso de corte de la compra del día: el número y su unidad juntos, en la misma fila que el horario. */
+.con-sufijo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.con-sufijo input {
+  width: 84px;
+}
+
+.sufijo {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.ayuda-limite-compra {
+  margin: 10px 0 0;
+  max-width: 70ch;
+}
+
 /* ---------- Calendario mensual admin ---------- */
 .mes-header {
   display: flex;

@@ -1,13 +1,32 @@
 <div class="panel-pos">
 
+  <!-- Con el panel de anticipadas abierto la cabecera cambia de título, y el botón "Anticipadas"
+       pasa a ser el de volver a la venta: no hace falta ni una X ni un título aparte en el panel. -->
   <app-cabecera-interna
-    titulo="Venta en Boletería"
-    descripcion="Cobrá y registra la compra."
-    [pasosTutorial]="pasosTutorial">
+    [titulo]="consultaAnticipada() !== null ? 'Anticipadas' : 'Venta en Boletería'"
+    [descripcion]="consultaAnticipada() !== null ? 'Buscá una reserva para validar el ingreso o cobrarla.' : 'Cobrá y registra la compra.'"
+    [pasosTutorial]="pasosTutorial"
+    (tutorialIniciado)="alIniciarTutorial()"
+    (tutorialCerrado)="alCerrarTutorial()">
     @if (caja()) {
       <div class="acciones-caja-cabecera" cabecera-acciones data-tour="barra-caja">
-        <button type="button" class="btn-secundario-caja" (click)="mostrarRetiro.set(true)">Retiro / Aporte</button>
-        <button type="button" class="btn-secundario-caja" (click)="mostrarIngresoEntradas.set(true)">Reponer talonario</button>
+        @if (consultaAnticipada() !== null) {
+          <button type="button" class="btn-secundario-caja" data-tour="boton-anticipadas" (click)="consultaAnticipada.set(null)">
+            <svg lucideArrowLeft [strokeWidth]="2"></svg>
+            Volver a la venta
+          </button>
+        } @else {
+          <button type="button" class="btn-secundario-caja" data-tour="boton-anticipadas" title="Buscar una anticipada (F2)" (click)="abrirAnticipadas('')">
+            <svg lucideSearch [strokeWidth]="2"></svg>
+            Anticipadas
+          </button>
+        }
+        <!-- Contenedor sólo para el tutorial (display: contents, no afecta el layout): resalta estos
+             dos botones juntos sin incluir el de Anticipadas, que tiene su propio paso. -->
+        <span class="grupo-acciones-caja" data-tour="acciones-caja">
+          <button type="button" class="btn-secundario-caja" (click)="mostrarRetiro.set(true)">Retiro / Aporte</button>
+          <button type="button" class="btn-secundario-caja" (click)="mostrarIngresoEntradas.set(true)">Reponer talonario</button>
+        </span>
       </div>
     }
   </app-cabecera-interna>
@@ -41,11 +60,15 @@
         (cerrar)="mostrarIngresoEntradas.set(false)" />
     }
 
-    @if (escaneoPendiente(); as dni) {
+    @if (escaneoPendiente() !== null) {
       <app-modal (cerrar)="escaneoPendiente.set(null)">
         <div class="dialogo-escaneo">
           <h3>Hay una compra sin cobrar</h3>
-          <p>Tenés una compra a medio cargar en el carrito. Si pasás a validar la anticipada del DNI {{ dni }}, ese carrito se descarta.</p>
+          <p>
+            Tenés una compra a medio cargar en el carrito. Si pasás a validar
+            @if (escaneoPendiente()) { la anticipada del DNI {{ escaneoPendiente() }}, } @else { una anticipada, }
+            ese carrito se descarta.
+          </p>
           <div class="dialogo-escaneo-acciones">
             <button type="button" class="btn-seguir-compra" (click)="escaneoPendiente.set(null)">Seguir con la compra</button>
             <button type="button" class="btn-ver-anticipadas" (click)="confirmarIrAAnticipadas()">Ver anticipadas</button>
@@ -54,13 +77,11 @@
       </app-modal>
     }
 
-    @if (dniAnticipada(); as dni) {
-      <!-- Escaneo de DNI: tapa el catálogo/carrito sin destruirlos (al cerrar con la X vuelve
-           todo como estaba). barra-caja queda arriba, visible. -->
-      <app-validar-anticipada-pos
-        [dni]="dni"
-        (cerrar)="dniAnticipada.set(null)"
-        (validada)="onAnticipadaValidada()"
+    @if (consultaAnticipada() !== null) {
+      <!-- Escaneo de DNI o búsqueda manual: tapa el catálogo/carrito sin destruirlos (al volver
+           con el botón de la cabecera queda todo como estaba). barra-caja queda arriba, visible. -->
+      <app-anticipadas-pos
+        [consulta]="consultaAnticipada()!"
         (cobrarEnPos)="onCargarAnticipada($event)" />
     } @else if (ultimaVenta(); as venta) {
       <app-comprobante-venta

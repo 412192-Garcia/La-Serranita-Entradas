@@ -334,8 +334,6 @@ export class CajaService {
    * soporta boleteros con meses de turnos sin traerlos todos de una. ordenarPor admite cualquier
    * campo de CajaCerrada salvo "totalRetiros" (no es una columna propia de Caja). */
   obtenerCajasCerradas(
-    desde: string,
-    hasta: string,
     usuarioNombre: string | null,
     ordenarPor: string,
     direccion: 'ASC' | 'DESC',
@@ -343,14 +341,17 @@ export class CajaService {
     size: number
   ): Observable<CajasCerradasResponse> {
     let params = new HttpParams()
-      .set('desde', desde)
-      .set('hasta', hasta)
       .set('ordenarPor', ordenarPor)
       .set('direccion', direccion)
       .set('page', page)
       .set('size', size);
     if (usuarioNombre) params = params.set('usuarioNombre', usuarioNombre);
     return this.http.get<CajasCerradasResponse>(`${this.cajaUrl}/cerradas`, { params });
+  }
+
+  /** Nombres de los boleteros con al menos una caja cerrada, para los chips de filtro de "Cajas cerradas". */
+  obtenerBoleterosConCajasCerradas(): Observable<string[]> {
+    return this.http.get<string[]>(`${this.cajaUrl}/cerradas/boleteros`);
   }
 
   /** Deshace un ajuste manual y devuelve la caja recalculada sin él. ADMIN-only. */

@@ -35,6 +35,10 @@ export class ConfiguracionDiasHorarios implements OnInit {
 
   horaAperturaGeneral = signal('09:00');
   horaCierreGeneral = signal('18:00');
+  /** Cuántos minutos antes del cierre se corta la compra online del día (ver ConfiguracionParque.minutosLimiteCompra). */
+  minutosLimiteCompra = signal<number | null>(60);
+  /** Mismo tope que el backend (ConfiguracionParqueService.MAX_MINUTOS_LIMITE_COMPRA). */
+  readonly MAX_MINUTOS_LIMITE_COMPRA = 720;
   guardandoHorarioGeneral = signal(false);
   mensajeHorarioGeneral = signal<string | null>(null);
 
@@ -77,6 +81,7 @@ export class ConfiguracionDiasHorarios implements OnInit {
       next: (h) => {
         this.horaAperturaGeneral.set(h.horaApertura.slice(0, 5));
         this.horaCierreGeneral.set(h.horaCierre.slice(0, 5));
+        this.minutosLimiteCompra.set(h.minutosLimiteCompra);
       },
       error: (err) => console.error('Error al cargar el horario general:', err),
     });
@@ -84,11 +89,18 @@ export class ConfiguracionDiasHorarios implements OnInit {
 
   guardarHorarioGeneral(): void {
     if (this.guardandoHorarioGeneral()) return;
+    const minutos = this.minutosLimiteCompra();
+    if (minutos === null || !Number.isInteger(minutos) || minutos < 0 || minutos > this.MAX_MINUTOS_LIMITE_COMPRA) {
+      this.mensajeHorarioGeneral.set(
+        `El límite de compra tiene que ser un número entero de minutos entre 0 y ${this.MAX_MINUTOS_LIMITE_COMPRA}.`
+      );
+      return;
+    }
     this.guardandoHorarioGeneral.set(true);
     this.mensajeHorarioGeneral.set(null);
 
     this.configuracionService
-      .actualizarHorarioGeneral(this.horaAperturaGeneral(), this.horaCierreGeneral())
+      .actualizarHorarioGeneral(this.horaAperturaGeneral(), this.horaCierreGeneral(), minutos)
       .subscribe({
         next: () => {
           this.mensajeHorarioGeneral.set('Horario general actualizado.');

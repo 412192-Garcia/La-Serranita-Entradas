@@ -1,4 +1,4 @@
-import { Component, Input, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, EventEmitter, Input, OnInit, Output, computed, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { LucideMenu, LucideX, LucideLogOut, LucideWifiOff, LucideCircleHelp } from '@lucide/angular';
 import { SesionService } from '../../services/sesion.service';
@@ -18,7 +18,7 @@ interface EnlaceCabecera {
  * (ver esRutaActual), pero ninguno se saca de la lista por estar parado ahí — antes se sacaba,
  * y eso hacía que el menú cambiara de contenido según la pantalla, algo confuso. */
 const TODOS_LOS_ENLACES: EnlaceCabecera[] = [
-  { texto: 'Control de accesos', ruta: '/boleteria' },
+  { texto: 'Control de accesos', ruta: '/boleteria', soloAdmin: true },
   { texto: 'Vender entradas', ruta: '/pos' },
   { texto: 'Hoy', ruta: '/hoy', soloAdmin: true },
   { texto: 'Cajas', ruta: '/cajas', soloAdmin: true, tipoNotificacion: 'CAJA_ATRASADA' },
@@ -55,7 +55,17 @@ export class CabeceraInterna implements OnInit {
    * la cabecera común para no repetir el botón + <app-tour> en cada pantalla. Vacío = sin tutorial. */
   @Input() pasosTutorial: TourStep[] = [];
 
+  /** Avisan cuándo empieza y termina el tutorial: una pantalla cuyos pasos cambian de modo (ver
+   * `TourStep.antes`, ej. el POS pasando a Anticipadas) guarda el modo al empezar y lo repone al terminar. */
+  @Output() tutorialIniciado = new EventEmitter<void>();
+  @Output() tutorialCerrado = new EventEmitter<void>();
+
   tourActivo = signal(false);
+
+  iniciarTutorial(): void {
+    this.tutorialIniciado.emit();
+    this.tourActivo.set(true);
+  }
 
   readonly operador = this.sesion.usuario;
 

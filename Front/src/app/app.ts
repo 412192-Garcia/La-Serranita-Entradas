@@ -59,6 +59,9 @@ export class App {
       const esRutaPublica = RUTAS_PUBLICAS.some((ruta) => e.urlAfterRedirects.startsWith(ruta));
       this.rutaPublica.set(esRutaPublica);
       this.sesion.aplicarTema(esRutaPublica ? null : this.sesion.usuario());
+      // Sesión deslizante de "Mantener sesión iniciada": sólo en el módulo interno, para no
+      // pegarle al backend con el token de staff desde la compra pública embebida en el sitio.
+      if (!esRutaPublica) this.sesion.renovarSiHaceFalta();
       // Del fondo de body se encarga la página del parque cuando está embebido (ver styles.css).
       document.body.classList.toggle('ruta-publica', esRutaPublica);
     });

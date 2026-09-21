@@ -155,11 +155,26 @@ export class Entradas implements OnInit, OnDestroy {
    * Null mientras carga o si falla la consulta: el renglón directamente no se muestra
    * en vez de arriesgarse a mostrar un horario que ya no es el real.
    */
-  horario: { apertura: string; cierre: string } | null = null;
+  horario: { apertura: string; cierre: string; limiteCompra: string | null } | null = null;
+
+  /** "45 minutos", "1 hora", "1 hora y 30 minutos"; null si no hay corte (0 minutos) o el dato no llegó. */
+  private textoLapso(minutos: number | null | undefined): string | null {
+    if (!minutos || minutos <= 0) return null;
+    const horas = Math.floor(minutos / 60);
+    const resto = minutos % 60;
+    const partes: string[] = [];
+    if (horas > 0) partes.push(`${horas} ${horas === 1 ? 'hora' : 'horas'}`);
+    if (resto > 0) partes.push(`${resto} ${resto === 1 ? 'minuto' : 'minutos'}`);
+    return partes.join(' y ');
+  }
 
   private cargarHorarioGeneral(): void {
     this.configuracionService.getHorarioGeneral().pipe(
-      map((h) => ({ apertura: h.horaApertura.slice(0, 5), cierre: h.horaCierre.slice(0, 5) })),
+      map((h) => ({
+        apertura: h.horaApertura.slice(0, 5),
+        cierre: h.horaCierre.slice(0, 5),
+        limiteCompra: this.textoLapso(h.minutosLimiteCompra),
+      })),
       catchError(() => of(null))
     ).subscribe((horario) => {
       this.ngZone.run(() => {
@@ -417,8 +432,8 @@ export class Entradas implements OnInit, OnDestroy {
 
         // EVALUAMOS LA ESTRATEGIA DEVUELTA POR EL BACKEND
         if (res.formaPago === 'MERCADO_PAGO' && res.initPoint) {
-          const ancho = 500;
-          const alto = 650;
+          const ancho = 1000;
+          const alto = 700;
           const izquierda = (window.screen.width - ancho) / 2;
           const arriba = (window.screen.height - alto) / 2;
 

@@ -1,0 +1,7 @@
+<div class="panel-anticipadas">
+  <app-buscador-reservas [autoenfocar]="autoenfocar" />
+
+  <app-panel-regalos textoCobrar="Cobrar" (cobrar)="cobrarEnPos.emit($event)" />
+
+  <app-listado-reservas textoCobrar="Cobrar" (cobrar)="cobrarEnPos.emit($event)" />
+</div>

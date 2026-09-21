@@ -6,7 +6,7 @@ import { Rol, SesionService } from '../services/sesion.service';
  * Guard funcional parametrizable por rol.
  *
  * Uso en las rutas:
- *   { path: 'boleteria', component: Boleteria, canActivate: [rolGuard(['BOLETERO', 'ADMIN'])] }
+ *   { path: 'pos', component: Pos, canActivate: [rolGuard(['BOLETERO', 'ADMIN'])] }
  */
 export function rolGuard(rolesPermitidos: Rol[]): CanActivateFn {
   return () => {
@@ -17,11 +17,12 @@ export function rolGuard(rolesPermitidos: Rol[]): CanActivateFn {
       return true;
     }
 
-    // Sin sesión: al login. Con sesión pero sin el rol necesario: a su propia pantalla,
-    // no al sitio público (ya está identificado, solo no tiene permiso para esto puntual).
+    // Sin sesión: al login. Con sesión pero sin el rol necesario: al POS, que es la pantalla
+    // que tienen todos los roles del módulo interno, no al sitio público (ya está identificado,
+    // solo no tiene permiso para esto puntual).
     if (!sesion.estaAutenticado()) {
       return router.parseUrl('/login');
     }
-    return router.parseUrl('/boleteria');
+    return router.parseUrl('/pos');
   };
 }

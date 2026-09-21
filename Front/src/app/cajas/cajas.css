@@ -82,11 +82,6 @@
   color: var(--color-text-secondary);
 }
 
-.fila-simple-ranking {
-  grid-template-columns: 1.6fr 0.7fr 1.1fr 1fr 1fr 1fr;
-  font-size: 0.9rem;
-}
-
 .filtro-boleteros {
   display: flex;
   flex-wrap: wrap;
@@ -130,6 +125,18 @@
   background-color: var(--color-danger-light);
   color: var(--color-danger-dark);
   margin-left: 8px;
+}
+
+/* Puntito rojo (el mismo del menú) en la caja que prendió el aviso: la distingue de las atrasadas
+   que el admin ya conocía. Se apaga al abrir su detalle (ver toggleOperaciones). */
+.punto-nueva {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-left: 8px;
+  border-radius: 50%;
+  background-color: var(--color-danger);
+  vertical-align: middle;
 }
 
 .fila-clickable {

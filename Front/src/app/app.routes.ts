@@ -23,7 +23,9 @@ export const routes: Routes = [
   {
     path: 'boleteria',
     loadComponent: () => import('./boleteria/boleteria').then((m) => m.Boleteria),
-    canActivate: [rolGuard(['BOLETERO', 'ADMIN'])],
+    // El boletero busca, valida y cobra anticipadas desde el POS (botón "Anticipadas"): esta
+    // pantalla completa, con filtros y acciones de gestión (editar, reembolsar), es sólo del admin.
+    canActivate: [rolGuard(['ADMIN'])],
   },
   {
     path: 'pos',

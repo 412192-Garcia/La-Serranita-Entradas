@@ -721,9 +721,13 @@ export class ResumenCierre {
     // que entrega entrada baja las restantes esperadas; quitarla las sube (sólo cuentan los
     // tipos con entregaEntrada — ver TipoEntrada.entregaEntrada).
     let dTal = 0;
+    // Vendidas pagas (tipo ENTRADA con precio > 0, ver totalEntradasPagas): se mueven al revés
+    // que el talonario — quitar una venta baja las vendidas, agregarla las sube.
+    let dPagas = 0;
     const aplica = (tipoId: number, cantidad: number, signo: number) => {
       const tipo = this.tiposEntrada().find((t) => t.id === tipoId);
       if (tipo?.entregaEntrada) dTal += signo * cantidad;
+      if (tipo?.tipo === 'ENTRADA' && tipo.precio > 0) dPagas -= signo * cantidad;
     };
     const { quit, agr } = this.pares();
     for (const seg of quit) aplica(seg.tipoId, seg.cantidad, 1);
@@ -735,6 +739,8 @@ export class ResumenCierre {
     return {
       esperadasTalonario,
       restantes,
+      /** Entradas pagas vendidas en el turno con los cambios aplicados; null si la caja no las trae. */
+      vendidasPagas: c.totalEntradasPagas === null ? null : c.totalEntradasPagas + dPagas,
       // restantes − esperadas: negativo = faltan en el talonario, positivo = sobran.
       diferenciaTalonario: restantes === null ? null : restantes - esperadasTalonario,
       cambio: dTal !== 0,
@@ -910,6 +916,16 @@ export class ResumenCierre {
   toggleRevision(): void {
     if (this.modoRevision()) this.salirRevision();
     else this.modoRevision.set(true);
+  }
+
+  /** Entrar / salir del modo revisión por código (el tutorial de Cajas los usa para mostrar
+   * "Corregir caja" sin que nadie toque el botón). Idempotentes, a diferencia de toggleRevision. */
+  abrirRevision(): void {
+    if (!this.modoRevision()) this.modoRevision.set(true);
+  }
+
+  cerrarRevision(): void {
+    if (this.modoRevision()) this.salirRevision();
   }
 
   private salirRevision(): void {

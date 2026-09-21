@@ -113,17 +113,19 @@ public interface CajaService {
     CajaDetalleAbiertaDTO getOperacionesCaja(Long cajaId);
 
     /**
-     * Cajas cerradas dentro del rango, paginadas y opcionalmente filtradas por boletero — para el
-     * listado de "Cajas cerradas" en la pantalla de Cajas. A diferencia del reporte agregado
-     * (ReporteService.getResumen, que trae TODAS las cajas del rango de una para calcular varios
-     * KPIs a la vez), esto pagina en la base: soporta boleteros con meses de turnos sin traerlos
-     * todos a memoria. Los totales de retiros/faltantes/sobrantes son de TODO lo que matchea el
-     * filtro, no sólo la página (ver CajasCerradasResponseDTO). ordenarPor admite cualquier campo
-     * de CajaResumenReporteDTO excepto "totalRetiros" (se computa con un JOIN + SUM, no es una
-     * columna propia de Caja para ordenar en la base sin recorrer todo el rango).
+     * Cajas cerradas, paginadas y opcionalmente filtradas por boletero — para el listado de "Cajas
+     * cerradas" en la pantalla de Cajas. No filtra por fechas: pagina sobre todas las cajas
+     * cerradas (a diferencia del reporte agregado, ReporteService.getResumen, que sí trabaja por
+     * rango y trae todas las del rango de una). Pagina en la base, así que soporta boleteros con
+     * meses de turnos sin traerlos todos a memoria. ordenarPor admite cualquier campo de
+     * CajaResumenReporteDTO excepto "totalRetiros" (se computa con un JOIN + SUM, no es una
+     * columna propia de Caja para ordenar en la base).
      */
-    CajasCerradasResponseDTO getCajasCerradas(LocalDate desde, LocalDate hasta, String usuarioNombre,
-                                               String ordenarPor, String direccion, int page, int size);
+    CajasCerradasResponseDTO getCajasCerradas(String usuarioNombre, String ordenarPor, String direccion,
+                                               int page, int size);
+
+    /** Nombres de los boleteros con al menos una caja cerrada (habilitada), para los chips de filtro de "Cajas cerradas". */
+    java.util.List<String> getBoleterosConCajasCerradas();
 
     /** Deshace un ajuste manual: borra la fila y recalcula el cierre. ADMIN-only. */
     CajaResponseDTO eliminarAjuste(Long cajaId, Long ajusteId);

@@ -1,0 +1,108 @@
+@let v = vista();
+@let r = v.reserva;
+<div
+  class="fila fila-reserva"
+  [class.con-menu]="menu() !== null"
+  [class.fila-usada]="r.estado === 'USADO'"
+  [class.fila-validada-reciente]="busqueda.recienValidados().has(r.id)"
+  [class.fila-saliendo]="busqueda.saliendoIds().has(r.id)">
+
+  <div class="col-titular celda-titular">
+    <!-- Las ventas de puerta son anónimas: no hay titular ni contacto que mostrar. -->
+    @if (r.cliente; as cliente) {
+      <strong>{{ cliente.nombre }} {{ cliente.apellido }}</strong>
+      <span class="titular-contacto">
+        <span class="titular-dni">DNI {{ cliente.dni }}</span>
+        @if (r.contactEmail) {
+          <span class="titular-email">{{ r.contactEmail }}</span>
+        }
+      </span>
+    } @else {
+      <strong class="titular-anonimo">Venta en boletería</strong>
+    }
+    <!-- Regalo (fechaVisita null): quien compró no es quien va a venir a usarlo, así que
+         el dato que el boletero necesita para validar identidad en la puerta es el del
+         receptor, no el del comprador de arriba. -->
+    @if (!r.fechaVisita && (r.receptorNombre || r.receptorDni)) {
+      <span class="titular-receptor">
+        Para {{ r.receptorNombre || 'quien lo reciba' }}
+        @if (r.receptorDni) { · DNI {{ r.receptorDni }} }
+      </span>
+    }
+    @if (v.pases.length || v.extras.length) {
+      <div class="titular-detalle">
+        @for (p of v.pases; track p.nombre) {
+          <span>{{ p.cantidad }}× {{ p.nombre }}</span>
+        }
+        @for (e of v.extras; track e.nombre) {
+          <span class="extra">{{ e.cantidad }}× {{ e.nombre }}</span>
+        }
+      </div>
+    }
+  </div>
+
+  <span class="col-codigo celda-codigo">#{{ r.codigoReserva }}</span>
+
+  <span class="col-estado">
+    <span class="badge" [class]="'badge-' + r.estado">{{ v.etiquetaEstado }}</span>
+  </span>
+
+  <div class="col-accion celda-accion">
+    @switch (r.estado) {
+      @case ('APROBADO') {
+        <button type="button" class="btn-accion btn-validar" [disabled]="busqueda.procesando(r)" (click)="busqueda.validarIngreso(r)">
+          {{ busqueda.procesando(r) ? 'Validando…' : 'Validar Ingreso' }}
+        </button>
+      }
+      @case ('RESERVADO_EFECTIVO') {
+        <span class="monto-cobrar">{{ r.montoTotal | pesos }}</span>
+        <button type="button" class="btn-accion btn-cobrar" [disabled]="busqueda.procesando(r)" (click)="cobrar.emit(r)">
+          {{ busqueda.procesando(r) ? 'Registrando…' : textoCobrar() }}
+        </button>
+      }
+      @case ('USADO') {
+        <span class="texto-usado">
+          Usado
+          @if (r.fechaValidacion) {
+            {{ r.fechaValidacion | date: 'dd/MM HH:mm' }}
+          }
+        </span>
+        @if (busqueda.recienValidados().has(r.id)) {
+          <div class="deshacer-validacion">
+            <div class="barra-deshacer">
+              <div class="barra-deshacer-relleno" [style.animationDuration.ms]="busqueda.VENTANA_DESHACER_MS"></div>
+            </div>
+            <button
+              type="button"
+              class="btn-deshacer"
+              [disabled]="busqueda.deshaciendoId() === r.id"
+              (click)="busqueda.deshacerValidacion(r, $event)">
+              {{ busqueda.deshaciendoId() === r.id ? 'Deshaciendo…' : 'Cancelar validación' }}
+            </button>
+          </div>
+        }
+      }
+      @case ('VENDIDO_EN_PUERTA') {
+        <span class="texto-usado">
+          Vendida en puerta
+          @if (r.fechaValidacion) {
+            {{ r.fechaValidacion | date: 'dd/MM HH:mm' }}
+          }
+        </span>
+      }
+      @case ('PENDIENTE_PAGO') {
+        <span class="texto-aviso">Pago pendiente</span>
+      }
+      @case ('CANCELADO') {
+        <span class="texto-aviso">Cancelada</span>
+      }
+      @case ('REEMBOLSADA') {
+        <span class="texto-aviso">Reembolsada</span>
+      }
+    }
+  </div>
+
+  @if (menu(); as tpl) {
+    <ng-container [ngTemplateOutlet]="tpl" [ngTemplateOutletContext]="{ $implicit: r }" />
+  }
+</div>

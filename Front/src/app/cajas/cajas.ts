@@ -1,14 +1,10 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal, viewChild } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ReporteService } from '../services/reporte.service';
-import { ReporteResumen } from '../models/reporte';
 import { CajaService, Caja, CajaAbierta, CajaCerrada } from '../services/caja.service';
 import { NotificacionService } from '../services/notificacion.service';
 import { CabeceraInterna } from '../shared/cabecera-interna/cabecera-interna';
-import { FiltroRangoFechas } from '../shared/filtro-rango-fechas/filtro-rango-fechas';
 import { Spinner } from '../shared/spinner/spinner';
-import { aFechaISO } from '../shared/fecha.util';
 import { CierreCajaModal } from './cierre-caja-modal/cierre-caja-modal';
 import { ResumenCierre } from './resumen-cierre/resumen-cierre';
 import { CajaOperaciones } from './caja-operaciones/caja-operaciones';
@@ -21,44 +17,240 @@ import { ColumnaOrdenable } from '../shared/columna-ordenable/columna-ordenable'
 /** Sólo las columnas que la tabla deja ordenar. "totalRetiros" y "Dif. posnet" quedan afuera
  * a propósito: no son columnas propias de Caja (se computan con JOIN + SUM / a mano), así que el
  * backend no las admite para ordenar (ver CajaServiceImpl.ordenCajasCerradas). */
-type CampoOrdenCajaCerrada = 'usuarioNombre' | 'fechaCierre' | 'montoEsperado' | 'diferencia';
+type CampoOrdenCajaCerrada = 'usuarioNombre' | 'fechaApertura' | 'montoEsperado' | 'diferencia';
 
 const CAJAS_CERRADAS_POR_PAGINA = 20;
 
-const PASOS_TUTORIAL: TourStep[] = [
-  {
-    selector: '[data-tour="cajas-abiertas"]',
-    titulo: 'Cajas abiertas ahora',
-    texto: 'Quién tiene una caja abierta en este momento, y el botón para cerrarla.',
-  },
-  {
-    selector: '[data-tour="filtro-cajas"]',
-    titulo: 'Elegí el rango',
-    texto: 'Filtra por fecha de cierre. Por defecto muestra los últimos 30 días.',
-  },
-  {
-    selector: '[data-tour="cajas-cerradas"]',
-    titulo: 'Cajas cerradas',
-    texto: 'Faltantes, sobrantes y ranking de boleteros para el rango elegido. Tocá una fila para ver el detalle completo.',
-  },
-];
-
 @Component({
   selector: 'app-configuracion-cajas',
-  imports: [FormsModule, PesosPipe, DatePipe, CabeceraInterna, FiltroRangoFechas, Spinner, CierreCajaModal, ResumenCierre, Modal, CajaOperaciones, ColumnaOrdenable],
+  imports: [FormsModule, PesosPipe, DatePipe, CabeceraInterna, Spinner, CierreCajaModal, ResumenCierre, Modal, CajaOperaciones, ColumnaOrdenable],
   templateUrl: './cajas.html',
   styleUrls: ['../configuracion/configuracion-shared.css', './cajas.css'],
 })
 export class ConfiguracionCajas implements OnInit {
-  private reporteService = inject(ReporteService);
   private cajaService = inject(CajaService);
   private notificacionService = inject(NotificacionService);
 
-  readonly pasosTutorial = PASOS_TUTORIAL;
+  /** El resumen de la caja cerrada que está desplegada (el tutorial lo usa para abrir "Corregir caja"). */
+  private resumenCierre = viewChild(ResumenCierre);
+
+  // ---------- Tutorial ----------
+  // Cajas esconde lo importante detrás de clics: el detalle de una caja abierta, el modal de cierre,
+  // el detalle de una cerrada y el modo "Corregir caja". Los pasos abren cada cosa por su cuenta
+  // (ver TourStep.antes) y al terminar se cierra sólo lo que el tutorial abrió: lo que el admin ya
+  // tenía desplegado no se toca, así una corrección a medias no se pierde.
+
+  private tutorial = { operaciones: false, detalle: false, cierre: false, revision: false };
+
+  alIniciarTutorial(): void {
+    this.tutorial = { operaciones: false, detalle: false, cierre: false, revision: false };
+  }
+
+  alCerrarTutorial(): void {
+    this.tutorialCerrarCierre();
+    this.tutorialSalirRevision();
+    if (this.tutorial.operaciones) this.filaExpandidaAbiertaId.set(null);
+    if (this.tutorial.detalle) {
+      this.filaExpandidaId.set(null);
+      this.cajaDetalle.set(null);
+      this.errorDetalle.set(null);
+    }
+    this.tutorial = { operaciones: false, detalle: false, cierre: false, revision: false };
+  }
+
+  /** Despliega la primera caja abierta (si el admin no tiene ya una desplegada). */
+  private tutorialMostrarCajaAbierta(): void {
+    this.tutorialCerrarCierre();
+    if (this.filaExpandidaAbiertaId() === null && this.cajasAbiertas().length > 0) {
+      this.toggleOperaciones(this.cajasAbiertas()[0]);
+      this.tutorial.operaciones = true;
+    }
+  }
+
+  /** Abre el modal de cierre de la primera caja abierta, sin cerrar nada: cancelarlo no borra lo cargado. */
+  private tutorialAbrirCierre(): void {
+    if (this.mostrarCierre() || this.cajasAbiertas().length === 0) return;
+    this.iniciarCierre(this.cajasAbiertas()[0].id);
+    this.tutorial.cierre = true;
+  }
+
+  private tutorialCerrarCierre(): void {
+    if (!this.tutorial.cierre) return;
+    this.mostrarCierre.set(false);
+    this.tutorial.cierre = false;
+  }
+
+  /** Despliega la primera caja cerrada (si no hay ya una desplegada) y sale del modo corrección que abrió el tutorial. */
+  private tutorialMostrarCajaCerrada(): void {
+    this.tutorialCerrarCierre();
+    this.tutorialSalirRevision();
+    this.tutorialDesplegarCajaCerrada();
+  }
+
+  private tutorialDesplegarCajaCerrada(): void {
+    if (this.filaExpandidaId() === null && this.cajasCerradas().length > 0) {
+      this.toggleDetalle(this.cajasCerradas()[0].id);
+      this.tutorial.detalle = true;
+    }
+  }
+
+  private tutorialAbrirRevision(): void {
+    this.tutorialCerrarCierre();
+    this.tutorialDesplegarCajaCerrada();
+    // El detalle se carga del backend: el resumen recién existe cuando llega.
+    this.cuandoHayResumen((resumen) => {
+      if (resumen.modoRevision()) return;
+      resumen.abrirRevision();
+      this.tutorial.revision = true;
+    });
+  }
+
+  private tutorialSalirRevision(): void {
+    if (!this.tutorial.revision) return;
+    this.resumenCierre()?.cerrarRevision();
+    this.tutorial.revision = false;
+  }
+
+  private cuandoHayResumen(accion: (resumen: ResumenCierre) => void, intentos = 40): void {
+    const resumen = this.resumenCierre();
+    if (resumen) accion(resumen);
+    else if (intentos > 0) setTimeout(() => this.cuandoHayResumen(accion, intentos - 1), 50);
+  }
+
+  /**
+   * Cuatro bloques: cajas abiertas, cerrar una caja, cajas cerradas (con su detalle) y
+   * "Corregir caja". El ranking de boleteros se mudó a Reportes. Los pasos con "alternativo" caen a la tarjeta de la sección si no hay datos
+   * (ej. ninguna caja abierta).
+   */
+  readonly pasosTutorial: TourStep[] = [
+    {
+      selector: '[data-tour="cajas-abiertas"]',
+      titulo: 'Cajas abiertas ahora',
+      texto: 'Los turnos en curso: quién abrió, con cuánto arrancó, cuánto lleva vendido y cuántas entradas. Una caja marcada "Atrasada" quedó abierta de un día anterior y hace falta cerrarla; si además tiene un puntito rojo, es la que prendió el aviso del menú y todavía no habías visto (se apaga al abrir su detalle). Tocá una fila para ver su detalle.',
+      antes: () => this.tutorialCerrarCierre(),
+    },
+    {
+      selector: '[data-tour="kpis-caja-abierta"]',
+      alternativo: '[data-tour="cajas-abiertas"]',
+      titulo: 'Detalle de una caja abierta',
+      texto: 'Abrimos la primera. Arriba ves lo vendido hasta ahora, las entradas vendidas y cuántas le quedan en el talonario; debajo, lo vendido por forma de pago.',
+      antes: () => this.tutorialMostrarCajaAbierta(),
+    },
+    {
+      selector: '[data-tour="acciones-caja-abierta"]',
+      alternativo: '[data-tour="cajas-abiertas"]',
+      titulo: 'Corregir mientras el boletero trabaja',
+      texto: '"+ Agregar venta" carga una que faltó; "Retiro / Aporte" y "Entradas físicas" registran movimientos. Más abajo, el historial lista cada operación y las ventas traen "Editar" y "Cancelar", para arreglar un error sin esperar al cierre.',
+      antes: () => this.tutorialMostrarCajaAbierta(),
+    },
+    {
+      selector: '[data-tour="boton-cerrar-caja"]',
+      alternativo: '[data-tour="cajas-abiertas"]',
+      titulo: 'Cerrar una caja',
+      texto: 'Este botón cierra el turno de ese boletero.',
+      antes: () => this.tutorialCerrarCierre(),
+    },
+    {
+      selector: 'app-cierre-caja-modal [data-tour="conteo-efectivo"]',
+      alternativo: '[data-tour="cajas-abiertas"]',
+      titulo: 'Cerrar: el efectivo',
+      texto: 'Contá los billetes por denominación y cargá el cambio. Abajo se suma el total contado: contra ese número se calcula la diferencia de efectivo.',
+      antes: () => this.tutorialAbrirCierre(),
+    },
+    {
+      selector: 'app-cierre-caja-modal [data-tour="conteo-posnet"]',
+      alternativo: '[data-tour="cajas-abiertas"]',
+      titulo: 'Cerrar: el posnet',
+      texto: 'Cargá lo que dio el cierre del posnet. "Juntos" si tarjeta y QR salieron en un solo comprobante, "Por separado" si no. Podés sumar varios cierres, cada uno con su nota.',
+      antes: () => this.tutorialAbrirCierre(),
+    },
+    {
+      selector: 'app-cierre-caja-modal [data-tour="conteo-entradas"]',
+      alternativo: '[data-tour="cajas-abiertas"]',
+      titulo: 'Cerrar: talonario y dólares',
+      texto: 'Indicá cuántas entradas quedan en el talonario: se compara con lo esperado (las del inicio, más lo que ingresó, menos las entregadas). Si hubo ventas en dólares, aparece también el campo para contarlos.',
+      antes: () => this.tutorialAbrirCierre(),
+    },
+    {
+      selector: 'app-cierre-caja-modal [data-tour="cierre-movimientos"]',
+      alternativo: '[data-tour="cajas-abiertas"]',
+      titulo: 'Cerrar: movimientos y confirmar',
+      texto: 'Acá agregás un retiro o aporte de último momento sin salir del cierre. Cuando todo está cargado, "Confirmar cierre" guarda el turno: recién entonces se ven el esperado y las diferencias. Cancelar no borra lo que ya cargaste.',
+      antes: () => this.tutorialAbrirCierre(),
+    },
+    {
+      selector: '[data-tour="tabla-cajas-cerradas"]',
+      titulo: 'Cajas cerradas',
+      texto: 'Un turno por fila, en páginas de a 20. La columna "Día" es el día al que corresponde la caja y el más reciente va primero. Tocá el título de una columna para ordenar y, si hay más de un boletero, su nombre arriba para ver solo el suyo. En rojo lo que faltó, en verde lo que sobró y en gris lo que cerró justo.',
+      antes: () => this.tutorialCerrarCierre(),
+    },
+    {
+      selector: '[data-tour="resumen-kpis"]',
+      alternativo: '[data-tour="tabla-cajas-cerradas"]',
+      titulo: 'Detalle de una caja cerrada',
+      texto: 'Tocando una fila se despliega su detalle; abrimos la primera. Arriba, el total vendido y las entradas por tipo. Debajo, por forma de pago: lo esperado, lo contado y la diferencia, con "Ver billetes" para el desglose.',
+      antes: () => this.tutorialMostrarCajaCerrada(),
+    },
+    {
+      selector: '[data-tour="resumen-talonario"]',
+      alternativo: '[data-tour="tabla-cajas-cerradas"]',
+      titulo: 'El talonario',
+      texto: '"Restantes" es lo que el boletero contó al cerrar; "esperadas", lo que debería quedar según las ventas. Si difieren, dice cuántas faltan o sobran.',
+      antes: () => this.tutorialMostrarCajaCerrada(),
+    },
+    {
+      selector: '[data-tour="resumen-ventas"]',
+      alternativo: '[data-tour="tabla-cajas-cerradas"]',
+      titulo: 'Resumen de ventas',
+      texto: 'Cada forma de pago con sus ventas, agrupadas por tipo de entrada y descuento; los artículos varios van aparte. Al final está el historial de operaciones del turno, con retiros, aportes e ingresos de entradas.',
+      antes: () => this.tutorialMostrarCajaCerrada(),
+    },
+    {
+      selector: '[data-tour="acciones-resumen"]',
+      alternativo: '[data-tour="tabla-cajas-cerradas"]',
+      titulo: 'Corregir o borrar',
+      texto: '"Corregir caja" abre el modo de corrección, que vemos ahora al tocar Siguiente. "Borrar caja" la saca de los listados y del reporte y no se puede deshacer desde la app: pide escribir una palabra para confirmar.',
+      antes: () => this.tutorialMostrarCajaCerrada(),
+    },
+    {
+      selector: '[data-tour="revision-conteo"]',
+      alternativo: '[data-tour="tabla-cajas-cerradas"]',
+      titulo: 'Corregir: el recuento',
+      texto: 'En el modo de corrección, a la izquierda queda el recuento (billetes, posnet y talonario) ya cargado con lo que se contó al cerrar: cambiá lo que estaba mal.',
+      antes: () => this.tutorialAbrirRevision(),
+    },
+    {
+      selector: '[data-tour="revision-totales"]',
+      alternativo: '[data-tour="tabla-cajas-cerradas"]',
+      titulo: 'Corregir: cómo quedaría el cierre',
+      texto: 'A la derecha ves el esperado y el contado por forma de pago, con la diferencia que resultaría. Se actualiza en vivo con cada cambio. Justo debajo está el talonario, con las entradas restantes, las esperadas y las vendidas (pagas).',
+      antes: () => this.tutorialAbrirRevision(),
+    },
+    {
+      selector: '[data-tour="revision-matriz"]',
+      alternativo: '[data-tour="tabla-cajas-cerradas"]',
+      titulo: 'Corregir: mover ventas',
+      texto: 'Cada celda es la cantidad de ventas de ese tipo y tamaño de grupo en esa forma de pago. "−" la saca y "+" la ubica en otra: sirve cuando se cobró con tarjeta pero se anotó en efectivo. Más abajo podés agregar una venta que faltó, o sumar o restar un monto suelto con una nota.',
+      antes: () => this.tutorialAbrirRevision(),
+    },
+    {
+      selector: '[data-tour="revision-guardar"]',
+      alternativo: '[data-tour="tabla-cajas-cerradas"]',
+      titulo: 'Corregir: guardar',
+      texto: '"Guardar corrección" aplica todo junto. Queda registrado en "Ajustes manuales" con quién lo hizo y cuándo, y cada ajuste tiene su "Deshacer". "Cancelar" descarta los cambios sin guardar.',
+      antes: () => this.tutorialAbrirRevision(),
+    },
+  ];
 
   // ---------- Cajas abiertas ahora mismo ----------
   cajasAbiertas = signal<CajaAbierta[]>([]);
   cargandoCajasAbiertas = signal(false);
+
+  /** Cajas atrasadas que este admin todavía NO había visto: las que prendían el punto del menú.
+   * Ese aviso se apaga apenas se abre esta pantalla, así que acá se guardan (mientras dure la
+   * visita) para marcarlas con un puntito rojo y que se distingan de las atrasadas que ya conocía.
+   * Cada una sale de acá al abrir su detalle. */
+  cajasNuevas = signal<ReadonlySet<number>>(new Set());
 
   /** Id de la caja abierta cuya fila está desplegada mostrando app-caja-operaciones; null = ninguna. */
   filaExpandidaAbiertaId = signal<number | null>(null);
@@ -87,21 +279,18 @@ export class ConfiguracionCajas implements OnInit {
   paginaCerradas = signal(0);
   totalPaginasCerradas = signal(1);
 
-  /** Orden de "Cajas cerradas": por defecto la más reciente primero (mismo criterio que ya trae el backend). */
-  private ordenCajas = crearOrdenable<CampoOrdenCajaCerrada>('fechaCierre');
+  /** Orden de "Cajas cerradas": por defecto el día más reciente primero. El día de una caja es el de
+   * su apertura (fechaApertura): una caja atrasada la cierra un admin días después, pero sus
+   * ventas son del día en que se abrió. */
+  private ordenCajas = crearOrdenable<CampoOrdenCajaCerrada>('fechaApertura');
   ordenarPorCajas = this.ordenCajas.ordenarPor;
   estadoOrdenCajas = this.ordenCajas.estadoOrden;
 
-  private readonly hoy = new Date();
-  desde = signal(aFechaISO(new Date(this.hoy.getFullYear(), this.hoy.getMonth(), this.hoy.getDate() - 29)));
-  hasta = signal(aFechaISO(this.hoy));
-
-  cargando = signal(false);
-  error = signal<string | null>(null);
-  resumen = signal<ReporteResumen | null>(null);
-
   /** Vacío = todos los boleteros. */
   filtroBoletero = signal<string>('');
+
+  /** Boleteros con al menos una caja cerrada, para los chips de filtro (ver cargarBoleteros). */
+  boleterosDisponibles = signal<string[]>([]);
 
   ngOnInit(): void {
     // Arranca DESC (más reciente primero): crearOrdenable siempre empieza en ASC, y acá
@@ -143,8 +332,6 @@ export class ConfiguracionCajas implements OnInit {
     const filtro = this.filtroBoletero() || null;
     this.cajaService
       .obtenerCajasCerradas(
-        this.desde(),
-        this.hasta(),
         filtro,
         this.ordenarPorCajas(),
         this.ordenCajas.direccionOrden(),
@@ -176,6 +363,9 @@ export class ConfiguracionCajas implements OnInit {
         const idsAtrasadas = cs.filter((c) => this.esAtrasada(c)).map((c) => c.id);
         if (idsAtrasadas.length > 0) {
           this.notificacionService.marcarVistas('CAJA_ATRASADA', idsAtrasadas).subscribe({
+            // Se acumulan: recargar la lista (ej. tras cancelar una venta) devuelve vacío porque ya
+            // se marcaron, y no tiene que borrar la marca de la que sí era nueva.
+            next: (nuevas) => this.cajasNuevas.update((actuales) => new Set([...actuales, ...nuevas])),
             error: (err) => console.error('Error al marcar como vistas las cajas atrasadas:', err),
           });
         }
@@ -202,6 +392,14 @@ export class ConfiguracionCajas implements OnInit {
   /** Despliega el detalle (ventas/retiros/ingresos) de una caja abierta, para revisar o corregir un error mientras el boletero sigue trabajando — mismo patrón que toggleDetalle en "Cajas cerradas". */
   toggleOperaciones(caja: CajaAbierta): void {
     this.filaExpandidaAbiertaId.set(this.filaExpandidaAbiertaId() === caja.id ? null : caja.id);
+    // Abrir el detalle es "verla": el puntito de caja nueva se apaga.
+    if (this.cajasNuevas().has(caja.id)) {
+      this.cajasNuevas.update((actuales) => {
+        const restantes = new Set(actuales);
+        restantes.delete(caja.id);
+        return restantes;
+      });
+    }
   }
 
   /** Se canceló o editó una venta desde el detalle: refresca los totales de "Cajas abiertas ahora". */
@@ -226,7 +424,6 @@ export class ConfiguracionCajas implements OnInit {
     this.cajaCierreDetalle.set(null);
     this.cargarCajasAbiertas();
     this.cargar();
-    this.cargarCajasCerradas();
     // El modal simplemente desaparece: sin este resultado el admin no tiene forma de saber que se guardó.
     this.cajaRecienCerrada.set(c);
   }
@@ -236,32 +433,18 @@ export class ConfiguracionCajas implements OnInit {
     this.cajaCierreDetalle.set(c);
   }
 
-  /** Refresca el reporte agregado (ranking de boleteros + chips de filtro) y, con el mismo rango
-   * de fechas, el listado paginado de Cajas cerradas — son dos pedidos separados a propósito
-   * (ver cargarCajasCerradas): el ranking necesita TODAS las cajas del rango para sumar por
-   * boletero, pero el listado no necesita traerlas todas para mostrar sólo una página. */
+  /** Vuelve a la primera página del listado de cajas cerradas y refresca los chips de boletero. */
   cargar(): void {
-    this.cargarResumen();
+    this.cargarBoleteros();
     this.paginaCerradas.set(0);
     this.cargarCajasCerradas();
   }
 
-  /** Sólo el reporte agregado del rango (ranking de boleteros, chips de filtro y KPIs de
-   * faltantes/sobrantes). Separado de cargar() para poder refrescarlo sin resetear la
-   * paginación del listado (ver onCajaAjustada). */
-  private cargarResumen(): void {
-    this.cargando.set(true);
-    this.error.set(null);
-    this.reporteService.getResumen(this.desde(), this.hasta()).subscribe({
-      next: (r) => {
-        this.resumen.set(r);
-        this.cargando.set(false);
-      },
-      error: (err) => {
-        console.error('Error al cargar las cajas:', err);
-        this.error.set('No se pudo cargar la información de cajas.');
-        this.cargando.set(false);
-      },
+  /** Los nombres para los chips vienen de un pedido propio: el listado paginado no los trae todos. */
+  private cargarBoleteros(): void {
+    this.cajaService.obtenerBoleterosConCajasCerradas().subscribe({
+      next: (nombres) => this.boleterosDisponibles.set(nombres),
+      error: (err) => console.error('Error al cargar los boleteros con cajas cerradas:', err),
     });
   }
 
@@ -298,59 +481,21 @@ export class ConfiguracionCajas implements OnInit {
   }
 
   /** El admin aplicó o deshizo un ajuste de formas de pago desde el resumen: la respuesta ya trae
-   * la caja recalculada. Refresca el detalle desplegado, la fila del listado y el reporte agregado
-   * (el ranking de boleteros y los KPIs de faltantes/sobrantes también cambian con el ajuste). */
+   * la caja recalculada. Refresca el detalle desplegado y la fila del listado (las diferencias
+   * cambian con el ajuste). */
   onCajaAjustada(c: Caja): void {
     if (this.filaExpandidaId() === c.id) {
       this.cajaDetalle.set(c);
     }
-    this.cargarResumen();
     this.cargarCajasCerradas();
   }
 
-  /** El admin deshabilitó la caja: colapsa la fila y recarga todo (el backend ya la sacó de la
-   * tabla, los KPIs, el ranking y los chips — cargar() re-pide getResumen + cargarCajasCerradas). */
+  /** El admin deshabilitó la caja: colapsa la fila y recarga (el backend ya la sacó del listado
+   * y de los chips si era la única de ese boletero). */
   onCajaDeshabilitada(_c: Caja): void {
     this.filaExpandidaId.set(null);
     this.cajaDetalle.set(null);
     this.errorDetalle.set(null);
     this.cargar();
-  }
-
-  /** Nombres únicos de boleteros con al menos una caja cerrada en el rango, para el filtro — sigue
-   * viniendo del reporte agregado (trae todas las cajas del rango, sin paginar) porque necesita
-   * verlas todas para no perderse ningún nombre; el listado paginado en sí no sirve para esto. */
-  boleterosDisponibles(r: ReporteResumen): string[] {
-    return [...new Set(r.cajas.map((c) => c.usuarioNombre))].sort();
-  }
-
-  /** Desempeño acumulado por boletero: turnos, efectivo vendido, retiros y las diferencias de
-   * efectivo y de Tarjeta+QR por separado (juntarlas escondería un faltante contra un sobrante). */
-  rankingBoleteros(r: ReporteResumen): {
-    nombre: string;
-    turnos: number;
-    efectivoVendido: number;
-    retiros: number;
-    diferencia: number;
-    diferenciaPosnet: number;
-  }[] {
-    const porBoletero = new Map<
-      string,
-      { turnos: number; efectivoVendido: number; retiros: number; diferencia: number; diferenciaPosnet: number }
-    >();
-    for (const c of r.cajas) {
-      const acumulado =
-        porBoletero.get(c.usuarioNombre) ??
-        { turnos: 0, efectivoVendido: 0, retiros: 0, diferencia: 0, diferenciaPosnet: 0 };
-      acumulado.turnos += 1;
-      acumulado.efectivoVendido += c.montoEsperado - c.montoInicial + c.totalRetiros;
-      acumulado.retiros += c.totalRetiros;
-      acumulado.diferencia += c.diferencia;
-      acumulado.diferenciaPosnet += c.diferenciaPosnet ?? 0;
-      porBoletero.set(c.usuarioNombre, acumulado);
-    }
-    return [...porBoletero.entries()]
-      .map(([nombre, datos]) => ({ nombre, ...datos }))
-      .sort((a, b) => b.efectivoVendido - a.efectivoVendido);
   }
 }

@@ -63,6 +63,14 @@
   cursor: pointer;
   white-space: nowrap;
   transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.acciones-caja-cabecera button svg {
+  width: 15px;
+  height: 15px;
 }
 
 .acciones-caja-cabecera button:hover {
@@ -193,4 +201,10 @@
 
 .btn-ver-anticipadas:hover {
   background-color: var(--color-primary-dark);
+}
+
+/* Sólo agrupa Retiro/Aporte y Reponer talonario para que el tutorial los resalte juntos: no
+   debe alterar el flex de .acciones-caja-cabecera (los botones siguen siendo sus hijos directos). */
+.grupo-acciones-caja {
+  display: contents;
 }

@@ -5,15 +5,14 @@ import org.example.laserranitaentradas.model.entity.Caja;
 import org.example.laserranitaentradas.model.entity.Usuario;
 import org.springframework.data.jpa.domain.Specification;
 
-import java.time.LocalDateTime;
-
 /** Predicados reutilizables para el listado paginado de "Cajas cerradas" (GET /api/interno/caja/cerradas). */
 public class CajaSpecifications {
 
     private CajaSpecifications() {}
 
-    public static Specification<Caja> cerradaEntre(LocalDateTime desde, LocalDateTime hasta) {
-        return (root, query, cb) -> cb.and(cb.isNotNull(root.get("fechaCierre")), cb.between(root.get("fechaCierre"), desde, hasta));
+    /** Sólo cajas ya cerradas. El listado no filtra por fechas: se pagina sobre todas. */
+    public static Specification<Caja> cerrada() {
+        return (root, query, cb) -> cb.isNotNull(root.get("fechaCierre"));
     }
 
     /** Mismo criterio de identidad que ya usa el resto de la pantalla de Cajas (nombre + apellido

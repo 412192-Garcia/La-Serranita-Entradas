@@ -25,77 +25,9 @@
     </app-modal>
   }
 
-  <!-- ============ CONTROLES DE BÚSQUEDA ============ -->
-  <div class="controles">
-    <div class="buscador" data-tour="buscador">
-      <input
-        type="text"
-        class="buscador-input"
-        placeholder="DNI, nombre, email o N° de reserva"
-        aria-label="Buscar por DNI, nombre, email o código de reserva"
-        autofocus
-        [ngModel]="texto()"
-        (ngModelChange)="texto.set($event)"
-        (keyup.enter)="buscar()"
-      />
-      <button type="button" class="btn-buscar" (click)="buscar()" [disabled]="!texto().trim() || buscando()">
-        {{ buscando() ? 'Buscando…' : 'Buscar' }}
-      </button>
-      @if (texto()) {
-        <button type="button" class="btn-limpiar" (click)="limpiar()">Limpiar</button>
-      }
-    </div>
+  <app-buscador-reservas />
 
-    <div class="selector-vista" data-tour="fecha">
-      <input
-        type="date"
-        class="buscador-dia-input"
-        aria-label="Día de visita a consultar"
-        [ngModel]="fecha()"
-        (ngModelChange)="fecha.set($event)"
-      />
-      <button
-        type="button"
-        class="btn-vista"
-        [class.activo]="!todasLasFechas()"
-        (click)="verEsaFecha()"
-        [disabled]="!fecha() || buscando()">
-        Ver esa fecha
-      </button>
-      <button
-        type="button"
-        class="btn-vista"
-        [class.activo]="todasLasFechas()"
-        (click)="verTodasLasFechas()"
-        [disabled]="buscando()">
-        Ver todas las fechas
-      </button>
-    </div>
-
-    <!-- Regalos (fechaVisita null): no dependen de qué día/página se esté mirando, así que el
-         botón vive acá, junto a los controles fijos, en vez de adentro de los resultados (que
-         cambian con cada búsqueda). El panel expandido, más abajo, es su propio bloque aparte. -->
-    @if (totalRegalos() > 0) {
-      <button
-        type="button"
-        class="btn-regalos"
-        [class.activo]="regalosExpandido()"
-        [attr.aria-expanded]="regalosExpandido()"
-        (click)="toggleRegalos()">
-        <svg lucideGift [strokeWidth]="2"></svg>
-        <span>{{ totalRegalos() }} regalo{{ totalRegalos() === 1 ? '' : 's' }}</span>
-        <svg lucideChevronDown class="icono-regalos" [strokeWidth]="2.5"></svg>
-      </button>
-    }
-  </div>
-
-  @if (totalRegalos() > 0 && regalosExpandido()) {
-    <div class="tabla-reservas tabla-regalos">
-      @for (v of regalosVisibles()!; track v.reserva.id) {
-        <ng-container [ngTemplateOutlet]="filaReservaTpl" [ngTemplateOutletContext]="{ $implicit: v }" />
-      }
-    </div>
-  }
+  <app-panel-regalos [menu]="menuTpl" (cobrar)="busqueda.cobrarYValidar($event)" />
 
   <!-- ============ FILTROS ============ -->
   <div class="panel-filtros">
@@ -106,12 +38,12 @@
          wrapper con data-tour queda siempre en el DOM aunque adentro no haya nada en modo
          Boletería, para que el tutorial siempre encuentre el elemento. -->
     <div data-tour="estado">
-      @if (tipoListado() === 'ANTICIPADA') {
+      @if (busqueda.tipoListado() === 'ANTICIPADA') {
         <div class="grupo-filtro">
           <span class="etiqueta-filtro">Estado</span>
           <div class="chips">
             @for (e of estadosPrincipales; track e.valor) {
-              <button type="button" class="btn-filtro" [class.activo]="estadoActivo(e.valor)" [attr.aria-pressed]="estadoActivo(e.valor)" (click)="toggleEstado(e.valor)">
+              <button type="button" class="btn-filtro" [class.activo]="busqueda.estadoActivo(e.valor)" [attr.aria-pressed]="busqueda.estadoActivo(e.valor)" (click)="busqueda.toggleEstado(e.valor)">
                 {{ e.etiqueta }}
               </button>
             }
@@ -128,23 +60,23 @@
       [attr.aria-expanded]="mostrarMasFiltros()"
       (click)="mostrarMasFiltros.set(!mostrarMasFiltros())">
       Más filtros
-      @if (!mostrarMasFiltros() && !filtrosAvanzadosEnDefecto()) {
+      @if (!mostrarMasFiltros() && !busqueda.filtrosAvanzadosEnDefecto()) {
         <span class="punto-filtro-activo" aria-label="Hay más filtros activos"></span>
       }
       <svg lucideChevronDown class="icono-mas-filtros" [strokeWidth]="2.5"></svg>
     </button>
 
-    @if (!filtrosEnDefecto()) {
-      <button type="button" class="btn-restablecer" (click)="restablecerFiltros()">Restablecer filtros</button>
+    @if (!busqueda.filtrosEnDefecto()) {
+      <button type="button" class="btn-restablecer" (click)="busqueda.restablecerFiltros()">Restablecer filtros</button>
     }
 
     @if (mostrarMasFiltros()) {
-      @if (tipoListado() === 'ANTICIPADA') {
+      @if (busqueda.tipoListado() === 'ANTICIPADA') {
         <div class="grupo-filtro">
           <span class="etiqueta-filtro">Otros estados</span>
           <div class="chips">
             @for (e of estadosSecundarios; track e.valor) {
-              <button type="button" class="btn-filtro" [class.activo]="estadoActivo(e.valor)" [attr.aria-pressed]="estadoActivo(e.valor)" (click)="toggleEstado(e.valor)">
+              <button type="button" class="btn-filtro" [class.activo]="busqueda.estadoActivo(e.valor)" [attr.aria-pressed]="busqueda.estadoActivo(e.valor)" (click)="busqueda.toggleEstado(e.valor)">
                 {{ e.etiqueta }}
               </button>
             }
@@ -155,10 +87,10 @@
       <div class="grupo-filtro">
         <span class="etiqueta-filtro">Listado</span>
         <div class="chips">
-          <button type="button" class="btn-filtro" [class.activo]="tipoListado() === 'ANTICIPADA'" [attr.aria-pressed]="tipoListado() === 'ANTICIPADA'" (click)="toggleTipoListado('ANTICIPADA')">
+          <button type="button" class="btn-filtro" [class.activo]="busqueda.tipoListado() === 'ANTICIPADA'" [attr.aria-pressed]="busqueda.tipoListado() === 'ANTICIPADA'" (click)="busqueda.toggleTipoListado('ANTICIPADA')">
             Anticipada
           </button>
-          <button type="button" class="btn-filtro" [class.activo]="tipoListado() === 'BOLETERIA'" [attr.aria-pressed]="tipoListado() === 'BOLETERIA'" (click)="toggleTipoListado('BOLETERIA')">
+          <button type="button" class="btn-filtro" [class.activo]="busqueda.tipoListado() === 'BOLETERIA'" [attr.aria-pressed]="busqueda.tipoListado() === 'BOLETERIA'" (click)="busqueda.toggleTipoListado('BOLETERIA')">
             Boletería
           </button>
         </div>
@@ -166,7 +98,7 @@
 
       <div class="grupo-filtro">
         <label class="etiqueta-filtro" for="select-forma-pago">Forma de pago</label>
-        <select id="select-forma-pago" class="select-forma-pago" [ngModel]="formaPago()" (ngModelChange)="onFormaPagoChange($event)">
+        <select id="select-forma-pago" class="select-forma-pago" [ngModel]="busqueda.formaPago()" (ngModelChange)="busqueda.onFormaPagoChange($event)">
           <option value="">Todas</option>
           @for (f of formasPagoFiltrables; track f.valor) {
             <option [value]="f.valor">{{ f.etiqueta }}</option>
@@ -176,311 +108,40 @@
     }
   </div>
 
-  @if (errorBusqueda()) {
-    <p class="alerta-error">{{ errorBusqueda() }}</p>
-  }
-  @if (errorAccion()) {
-    <p class="alerta-error">{{ errorAccion() }}</p>
+  @if (avisoReenvio()) {
+    <p class="aviso-reenvio">{{ avisoReenvio() }}</p>
   }
 
-  <!-- ============ RESULTADOS ============ -->
-  <div data-tour="resultados">
+  <app-listado-reservas [menu]="menuTpl" (cobrar)="busqueda.cobrarYValidar($event)" />
 
-  @if (buscando()) {
-    <app-spinner />
-  } @else if (todasLasFechas()) {
-    <!-- "Ver todas las fechas" (o una búsqueda por texto): agrupadas en un contenedor por día,
-         paginadas por semana calendario (lunes–domingo), arrancando en la semana que contiene
-         "hoy" — ver el comentario en boleteria.ts sobre `ejecutarBusquedaAgrupada`/`paginasDias`. -->
-    @if (gruposDia().length === 0) {
-      <div class="sin-resultados">
-        <svg lucideSearchX class="sin-resultados-icono" [strokeWidth]="1.5"></svg>
-        <p>No se encontraron reservas con los filtros actuales.</p>
-        <small>Ajustá los filtros de arriba, o revisá el texto buscado.</small>
-      </div>
-    } @else {
-      @if (avisoReenvio()) {
-        <p class="aviso-reenvio">{{ avisoReenvio() }}</p>
-      }
-
-      @if (totalPaginasAgrupado() > 1) {
-        <ng-container [ngTemplateOutlet]="paginadorDiasTpl" />
-      }
-
-      <div class="resumen-dia">
-        <span>
-          {{ totalElementos() }} reserva{{ totalElementos() === 1 ? '' : 's' }} ·
-          {{ totalPasesPagina() }} pase{{ totalPasesPagina() === 1 ? '' : 's' }} en esta página
-        </span>
-      </div>
-
-      @for (grupo of gruposDia(); track grupo.fecha) {
-        <div class="grupo-dia" [class.grupo-dia-hoy]="grupo.esHoy" [attr.data-grupo-hoy]="grupo.esHoy ? '' : null">
-          <div class="separador-dia">
-            <span class="etiqueta-dia">{{ grupo.etiqueta }}</span>
-            <span class="conteo-dia">
-              {{ grupo.vistas.length }} reserva{{ grupo.vistas.length === 1 ? '' : 's' }} ·
-              {{ grupo.totalPases }} pase{{ grupo.totalPases === 1 ? '' : 's' }}
-            </span>
-          </div>
-          <div class="tabla-reservas tabla-reservas-agrupada">
-            @for (v of grupo.vistas; track v.reserva.id) {
-              <ng-container [ngTemplateOutlet]="filaReservaTpl" [ngTemplateOutletContext]="{ $implicit: v }" />
-            }
-          </div>
-        </div>
-      }
-
-      @if (totalPaginasAgrupado() > 1) {
-        <ng-container [ngTemplateOutlet]="paginadorDiasTpl" />
-      }
-    }
-  } @else if (visibles() !== null) {
-
-    @if (visibles()!.length === 0) {
-      <div class="sin-resultados">
-        <svg lucideSearchX class="sin-resultados-icono" [strokeWidth]="1.5"></svg>
-        <p>No se encontraron reservas con los filtros actuales.</p>
-        <small>Probá "Ver todas las fechas", ajustá los filtros de arriba, o revisá el texto buscado.</small>
-      </div>
-    } @else {
-      @if (avisoReenvio()) {
-        <p class="aviso-reenvio">{{ avisoReenvio() }}</p>
-      }
-
-      <div class="separador-dia">
-        <span class="etiqueta-dia">{{ etiquetaFechaVista() }}</span>
-        <span class="conteo-dia">
-          {{ totalElementos() }} reserva{{ totalElementos() === 1 ? '' : 's' }} ·
-          {{ totalPasesPagina() }} pase{{ totalPasesPagina() === 1 ? '' : 's' }} en esta página
-        </span>
-      </div>
-
-      <div class="tabla-reservas tabla-reservas-conectada">
-        <div class="fila fila-header">
-          <button type="button" class="col-titular col-ordenable" (click)="ordenarColumna('titular')">
-            Titular
-            <app-columna-ordenable [estado]="estadoOrden('titular')" />
-          </button>
-          <button type="button" class="col-codigo col-ordenable" (click)="ordenarColumna('codigoReserva')">
-            Código
-            <app-columna-ordenable [estado]="estadoOrden('codigoReserva')" />
-          </button>
-          <button type="button" class="col-estado col-ordenable" (click)="ordenarColumna('estado')">
-            Estado
-            <app-columna-ordenable [estado]="estadoOrden('estado')" />
-          </button>
-          <span class="col-accion">Acción</span>
-          <span class="col-menu"></span>
-        </div>
-
-        @for (v of visibles(); track v.reserva.id) {
-          <ng-container [ngTemplateOutlet]="filaReservaTpl" [ngTemplateOutletContext]="{ $implicit: v }" />
-        }
-      </div>
-
-      @if (totalPaginas() > 1) {
-        <div class="paginador">
-          <button type="button" class="btn-limpiar" [disabled]="pagina() === 0 || buscando()" (click)="paginaAnterior()">Anterior</button>
-          <span>Página {{ pagina() + 1 }} de {{ totalPaginas() }}</span>
-          <button type="button" class="btn-limpiar" [disabled]="pagina() + 1 >= totalPaginas() || buscando()" (click)="paginaSiguiente()">Siguiente</button>
-        </div>
-      }
-    }
-  }
-  </div>
-
-  <!-- Fila de resultado: la misma para la tabla plana (día puntual) y para cada contenedor de
-       la vista agrupada (todas las fechas) — evita duplicar este bloque en los dos lugares. -->
-  <!-- Cada botón muestra el rango de fechas de esa semana (la de hoy se etiqueta "Hoy" y va con
-       anillo); el botón "Hoy" suelto aparece del lado hacia el que hay que ir (izquierda si mirás
-       semanas futuras, derecha si estás en el pasado). Se repite arriba y abajo de la lista. -->
-  <ng-template #paginadorDiasTpl>
-    <div class="paginador-dias">
-      <!-- Ranuras de ancho fijo a los costados: el botón "Hoy" entra y sale sin mover el resto de
-           la barra. Sólo aparece cuando la semana de hoy quedó fuera de la franja visible (a más de
-           una semana), porque si está a la vista ya se toca directo. -->
-      <span class="ranura-volver-hoy ranura-volver-hoy-izq">
-        @if (pagina() > paginaHoy() + 1) {
-          <button type="button" class="btn-volver-hoy" [disabled]="buscando()" (click)="irAPagina(paginaHoy())">
-            <svg lucideChevronLeft [strokeWidth]="2.5"></svg>
-            Hoy
-          </button>
-        }
-      </span>
-      <button
-        type="button"
-        class="btn-flecha-pagina"
-        aria-label="Semana anterior"
-        [disabled]="pagina() === 0 || buscando()"
-        (click)="paginaAnterior()">
-        <svg lucideChevronLeft [strokeWidth]="2.5"></svg>
+  <!-- Menú ⋮ de cada fila: sólo esta pantalla lo tiene (el POS no edita, reenvía ni reembolsa). -->
+  <ng-template #menuTpl let-reserva>
+    <div class="col-menu celda-menu">
+      <button type="button" class="btn-menu" (click)="toggleMenu(reserva, $event)" aria-label="Más acciones">
+        <svg lucideEllipsisVertical [strokeWidth]="2"></svg>
       </button>
-      @for (p of paginasVisibles(); track $index) {
-        @if (p) {
-          <button
-            type="button"
-            class="btn-pagina-dia"
-            [class.activo]="p.indice === pagina()"
-            [class.es-hoy]="p.indice === paginaHoy()"
-            [attr.aria-current]="p.indice === pagina() ? 'page' : null"
-            [title]="etiquetaRangoPagina(p)"
-            [disabled]="buscando()"
-            (click)="irAPagina(p.indice)">
-            {{ p.indice === paginaHoy() ? 'Hoy' : etiquetaRangoPagina(p) }}
+      @if (menuAbiertoId() === reserva.id) {
+        <div class="menu-dropdown" (click)="$event.stopPropagation()">
+          @if (puedeDeshacerDesdeMenu(reserva)) {
+            <button type="button" [disabled]="busqueda.deshaciendoId() === reserva.id" (click)="busqueda.deshacerValidacion(reserva, $event)">
+              {{ busqueda.deshaciendoId() === reserva.id ? 'Deshaciendo…' : 'Deshacer validación' }}
+            </button>
+          }
+          <button type="button" (click)="abrirEdicion(reserva, $event)">Editar contacto</button>
+          <button type="button" [disabled]="reenviandoId() === reserva.id" (click)="reenviarMail(reserva, $event)">
+            {{ reenviandoId() === reserva.id ? 'Enviando…' : 'Reenviar mail' }}
           </button>
-        } @else {
-          <span class="btn-pagina-dia btn-pagina-dia-vacia" aria-hidden="true"></span>
-        }
+          @if (puedeReembolsar(reserva)) {
+            <button
+              type="button"
+              class="opcion-riesgosa"
+              [disabled]="reembolsandoId() === reserva.id"
+              (click)="reembolsar(reserva, $event)">
+              {{ reembolsandoId() === reserva.id ? 'Reembolsando…' : 'Reembolsar' }}
+            </button>
+          }
+        </div>
       }
-      <button
-        type="button"
-        class="btn-flecha-pagina"
-        aria-label="Semana siguiente"
-        [disabled]="pagina() + 1 >= totalPaginasAgrupado() || buscando()"
-        (click)="paginaSiguiente()">
-        <svg lucideChevronRight [strokeWidth]="2.5"></svg>
-      </button>
-      <span class="ranura-volver-hoy ranura-volver-hoy-der">
-        @if (pagina() < paginaHoy() - 1) {
-          <button type="button" class="btn-volver-hoy" [disabled]="buscando()" (click)="irAPagina(paginaHoy())">
-            Hoy
-            <svg lucideChevronRight [strokeWidth]="2.5"></svg>
-          </button>
-        }
-      </span>
-    </div>
-  </ng-template>
-
-  <ng-template #filaReservaTpl let-v>
-    <div
-      class="fila fila-reserva"
-      [class.fila-usada]="v.reserva.estado === 'USADO'"
-      [class.fila-validada-reciente]="recienValidados().has(v.reserva.id)"
-      [class.fila-saliendo]="saliendoIds().has(v.reserva.id)">
-
-      <div class="col-titular celda-titular">
-        <!-- Las ventas de puerta son anónimas: no hay titular ni contacto que mostrar. -->
-        @if (v.reserva.cliente; as cliente) {
-          <strong>{{ cliente.nombre }} {{ cliente.apellido }}</strong>
-          <span class="titular-contacto">
-            <span class="titular-dni">DNI {{ cliente.dni }}</span>
-            @if (v.reserva.contactEmail) {
-              <span class="titular-email">{{ v.reserva.contactEmail }}</span>
-            }
-          </span>
-        } @else {
-          <strong class="titular-anonimo">Venta en boletería</strong>
-        }
-        <!-- Regalo (fechaVisita null): quien compró no es quien va a venir a usarlo, así que
-             el dato que el boletero necesita para validar identidad en la puerta es el del
-             receptor, no el del comprador de arriba. -->
-        @if (!v.reserva.fechaVisita && (v.reserva.receptorNombre || v.reserva.receptorDni)) {
-          <span class="titular-receptor">
-            Para {{ v.reserva.receptorNombre || 'quien lo reciba' }}
-            @if (v.reserva.receptorDni) { · DNI {{ v.reserva.receptorDni }} }
-          </span>
-        }
-        @if (v.pases.length || v.extras.length) {
-          <div class="titular-detalle">
-            @for (p of v.pases; track p.nombre) {
-              <span>{{ p.cantidad }}× {{ p.nombre }}</span>
-            }
-            @for (e of v.extras; track e.nombre) {
-              <span class="extra">{{ e.cantidad }}× {{ e.nombre }}</span>
-            }
-          </div>
-        }
-      </div>
-
-      <span class="col-codigo celda-codigo">#{{ v.reserva.codigoReserva }}</span>
-
-      <span class="col-estado">
-        <span class="badge" [class]="'badge-' + v.reserva.estado">{{ v.etiquetaEstado }}</span>
-      </span>
-
-      <div class="col-accion celda-accion">
-        @switch (v.reserva.estado) {
-          @case ('APROBADO') {
-            <button type="button" class="btn-accion btn-validar" [disabled]="procesando(v.reserva)" (click)="validarIngreso(v.reserva)">
-              {{ procesando(v.reserva) ? 'Validando…' : 'Validar Ingreso' }}
-            </button>
-          }
-          @case ('RESERVADO_EFECTIVO') {
-            <span class="monto-cobrar">{{ v.reserva.montoTotal | pesos }}</span>
-            <button type="button" class="btn-accion btn-cobrar" [disabled]="procesando(v.reserva)" (click)="cobrarYValidar(v.reserva)">
-              {{ procesando(v.reserva) ? 'Registrando…' : 'Cobrar y Validar' }}
-            </button>
-          }
-          @case ('USADO') {
-            <span class="texto-usado">
-              Usado
-              @if (v.reserva.fechaValidacion) {
-                {{ v.reserva.fechaValidacion | date: 'dd/MM HH:mm' }}
-              }
-            </span>
-            @if (recienValidados().has(v.reserva.id)) {
-              <div class="deshacer-validacion">
-                <div class="barra-deshacer">
-                  <div class="barra-deshacer-relleno" [style.animationDuration.ms]="VENTANA_DESHACER_MS"></div>
-                </div>
-                <button
-                  type="button"
-                  class="btn-deshacer"
-                  [disabled]="deshaciendoId() === v.reserva.id"
-                  (click)="deshacerValidacion(v.reserva, $event)">
-                  {{ deshaciendoId() === v.reserva.id ? 'Deshaciendo…' : 'Cancelar validación' }}
-                </button>
-              </div>
-            }
-          }
-          @case ('VENDIDO_EN_PUERTA') {
-            <span class="texto-usado">
-              Vendida en puerta
-              @if (v.reserva.fechaValidacion) {
-                {{ v.reserva.fechaValidacion | date: 'dd/MM HH:mm' }}
-              }
-            </span>
-          }
-          @case ('PENDIENTE_PAGO') {
-            <span class="texto-aviso">Pago pendiente</span>
-          }
-          @case ('CANCELADO') {
-            <span class="texto-aviso">Cancelada</span>
-          }
-          @case ('REEMBOLSADA') {
-            <span class="texto-aviso">Reembolsada</span>
-          }
-        }
-      </div>
-
-      <div class="col-menu celda-menu">
-        <button type="button" class="btn-menu" (click)="toggleMenu(v.reserva, $event)" aria-label="Más acciones">
-          <svg lucideEllipsisVertical [strokeWidth]="2"></svg>
-        </button>
-        @if (menuAbiertoId() === v.reserva.id) {
-          <div class="menu-dropdown" (click)="$event.stopPropagation()">
-            @if (puedeDeshacerDesdeMenu(v.reserva)) {
-              <button type="button" [disabled]="deshaciendoId() === v.reserva.id" (click)="deshacerValidacion(v.reserva, $event)">
-                {{ deshaciendoId() === v.reserva.id ? 'Deshaciendo…' : 'Deshacer validación' }}
-              </button>
-            }
-            <button type="button" (click)="abrirEdicion(v.reserva, $event)">Editar contacto</button>
-            <button type="button" [disabled]="reenviandoId() === v.reserva.id" (click)="reenviarMail(v.reserva, $event)">
-              {{ reenviandoId() === v.reserva.id ? 'Enviando…' : 'Reenviar mail' }}
-            </button>
-            @if (puedeReembolsar(v.reserva)) {
-              <button
-                type="button"
-                class="opcion-riesgosa"
-                [disabled]="reembolsandoId() === v.reserva.id"
-                (click)="reembolsar(v.reserva, $event)">
-                {{ reembolsandoId() === v.reserva.id ? 'Reembolsando…' : 'Reembolsar' }}
-              </button>
-            }
-          </div>
-        }
-      </div>
     </div>
   </ng-template>
 

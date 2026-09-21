@@ -266,6 +266,30 @@
       }
     </div>
 
+    <div class="tarjeta tarjeta-ancha" data-tour="ranking-boleteros">
+      <h2>Ranking de boleteros</h2>
+      <p class="ayuda">Desempeño acumulado por boletero en las cajas cerradas del rango (por la fecha de cierre de la caja): turnos trabajados, efectivo vendido en puerta, retiros y las diferencias de efectivo y de posnet (tarjeta + QR).</p>
+      @if (rankingBoleteros(r).length === 0) {
+        <p class="ayuda">No se cerró ninguna caja en este rango.</p>
+      } @else {
+        <div class="tabla-simple">
+          <div class="fila-simple fila-simple-ranking fila-simple-header">
+            <span>Boletero</span><span>Turnos</span><span>Efectivo vendido</span><span>Retiros</span><span>Dif. efectivo</span><span>Dif. posnet</span>
+          </div>
+          @for (b of rankingBoleteros(r); track b.nombre) {
+            <div class="fila-simple fila-simple-ranking">
+              <span>{{ b.nombre }}</span>
+              <span data-label="Turnos">{{ b.turnos }}</span>
+              <span data-label="Efectivo vendido">{{ b.efectivoVendido | pesos }}</span>
+              <span data-label="Retiros">{{ b.retiros | pesos }}</span>
+              <span data-label="Dif. efectivo" [class]="claseDiferencia(b.diferencia)">{{ b.diferencia | pesos }}</span>
+              <span data-label="Dif. posnet" [class]="claseDiferencia(b.diferenciaPosnet)">{{ b.diferenciaPosnet | pesos }}</span>
+            </div>
+          }
+        </div>
+      }
+    </div>
+
     <div class="tarjeta">
       <h2>Ventas y saldo en dólares</h2>
       <p class="ayuda">Cobros en efectivo hechos en dólares.</p>

@@ -273,6 +273,26 @@
   .graficos-comparacion { grid-template-columns: 1fr; }
 }
 
+/* ---------- Ranking de boleteros (venía de la pantalla de Cajas) ---------- */
+.fila-simple-ranking {
+  grid-template-columns: 1.6fr 0.7fr 1.1fr 1fr 1fr 1fr;
+  font-size: 0.9rem;
+}
+
+.diferencia-faltante {
+  color: var(--color-danger-dark);
+  font-weight: 700;
+}
+
+.diferencia-sobrante {
+  color: var(--color-primary-dark);
+  font-weight: 700;
+}
+
+.diferencia-exacta {
+  color: var(--color-text-secondary);
+}
+
 /* ---------- Responsive ---------- */
 /* Las tablas (.fila-simple-*) pasan a modo tarjeta con etiqueta por valor en ≤900px:
    ver configuracion-shared.css. */

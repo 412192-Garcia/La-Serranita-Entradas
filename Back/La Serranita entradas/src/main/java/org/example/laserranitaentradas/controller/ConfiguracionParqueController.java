@@ -24,14 +24,14 @@ public class ConfiguracionParqueController {
     @Operation(summary = "Obtener horario general", description = "Devuelve el horario por defecto del parque (rige salvo horario especial por día) — endpoint público, sin autenticación")
     public ResponseEntity<HorarioResponseDTO> obtenerHorarioGeneral() {
         ConfiguracionParque config = configuracionParqueService.getHorarioGeneral();
-        return ResponseEntity.ok(new HorarioResponseDTO(config.getHoraApertura(), config.getHoraCierre()));
+        return ResponseEntity.ok(new HorarioResponseDTO(config.getHoraApertura(), config.getHoraCierre(), config.getMinutosLimiteCompra()));
     }
 
     @PutMapping("/horario")
-    @Operation(summary = "Actualizar horario general", description = "Actualiza el horario por defecto del parque")
+    @Operation(summary = "Actualizar horario general", description = "Actualiza el horario por defecto del parque y, opcionalmente, cuántos minutos antes del cierre se corta la compra online del día (minutosLimiteCompra, 0 a 720; null lo deja como estaba)")
     public ResponseEntity<ConfiguracionParque> actualizarHorarioGeneral(@RequestBody HorarioRequest request) {
         ConfiguracionParque actualizado = configuracionParqueService.actualizarHorarioGeneral(
-                request.getHoraApertura(), request.getHoraCierre());
+                request.getHoraApertura(), request.getHoraCierre(), request.getMinutosLimiteCompra());
         return ResponseEntity.ok(actualizado);
     }
 }

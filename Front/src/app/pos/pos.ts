@@ -23,35 +23,11 @@ import { CatalogoEntradas } from './catalogo-entradas/catalogo-entradas';
 import { AgregarArticulo } from './agregar-articulo/agregar-articulo';
 import { CarritoVenta, VentaPosConfirmada } from './carrito-venta/carrito-venta';
 import { ComprobanteVenta } from './comprobante-venta/comprobante-venta';
-import { ValidarAnticipadaPos } from './validar-anticipada-pos/validar-anticipada-pos';
+import { AnticipadasPos } from './anticipadas-pos/anticipadas-pos';
 import { TourStep } from '../shared/tour/tour';
+import { LucideArrowLeft, LucideSearch } from '@lucide/angular';
 import { DetectorEscaneoDni, extraerDniDeEscaneo } from '../shared/escaner-dni.util';
 
-/** Los targets sólo existen con una caja abierta (antes de eso la pantalla es sólo el
- * formulario de apertura) — asumible porque para llegar a tocar "Tutorial" acá ya hace
- * falta haber abierto la caja. */
-const PASOS_TUTORIAL: TourStep[] = [
-  {
-    selector: '[data-tour="barra-caja"]',
-    titulo: 'Tu caja',
-    texto: 'Desde acá hacés un Retiro/Aporte de efectivo o reponés el talonario. Para validar el ingreso de alguien que ya tiene una entrada, escaneá su DNI en cualquier momento: se abre acá mismo la lista de sus anticipadas para validarlas sin salir del POS.',
-  },
-  {
-    selector: '[data-tour="catalogo"]',
-    titulo: 'Catálogo de entradas',
-    texto: 'Tocá la cantidad de cada tipo para sumarla a la venta.',
-  },
-  {
-    selector: '[data-tour="agregar-articulo"]',
-    titulo: 'Artículos varios',
-    texto: 'Souvenirs y otros artículos que no son entradas se agregan desde acá.',
-  },
-  {
-    selector: '[data-tour="carrito"]',
-    titulo: 'Cobrar',
-    texto: 'Revisá el resumen, elegí la forma de pago y tocá Cobrar para cerrar la venta.',
-  },
-];
 
 @Component({
   selector: 'app-pos',
@@ -67,7 +43,9 @@ const PASOS_TUTORIAL: TourStep[] = [
     AgregarArticulo,
     CarritoVenta,
     ComprobanteVenta,
-    ValidarAnticipadaPos,
+    AnticipadasPos,
+    LucideArrowLeft,
+    LucideSearch,
   ],
   templateUrl: './pos.html',
   styleUrl: './pos.css',
@@ -81,7 +59,89 @@ export class Pos implements OnInit, OnDestroy {
   private configuracionService = inject(ConfiguracionService);
   private cache = inject(PosCacheService);
 
-  readonly pasosTutorial = PASOS_TUTORIAL;
+  /**
+   * El POS tiene dos partes —la venta y el panel de anticipadas— y el tutorial explica las dos
+   * de corrido: cada paso trae un `antes` que pasa al modo que explica (ver TourStep.antes), y al
+   * terminar se repone el modo en que estaba la pantalla (ver alIniciarTutorial/alCerrarTutorial).
+   * Los targets sólo existen con una caja abierta; sin ella el tour muestra los pasos centrados.
+   */
+  readonly pasosTutorial: TourStep[] = [
+    {
+      selector: '[data-tour="acciones-caja"]',
+      titulo: 'Tu caja',
+      texto: 'Desde acá hacés un Retiro/Aporte de efectivo o reponés el talonario. Este tutorial explica las dos partes del POS: primero la venta y después Anticipadas, para validar a quien ya compró o cobrar una reserva.',
+      antes: () => this.consultaAnticipada.set(null),
+    },
+    {
+      selector: '[data-tour="catalogo"]',
+      titulo: 'Venta: catálogo de entradas',
+      texto: 'Tocá la cantidad de cada tipo para sumarla a la venta.',
+      antes: () => this.consultaAnticipada.set(null),
+    },
+    {
+      selector: '[data-tour="agregar-articulo"]',
+      titulo: 'Venta: artículos varios',
+      texto: 'Souvenirs y otros artículos que no son entradas se agregan desde acá.',
+      antes: () => this.consultaAnticipada.set(null),
+    },
+    {
+      selector: '[data-tour="carrito"]',
+      titulo: 'Venta: cobrar',
+      texto: 'Revisá el resumen, elegí la forma de pago y tocá Cobrar para cerrar la venta. Las reservas "a cobrar en caja" también se cobran acá: las carga la pantalla de Anticipadas, que viene ahora.',
+      antes: () => this.consultaAnticipada.set(null),
+    },
+    {
+      selector: '[data-tour="boton-anticipadas"]',
+      titulo: 'Anticipadas: cómo se llega',
+      texto: 'Este botón abre Anticipadas. También se abre con F2, o escaneando el DNI del cliente en cualquier momento. Al tocar Siguiente lo abrimos por vos: vas a ver que el título cambia y que este mismo botón pasa a decir "Volver a la venta".',
+      // Todavía en la venta: se muestra el botón antes de tocarlo. El paso siguiente (buscar) es el
+      // que abre el panel, o sea que "Siguiente" hace de toque.
+      antes: () => this.consultaAnticipada.set(null),
+    },
+    {
+      selector: '[data-tour="buscador"]',
+      titulo: 'Anticipadas: buscar',
+      texto: 'Buscá por DNI, nombre, email o código de reserva (también funciona con el DNI de quien recibe un regalo). Al escanear un DNI se busca solo.',
+      antes: () => this.abrirAnticipadasParaTutorial(),
+    },
+    {
+      selector: '[data-tour="fecha"]',
+      titulo: 'Anticipadas: qué día ver',
+      texto: 'Al abrir ves las reservas de hoy. Elegí otro día, o "Ver todas las fechas" para buscar sin importar cuándo es la visita.',
+      antes: () => this.abrirAnticipadasParaTutorial(),
+    },
+    {
+      selector: '[data-tour="regalos"]',
+      // El botón sólo existe si hay regalos: sin ellos se resalta la barra de fecha, que siempre está.
+      alternativo: '[data-tour="fecha"]',
+      titulo: 'Anticipadas: regalos',
+      texto: 'Un regalo no tiene fecha de visita (quien lo recibe elige cuándo venir), así que no aparece en la lista del día: va en este botón, que sólo se ve cuando hay regalos. Tocalo para desplegarlos. En cada uno, "Para <nombre> · DNI" es la persona que se presenta: pedile ese DNI, no el de quien compró.',
+      antes: () => this.abrirAnticipadasParaTutorial(),
+    },
+    {
+      selector: '[data-tour="resultados"]',
+      titulo: 'Anticipadas: validar o cobrar',
+      texto: '"Validar Ingreso" habilita a quien ya pagó online: la fila se pone roja unos segundos por si te equivocaste ("Cancelar validación"). "Cobrar" es para las reservas a cobrar en caja: te lleva a la venta con esa reserva cargada, para elegir efectivo, tarjeta o QR.',
+      antes: () => this.abrirAnticipadasParaTutorial(),
+    },
+  ];
+
+  /** Modo del POS al tocar "Tutorial": el tour cambia de modo entre pasos y lo repone al terminar. */
+  private consultaAntesDelTutorial: string | null = null;
+
+  alIniciarTutorial(): void {
+    this.consultaAntesDelTutorial = this.consultaAnticipada();
+  }
+
+  alCerrarTutorial(): void {
+    this.consultaAnticipada.set(this.consultaAntesDelTutorial);
+  }
+
+  /** Abre el panel sin pasar por la pregunta del carrito (abrirAnticipadas): el panel tapa el
+   * catálogo y el carrito sin destruirlos, así que una compra a medio cargar sigue ahí al volver. */
+  private abrirAnticipadasParaTutorial(): void {
+    if (this.consultaAnticipada() === null) this.consultaAnticipada.set('');
+  }
 
   // ---------- Caja: sin una abierta no se puede vender ----------
   cargandoCaja = signal(true);
@@ -105,12 +165,13 @@ export class Pos implements OnInit, OnDestroy {
   /** Venta recién cerrada: mientras esté seteada se muestra el comprobante en pantalla. */
   ultimaVenta = signal<VentaPosConfirmada | null>(null);
 
-  /** DNI recién escaneado: mientras esté seteado, el panel de anticipadas tapa (sin destruir)
-   * el catálogo/carrito para validar los ingresos de esa persona sin salir del POS. */
-  dniAnticipada = signal<string | null>(null);
+  /** Panel de anticipadas abierto: tapa (sin destruir) el catálogo/carrito para validar los
+   * ingresos de una persona sin salir del POS. Null = cerrado; con un DNI escaneado busca solo;
+   * con '' (búsqueda manual, sin lector) muestra el campo para escribir. */
+  consultaAnticipada = signal<string | null>(null);
 
-  /** DNI escaneado que quedó a la espera de que el boletero decida si dejar la compra en curso
-   * (ver el diálogo en pos.html). Null = no hay decisión pendiente. */
+  /** Consulta (DNI escaneado, o '' = búsqueda manual) que quedó a la espera de que el boletero
+   * decida si dejar la compra en curso (ver el diálogo en pos.html). Null = no hay decisión pendiente. */
   escaneoPendiente = signal<string | null>(null);
 
   /** Reserva RESERVADO_EFECTIVO cargada en el carrito desde el panel de anticipadas: al cobrarla
@@ -292,36 +353,35 @@ export class Pos implements OnInit, OnDestroy {
 
   // ---------- Escaneo de DNI de fondo: reemplaza el viejo botón "Validar reserva" ----------
   // Al escanear el DNI de alguien que ya tiene una entrada, se abre acá mismo el panel de
-  // anticipadas (ver dniAnticipada / ValidarAnticipadaPos) en vez de navegar a Control de
+  // anticipadas (ver consultaAnticipada / AnticipadasPos) en vez de navegar a Control de
   // Accesos: el boletero valida o cobra sin salir del POS.
   private detectorEscaneo = new DetectorEscaneoDni((escaneo) => {
-    // Con un modal de retiro/ingreso abierto no se hace nada: ese DNI se escanea de nuevo
-    // cuando se cierre el modal.
+    this.abrirAnticipadas(extraerDniDeEscaneo(escaneo));
+  });
+
+  /** Abre el panel de anticipadas. Con un DNI (escaneo) busca solo; con '' es búsqueda manual,
+   * para el boletero sin lector (botón "Anticipadas" o F2). */
+  abrirAnticipadas(consulta: string): void {
+    // Con un modal de retiro/ingreso abierto no se hace nada: el escaneo se repite cuando se
+    // cierre el modal.
     if (this.mostrarRetiro() || this.mostrarIngresoEntradas()) return;
-    const dni = extraerDniDeEscaneo(escaneo);
     // Si hay una compra a medio cargar (y no se está viendo un comprobante), primero se
     // pregunta: pasar al panel descarta ese carrito.
     if (!this.ultimaVenta() && this.hayCarritoEnCurso()) {
-      this.escaneoPendiente.set(dni);
+      this.escaneoPendiente.set(consulta);
       return;
     }
-    this.dniAnticipada.set(dni);
-  });
-
-  /** El boletero eligió dejar la compra en curso e ir al panel de anticipadas de ese DNI. */
-  confirmarIrAAnticipadas(): void {
-    const dni = this.escaneoPendiente();
-    this.escaneoPendiente.set(null);
-    if (dni === null) return;
-    this.compraReservada.set(null);
-    this.onLimpiar();
-    this.dniAnticipada.set(dni);
+    this.consultaAnticipada.set(consulta);
   }
 
-  /** Una anticipada APROBADO se validó desde el panel: se cierra y el POS queda limpio. */
-  onAnticipadaValidada(): void {
-    this.dniAnticipada.set(null);
-    this.nuevaVenta();
+  /** El boletero eligió dejar la compra en curso e ir al panel de anticipadas. */
+  confirmarIrAAnticipadas(): void {
+    const consulta = this.escaneoPendiente();
+    this.escaneoPendiente.set(null);
+    if (consulta === null) return;
+    this.compraReservada.set(null);
+    this.onLimpiar();
+    this.consultaAnticipada.set(consulta);
   }
 
   /** Una anticipada RESERVADO_EFECTIVO: se carga en el carrito para cobrarla como venta normal.
@@ -358,12 +418,21 @@ export class Pos implements OnInit, OnDestroy {
     this.entradasReserva.set(fijas);
     this.articulosCarrito.set(articulos);
     this.compraReservada.set(reserva);
-    this.dniAnticipada.set(null);
+    this.consultaAnticipada.set(null);
   }
 
   @HostListener('window:keydown', ['$event'])
   onKeydownGlobal(event: KeyboardEvent): void {
     this.detectorEscaneo.procesarTecla(event);
+  }
+
+  /** F2: atajo de teclado para abrir la búsqueda manual de anticipadas. Con el panel ya abierto
+   * lo maneja el propio panel (enfoca el campo), y sin caja abierta no hay POS al que volver. */
+  @HostListener('window:keydown.f2', ['$event'])
+  onF2(event: Event): void {
+    if (this.caja() === null || this.consultaAnticipada() !== null) return;
+    event.preventDefault();
+    this.abrirAnticipadas('');
   }
 
   ngOnDestroy(): void {

@@ -1,0 +1,354 @@
+@import '../fila-grid.css';
+
+/* Errores y resultados van apilados con el mismo aire que tenían como hijos sueltos de la pantalla. */
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.btn-buscar,
+.btn-limpiar {
+  flex-shrink: 0;
+  padding: 0 18px;
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+}
+
+.btn-limpiar {
+  border: 1px solid #d1d5db;
+  background-color: var(--color-card-bg);
+  color: var(--color-text-secondary);
+}
+
+.btn-limpiar:hover { background-color: var(--color-bg-soft); }
+
+.resumen-dia {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  background-color: var(--color-bg-soft);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 8px 14px;
+  margin-bottom: 12px;
+}
+
+/* ---------- Avisos ---------- */
+.alerta-error {
+  background-color: var(--color-danger-light);
+  color: var(--color-danger-dark);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.sin-resultados {
+  background-color: var(--color-card-bg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  padding: 40px 24px;
+  text-align: center;
+}
+
+.sin-resultados-icono {
+  display: block;
+  width: 40px;
+  height: 40px;
+  margin: 0 auto 10px;
+  color: var(--color-text-muted);
+  stroke-width: 1.5;
+}
+
+.sin-resultados p {
+  font-size: 1rem;
+  margin: 0 0 6px;
+}
+
+.sin-resultados small { color: var(--color-text-muted); }
+
+/* ==========================================================================
+   VISTA AGRUPADA POR DÍA ("Ver todas las fechas")
+   Cada día es su propio "contenedor": una franja con el nombre del día pegada
+   arriba de la tabla de esa fecha, como si fueran el mismo bloque.
+   ========================================================================== */
+.grupo-dia {
+  margin-bottom: 18px;
+}
+
+.grupo-dia:last-child { margin-bottom: 0; }
+
+.separador-dia {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  background-color: var(--color-bg-soft);
+  border: 1px solid var(--color-border);
+  border-bottom: none;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  padding: 10px 20px;
+}
+
+.etiqueta-dia {
+  font-family: var(--font-heading);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.conteo-dia {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+/* El día de hoy es el ancla visual de la lista: se destaca con el color primario. */
+.grupo-dia-hoy .separador-dia {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.grupo-dia-hoy .etiqueta-dia,
+.grupo-dia-hoy .conteo-dia {
+  color: #fff;
+}
+
+/* Pegada directamente abajo de .separador-dia: entre las dos arman una sola tarjeta. Arriba no
+   hace falta redondear (el radio de acá es 0 0 arriba, igual que el de .separador-dia abajo:
+   var(--radius-lg) var(--radius-lg) 0 0) — la única punta redonda real es la de abajo, y de esa
+   ya se encarga .fila-reserva:last-child con su propio border-radius. Sin overflow: hidden a
+   propósito: lo tuvo antes, pero recortaba el menú "⋮" (position: absolute) de las filas de
+   cada día.
+   Selector con las dos clases (no sólo .tabla-reservas-agrupada) a propósito: mismo puntaje de
+   especificidad que .tabla-reservas sola no alcanza para pisarla de forma confiable — quién
+   gana termina dependiendo del orden en la hoja de estilos en vez de la regla más específica.
+   .tabla-reservas-conectada es la misma idea para "Ver esa fecha": ese modo sí tiene una fila
+   de encabezado (.fila-header) arriba de las filas de datos, que por su cuenta se redondea a sí
+   misma arriba (pensada para cuando NO hay separador-dia encima) — hay que aplanarla también. */
+.tabla-reservas.tabla-reservas-agrupada,
+.tabla-reservas.tabla-reservas-conectada {
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+
+.tabla-reservas-conectada .fila-header {
+  border-radius: 0;
+}
+
+/* Números relativos a "hoy" (0), en vez de "Página X de Y": para este listado importa más
+   saber "cuántos días para atrás/adelante estoy" que un número de página absoluto. Toda la
+   barra es una sola píldora (fondo + sombra suave) en vez de botones sueltos, con las
+   flechas como círculos a los costados. */
+.paginador-dias {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: nowrap;
+  gap: 4px;
+  width: fit-content;
+  max-width: 100%;
+  margin: 10px auto;
+  padding: 5px;
+  background-color: var(--color-card-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  box-shadow: var(--shadow-card);
+  overflow-x: auto;
+}
+
+.btn-flecha-pagina {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  border-radius: 50%;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.btn-flecha-pagina svg { width: 16px; height: 16px; }
+.btn-flecha-pagina:hover:not(:disabled) { background-color: var(--color-bg-soft); color: var(--color-primary-dark); }
+.btn-flecha-pagina:disabled { opacity: 0.35; cursor: not-allowed; }
+
+/* Ancho fijo: todos los rangos ("7–13 sep", "31 ago – 6 sep") ocupan lo mismo, así la barra
+   no se sacude al navegar. El ancho contempla el rango más largo (una semana que cruza de mes). */
+.btn-pagina-dia {
+  flex-shrink: 0;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 120px;
+  height: 32px;
+  padding: 0 8px;
+  border: none;
+  background-color: transparent;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-family: inherit;
+  transition: background-color 0.18s ease, color 0.18s ease;
+}
+
+/* Relleno para las ranuras sin página en los extremos de la lista: mantiene el ancho de la barra. */
+.btn-pagina-dia-vacia {
+  pointer-events: none;
+}
+
+.btn-pagina-dia:hover:not(:disabled):not(.activo) { background-color: var(--color-bg-soft); color: var(--color-primary-dark); }
+.btn-pagina-dia:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-pagina-dia.activo {
+  background-color: var(--color-primary);
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(57, 169, 53, 0.35);
+}
+
+/* La semana de hoy (etiquetada "Hoy") cuando NO es la que se está mirando: anillo tenue para ubicarla de un vistazo. */
+.btn-pagina-dia.es-hoy:not(.activo) {
+  box-shadow: inset 0 0 0 1.5px var(--color-primary);
+  color: var(--color-primary-dark);
+}
+
+/* Ranura de ancho fijo a cada costado de la barra: reserva el lugar del botón "Hoy" esté o
+   no visible, para que aparecer/desaparecer no corra el resto de la barra. */
+.ranura-volver-hoy {
+  flex-shrink: 0;
+  width: 76px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.ranura-volver-hoy-izq { justify-content: flex-start; }
+.ranura-volver-hoy-der { justify-content: flex-end; }
+
+/* Atajo para volver a la semana de hoy; aparece del lado hacia donde hay que ir: a la
+   izquierda si estás mirando semanas futuras, a la derecha si estás en el pasado. */
+.btn-volver-hoy {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  height: 32px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 999px;
+  background-color: var(--color-primary-light);
+  color: var(--color-primary-dark);
+  font-size: 0.8rem;
+  font-weight: 800;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background-color 0.18s ease, color 0.18s ease;
+}
+
+.btn-volver-hoy svg { width: 14px; height: 14px; }
+
+.btn-volver-hoy:hover:not(:disabled) { background-color: var(--color-primary); color: #fff; }
+.btn-volver-hoy:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.tabla-reservas {
+  background-color: var(--color-card-bg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.fila-header {
+  background-color: var(--color-bg-soft);
+  border-bottom: 1px solid var(--color-border);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+
+.col-ordenable {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.col-ordenable:hover {
+  color: var(--color-text);
+}
+
+.col-ordenable svg {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+}
+
+.icono-orden-inactivo {
+  opacity: 0.35;
+}
+
+/* ---------- Paginador ---------- */
+.paginador {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 6px 0 4px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.btn-limpiar:focus-visible,
+.btn-pagina-dia:focus-visible,
+.btn-flecha-pagina:focus-visible,
+.btn-volver-hoy:focus-visible,
+.col-ordenable:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(57, 169, 53, 0.35);
+}
+
+@media (max-width: 860px) {
+  /* Los encabezados de columna no tienen sentido en tarjetas apiladas. */
+  .fila-header { display: none; }
+}
+
+@media (pointer: coarse) {
+  /* Los encabezados ordenables sólo existen arriba de 900px, o sea que en táctil se ven en
+     tablet apaisada: ahí seguían midiendo 27px de alto. El padding les da altura sin mover
+     la grilla (el margen negativo lo compensa) y de paso separa el texto del ícono de orden
+     del borde de la celda. */
+  .col-ordenable {
+    padding: 9px 0;
+    margin: -9px 0;
+  }
+}

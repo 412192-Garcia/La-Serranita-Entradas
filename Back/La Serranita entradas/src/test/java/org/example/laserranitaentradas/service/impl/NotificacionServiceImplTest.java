@@ -86,6 +86,30 @@ class NotificacionServiceImplTest {
     }
 
     @Test
+    void marcarVistas_devuelveSoloLosIdsQueEstabanSinVer() {
+        // La 2 ya la había visto: la novedad (lo que prendía el aviso) son la 1 y la 3.
+        when(repository.findAllByTipoAndUsuarioIdAndRefIdIn(TipoNotificacion.CAJA_ATRASADA, USUARIO_ID, List.of(1L, 2L, 3L)))
+                .thenReturn(List.of(vista(2L)));
+
+        List<Long> nuevas = service.marcarVistas(TipoNotificacion.CAJA_ATRASADA, List.of(1L, 2L, 3L), USUARIO_ID);
+
+        assertThat(nuevas).containsExactlyInAnyOrder(1L, 3L);
+    }
+
+    @Test
+    void marcarVistas_conTodoYaVisto_devuelveVacio() {
+        when(repository.findAllByTipoAndUsuarioIdAndRefIdIn(TipoNotificacion.CAJA_ATRASADA, USUARIO_ID, List.of(1L)))
+                .thenReturn(List.of(vista(1L)));
+
+        assertThat(service.marcarVistas(TipoNotificacion.CAJA_ATRASADA, List.of(1L), USUARIO_ID)).isEmpty();
+    }
+
+    @Test
+    void marcarVistas_tipoQueNoDesaparece_devuelveVacio() {
+        assertThat(service.marcarVistas(TipoNotificacion.RECHAZO_OPERACION, List.of(1L, 2L), USUARIO_ID)).isEmpty();
+    }
+
+    @Test
     void marcarVistas_conTodoYaVisto_noGuardaNada() {
         when(repository.findAllByTipoAndUsuarioIdAndRefIdIn(TipoNotificacion.CAJA_ATRASADA, USUARIO_ID, List.of(1L)))
                 .thenReturn(List.of(vista(1L)));

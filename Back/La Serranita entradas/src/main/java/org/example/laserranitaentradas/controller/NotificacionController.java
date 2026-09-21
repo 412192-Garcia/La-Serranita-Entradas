@@ -13,6 +13,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.util.EnumMap;
+import java.util.List;
 import java.util.Map;
 
 /** Avisos genéricos (punto rojo en la cabecera interna) del usuario logueado. ADMIN-only por
@@ -47,11 +48,10 @@ public class NotificacionController {
 
     @PostMapping("/{tipo}/marcar-vistas")
     @Operation(summary = "Marcar estos ids como vistos por el usuario logueado, para este tipo de aviso",
-            description = "Sólo tiene efecto real en tipos con desapareceAlVerse=true (ej. CAJA_ATRASADA); en los demás no hace nada.")
-    public ResponseEntity<Void> marcarVistas(@PathVariable TipoNotificacion tipo,
-                                              @RequestBody MarcarVistasRequestDTO request,
-                                              @AuthenticationPrincipal UsuarioAutenticado operador) {
-        notificacionService.marcarVistas(tipo, request.getRefIds(), operador.id());
-        return ResponseEntity.noContent().build();
+            description = "Sólo tiene efecto real en tipos con desapareceAlVerse=true (ej. CAJA_ATRASADA); en los demás no hace nada. Devuelve los ids que estaban sin ver hasta ahora (los que prendían el aviso), para que la pantalla pueda señalarlos.")
+    public ResponseEntity<List<Long>> marcarVistas(@PathVariable TipoNotificacion tipo,
+                                                    @RequestBody MarcarVistasRequestDTO request,
+                                                    @AuthenticationPrincipal UsuarioAutenticado operador) {
+        return ResponseEntity.ok(notificacionService.marcarVistas(tipo, request.getRefIds(), operador.id()));
     }
 }

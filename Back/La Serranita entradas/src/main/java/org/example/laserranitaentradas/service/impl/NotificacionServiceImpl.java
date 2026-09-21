@@ -38,13 +38,13 @@ public class NotificacionServiceImpl implements NotificacionService {
 
     @Transactional
     @Override
-    public void marcarVistas(TipoNotificacion tipo, List<Long> refIds, Long usuarioId) {
+    public List<Long> marcarVistas(TipoNotificacion tipo, List<Long> refIds, Long usuarioId) {
         if (refIds == null || refIds.isEmpty()) {
-            return;
+            return List.of();
         }
         if (!tipo.isDesapareceAlVerse()) {
             // hayPendientes nunca consulta las vistas de este tipo: guardarlas sería estado muerto.
-            return;
+            return List.of();
         }
         Set<Long> yaVistos = repository.findAllByTipoAndUsuarioIdAndRefIdIn(tipo, usuarioId, refIds).stream()
                 .map(NotificacionVista::getRefId)
@@ -57,5 +57,6 @@ public class NotificacionServiceImpl implements NotificacionService {
         if (!nuevas.isEmpty()) {
             repository.saveAll(nuevas);
         }
+        return nuevas.stream().map(NotificacionVista::getRefId).toList();
     }
 }

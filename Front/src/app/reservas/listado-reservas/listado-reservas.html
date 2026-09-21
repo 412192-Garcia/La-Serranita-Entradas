@@ -1,0 +1,166 @@
+@if (busqueda.errorBusqueda()) {
+  <p class="alerta-error">{{ busqueda.errorBusqueda() }}</p>
+}
+@if (busqueda.errorAccion()) {
+  <p class="alerta-error">{{ busqueda.errorAccion() }}</p>
+}
+
+<div data-tour="resultados">
+
+@if (busqueda.buscando()) {
+  <app-spinner />
+} @else if (busqueda.todasLasFechas()) {
+  <!-- "Ver todas las fechas" (o una búsqueda por texto): agrupadas en un contenedor por día,
+       paginadas por semana calendario (lunes–domingo), arrancando en la semana que contiene
+       "hoy" — ver el comentario en busqueda-reservas.ts sobre `ejecutarBusquedaAgrupada`/`paginasDias`. -->
+  @if (busqueda.gruposDia().length === 0) {
+    <div class="sin-resultados">
+      <svg lucideSearchX class="sin-resultados-icono" [strokeWidth]="1.5"></svg>
+      <p>No se encontraron reservas con los filtros actuales.</p>
+      <small>Ajustá los filtros de arriba, o revisá el texto buscado.</small>
+    </div>
+  } @else {
+    @if (busqueda.totalPaginasAgrupado() > 1) {
+      <ng-container [ngTemplateOutlet]="paginadorDiasTpl" />
+    }
+
+    <div class="resumen-dia">
+      <span>
+        {{ busqueda.totalElementos() }} reserva{{ busqueda.totalElementos() === 1 ? '' : 's' }} ·
+        {{ busqueda.totalPasesPagina() }} pase{{ busqueda.totalPasesPagina() === 1 ? '' : 's' }} en esta página
+      </span>
+    </div>
+
+    @for (grupo of busqueda.gruposDia(); track grupo.fecha) {
+      <div class="grupo-dia" [class.grupo-dia-hoy]="grupo.esHoy" [attr.data-grupo-hoy]="grupo.esHoy ? '' : null">
+        <div class="separador-dia">
+          <span class="etiqueta-dia">{{ grupo.etiqueta }}</span>
+          <span class="conteo-dia">
+            {{ grupo.vistas.length }} reserva{{ grupo.vistas.length === 1 ? '' : 's' }} ·
+            {{ grupo.totalPases }} pase{{ grupo.totalPases === 1 ? '' : 's' }}
+          </span>
+        </div>
+        <div class="tabla-reservas tabla-reservas-agrupada">
+          @for (v of grupo.vistas; track v.reserva.id) {
+            <app-fila-reserva [vista]="v" [textoCobrar]="textoCobrar()" [menu]="menu()" (cobrar)="cobrar.emit($event)" />
+          }
+        </div>
+      </div>
+    }
+
+    @if (busqueda.totalPaginasAgrupado() > 1) {
+      <ng-container [ngTemplateOutlet]="paginadorDiasTpl" />
+    }
+  }
+} @else if (busqueda.visibles() !== null) {
+
+  @if (busqueda.visibles()!.length === 0) {
+    <div class="sin-resultados">
+      <svg lucideSearchX class="sin-resultados-icono" [strokeWidth]="1.5"></svg>
+      <p>No se encontraron reservas con los filtros actuales.</p>
+      <small>Probá "Ver todas las fechas", ajustá los filtros de arriba, o revisá el texto buscado.</small>
+    </div>
+  } @else {
+    <div class="separador-dia">
+      <span class="etiqueta-dia">{{ busqueda.etiquetaFechaVista() }}</span>
+      <span class="conteo-dia">
+        {{ busqueda.totalElementos() }} reserva{{ busqueda.totalElementos() === 1 ? '' : 's' }} ·
+        {{ busqueda.totalPasesPagina() }} pase{{ busqueda.totalPasesPagina() === 1 ? '' : 's' }} en esta página
+      </span>
+    </div>
+
+    <div class="tabla-reservas tabla-reservas-conectada">
+      <div class="fila fila-header" [class.con-menu]="menu() !== null">
+        <button type="button" class="col-titular col-ordenable" (click)="busqueda.ordenarColumna('titular')">
+          Titular
+          <app-columna-ordenable [estado]="busqueda.estadoOrden('titular')" />
+        </button>
+        <button type="button" class="col-codigo col-ordenable" (click)="busqueda.ordenarColumna('codigoReserva')">
+          Código
+          <app-columna-ordenable [estado]="busqueda.estadoOrden('codigoReserva')" />
+        </button>
+        <button type="button" class="col-estado col-ordenable" (click)="busqueda.ordenarColumna('estado')">
+          Estado
+          <app-columna-ordenable [estado]="busqueda.estadoOrden('estado')" />
+        </button>
+        <span class="col-accion">Acción</span>
+        @if (menu() !== null) {
+          <span class="col-menu"></span>
+        }
+      </div>
+
+      @for (v of busqueda.visibles(); track v.reserva.id) {
+        <app-fila-reserva [vista]="v" [textoCobrar]="textoCobrar()" [menu]="menu()" (cobrar)="cobrar.emit($event)" />
+      }
+    </div>
+
+    @if (busqueda.totalPaginas() > 1) {
+      <div class="paginador">
+        <button type="button" class="btn-limpiar" [disabled]="busqueda.pagina() === 0 || busqueda.buscando()" (click)="busqueda.paginaAnterior()">Anterior</button>
+        <span>Página {{ busqueda.pagina() + 1 }} de {{ busqueda.totalPaginas() }}</span>
+        <button type="button" class="btn-limpiar" [disabled]="busqueda.pagina() + 1 >= busqueda.totalPaginas() || busqueda.buscando()" (click)="busqueda.paginaSiguiente()">Siguiente</button>
+      </div>
+    }
+  }
+}
+</div>
+
+<!-- Cada botón muestra el rango de fechas de esa semana (la de hoy se etiqueta "Hoy" y va con
+     anillo); el botón "Hoy" suelto aparece del lado hacia el que hay que ir (izquierda si mirás
+     semanas futuras, derecha si estás en el pasado). Se repite arriba y abajo de la lista. -->
+<ng-template #paginadorDiasTpl>
+  <div class="paginador-dias">
+    <!-- Ranuras de ancho fijo a los costados: el botón "Hoy" entra y sale sin mover el resto de
+         la barra. Sólo aparece cuando la semana de hoy quedó fuera de la franja visible (a más de
+         una semana), porque si está a la vista ya se toca directo. -->
+    <span class="ranura-volver-hoy ranura-volver-hoy-izq">
+      @if (busqueda.pagina() > busqueda.paginaHoy() + 1) {
+        <button type="button" class="btn-volver-hoy" [disabled]="busqueda.buscando()" (click)="busqueda.irAPagina(busqueda.paginaHoy())">
+          <svg lucideChevronLeft [strokeWidth]="2.5"></svg>
+          Hoy
+        </button>
+      }
+    </span>
+    <button
+      type="button"
+      class="btn-flecha-pagina"
+      aria-label="Semana anterior"
+      [disabled]="busqueda.pagina() === 0 || busqueda.buscando()"
+      (click)="busqueda.paginaAnterior()">
+      <svg lucideChevronLeft [strokeWidth]="2.5"></svg>
+    </button>
+    @for (p of busqueda.paginasVisibles(); track $index) {
+      @if (p) {
+        <button
+          type="button"
+          class="btn-pagina-dia"
+          [class.activo]="p.indice === busqueda.pagina()"
+          [class.es-hoy]="p.indice === busqueda.paginaHoy()"
+          [attr.aria-current]="p.indice === busqueda.pagina() ? 'page' : null"
+          [title]="busqueda.etiquetaRangoPagina(p)"
+          [disabled]="busqueda.buscando()"
+          (click)="busqueda.irAPagina(p.indice)">
+          {{ p.indice === busqueda.paginaHoy() ? 'Hoy' : busqueda.etiquetaRangoPagina(p) }}
+        </button>
+      } @else {
+        <span class="btn-pagina-dia btn-pagina-dia-vacia" aria-hidden="true"></span>
+      }
+    }
+    <button
+      type="button"
+      class="btn-flecha-pagina"
+      aria-label="Semana siguiente"
+      [disabled]="busqueda.pagina() + 1 >= busqueda.totalPaginasAgrupado() || busqueda.buscando()"
+      (click)="busqueda.paginaSiguiente()">
+      <svg lucideChevronRight [strokeWidth]="2.5"></svg>
+    </button>
+    <span class="ranura-volver-hoy ranura-volver-hoy-der">
+      @if (busqueda.pagina() < busqueda.paginaHoy() - 1) {
+        <button type="button" class="btn-volver-hoy" [disabled]="busqueda.buscando()" (click)="busqueda.irAPagina(busqueda.paginaHoy())">
+          Hoy
+          <svg lucideChevronRight [strokeWidth]="2.5"></svg>
+        </button>
+      }
+    </span>
+  </div>
+</ng-template>
