@@ -53,6 +53,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/usuarios/login").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/dias-apertura/abiertos").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/dias-apertura/ultima-abierta").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/dias-apertura/compra-de-hoy-cerrada").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/configuracion/horario").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/tipos-entrada/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/cupones/codigo/**").permitAll()

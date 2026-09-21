@@ -131,7 +131,7 @@ export class Entradas implements OnInit, OnDestroy {
     this.estiloBreakpoints ??= document.createElement('style');
     this.estiloBreakpoints.textContent = `
       @container modulo (max-width: ${anchoMovil}px) {
-        .columna-izquierda-contenido { min-width: 100% !important; padding: 10px 10px !important; }
+        .columna-izquierda-contenido { min-width: 100% !important; padding: 10px 10px 10px 0 !important; }
       }
       @container modulo (max-width: ${anchoApilado}px) {
         .modulo-compra-container { flex-direction: column !important; align-items: center !important; gap: 30px !important; padding: 0px !important; }
@@ -555,6 +555,7 @@ export class Entradas implements OnInit, OnDestroy {
 
     if (estado === 'APROBADO') {
       this.detenerVerificacion();
+      this.cerrarVentanaPago();
       this.ngZone.run(() => {
         this.pagoConfirmado = true;
         this.procesandoPago = false;
@@ -565,6 +566,7 @@ export class Entradas implements OnInit, OnDestroy {
 
     if (estado === 'CANCELADO') {
       this.detenerVerificacion();
+      this.cerrarVentanaPago();
       this.finalizarConAviso('El pago fue cancelado o rechazado. Podés intentarlo de nuevo.');
     }
   }
@@ -576,6 +578,7 @@ export class Entradas implements OnInit, OnDestroy {
     this.compraService.verificarPago(this.compraIdActual).subscribe({
       next: (res) => {
         if (res.estado === 'APROBADO') {
+          this.cerrarVentanaPago();
           this.ngZone.run(() => {
             this.pagoConfirmado = true;
             this.procesandoPago = false;
@@ -599,6 +602,22 @@ export class Entradas implements OnInit, OnDestroy {
       this.aviso = mensaje;
       this.cdr.detectChanges();
     });
+  }
+
+  /**
+   * Cierra el popup de Mercado Pago una vez confirmado el resultado: la confirmación ya se
+   * muestra en esta página, no hace falta dejar la pantalla de "pago completado" de MP abierta.
+   * close() funciona aunque la ventana esté en otro origen, porque la abrimos nosotros.
+   */
+  private cerrarVentanaPago(): void {
+    try {
+      if (this.ventanaPago && !this.ventanaPago.closed) {
+        this.ventanaPago.close();
+      }
+    } catch {
+      // Sin acceso a la ventana: no es crítico, el usuario puede cerrarla a mano.
+    }
+    this.ventanaPago = null;
   }
 
   private detenerVerificacion(): void {

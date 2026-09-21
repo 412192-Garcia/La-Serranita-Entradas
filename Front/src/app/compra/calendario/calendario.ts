@@ -3,7 +3,7 @@ import { Semana } from './semana/semana';
 import { DiaCalendario } from './calendario-models';
 import { DatePipe } from '@angular/common';
 import { DiaAperturaService } from '../../services/dia-apertura.service';
-import { Subscription } from 'rxjs';
+import { Subscription, catchError, forkJoin, of } from 'rxjs';
 import {FormsModule} from '@angular/forms';
 import {Spinner} from '../../shared/spinner/spinner';
 
@@ -135,13 +135,18 @@ export class Calendario implements OnInit, OnDestroy {
 
     if (this.subscripcionApertura) this.subscripcionApertura.unsubscribe();
 
-    this.subscripcionApertura = this.diaService.getDiasApertura(mesDestino, anioDestino).subscribe({
-      next: (fechasAbiertas: string[]) => {
+    this.subscripcionApertura = forkJoin({
+      fechasAbiertas: this.diaService.getDiasApertura(mesDestino, anioDestino),
+      // Si esta consulta falla no se rompe el calendario: hoy simplemente se ofrece como siempre y el
+      // servidor rechaza la compra si ya pasó el límite.
+      compraDeHoyCerrada: this.diaService.getCompraDeHoyCerrada().pipe(catchError(() => of(false))),
+    }).subscribe({
+      next: ({ fechasAbiertas, compraDeHoyCerrada }) => {
         this.nombreMes = MESES_LETRAS[mesDestino];
         this.anioActual = anioDestino;
 
         const setFechasAbiertas = new Set(fechasAbiertas);
-        this.animarCambioDeAltura(() => this.generarCalendario(anioDestino, mesDestino, setFechasAbiertas));
+        this.animarCambioDeAltura(() => this.generarCalendario(anioDestino, mesDestino, setFechasAbiertas, compraDeHoyCerrada));
 
         this.cargando = false;
         this.cdr.detectChanges();
@@ -162,7 +167,7 @@ export class Calendario implements OnInit, OnDestroy {
     this.cargarDatosMes();
   }
 
-  generarCalendario(anio: number, mes: number, setFechasAbiertas: Set<string>): void {
+  generarCalendario(anio: number, mes: number, setFechasAbiertas: Set<string>, compraDeHoyCerrada = false): void {
     const hoy = new Date();
     const hoyTiempo = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate()).getTime();
 
@@ -199,6 +204,7 @@ export class Calendario implements OnInit, OnDestroy {
         esHoy: esHoy,
         esPasado: esPasado,
         abierto: setFechasAbiertas.has(fechaFormatoString),
+        compraCerrada: esHoy && compraDeHoyCerrada,
         seleccionado: this.fechaSeleccionada ? fechaDia.getTime() === this.fechaSeleccionada.getTime() : false
       });
     }

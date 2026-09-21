@@ -116,28 +116,22 @@ class DiaAperturaServiceImplTest {
     }
 
     @Test
-    void elCalendarioOfreceHoyMientrasSeaPosibleComprar() {
+    void laListaDeDiasAbiertosNoDescuentaElLimiteDeCompraDeHoy() {
+        // Hoy estuvo abierto: sigue figurando aunque ya se haya cortado la compra (eso se consulta
+        // aparte, con compraDelDiaCerrada). Así el calendario lo puede pintar como "estuvo abierto".
         abiertosHoyYManana();
 
-        assertThat(service.getDiasAbiertos(2026, 9, a(10, 0))).contains("2026-09-21", "2026-09-22");
+        assertThat(service.getDiasAbiertos(2026, 9)).contains("2026-09-21", "2026-09-22");
+        assertThat(service.compraDelDiaCerrada(HOY, a(17, 30))).isTrue();
     }
 
     @Test
-    void elCalendarioSigueDevolviendoLosDiasPasadosAbiertos() {
-        // Sólo "hoy" sale de la lista: un día pasado que estuvo abierto se sigue devolviendo, así el
-        // calendario lo pinta como "pasado abierto" y no como "pasado cerrado".
+    void laListaSiguePorSoloLosDiasQueAbre() {
         when(diaAperturaRepository.findAllByFechaBetween(any(), any())).thenReturn(List.of(
                 DiaApertura.builder().fecha(HOY.minusDays(4)).abierto(true).build(),
                 DiaApertura.builder().fecha(HOY.minusDays(3)).abierto(false).build(),
                 DiaApertura.builder().fecha(HOY).abierto(true).build()));
 
-        assertThat(service.getDiasAbiertos(2026, 9, a(17, 30))).containsExactly("2026-09-17");
-    }
-
-    @Test
-    void elCalendarioDejaDeOfrecerHoyPasadoElLimiteYSigueOfreciendoManana() {
-        abiertosHoyYManana();
-
-        assertThat(service.getDiasAbiertos(2026, 9, a(17, 30))).containsExactly("2026-09-22");
+        assertThat(service.getDiasAbiertos(2026, 9)).containsExactly("2026-09-17", "2026-09-21");
     }
 }

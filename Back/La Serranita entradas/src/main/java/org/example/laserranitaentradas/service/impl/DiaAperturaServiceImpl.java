@@ -94,16 +94,9 @@ public class DiaAperturaServiceImpl implements DiaAperturaService {
 
     @Override
     public List<String> getDiasAbiertos(Integer year, Integer month) {
-        return getDiasAbiertos(year, month, LocalDateTime.now());
-    }
-
-    @Override
-    public List<String> getDiasAbiertos(Integer year, Integer month, LocalDateTime ahora) {
         List<DiaApertura> dias = getMonthStatus(year, month);
         return dias.stream()
                 .filter(DiaApertura::getAbierto)
-                // Hoy deja de ofrecerse para comprar una vez pasado el límite, aunque el parque siga abierto.
-                .filter(dia -> !compraDelDiaCerrada(dia.getFecha(), ahora))
                 .map(dia -> dia.getFecha().toString())
                 .toList();
     }

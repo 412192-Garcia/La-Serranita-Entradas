@@ -17,10 +17,10 @@ import { FilaReserva } from '../fila-reserva/fila-reserva';
     }
   `,
   styles: `
-    :host { display: block; }
-
-    /* Sin regalos desplegados el host queda vacío: que no ocupe un hueco (gap) en la pantalla. */
-    :host(:empty) { display: none; }
+    /* El host no genera caja propia: sus hijos son los que entran al flex de la pantalla. Así, sin
+       regalos desplegados no queda nada que ocupe un hueco (gap), sin depender de que el host esté
+       "vacío" (:empty) — un espacio en blanco en el template lo haría dejar de coincidir. */
+    :host { display: contents; }
 
     .tabla-reservas {
       background-color: var(--color-card-bg);

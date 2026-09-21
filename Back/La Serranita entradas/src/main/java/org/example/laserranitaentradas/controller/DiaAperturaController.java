@@ -68,6 +68,13 @@ public class DiaAperturaController {
         return ResponseEntity.ok(dia);
     }
 
+    @GetMapping("/compra-de-hoy-cerrada")
+    @Operation(summary = "¿Ya se cortó la compra online para hoy?",
+            description = "true si hoy ya pasó el límite de compra (cierre del día menos el lapso configurado junto al horario general). Endpoint público: el calendario de compra lo usa para pintar hoy como un día que estuvo abierto pero ya no se puede elegir, en vez de como uno cerrado.")
+    public ResponseEntity<Boolean> compraDeHoyCerrada() {
+        return ResponseEntity.ok(diaAperturaService.compraDelDiaCerrada(LocalDate.now(), java.time.LocalDateTime.now()));
+    }
+
     @GetMapping("/abiertos")
     @Operation(summary = "Obtener días abiertos de un mes", description = "Devuelve una lista de fechas abiertas en el formato YYYY-MM-DD para un mes y año específicos.")
     @ApiResponses(value = {

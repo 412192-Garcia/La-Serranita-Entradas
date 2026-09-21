@@ -34,7 +34,7 @@
    * el borde de la tarjeta blanca de al lado (.panel-seleccion), que no tiene margen
    * propio — con padding-top/bottom acá, el calendario quedaba metido para adentro y la
    * tarjeta blanca sobraba por arriba y por abajo. */
-  padding: 0 20px;
+  padding: 0 20px 0 0;
   gap: 10px; /* Mínimo entre el calendario y el cartel — space-between reparte el resto */
   /* space-between (no flex-start): si la columna queda más alta que calendario+cartel
    * (columna estirada por el contenido de la derecha), el sobrante se reparte como
@@ -56,8 +56,7 @@ app-calendario {
    ========================================= */
 .contenedor-info-util {
   width: 100%;
-  max-width: 440px; /* Sigue exactamente el ancho del calendario */
-  margin: 0 auto;
+  margin: 0; /* Pegado al borde izquierdo, igual que el calendario */
   display: flex;
   flex-direction: column;
   gap: 8px; /* Separación interna entre los renglones */

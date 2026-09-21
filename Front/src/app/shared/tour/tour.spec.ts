@@ -125,6 +125,23 @@ describe('Tour', () => {
     }
   });
 
+  it('deja de sondear el elemento apenas se cierra el tour', async () => {
+    const selector = '[data-tour="nunca-aparece"]';
+    const { tour } = montar([{ selector, titulo: 'Uno', texto: '' }]);
+    await esperar(100); // ya está esperando el elemento
+    const buscar = vi.spyOn(document, 'querySelector');
+    // Sólo cuentan las búsquedas de ESTE paso: Angular y otros componentes también llaman a querySelector.
+    const sondeos = () => buscar.mock.calls.filter(([s]) => s === selector).length;
+
+    tour.cerrar();
+    await esperar(60); // deja pasar el sondeo que ya estaba agendado
+    const trasCerrar = sondeos();
+    await esperar(250); // habría alcanzado para ~8 sondeos más si siguiera esperando
+
+    expect(sondeos()).toBe(trasCerrar);
+    buscar.mockRestore();
+  });
+
   it('si el elemento no existe, muestra el paso centrado y sin resaltar (no queda trabado)', async () => {
     const { tour } = montar([{ selector: '[data-tour="no-existe"]', titulo: 'Uno', texto: '' }]);
 

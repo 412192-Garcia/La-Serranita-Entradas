@@ -22,6 +22,11 @@ export class DiaAperturaService {
     return this.http.get<string[]>(this.apiUrl, { params });
   }
 
+  /** true si hoy ya pasó el límite de compra online (ver ConfiguracionParque.minutosLimiteCompra). */
+  getCompraDeHoyCerrada(): Observable<boolean> {
+    return this.http.get<boolean>(`${environment.apiBase}/dias-apertura/compra-de-hoy-cerrada`);
+  }
+
   /** Fecha abierta más lejana ya cargada (null si no hay ninguna); limita el avance del calendario. */
   getUltimaFechaAbierta(): Observable<string | null> {
     return this.http.get<string | null>(`${environment.apiBase}/dias-apertura/ultima-abierta`);
