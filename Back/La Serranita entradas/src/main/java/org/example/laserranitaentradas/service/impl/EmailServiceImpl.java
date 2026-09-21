@@ -34,6 +34,12 @@ public class EmailServiceImpl implements EmailService {
     @Value("${spring.mail.username}")
     private String remitente;
 
+    // Cada mail que sale de la app va también, en copia oculta, a esta casilla del parque: es el
+    // mismo mensaje (un solo envío con BCC), así el destinatario no ve la copia. Viene de la env
+    // MAIL_COPIA; si está vacía no se manda copia.
+    @Value("${app.mail.copia:}")
+    private String copia;
+
     // @Lazy en rechazoService: RechazoOperacionServiceImpl ahora también depende de
     // CompraService (para reintentar una VENTA rechazada), que a su vez depende de
     // EmailService — sin el @Lazy acá se cierra un ciclo real en la construcción de los beans
@@ -65,6 +71,7 @@ public class EmailServiceImpl implements EmailService {
 
             helper.setFrom(remitente);
             helper.setTo(compra.getContactEmail());
+            agregarCopia(helper);
             helper.setSubject(pendienteDePago
                     ? "¡Reserva confirmada! Pagás en la entrada - La Serranita Parque Recreativo"
                     : "¡Compra confirmada! - La Serranita Parque Recreativo");
@@ -102,6 +109,7 @@ public class EmailServiceImpl implements EmailService {
 
             helper.setFrom(remitente);
             helper.setTo(compra.getReceptorEmail());
+            agregarCopia(helper);
             helper.setSubject("¡Recibiste un regalo! - La Serranita Parque Recreativo");
 
             String htmlBody = construirHtmlAvisoRegalo(compra);
@@ -113,6 +121,12 @@ public class EmailServiceImpl implements EmailService {
         } catch (Exception e) {
             log.error("Error al enviar el email de aviso de regalo de la compra ID {}", compraId, e);
             registrarRechazoEnvio(compra, "aviso de regalo", e);
+        }
+    }
+
+    private void agregarCopia(MimeMessageHelper helper) throws jakarta.mail.MessagingException {
+        if (copia != null && !copia.isBlank()) {
+            helper.setBcc(copia);
         }
     }
 
