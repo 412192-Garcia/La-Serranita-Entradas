@@ -56,9 +56,14 @@ const UMBRAL_RENOVACION_MS = 7 * 24 * 60 * 60 * 1000;
 /** Lo que este cliente necesita leer del JWT: cuándo vence (ms epoch) y si es de "Mantener sesión
  * iniciada". Null si no se puede leer. No valida la firma: es sólo para decidir cuándo pedir uno
  * nuevo; quien decide si vale es el backend. */
-function leerToken(token: string): { venceEn: number; sesionLarga: boolean } | null {
+export function leerToken(token: string): { venceEn: number; sesionLarga: boolean } | null {
   try {
-    const payload = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    const segmento = token.split('.')[1];
+    if (!segmento) return null;
+    const base64 = segmento.replace(/-/g, '+').replace(/_/g, '/');
+    // El JWT va en base64url, sin el "=" de relleno. atob lo tolera (es lo que dice la especificación),
+    // pero completarlo no cuesta nada y evita depender de esa tolerancia.
+    const payload = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
     const { exp, mantener } = JSON.parse(atob(payload));
     return typeof exp === 'number' ? { venceEn: exp * 1000, sesionLarga: mantener === true } : null;
   } catch {

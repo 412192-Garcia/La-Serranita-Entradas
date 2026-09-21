@@ -15,13 +15,12 @@ public interface DiaAperturaService {
     List<DiaApertura> getMonthStatus(Integer year, Integer month);
     Boolean getAbiertoByDate(LocalDate fecha);
     /**
-     * Días abiertos del mes PARA COMPRAR (es lo que arma el calendario público): igual que el estado
-     * del mes, pero "hoy" queda afuera una vez pasado el límite de compra (ver getLimiteDeCompra).
+     * Días en que el parque abre en ese mes (lo que arma el calendario público). Es sólo el estado
+     * de apertura: no descuenta el límite de compra de hoy — un día que estuvo abierto sigue figurando
+     * como abierto aunque ya no se pueda comprar para él (ver compraDelDiaCerrada), así el calendario
+     * puede distinguir "hoy estuvo abierto pero ya no se compra" de "hoy está cerrado".
      */
     List<String> getDiasAbiertos(Integer year, Integer month);
-
-    /** Igual que getDiasAbiertos(year, month) pero con "ahora" explícito (para poder probarlo). */
-    List<String> getDiasAbiertos(Integer year, Integer month, LocalDateTime ahora);
 
     /**
      * Hasta cuándo se puede comprar para esa fecha: la hora de cierre de ese día (la del horario

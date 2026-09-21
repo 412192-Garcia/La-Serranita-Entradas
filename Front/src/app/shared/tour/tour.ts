@@ -160,12 +160,15 @@ export class Tour {
   }
 
   /** Resuelve apenas el elemento del paso existe en el DOM, o al vencer MAX_ESPERA_ELEMENTO_MS (en ese caso
-   * posicionar() muestra el paso centrado y sin resaltar nada, en vez de trabarse). */
+   * posicionar() muestra el paso centrado y sin resaltar nada, en vez de trabarse). También resuelve
+   * (y deja de sondear) si el tour se cierra o el usuario ya pasó a otro paso: esperar más no sirve
+   * y, con navegación rápida, se acumularían sondeos de pasos que ya no importan. */
   private esperarElemento(paso: TourStep): Promise<void> {
     return new Promise((resolver) => {
       const limite = performance.now() + MAX_ESPERA_ELEMENTO_MS;
       const revisar = () => {
-        if (this.elementoDe(paso) || performance.now() > limite) resolver();
+        const yaNoImporta = !this.activo() || this.pasoInfo() !== paso;
+        if (yaNoImporta || this.elementoDe(paso) || performance.now() > limite) resolver();
         else setTimeout(revisar, 30);
       };
       revisar();
