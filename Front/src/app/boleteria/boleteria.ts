@@ -19,8 +19,9 @@ import { BuscadorReservas } from '../reservas/buscador-reservas/buscador-reserva
 import { PanelRegalos } from '../reservas/panel-regalos/panel-regalos';
 import { ListadoReservas } from '../reservas/listado-reservas/listado-reservas';
 
-/** ~6 pasos, todos apuntando a elementos siempre presentes en el DOM (nada detrás de "Más
- * filtros" ni de una fila de resultado puntual, que dependen de los datos del momento). */
+/** ~7 pasos, todos apuntando a elementos siempre presentes en el DOM (nada detrás de "Más
+ * filtros" ni de una fila de resultado puntual, que dependen de los datos del momento). La única
+ * excepción es el botón de regalos, que sólo existe si hay: ese paso trae un `alternativo`. */
 const PASOS_TUTORIAL: TourStep[] = [
   {
     selector: '[data-tour="caja"]',
@@ -38,6 +39,13 @@ const PASOS_TUTORIAL: TourStep[] = [
     texto: 'Elegí un día puntual, o tocá "Ver todas las fechas" para buscar sin importar cuándo es la visita.',
   },
   {
+    selector: '[data-tour="regalos"]',
+    // El botón sólo existe si hay regalos: sin ellos se resalta la barra de fecha, que siempre está.
+    alternativo: '[data-tour="fecha"]',
+    titulo: 'Regalos',
+    texto: 'Un regalo no tiene fecha de visita (quien lo recibe elige cuándo venir), así que no aparece en la lista del día: va en este botón, que sólo se ve cuando hay regalos. Tocalo para desplegarlos. En cada uno, "Para <nombre> · DNI" es la persona que se presenta en la puerta, no quien compró.',
+  },
+  {
     selector: '[data-tour="estado"]',
     titulo: 'Pagadas o a cobrar',
     texto: 'Filtrá entre lo ya pagado online y lo que falta cobrar en caja.',
@@ -50,7 +58,7 @@ const PASOS_TUTORIAL: TourStep[] = [
   {
     selector: '[data-tour="resultados"]',
     titulo: 'Validar o cobrar',
-    texto: 'Cada resultado tiene un botón para validar el ingreso o cobrar y validar, y un menú ⋮ para editar el contacto, reenviar el mail o reembolsar.',
+    texto: 'Cada resultado tiene un botón para validar el ingreso o cobrar y validar (si te equivocás, tenés unos segundos para "Cancelar validación"), y un menú ⋮ para editar el contacto, reenviar el mail o reembolsar. Ese menú es sólo de esta pantalla: los boleteros validan y cobran desde el POS.',
   },
 ];
 

@@ -32,6 +32,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -72,6 +76,45 @@ class CajaServiceImplTest {
     private CajaServiceImpl service;
 
     private static final Long USUARIO_ID = 2L;
+
+    // ---------- Listado paginado de cajas cerradas (sin filtro de fechas) ----------
+
+    private Pageable paginaPedida(String ordenarPor, String direccion, int size) {
+        when(cajaRepository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(Page.empty());
+        service.getCajasCerradas(null, ordenarPor, direccion, 0, size);
+        ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
+        verify(cajaRepository).findAll(any(Specification.class), captor.capture());
+        return captor.getValue();
+    }
+
+    @Test
+    void elListadoDeCerradasOrdenaPorElDiaDeAperturaSiElCampoNoEsValido() {
+        // El día de una caja es el de su apertura: una atrasada la cierra un admin días después.
+        Sort.Order orden = paginaPedida("campoQueNoExiste", "DESC", 20).getSort().getOrderFor("fechaApertura");
+
+        assertThat(orden).isNotNull();
+        assertThat(orden.getDirection()).isEqualTo(Sort.Direction.DESC);
+    }
+
+    @Test
+    void elListadoDeCerradasRespetaElOrdenPorDiaAscendente() {
+        Sort.Order orden = paginaPedida("fechaApertura", "ASC", 20).getSort().getOrderFor("fechaApertura");
+
+        assertThat(orden).isNotNull();
+        assertThat(orden.getDirection()).isEqualTo(Sort.Direction.ASC);
+    }
+
+    @Test
+    void elListadoDeCerradasTopeaElTamanioDePagina() {
+        assertThat(paginaPedida("fechaApertura", "DESC", 5000).getPageSize()).isEqualTo(100);
+    }
+
+    @Test
+    void losBoleterosDelFiltroSalenDelRepositorioSinRangoDeFechas() {
+        when(cajaRepository.findNombresBoleterosConCajasCerradas()).thenReturn(List.of("Ana Paz", "Luis Gómez"));
+
+        assertThat(service.getBoleterosConCajasCerradas()).containsExactly("Ana Paz", "Luis Gómez");
+    }
 
     @BeforeEach
     void setUp() {

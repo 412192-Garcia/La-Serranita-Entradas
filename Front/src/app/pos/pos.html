@@ -5,22 +5,28 @@
   <app-cabecera-interna
     [titulo]="consultaAnticipada() !== null ? 'Anticipadas' : 'Venta en Boletería'"
     [descripcion]="consultaAnticipada() !== null ? 'Buscá una reserva para validar el ingreso o cobrarla.' : 'Cobrá y registra la compra.'"
-    [pasosTutorial]="pasosTutorial">
+    [pasosTutorial]="pasosTutorial"
+    (tutorialIniciado)="alIniciarTutorial()"
+    (tutorialCerrado)="alCerrarTutorial()">
     @if (caja()) {
       <div class="acciones-caja-cabecera" cabecera-acciones data-tour="barra-caja">
         @if (consultaAnticipada() !== null) {
-          <button type="button" class="btn-secundario-caja" (click)="consultaAnticipada.set(null)">
+          <button type="button" class="btn-secundario-caja" data-tour="boton-anticipadas" (click)="consultaAnticipada.set(null)">
             <svg lucideArrowLeft [strokeWidth]="2"></svg>
             Volver a la venta
           </button>
         } @else {
-          <button type="button" class="btn-secundario-caja" title="Buscar una anticipada (F2)" (click)="abrirAnticipadas('')">
+          <button type="button" class="btn-secundario-caja" data-tour="boton-anticipadas" title="Buscar una anticipada (F2)" (click)="abrirAnticipadas('')">
             <svg lucideSearch [strokeWidth]="2"></svg>
             Anticipadas
           </button>
         }
-        <button type="button" class="btn-secundario-caja" (click)="mostrarRetiro.set(true)">Retiro / Aporte</button>
-        <button type="button" class="btn-secundario-caja" (click)="mostrarIngresoEntradas.set(true)">Reponer talonario</button>
+        <!-- Contenedor sólo para el tutorial (display: contents, no afecta el layout): resalta estos
+             dos botones juntos sin incluir el de Anticipadas, que tiene su propio paso. -->
+        <span class="grupo-acciones-caja" data-tour="acciones-caja">
+          <button type="button" class="btn-secundario-caja" (click)="mostrarRetiro.set(true)">Retiro / Aporte</button>
+          <button type="button" class="btn-secundario-caja" (click)="mostrarIngresoEntradas.set(true)">Reponer talonario</button>
+        </span>
       </div>
     }
   </app-cabecera-interna>

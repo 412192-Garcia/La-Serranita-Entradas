@@ -6,7 +6,7 @@
 }
 
 @if (!modoRevision()) {
-<div class="tarjeta-kpis-detalle">
+<div class="tarjeta-kpis-detalle" data-tour="resumen-kpis">
   <div>
     <h2>Total vendido</h2>
     <p class="kpi-numero">{{ totalVendido() | pesos }}</p>
@@ -85,7 +85,7 @@
 }
 
 @if (caja().entradasFisicasRestantes !== null && caja().entradasFisicasRestantes !== undefined) {
-  <p class="fila-entradas-fisicas">
+  <p class="fila-entradas-fisicas" data-tour="resumen-talonario">
     Restantes en el talonario: <strong>{{ caja().entradasFisicasRestantes }}</strong>
     @if (caja().entradasFisicasEsperadas !== null) {
       · esperadas <strong>{{ caja().entradasFisicasEsperadas }}</strong>
@@ -102,7 +102,7 @@
 }
 
 <!-- ---------- Ventas por forma de pago ---------- -->
-<div class="bloque-desglose-ventas">
+<div class="bloque-desglose-ventas" data-tour="resumen-ventas">
   <div class="cabecera-desglose-ventas">
     <h3>{{ modoRevision() ? 'Corregir la caja' : 'Resumen de ventas' }}</h3>
   </div>
@@ -159,7 +159,7 @@
   } @else {
 
   <div class="revision-dos-columnas">
-    <div class="revision-col-conteo">
+    <div class="revision-col-conteo" data-tour="revision-conteo">
       <app-conteo-cierre [precarga]="caja()" [huboVentaDolares]="caja().huboVentaDolares" />
     </div>
 
@@ -178,7 +178,7 @@
         · retiros netos del turno <strong>{{ caja().totalRetiros | pesos }}</strong>
       }
     </p>
-    <div class="tabla-simple tabla-totales-revision">
+    <div class="tabla-simple tabla-totales-revision" data-tour="revision-totales">
       <div class="fila-simple fila-simple-formaspago fila-simple-header">
         <span>Forma de pago</span><span>Esperado</span><span>Contado</span><span>Diferencia</span>
       </div>
@@ -213,7 +213,7 @@
 
     <div class="matrices-scroll">
     @for (m of matrices(); track m.tipoId) {
-      <div class="matriz-tipo">
+      <div class="matriz-tipo" data-tour="revision-matriz">
         <div class="cabecera-matriz-tipo">{{ m.tipoNombre }}</div>
         <div class="fila-matriz fila-matriz-header">
           <span>Grupo</span>
@@ -424,7 +424,7 @@
     @if (errorRevision()) {
       <p class="alerta-error">{{ errorRevision() }}</p>
     }
-    <div class="acciones-revision">
+    <div class="acciones-revision" data-tour="revision-guardar">
       <button type="button" class="btn-limpiar" (click)="toggleRevision()">Cancelar</button>
       <button
         type="button"
@@ -473,7 +473,7 @@
 </div>
 
 @if (mostrarAcciones() && !modoRevision() && caja().habilitada !== false) {
-  <div class="acciones-resumen">
+  <div class="acciones-resumen" data-tour="acciones-resumen">
     <button type="button" class="btn-corregir-cierre" (click)="toggleRevision()">Corregir caja</button>
     <button type="button" class="btn-borrar-caja" (click)="abrirModalDeshabilitar()">Borrar caja</button>
   </div>

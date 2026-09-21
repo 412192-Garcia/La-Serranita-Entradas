@@ -1,4 +1,4 @@
-import { Component, Input, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, EventEmitter, Input, OnInit, Output, computed, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { LucideMenu, LucideX, LucideLogOut, LucideWifiOff, LucideCircleHelp } from '@lucide/angular';
 import { SesionService } from '../../services/sesion.service';
@@ -55,7 +55,17 @@ export class CabeceraInterna implements OnInit {
    * la cabecera común para no repetir el botón + <app-tour> en cada pantalla. Vacío = sin tutorial. */
   @Input() pasosTutorial: TourStep[] = [];
 
+  /** Avisan cuándo empieza y termina el tutorial: una pantalla cuyos pasos cambian de modo (ver
+   * `TourStep.antes`, ej. el POS pasando a Anticipadas) guarda el modo al empezar y lo repone al terminar. */
+  @Output() tutorialIniciado = new EventEmitter<void>();
+  @Output() tutorialCerrado = new EventEmitter<void>();
+
   tourActivo = signal(false);
+
+  iniciarTutorial(): void {
+    this.tutorialIniciado.emit();
+    this.tourActivo.set(true);
+  }
 
   readonly operador = this.sesion.usuario;
 

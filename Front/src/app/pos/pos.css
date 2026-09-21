@@ -202,3 +202,9 @@
 .btn-ver-anticipadas:hover {
   background-color: var(--color-primary-dark);
 }
+
+/* Sólo agrupa Retiro/Aporte y Reponer talonario para que el tutorial los resalte juntos: no
+   debe alterar el flex de .acciones-caja-cabecera (los botones siguen siendo sus hijos directos). */
+.grupo-acciones-caja {
+  display: contents;
+}

@@ -82,11 +82,6 @@
   color: var(--color-text-secondary);
 }
 
-.fila-simple-ranking {
-  grid-template-columns: 1.6fr 0.7fr 1.1fr 1fr 1fr 1fr;
-  font-size: 0.9rem;
-}
-
 .filtro-boleteros {
   display: flex;
   flex-wrap: wrap;

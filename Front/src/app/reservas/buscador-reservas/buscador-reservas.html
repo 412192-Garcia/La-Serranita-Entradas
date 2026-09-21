@@ -32,7 +32,7 @@
       [class.activo]="!busqueda.todasLasFechas()"
       (click)="busqueda.verEsaFecha()"
       [disabled]="!busqueda.fecha() || busqueda.buscando()">
-      Ver esa fecha
+      Ver fecha
     </button>
     <button
       type="button"
@@ -51,6 +51,7 @@
     <button
       type="button"
       class="btn-regalos"
+      data-tour="regalos"
       [class.activo]="busqueda.regalosExpandido()"
       [attr.aria-expanded]="busqueda.regalosExpandido()"
       (click)="busqueda.toggleRegalos()">

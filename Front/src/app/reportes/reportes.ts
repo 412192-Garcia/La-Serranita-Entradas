@@ -28,6 +28,12 @@ const PASOS_RESUMEN: TourStep[] = [
     titulo: 'Gráficos y desgloses',
     texto: 'Más abajo hay gráficos con el detalle: afluencia diaria, desglose por tipo, forma de pago, horarios y más.',
   },
+  {
+    selector: '[data-tour="ranking-boleteros"]',
+    alternativo: '[data-tour="kpis-reportes"]',
+    titulo: 'Ranking de boleteros',
+    texto: 'Lo acumulado por boletero en las cajas cerradas del rango (por la fecha de cierre de la caja): turnos, efectivo vendido en puerta, retiros y las diferencias de efectivo y de posnet. Sirve para ver quién suele tener faltantes. Para revisar o corregir un turno puntual, está la pantalla de Cajas.',
+  },
 ];
 
 const PASOS_COMPARACION: TourStep[] = [
@@ -271,6 +277,45 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
       }),
       { total: 0, anticipada: 0, boleteria: 0 },
     );
+  }
+
+  /** Desempeño acumulado por boletero, sobre las cajas cerradas del rango: turnos, efectivo vendido,
+   * retiros y las diferencias de efectivo y de Tarjeta+QR por separado (juntarlas escondería un
+   * faltante contra un sobrante). El efectivo vendido es lo esperado menos el fondo inicial, más
+   * lo retirado: lo que entró por ventas en efectivo. */
+  rankingBoleteros(r: ReporteResumen): {
+    nombre: string;
+    turnos: number;
+    efectivoVendido: number;
+    retiros: number;
+    diferencia: number;
+    diferenciaPosnet: number;
+  }[] {
+    const porBoletero = new Map<
+      string,
+      { turnos: number; efectivoVendido: number; retiros: number; diferencia: number; diferenciaPosnet: number }
+    >();
+    for (const c of r.cajas) {
+      const acumulado =
+        porBoletero.get(c.usuarioNombre) ??
+        { turnos: 0, efectivoVendido: 0, retiros: 0, diferencia: 0, diferenciaPosnet: 0 };
+      acumulado.turnos += 1;
+      acumulado.efectivoVendido += c.montoEsperado - c.montoInicial + c.totalRetiros;
+      acumulado.retiros += c.totalRetiros;
+      acumulado.diferencia += c.diferencia;
+      acumulado.diferenciaPosnet += c.diferenciaPosnet ?? 0;
+      porBoletero.set(c.usuarioNombre, acumulado);
+    }
+    return [...porBoletero.entries()]
+      .map(([nombre, datos]) => ({ nombre, ...datos }))
+      .sort((a, b) => b.efectivoVendido - a.efectivoVendido);
+  }
+
+  /** Rojo si faltó plata, verde si sobró o cerró justo. Sirve para cualquier diferencia (efectivo o posnet). */
+  claseDiferencia(valor: number): string {
+    if (valor < 0) return 'diferencia-faltante';
+    if (valor > 0) return 'diferencia-sobrante';
+    return 'diferencia-exacta';
   }
 
   etiquetaEstado(estado: ComprasPorEstado['estado']): string {

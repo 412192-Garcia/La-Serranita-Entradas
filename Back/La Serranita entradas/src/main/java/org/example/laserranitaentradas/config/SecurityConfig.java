@@ -71,6 +71,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/interno/caja/*/operaciones").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.GET, "/api/interno/caja/abiertas").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.GET, "/api/interno/caja/cerradas").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.GET, "/api/interno/caja/cerradas/boleteros").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/api/interno/compras/*/cancelar-venta").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/api/interno/compras/*/editar-venta").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/interno/compras/caja/*/venta-pos").hasRole("ADMIN")

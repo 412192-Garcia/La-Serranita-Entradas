@@ -918,6 +918,16 @@ export class ResumenCierre {
     else this.modoRevision.set(true);
   }
 
+  /** Entrar / salir del modo revisión por código (el tutorial de Cajas los usa para mostrar
+   * "Corregir caja" sin que nadie toque el botón). Idempotentes, a diferencia de toggleRevision. */
+  abrirRevision(): void {
+    if (!this.modoRevision()) this.modoRevision.set(true);
+  }
+
+  cerrarRevision(): void {
+    if (this.modoRevision()) this.salirRevision();
+  }
+
   private salirRevision(): void {
     this.conteoCierre()?.reset();
     this.modoRevision.set(false);

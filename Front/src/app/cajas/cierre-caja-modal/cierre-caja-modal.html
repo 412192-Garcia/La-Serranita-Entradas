@@ -5,7 +5,7 @@
     <div class="cuerpo-cierre">
       <app-conteo-cierre [cajaId]="cajaId()" [huboVentaDolares]="huboVentaDolares()" [dosColumnas]="true">
         <!-- Se proyecta al final de la columna derecha (posnet/entradas), donde queda lugar libre. -->
-        <section class="seccion-cierre seccion-movimientos">
+        <section class="seccion-cierre seccion-movimientos" data-tour="cierre-movimientos">
           <h4>Movimientos de caja</h4>
           @if (retirosMostrados().length) {
             <ul class="lista-retiros">

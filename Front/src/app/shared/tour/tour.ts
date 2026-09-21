@@ -6,6 +6,19 @@ export interface TourStep {
   selector: string;
   titulo: string;
   texto: string;
+  /**
+   * Se ejecuta al llegar al paso (yendo hacia adelante o hacia atrás), ANTES de buscar el
+   * elemento: sirve para cambiar de modo/pantalla y que el `selector` exista — ej. el POS abre
+   * el panel de anticipadas para explicarlo. El tour espera (hasta MAX_ESPERA_ELEMENTO_MS) a que
+   * el elemento aparezca; tiene que ser idempotente, porque se vuelve a llamar al retroceder.
+   */
+  antes?: () => void;
+  /**
+   * Para explicar algo que a veces no está en pantalla (ej. el botón de regalos, que sólo aparece
+   * si hay regalos): si `selector` no existe se resalta este otro, que sí. Sin alternativo y sin
+   * elemento, el paso se muestra centrado.
+   */
+  alternativo?: string;
 }
 
 interface RectObjetivo {
@@ -26,6 +39,11 @@ const ESPACIO_MINIMO_ABAJO = 200;
 /** Altura de arranque antes de medir la real (ver alturaPopover): un valor típico para que el
  * primer cálculo de posición ya quede razonablemente bien, en vez de asumir 0. */
 const ALTURA_POPOVER_INICIAL = 250;
+/** Cuánto se espera a que aparezca el elemento de un paso después de su `antes` (el cambio de
+ * modo se pinta en el próximo ciclo de Angular, y a veces hay que traer datos). */
+const MAX_ESPERA_ELEMENTO_MS = 1500;
+/** Pausa después del `antes` de un paso, para que Angular pinte el cambio de modo. */
+const ESPERA_REPINTADO_MS = 80;
 
 /**
  * Recorrido guiado interactivo genérico: resalta en secuencia los elementos indicados por
@@ -71,7 +89,7 @@ export class Tour {
       untracked(() => {
         if (abierto) {
           this.pasoActual.set(0);
-          this.posicionar();
+          this.irAlPaso();
           queueMicrotask(() => this.popoverEl()?.nativeElement.focus());
         } else {
           this.rectObjetivo.set(null);
@@ -112,13 +130,61 @@ export class Tour {
     }
   }
 
+  /** Llega al paso actual: corre su `antes` (si tiene), espera a que aparezca el elemento y recién
+   * ahí lo resalta. Si el usuario avanzó, retrocedió o cerró mientras esperaba, no hace nada. */
+  private async irAlPaso(): Promise<void> {
+    const paso = this.pasoInfo();
+    if (!paso) return;
+    if (paso.antes) {
+      paso.antes();
+      // Deja que Angular repinte el cambio de modo antes de buscar: si el selector existe en los
+      // dos modos (ej. un botón que cambia de texto), se mediría el elemento VIEJO, que Angular
+      // está por reemplazar por otro nodo.
+      await new Promise<void>((resolver) => setTimeout(resolver, ESPERA_REPINTADO_MS));
+    }
+    await this.esperarElemento(paso);
+    if (this.activo() && this.pasoInfo() === paso) this.posicionar();
+  }
+
+  /** El elemento a resaltar: el del `selector` o, si no está, el `alternativo`. Cuenta sólo si se ve:
+   * un elemento presente pero oculto (ej. el modal de cierre de Cajas, siempre montado y escondido
+   * con CSS) mediría todo en cero y el resaltado quedaría en la esquina. */
+  private elementoDe(paso: TourStep): HTMLElement | null {
+    const visible = (selector: string): HTMLElement | null => {
+      const el = document.querySelector<HTMLElement>(selector);
+      if (!el) return null;
+      const r = this.medirRect(el);
+      return r.width > 0 || r.height > 0 ? el : null;
+    };
+    return visible(paso.selector) ?? (paso.alternativo ? visible(paso.alternativo) : null);
+  }
+
+  /** Resuelve apenas el elemento del paso existe en el DOM, o al vencer MAX_ESPERA_ELEMENTO_MS (en ese caso
+   * posicionar() muestra el paso centrado y sin resaltar nada, en vez de trabarse). */
+  private esperarElemento(paso: TourStep): Promise<void> {
+    return new Promise((resolver) => {
+      const limite = performance.now() + MAX_ESPERA_ELEMENTO_MS;
+      const revisar = () => {
+        if (this.elementoDe(paso) || performance.now() > limite) resolver();
+        else setTimeout(revisar, 30);
+      };
+      revisar();
+    });
+  }
+
   private posicionar(): void {
     const paso = this.pasoInfo();
     if (!paso) return;
-    const elemento = document.querySelector<HTMLElement>(paso.selector);
+    const elemento = this.elementoDe(paso);
     if (!elemento) {
+      // El elemento no está (ej. el POS sin caja abierta no tiene ni catálogo ni barra de caja):
+      // antes el popover desaparecía y el tour quedaba trabado sin botones. Ahora el paso se
+      // muestra igual, centrado y sin resaltar nada, para poder leerlo, seguir o saltar.
       this.rectObjetivo.set(null);
-      this.posicionPopover.set(null);
+      this.posicionPopover.set({
+        top: Math.max(MARGEN, (window.innerHeight - this.alturaPopover) / 2),
+        left: Math.max(MARGEN, (window.innerWidth - ANCHO_POPOVER) / 2),
+      });
       return;
     }
 
@@ -126,7 +192,7 @@ export class Tour {
     // podía asomar la posición vieja/a mitad de camino por un instante antes de acomodarse.
     if (this.elementoYaVisible(elemento)) {
       this.medirYPosicionar(elemento);
-      this.medirAlturaPopoverYRefinar(elemento);
+      this.medirAlturaPopoverYRefinar(paso);
       return;
     }
 
@@ -136,8 +202,12 @@ export class Tour {
     // pero no lo soportan todos (ej. Safari viejo) — el timeout es el respaldo para esos casos
     // y para cuando no había nada que scrollear (ahí 'scrollend' nunca llega a disparar).
     this.esperarFinDeScroll(() => {
-      this.medirYPosicionar(elemento);
-      this.medirAlturaPopoverYRefinar(elemento);
+      // Se vuelve a buscar el elemento (no se usa el de antes): si Angular lo reemplazó mientras
+      // tanto, el viejo está desconectado y mide todo en cero.
+      const actual = this.elementoDe(paso);
+      if (!actual || this.pasoInfo() !== paso) return;
+      this.medirYPosicionar(actual);
+      this.medirAlturaPopoverYRefinar(paso);
     });
   }
 
@@ -187,14 +257,16 @@ export class Tour {
    * acaba de tomar el popover recién mostrado y, si difiere de la que se había asumido, vuelve
    * a calcular la posición con el valor correcto. La altura en sí es segura de leer acá — a
    * diferencia de la posición, no depende de un `top` que Angular todavía esté por pintar. */
-  private medirAlturaPopoverYRefinar(elemento: HTMLElement): void {
+  private medirAlturaPopoverYRefinar(paso: TourStep): void {
     requestAnimationFrame(() => {
       const el = this.popoverEl()?.nativeElement;
       if (!el) return;
       const alturaReal = el.getBoundingClientRect().height;
       if (Math.abs(alturaReal - this.alturaPopover) > 1) {
         this.alturaPopover = alturaReal;
-        this.medirYPosicionar(elemento);
+        // Elemento vuelto a buscar (ver posicionar): el que había puede haberse reemplazado.
+        const actual = this.elementoDe(paso);
+        if (actual && this.pasoInfo() === paso) this.medirYPosicionar(actual);
       }
     });
   }
@@ -207,7 +279,7 @@ export class Tour {
   private reposicionar(): void {
     const paso = this.pasoInfo();
     if (!paso) return;
-    const elemento = document.querySelector<HTMLElement>(paso.selector);
+    const elemento = this.elementoDe(paso);
     if (!elemento) return;
     this.medirYPosicionar(elemento);
   }
@@ -234,13 +306,13 @@ export class Tour {
       return;
     }
     this.pasoActual.update((p) => p + 1);
-    this.posicionar();
+    this.irAlPaso();
   }
 
   anterior(): void {
     if (this.pasoActual() === 0) return;
     this.pasoActual.update((p) => p - 1);
-    this.posicionar();
+    this.irAlPaso();
   }
 
   cerrar(): void {

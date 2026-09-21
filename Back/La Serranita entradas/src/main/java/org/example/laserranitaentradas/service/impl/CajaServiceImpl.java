@@ -604,34 +604,34 @@ public class CajaServiceImpl implements CajaService {
 
     /** "usuarioNombre" pasa a ordenar por las dos columnas reales detrás (nombre, apellido);
      * "totalRetiros" no tiene una columna propia en Caja (se computa con un JOIN + SUM), así
-     * que cae al valor por defecto en vez de fallar. */
+     * que cae al valor por defecto en vez de fallar. El valor por defecto es fechaApertura: el
+     * día al que corresponde el turno (una caja atrasada la cierra un admin días después, pero
+     * sus ventas son del día en que se abrió). */
     private static Sort ordenCajasCerradas(String ordenarPor, String direccion) {
         Sort.Direction sentido = "ASC".equalsIgnoreCase(direccion) ? Sort.Direction.ASC : Sort.Direction.DESC;
         if ("usuarioNombre".equals(ordenarPor)) {
             return Sort.by(sentido, "usuario.nombre").and(Sort.by(sentido, "usuario.apellido"));
         }
         Set<String> ordenables = Set.of("fechaApertura", "fechaCierre", "montoInicial", "montoEsperado", "montoContado", "diferencia");
-        String campo = ordenables.contains(ordenarPor) ? ordenarPor : "fechaCierre";
+        String campo = ordenables.contains(ordenarPor) ? ordenarPor : "fechaApertura";
         return Sort.by(sentido, campo);
     }
 
     @Override
-    public CajasCerradasResponseDTO getCajasCerradas(LocalDate desde, LocalDate hasta, String usuarioNombre,
-                                                       String ordenarPor, String direccion, int page, int size) {
-        LocalDateTime desdeDt = desde.atStartOfDay();
-        LocalDateTime hastaDt = hasta.atTime(LocalTime.MAX);
+    public CajasCerradasResponseDTO getCajasCerradas(String usuarioNombre, String ordenarPor, String direccion,
+                                                       int page, int size) {
         int tamanioPagina = Math.min(Math.max(size, 1), 100);
         Pageable pageable = PageRequest.of(Math.max(page, 0), tamanioPagina, ordenCajasCerradas(ordenarPor, direccion));
 
         Specification<Caja> spec = Specification.allOf(
-                CajaSpecifications.cerradaEntre(desdeDt, hastaDt),
+                CajaSpecifications.cerrada(),
                 CajaSpecifications.deUsuarioNombre(usuarioNombre),
                 CajaSpecifications.habilitada()
         );
         Page<Caja> pagina = cajaRepository.findAll(spec, pageable);
 
         // Sólo la página: retiros y diferencia de posnet (N+1 / 3 queries en lote) se calculan para
-        // las ≤100 filas que se muestran, no para todo el rango.
+        // las ≤100 filas que se muestran, no para todas las cajas cerradas.
         List<Caja> filas = pagina.getContent();
         Map<Long, BigDecimal> difPosnet = diferenciaPosnetPorCaja(filas.stream().map(Caja::getId).toList());
 
@@ -657,6 +657,11 @@ public class CajaServiceImpl implements CajaService {
                 .number(pagina.getNumber())
                 .size(pagina.getSize())
                 .build();
+    }
+
+    @Override
+    public List<String> getBoleterosConCajasCerradas() {
+        return cajaRepository.findNombresBoleterosConCajasCerradas();
     }
 
     @Override

@@ -100,6 +100,18 @@ describe('ResumenCierre — matriz con descuentos', () => {
     expect(fila(c, '0').descLabel).toBeNull();
   });
 
+  it('abrirRevision y cerrarRevision son idempotentes (el tutorial de Cajas los usa)', () => {
+    const c = montar([venta(10, 18000)]);
+    c.cerrarRevision();
+    c.cerrarRevision();
+    expect(c.modoRevision()).toBe(false);
+    c.abrirRevision();
+    c.abrirRevision();
+    expect(c.modoRevision()).toBe(true);
+    c.cerrarRevision();
+    expect(c.modoRevision()).toBe(false);
+  });
+
   it('las entradas vendidas (pagas) siguen a las ventas que se quitan o agregan; mover no las cambia', () => {
     const c = montar([venta(10, 18000), venta(11, 16200, { pct: 10 })]);
     expect(c.entradasRevision().vendidasPagas).toBe(4);

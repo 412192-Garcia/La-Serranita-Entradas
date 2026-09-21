@@ -110,16 +110,21 @@ public class CajaController {
 
     @GetMapping("/cerradas")
     @Operation(summary = "Cajas cerradas paginadas (ADMIN)",
-            description = "Para el listado de \"Cajas cerradas\" en la pantalla de Cajas: pagina en la base, así que soporta boleteros con meses de turnos sin traer todo a memoria. Los totales de retiros/faltantes/sobrantes son de todo lo que matchea el filtro, no sólo la página. ordenarPor admite cualquier campo salvo totalRetiros (no es una columna propia de Caja).")
+            description = "Para el listado de \"Cajas cerradas\" en la pantalla de Cajas: sin filtro de fechas, pagina en la base sobre todas las cajas cerradas, así que soporta boleteros con meses de turnos sin traer todo a memoria. ordenarPor admite cualquier campo salvo totalRetiros (no es una columna propia de Caja).")
     public ResponseEntity<CajasCerradasResponseDTO> getCajasCerradas(
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta,
             @RequestParam(required = false) String usuarioNombre,
-            @RequestParam(defaultValue = "fechaCierre") String ordenarPor,
+            @RequestParam(defaultValue = "fechaApertura") String ordenarPor,
             @RequestParam(defaultValue = "DESC") String direccion,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return ResponseEntity.ok(cajaService.getCajasCerradas(desde, hasta, usuarioNombre, ordenarPor, direccion, page, size));
+        return ResponseEntity.ok(cajaService.getCajasCerradas(usuarioNombre, ordenarPor, direccion, page, size));
+    }
+
+    @GetMapping("/cerradas/boleteros")
+    @Operation(summary = "Boleteros con cajas cerradas (ADMIN)",
+            description = "Nombres (nombre + apellido) de los boleteros con al menos una caja cerrada y habilitada, en orden alfabético. Alimenta los chips de filtro del listado de \"Cajas cerradas\", que ya no depende de un rango de fechas.")
+    public ResponseEntity<List<String>> getBoleterosConCajasCerradas() {
+        return ResponseEntity.ok(cajaService.getBoleterosConCajasCerradas());
     }
 
     @GetMapping("/{id}/detalle")

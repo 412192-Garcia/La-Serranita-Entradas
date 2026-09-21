@@ -3,7 +3,7 @@
 } @else if (error()) {
   <p class="alerta-error">{{ error() }}</p>
 } @else if (detalle(); as d) {
-  <div class="tarjeta-kpis-detalle" [class.tarjeta-kpis-detalle-3]="d.entradasFisicasRestantes !== null">
+  <div class="tarjeta-kpis-detalle" data-tour="kpis-caja-abierta" [class.tarjeta-kpis-detalle-3]="d.entradasFisicasRestantes !== null">
     <div>
       <h2>Vendido hasta ahora</h2>
       <p class="kpi-numero">{{ totalVendido() | pesos }}</p>
@@ -46,7 +46,7 @@
     </div>
   </div>
 
-  <div class="acciones-caja-abierta">
+  <div class="acciones-caja-abierta" data-tour="acciones-caja-abierta">
     <button type="button" class="btn-secundario" [disabled]="formularioVentaAbierto()" (click)="iniciarAgregarVenta()">+ Agregar venta</button>
     <button type="button" class="btn-secundario" (click)="mostrarRetiro.set(true)">Retiro / Aporte</button>
     <button type="button" class="btn-secundario" (click)="mostrarIngresoEntradas.set(true)">Entradas físicas</button>

@@ -21,6 +21,14 @@ public interface CajaRepository extends JpaRepository<Caja, Long>, JpaSpecificat
      * Incluye las deshabilitadas: el reporte las filtra en memoria (ver ReporteServiceImpl) para no cambiar este OrderBy. */
     List<Caja> findAllByFechaCierreBetweenOrderByFechaCierreDesc(LocalDateTime desde, LocalDateTime hasta);
 
+    /** Nombres ("nombre apellido", el mismo texto que CajaResumenReporteDTO) de los boleteros con al
+     * menos una caja cerrada y habilitada, en orden alfabético: son los chips del filtro de "Cajas
+     * cerradas", que ya no depende de un rango de fechas. */
+    @Query("SELECT DISTINCT CONCAT(u.nombre, ' ', u.apellido) FROM Caja c JOIN c.usuario u "
+            + "WHERE c.fechaCierre IS NOT NULL AND (c.habilitada IS NULL OR c.habilitada = true) "
+            + "ORDER BY CONCAT(u.nombre, ' ', u.apellido)")
+    List<String> findNombresBoleterosConCajasCerradas();
+
     /** Ids de las cajas deshabilitadas por un admin: para descartar sus ventas del reporte. */
     @Query("SELECT c.id FROM Caja c WHERE c.habilitada = false")
     List<Long> findIdsDeshabilitadas();
