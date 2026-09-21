@@ -22,8 +22,10 @@ export class NotificacionService {
   }
 
   /** Sólo tiene efecto real en tipos con desapareceAlVerse=true (ej. CAJA_ATRASADA): en los
-   * demás (ej. RECHAZO_OPERACION) el aviso sólo se apaga resolviendo la entidad referida. */
-  marcarVistas(tipo: TipoNotificacion, refIds: number[]): Observable<void> {
-    return this.http.post<void>(`${this.apiUrl}/${tipo}/marcar-vistas`, { refIds });
+   * demás (ej. RECHAZO_OPERACION) el aviso sólo se apaga resolviendo la entidad referida.
+   * Devuelve los ids que estaban SIN ver hasta ahora (los que prendían el aviso), para señalarlos
+   * en pantalla: una vez marcados, el aviso se apaga y ya no hay otra forma de saber cuáles eran. */
+  marcarVistas(tipo: TipoNotificacion, refIds: number[]): Observable<number[]> {
+    return this.http.post<number[]>(`${this.apiUrl}/${tipo}/marcar-vistas`, { refIds });
   }
 }

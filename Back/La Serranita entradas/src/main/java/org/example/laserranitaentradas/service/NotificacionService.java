@@ -17,6 +17,11 @@ public interface NotificacionService {
     boolean hayPendientes(TipoNotificacion tipo, List<Long> refIdsActuales, Long usuarioId);
 
     /** Marca estos ids como vistos por este usuario para este tipo. Sólo tiene efecto real en
-     * tipos con desapareceAlVerse=true; en los demás no rompe nada, simplemente no se consulta. */
-    void marcarVistas(TipoNotificacion tipo, List<Long> refIds, Long usuarioId);
+     * tipos con desapareceAlVerse=true; en los demás no rompe nada, simplemente no se consulta.
+     *
+     * Devuelve los ids que hasta este momento estaban SIN ver para este usuario, o sea los que
+     * estaban prendiendo el aviso: la pantalla los usa para señalar cuáles son las novedades entre
+     * todos los candidatos (ej. cuál de las cajas atrasadas es la nueva). Vacío si no había nada
+     * nuevo o el tipo no se apaga al verse. */
+    List<Long> marcarVistas(TipoNotificacion tipo, List<Long> refIds, Long usuarioId);
 }

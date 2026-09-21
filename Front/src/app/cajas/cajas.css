@@ -127,6 +127,18 @@
   margin-left: 8px;
 }
 
+/* Puntito rojo (el mismo del menú) en la caja que prendió el aviso: la distingue de las atrasadas
+   que el admin ya conocía. Se apaga al abrir su detalle (ver toggleOperaciones). */
+.punto-nueva {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-left: 8px;
+  border-radius: 50%;
+  background-color: var(--color-danger);
+  vertical-align: middle;
+}
+
 .fila-clickable {
   cursor: pointer;
   border-radius: var(--radius-sm);

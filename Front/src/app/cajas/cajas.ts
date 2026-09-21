@@ -126,7 +126,7 @@ export class ConfiguracionCajas implements OnInit {
     {
       selector: '[data-tour="cajas-abiertas"]',
       titulo: 'Cajas abiertas ahora',
-      texto: 'Los turnos en curso: quién abrió, con cuánto arrancó, cuánto lleva vendido y cuántas entradas. Una caja marcada "Atrasada" quedó abierta de un día anterior y hace falta cerrarla. Tocá una fila para ver su detalle.',
+      texto: 'Los turnos en curso: quién abrió, con cuánto arrancó, cuánto lleva vendido y cuántas entradas. Una caja marcada "Atrasada" quedó abierta de un día anterior y hace falta cerrarla; si además tiene un puntito rojo, es la que prendió el aviso del menú y todavía no habías visto (se apaga al abrir su detalle). Tocá una fila para ver su detalle.',
       antes: () => this.tutorialCerrarCierre(),
     },
     {
@@ -246,6 +246,12 @@ export class ConfiguracionCajas implements OnInit {
   cajasAbiertas = signal<CajaAbierta[]>([]);
   cargandoCajasAbiertas = signal(false);
 
+  /** Cajas atrasadas que este admin todavía NO había visto: las que prendían el punto del menú.
+   * Ese aviso se apaga apenas se abre esta pantalla, así que acá se guardan (mientras dure la
+   * visita) para marcarlas con un puntito rojo y que se distingan de las atrasadas que ya conocía.
+   * Cada una sale de acá al abrir su detalle. */
+  cajasNuevas = signal<ReadonlySet<number>>(new Set());
+
   /** Id de la caja abierta cuya fila está desplegada mostrando app-caja-operaciones; null = ninguna. */
   filaExpandidaAbiertaId = signal<number | null>(null);
 
@@ -357,6 +363,9 @@ export class ConfiguracionCajas implements OnInit {
         const idsAtrasadas = cs.filter((c) => this.esAtrasada(c)).map((c) => c.id);
         if (idsAtrasadas.length > 0) {
           this.notificacionService.marcarVistas('CAJA_ATRASADA', idsAtrasadas).subscribe({
+            // Se acumulan: recargar la lista (ej. tras cancelar una venta) devuelve vacío porque ya
+            // se marcaron, y no tiene que borrar la marca de la que sí era nueva.
+            next: (nuevas) => this.cajasNuevas.update((actuales) => new Set([...actuales, ...nuevas])),
             error: (err) => console.error('Error al marcar como vistas las cajas atrasadas:', err),
           });
         }
@@ -383,6 +392,14 @@ export class ConfiguracionCajas implements OnInit {
   /** Despliega el detalle (ventas/retiros/ingresos) de una caja abierta, para revisar o corregir un error mientras el boletero sigue trabajando — mismo patrón que toggleDetalle en "Cajas cerradas". */
   toggleOperaciones(caja: CajaAbierta): void {
     this.filaExpandidaAbiertaId.set(this.filaExpandidaAbiertaId() === caja.id ? null : caja.id);
+    // Abrir el detalle es "verla": el puntito de caja nueva se apaga.
+    if (this.cajasNuevas().has(caja.id)) {
+      this.cajasNuevas.update((actuales) => {
+        const restantes = new Set(actuales);
+        restantes.delete(caja.id);
+        return restantes;
+      });
+    }
   }
 
   /** Se canceló o editó una venta desde el detalle: refresca los totales de "Cajas abiertas ahora". */

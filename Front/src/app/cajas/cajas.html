@@ -29,6 +29,9 @@
               {{ c.usuarioNombre }}
               @if (esAtrasada(c)) {
                 <span class="badge badge-atrasada" title="Quedó abierta de un día anterior: hace falta cerrarla">Atrasada</span>
+                @if (cajasNuevas().has(c.id)) {
+                  <span class="punto-nueva" title="Es la caja que prendió el aviso del menú: todavía no la habías visto" aria-label="Caja atrasada nueva"></span>
+                }
               }
             </span>
             <span data-label="Abrió">{{ c.fechaApertura | date: 'dd/MM HH:mm' }}</span>
