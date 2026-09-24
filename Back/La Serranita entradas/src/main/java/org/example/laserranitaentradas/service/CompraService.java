@@ -1,5 +1,6 @@
 package org.example.laserranitaentradas.service;
 
+import com.mercadopago.resources.payment.Payment;
 import org.example.laserranitaentradas.model.dto.BusquedaComprasFiltroDTO;
 import org.example.laserranitaentradas.model.dto.CompraRequestDTO;
 import org.example.laserranitaentradas.model.dto.CompraResponseDTO;
@@ -52,11 +53,19 @@ public interface CompraService {
     CompraResponseDTO iniciarCompraConPago(CompraRequestDTO compraRequest) throws Exception;
 
     /**
-     * Marca la compra como APROBADO, guarda el id del pago de Mercado Pago (con el que se
-     * reembolsa después) y envía el comprobante, de forma idempotente.
+     * Marca la compra como APROBADO, guarda los ids de los pagos de Mercado Pago que la pagaron
+     * (uno, o varios si pagó con más de una tarjeta; con ellos se reembolsa después) y envía el
+     * comprobante, de forma idempotente.
      * Devuelve false si no había nada que hacer (no existe, o ya estaba aprobada/usada).
      */
-    boolean confirmarAprobado(Long compraId, Long mpPaymentId);
+    boolean confirmarAprobado(Long compraId, List<Long> pagosMercadoPago);
+
+    /**
+     * Confirma la compra a la que apunta un pago avisado por el webhook de Mercado Pago, con las
+     * mismas reglas que la verificación directa: los pagos aprobados posteriores a la compra
+     * tienen que cubrir exactamente el total, solos o sumados (pago con varias tarjetas).
+     */
+    boolean confirmarPagoMercadoPago(Payment pago);
 
     /**
      * Si la compra sigue PENDIENTE_PAGO, le pregunta directamente a la API de Mercado

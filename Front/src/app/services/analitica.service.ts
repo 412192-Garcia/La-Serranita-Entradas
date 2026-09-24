@@ -22,12 +22,15 @@ export class AnaliticaService {
   /** El sitio escucha este "type" (ver README, "Página de gracias y conversiones"). */
   static readonly MENSAJE_COMPRA = 'la-serranita-compra';
   private static readonly NOMBRE_PRODUCTO = 'La Serranita - Parque recreativo Entradas Online';
+  private static readonly CLAVE_REGISTRADAS = 'la-serranita-conversiones';
+  private static readonly MAX_RECORDADAS = 50;
 
+  /** Respaldo en memoria para cuando localStorage no está disponible (modo privado, bloqueado). */
   private readonly registradas = new Set<string>();
 
   registrarCompra(compra: CompraConfirmada): void {
-    if (this.registradas.has(compra.codigoReserva)) return;
-    this.registradas.add(compra.codigoReserva);
+    if (this.yaRegistrada(compra.codigoReserva)) return;
+    this.marcarRegistrada(compra.codigoReserva);
 
     const parametros = {
       booking_id: compra.codigoReserva,
@@ -45,6 +48,31 @@ export class AnaliticaService {
 
     if (environment.urlGracias) {
       window.location.href = `${environment.urlGracias}?${new URLSearchParams(parametros)}`;
+    }
+  }
+
+  // La pantalla de éxito puede volver a cargarse (recarga, botón "atrás" desde la página de
+  // gracias): lo registrado tiene que sobrevivir a eso, no sólo a esta instancia de la app.
+  private yaRegistrada(codigo: string): boolean {
+    return this.registradas.has(codigo) || this.leerGuardadas().includes(codigo);
+  }
+
+  private marcarRegistrada(codigo: string): void {
+    this.registradas.add(codigo);
+    try {
+      const guardadas = [...this.leerGuardadas(), codigo].slice(-AnaliticaService.MAX_RECORDADAS);
+      localStorage.setItem(AnaliticaService.CLAVE_REGISTRADAS, JSON.stringify(guardadas));
+    } catch {
+      // Sin localStorage queda el Set en memoria: cubre esta carga, no una recarga.
+    }
+  }
+
+  private leerGuardadas(): string[] {
+    try {
+      const valor = JSON.parse(localStorage.getItem(AnaliticaService.CLAVE_REGISTRADAS) ?? '[]');
+      return Array.isArray(valor) ? valor : [];
+    } catch {
+      return [];
     }
   }
 }

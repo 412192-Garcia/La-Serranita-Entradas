@@ -5,7 +5,6 @@ import com.mercadopago.client.payment.PaymentClient;
 import com.mercadopago.resources.merchantorder.MerchantOrder;
 import com.mercadopago.resources.payment.Payment;
 import jakarta.servlet.http.HttpServletRequest;
-import org.example.laserranitaentradas.model.entity.Compra;
 import org.example.laserranitaentradas.service.CompraService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -78,8 +77,8 @@ public class PagoController {
                 }
 
                 if (paymentId != null) {
-                    Payment payment = new PaymentClient().get(Long.parseLong(paymentId));
-                    procesarSiAprobado(payment.getStatus(), payment.getExternalReference(), payment.getId());
+                    // Nunca se confía en el cuerpo del aviso: el pago se trae de la API de MP con nuestro token.
+                    confirmar(new PaymentClient().get(Long.parseLong(paymentId)));
                 }
 
             } else if ("merchant_order".equals(evento)) {
@@ -90,10 +89,14 @@ public class PagoController {
                 if (merchantOrderId != null) {
                     MerchantOrder order = new MerchantOrderClient().get(Long.parseLong(merchantOrderId));
                     if (order.getPayments() != null) {
-                        order.getPayments().stream()
-                                .filter(p -> "approved".equals(p.getStatus()))
-                                .findFirst()
-                                .ifPresent(p -> procesarSiAprobado("approved", order.getExternalReference(), p.getId()));
+                        // El resumen de pagos de la orden no trae la fecha de creación que hace falta
+                        // validar: se trae cada pago aprobado completo, igual que en el aviso "payment".
+                        PaymentClient pagos = new PaymentClient();
+                        for (var p : order.getPayments()) {
+                            if ("approved".equals(p.getStatus())) {
+                                confirmar(pagos.get(p.getId()));
+                            }
+                        }
                     }
                 }
             }
@@ -154,19 +157,10 @@ public class PagoController {
         }
     }
 
-    private void procesarSiAprobado(String estadoPago, String codigoReserva, Long mpPaymentId) {
-        if (!"approved".equals(estadoPago) || codigoReserva == null) return;
-
-        Long idDeCompra = compraService.findByCodigoReserva(codigoReserva).map(Compra::getId).orElse(null);
-        if (idDeCompra == null) {
-            log.warn("Pago aprobado de Mercado Pago con external_reference {} que no corresponde a ninguna compra", codigoReserva);
-            return;
-        }
-        // La idempotencia (Mercado Pago puede reenviar la misma notificación varias
-        // veces) y el envío del comprobante viven en el service: es la misma lógica
-        // que usa la verificación directa en /api/compras/{id}/verificar-pago.
-        if (compraService.confirmarAprobado(idDeCompra, mpPaymentId)) {
-            log.info("Pago APROBADO confirmado en BD para la compra ID {}", idDeCompra);
+    /** Validación (monto, fecha) e idempotencia viven en el service, compartidas con la verificación directa. */
+    private void confirmar(Payment pago) {
+        if (compraService.confirmarPagoMercadoPago(pago)) {
+            log.info("Pago {} de Mercado Pago APROBADO confirmado en BD para la compra {}", pago.getId(), pago.getExternalReference());
         }
     }
 }

@@ -244,7 +244,13 @@ Si alguna etiqueta de GTM los leía, hay que sacarla. Las reservas para pagar en
 redirigen: no son un cobro todavía.
 
 Si el módulo se abre directo (sin iframe), redirige él mismo a `urlGracias` de
-`environment.prod.ts` con los mismos parámetros.
+`environment.prod.ts` con los mismos parámetros. Lo mismo hace `/pago-exitoso` cuando queda en una
+pestaña suelta (típico en el celular, al volver desde la app de Mercado Pago), para que esa venta
+también se cuente.
+
+En ese caso la misma compra puede llegar dos veces a la página de gracias (la pestaña suelta y,
+si el visitante vuelve a la del sitio, el iframe). En GTM, mapeá `booking_id` como ID de
+transacción (`transaction_id` en GA4, ID de pedido en Google Ads): así la segunda se descarta sola.
 
 ### Configurar el embebido por query param
 

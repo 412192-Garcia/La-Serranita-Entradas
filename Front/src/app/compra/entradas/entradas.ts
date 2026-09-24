@@ -1,4 +1,5 @@
 import {ChangeDetectorRef, Component, ElementRef, NgZone, OnDestroy, OnInit} from '@angular/core';
+import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { Calendario } from '../calendario/calendario';
@@ -6,8 +7,9 @@ import { SeleccionEntradas } from '../seleccion-entradas/seleccion-entradas';
 import { FormCliente } from '../form-cliente/form-cliente';
 import { Resumen } from '../resumen/resumen';
 import { CompraService } from '../../services/compra.service';
-import { ConfiguracionService } from '../../services/configuracion.service';
+import { ConfiguracionService, HorarioGeneral } from '../../services/configuracion.service';
 import { AnaliticaService } from '../../services/analitica.service';
+import { aFechaISO } from '../../shared/fecha.util';
 import { ThemeService } from '../../services/theme.service';
 import { PagoExitoso } from '../../resultado-pago/pago-exitoso/pago-exitoso';
 import {FormaPagoType, ResumenCompraData} from "../../models/compra";
@@ -16,6 +18,14 @@ import { LucideClock, LucideCloudRain, LucideTriangleAlert } from '@lucide/angul
 import { Modal } from '../../shared/modal/modal';
 import { Observable, Subscription, of, timer } from 'rxjs';
 import { catchError, map, switchMap, take } from 'rxjs/operators';
+
+interface HorarioVista {
+  apertura: string;
+  cierre: string;
+  limiteCompra: string | null;
+  /** El día elegido, sólo si tiene un horario distinto al general. */
+  fechaEspecial: Date | null;
+}
 
 enum etapaCompra {
   SELECCION,
@@ -26,6 +36,7 @@ enum etapaCompra {
 @Component({
   selector: 'app-entradas',
   imports: [
+    DatePipe,
     FormsModule,
     Calendario,
     SeleccionEntradas,
@@ -149,15 +160,16 @@ export class Entradas implements OnInit, OnDestroy {
   ocultarInfoUtil = false;
 
   /**
-   * Antes era texto fijo ("Abierto de 11:00 a 18:30 hs."): si el ADMIN cambiaba el
-   * horario general desde "Días y Horarios" (ConfiguracionService), el módulo público
-   * seguía mostrando el horario viejo. Ahora se trae de GET /api/configuracion/horario
-   * (endpoint público, ver SecurityConfig). Es el horario GENERAL nada más — no el
-   * horario especial por fecha puntual, que hoy no tiene endpoint público.
-   * Null mientras carga o si falla la consulta: el renglón directamente no se muestra
-   * en vez de arriesgarse a mostrar un horario que ya no es el real.
+   * Se trae de GET /api/configuracion/horario (público) en vez de estar fijo, para que un
+   * cambio del ADMIN en "Días y Horarios" se vea acá. Al abrir, el general; al elegir un día,
+   * el de ese día (su horario especial si tiene uno). Null mientras carga o si falla la
+   * consulta: el renglón no se muestra antes que mostrar un horario que ya no es el real.
    */
-  horario: { apertura: string; cierre: string; limiteCompra: string | null } | null = null;
+  horario: HorarioVista | null = null;
+  /** Para volver a él al sacar la fecha (regalo) sin pedirlo de nuevo. */
+  private horarioGeneral: HorarioVista | null = null;
+  /** La última fecha pedida: si se tocan dos días seguidos, la respuesta del primero se descarta. */
+  private fechaDelHorarioPedido: string | null = null;
 
   /** "45 minutos", "1 hora", "1 hora y 30 minutos"; null si no hay corte (0 minutos) o el dato no llegó. */
   private textoLapso(minutos: number | null | undefined): string | null {
@@ -170,19 +182,47 @@ export class Entradas implements OnInit, OnDestroy {
     return partes.join(' y ');
   }
 
+  private aHorarioVista(h: HorarioGeneral, fecha: Date | null): HorarioVista {
+    return {
+      apertura: h.horaApertura.slice(0, 5),
+      cierre: h.horaCierre.slice(0, 5),
+      limiteCompra: this.textoLapso(h.minutosLimiteCompra),
+      fechaEspecial: h.especial ? fecha : null,
+    };
+  }
+
+  private mostrarHorario(horario: HorarioVista | null): void {
+    this.ngZone.run(() => {
+      this.horario = horario;
+      this.cdr.detectChanges();
+    });
+  }
+
   private cargarHorarioGeneral(): void {
     this.configuracionService.getHorarioGeneral().pipe(
-      map((h) => ({
-        apertura: h.horaApertura.slice(0, 5),
-        cierre: h.horaCierre.slice(0, 5),
-        limiteCompra: this.textoLapso(h.minutosLimiteCompra),
-      })),
+      map((h) => this.aHorarioVista(h, null)),
       catchError(() => of(null))
     ).subscribe((horario) => {
-      this.ngZone.run(() => {
-        this.horario = horario;
-        this.cdr.detectChanges();
-      });
+      this.horarioGeneral = horario;
+      // Si ya se eligió un día mientras cargaba, manda el horario de ese día.
+      if (!this.fechaDelHorarioPedido) this.mostrarHorario(horario);
+    });
+  }
+
+  private cargarHorarioDelDia(fecha: Date | null): void {
+    if (!fecha) {
+      this.fechaDelHorarioPedido = null;
+      this.mostrarHorario(this.horarioGeneral);
+      return;
+    }
+    const pedida = aFechaISO(fecha);
+    this.fechaDelHorarioPedido = pedida;
+    this.configuracionService.getHorarioDelDia(pedida).pipe(
+      map((h) => this.aHorarioVista(h, fecha)),
+      // Sin el del día, el general es mejor que nada: es el que rige salvo excepciones.
+      catchError(() => of(this.horarioGeneral))
+    ).subscribe((horario) => {
+      if (this.fechaDelHorarioPedido === pedida) this.mostrarHorario(horario);
     });
   }
 
@@ -280,12 +320,14 @@ export class Entradas implements OnInit, OnDestroy {
 
   onFechaSeleccionada(fecha: Date | null): void {
     this.compraAcumulada.fechaVisita = fecha;
+    this.cargarHorarioDelDia(fecha);
   }
 
   onEsRegaloCambio(esRegalo: boolean): void {
     this.compraAcumulada.esRegalo = esRegalo;
     if (esRegalo) {
       this.compraAcumulada.fechaVisita = null;
+      this.cargarHorarioDelDia(null);
       // Un regalo tiene que estar pagado de antemano: si quedó en efectivo de un
       // paso anterior, el receptor terminaría pagando de su bolsillo lo que le
       // "regalaron" al llegar al parque.
