@@ -21,6 +21,8 @@ export interface HorarioGeneral {
   horaCierre: string;
   /** Minutos antes del cierre en que se corta la compra online para el mismo día. */
   minutosLimiteCompra: number;
+  /** Sólo al pedirlo con fecha: true si ese día tiene un horario distinto al general. */
+  especial?: boolean;
 }
 
 export interface FamiliaCupon {
@@ -100,6 +102,11 @@ export class ConfiguracionService {
 
   getHorarioGeneral(): Observable<HorarioGeneral> {
     return this.http.get<HorarioGeneral>(`${this.configUrl}/horario`);
+  }
+
+  /** El horario que rige ese día (YYYY-MM-DD): el especial si tiene uno, si no el general. */
+  getHorarioDelDia(fecha: string): Observable<HorarioGeneral> {
+    return this.http.get<HorarioGeneral>(`${this.configUrl}/horario`, { params: { fecha } });
   }
 
   actualizarHorarioGeneral(horaApertura: string, horaCierre: string, minutosLimiteCompra: number): Observable<HorarioGeneral> {

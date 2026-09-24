@@ -8,4 +8,7 @@
  */
 export const environment = {
   apiBase: 'http://localhost:8080/api',
+  // Vacío en dev a propósito: las compras de prueba no tienen que contar como conversiones.
+  urlGracias: '',
+  urlSitio: '',
 };

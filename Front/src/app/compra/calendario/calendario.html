@@ -70,10 +70,16 @@
 
 </div>
 
-@if (fechaSeleccionada)
+<!-- Siempre presente (salvo regalo, que no lleva día): si apareciera recién al elegir,
+     empujaría hacia abajo todo lo que viene después. -->
+@if (!esRegalo)
 {
-  <div class="feedback-reserva">
-    Día seleccionado: <strong>{{fechaSeleccionada | date:'dd/MM/yyyy'}}</strong>
+  <div class="feedback-reserva" [class.sin-fecha]="!fechaSeleccionada">
+    @if (fechaSeleccionada) {
+      Día seleccionado: <strong>{{fechaSeleccionada | date:'dd/MM/yyyy'}}</strong>
+    } @else {
+      Todavía no elegiste un día
+    }
   </div>
 }
 

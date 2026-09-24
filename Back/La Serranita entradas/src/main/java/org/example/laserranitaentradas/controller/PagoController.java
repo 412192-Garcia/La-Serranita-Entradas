@@ -53,7 +53,12 @@ public class PagoController {
 
         String idParaFirma = dataId != null ? dataId : id;
         if (!firmaValida(xSignature, xRequestId, idParaFirma)) {
-            log.warn("Notificación de Mercado Pago con firma inválida o faltante, IP {}", request.getRemoteAddr());
+            // Tipo de aviso y qué faltaba: sin esto no hay forma de distinguir un aviso real de
+            // MP sin firma (formato IPN: topic/id) de uno firmado con un secreto que no coincide.
+            log.warn("Notificación de Mercado Pago con firma inválida o faltante: type={}, topic={}, id={}, "
+                            + "x-signature {}, x-request-id {}, IP {}",
+                    type, topic, idParaFirma, xSignature != null ? "presente" : "ausente",
+                    xRequestId != null ? "presente" : "ausente", request.getRemoteAddr());
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
@@ -72,8 +77,8 @@ public class PagoController {
                 }
 
                 if (paymentId != null) {
-                    Payment payment = new PaymentClient().get(Long.parseLong(paymentId));
-                    procesarSiAprobado(payment.getStatus(), payment.getExternalReference());
+                    // Nunca se confía en el cuerpo del aviso: el pago se trae de la API de MP con nuestro token.
+                    confirmar(new PaymentClient().get(Long.parseLong(paymentId)));
                 }
 
             } else if ("merchant_order".equals(evento)) {
@@ -83,10 +88,15 @@ public class PagoController {
                 String merchantOrderId = id != null ? id : dataId;
                 if (merchantOrderId != null) {
                     MerchantOrder order = new MerchantOrderClient().get(Long.parseLong(merchantOrderId));
-                    boolean tieneAlgunPagoAprobado = order.getPayments() != null && order.getPayments().stream()
-                            .anyMatch(p -> "approved".equals(p.getStatus()));
-                    if (tieneAlgunPagoAprobado) {
-                        procesarSiAprobado("approved", order.getExternalReference());
+                    if (order.getPayments() != null) {
+                        // El resumen de pagos de la orden no trae la fecha de creación que hace falta
+                        // validar: se trae cada pago aprobado completo, igual que en el aviso "payment".
+                        PaymentClient pagos = new PaymentClient();
+                        for (var p : order.getPayments()) {
+                            if ("approved".equals(p.getStatus())) {
+                                confirmar(pagos.get(p.getId()));
+                            }
+                        }
                     }
                 }
             }
@@ -147,15 +157,10 @@ public class PagoController {
         }
     }
 
-    private void procesarSiAprobado(String estadoPago, String compraIdStr) {
-        if (!"approved".equals(estadoPago) || compraIdStr == null) return;
-
-        Long idDeCompra = Long.parseLong(compraIdStr);
-        // La idempotencia (Mercado Pago puede reenviar la misma notificación varias
-        // veces) y el envío del comprobante viven en el service: es la misma lógica
-        // que usa la verificación directa en /api/compras/{id}/verificar-pago.
-        if (compraService.confirmarAprobado(idDeCompra)) {
-            log.info("Pago APROBADO confirmado en BD para la compra ID {}", idDeCompra);
+    /** Validación (monto, fecha) e idempotencia viven en el service, compartidas con la verificación directa. */
+    private void confirmar(Payment pago) {
+        if (compraService.confirmarPagoMercadoPago(pago)) {
+            log.info("Pago {} de Mercado Pago APROBADO confirmado en BD para la compra {}", pago.getId(), pago.getExternalReference());
         }
     }
 }
