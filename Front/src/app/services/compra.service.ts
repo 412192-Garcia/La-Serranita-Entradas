@@ -54,12 +54,14 @@ export class CompraService {
     return this.http.get<EstadoCompraResponse>(`${this.apiUrl}/${compraId}/estado`);
   }
 
-  /**
-   * Trae la compra completa (usado para resolver el código de reserva a partir
-   * del id numérico que Mercado Pago devuelve en external_reference).
-   */
+  /** Resumen público de la compra (sin datos de contacto, DNI enmascarado). */
   obtenerCompra(compraId: number): Observable<CompraResponseDTO> {
     return this.http.get<CompraResponseDTO>(`${this.apiUrl}/${compraId}`);
+  }
+
+  /** Mismo resumen, a partir del código de reserva: es lo que Mercado Pago devuelve en external_reference. */
+  obtenerCompraPorCodigo(codigoReserva: string): Observable<CompraResponseDTO> {
+    return this.http.get<CompraResponseDTO>(`${this.apiUrl}/codigo/${encodeURIComponent(codigoReserva)}`);
   }
 
   /**

@@ -19,6 +19,8 @@ import java.util.Optional;
 
 public interface CompraService {
     Optional<Compra> findById(Long id);
+    /** El código de reserva es también el external_reference de Mercado Pago. */
+    Optional<Compra> findByCodigoReserva(String codigoReserva);
     Optional<Compra> findByDniandFecha(String dni, LocalDate fechaVisita);
 
     /** Búsqueda paginada de boletería: texto libre, fecha, boletería/anticipada, estado(s) y forma de pago. */
@@ -50,10 +52,11 @@ public interface CompraService {
     CompraResponseDTO iniciarCompraConPago(CompraRequestDTO compraRequest) throws Exception;
 
     /**
-     * Marca la compra como APROBADO y envía el comprobante, de forma idempotente.
+     * Marca la compra como APROBADO, guarda el id del pago de Mercado Pago (con el que se
+     * reembolsa después) y envía el comprobante, de forma idempotente.
      * Devuelve false si no había nada que hacer (no existe, o ya estaba aprobada/usada).
      */
-    boolean confirmarAprobado(Long compraId);
+    boolean confirmarAprobado(Long compraId, Long mpPaymentId);
 
     /**
      * Si la compra sigue PENDIENTE_PAGO, le pregunta directamente a la API de Mercado

@@ -201,9 +201,18 @@ Snippet a pegar en la página del sitio:
 ></iframe>
 
 <script>
+  // Origen del módulo (sin barra final): sólo se aceptan avisos que vengan de ahí.
+  const ORIGEN_ENTRADAS = 'https://<dominio-de-producción>';
+
   window.addEventListener('message', (event) => {
+    if (event.origin !== ORIGEN_ENTRADAS) return;
+
     if (event.data?.type === 'la-serranita-alto') {
       document.getElementById('serranita-entradas').style.height = event.data.alto + 'px';
+    }
+
+    if (event.data?.type === 'la-serranita-compra') {
+      window.location.href = '/gracias-por-su-compra/?' + new URLSearchParams(event.data.compra);
     }
   });
 </script>
@@ -211,6 +220,31 @@ Snippet a pegar en la página del sitio:
 
 El `height: 780px` inicial es sólo un valor de arranque razonable hasta que llega el primer aviso
 de altura (llega casi de inmediato).
+
+### Página de gracias y conversiones
+
+Cuando se confirma un pago de Mercado Pago, el módulo avisa `la-serranita-compra` y el sitio
+redirige a `/gracias-por-su-compra/`, donde el Google Tag Manager del sitio registra la conversión.
+La redirección la hace el sitio y no el iframe porque el navegador no deja que un iframe de otro
+dominio navegue la página padre sin un clic del usuario, y la confirmación llega sola, sin clic.
+
+Los parámetros usan los mismos nombres que mandaba Turitop, así las variables de GTM existentes
+siguen sirviendo:
+
+| Parámetro      | Valor                                               |
+|----------------|-----------------------------------------------------|
+| `booking_id`   | Código de reserva (`yyMMdd-N`)                      |
+| `total`        | Total cobrado, con el cupón ya descontado           |
+| `currency`     | `ARS`                                               |
+| `product_name` | `La Serranita - Parque recreativo Entradas Online`  |
+
+A propósito **no** van `client_name` ni `client_email`: lo que viaja en la URL termina en
+Analytics, Facebook y los logs del servidor, y Google prohíbe mandar datos personales a Analytics.
+Si alguna etiqueta de GTM los leía, hay que sacarla. Las reservas para pagar en efectivo no
+redirigen: no son un cobro todavía.
+
+Si el módulo se abre directo (sin iframe), redirige él mismo a `urlGracias` de
+`environment.prod.ts` con los mismos parámetros.
 
 ### Configurar el embebido por query param
 

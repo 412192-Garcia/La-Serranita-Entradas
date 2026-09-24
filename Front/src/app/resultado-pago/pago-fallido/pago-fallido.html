@@ -12,8 +12,11 @@
     </div>
   }
 
+  <p>Podés volver a intentarlo desde la página de compra, con otro medio de pago si hace falta.</p>
+
   <div class="footer-acciones">
-    <button type="button" class="btn-outline" (click)="irAInicio()">Volver al Inicio</button>
-    <button type="button" class="btn-primario" (click)="reintentarPago()">Reintentar Pago</button>
+    <button type="button" class="btn-primario" (click)="cerrar()">
+      {{ esPopup ? 'Cerrar' : 'Volver al sitio del parque' }}
+    </button>
   </div>
 </div>

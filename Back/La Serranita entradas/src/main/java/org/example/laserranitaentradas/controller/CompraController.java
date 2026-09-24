@@ -83,15 +83,51 @@ public class CompraController {
     }
 
     @GetMapping("/{id}")
-    @Operation(summary = "Obtener compra por ID", description = "Obtiene una compra específica por su ID")
+    @Operation(summary = "Resumen público de una compra",
+            description = "Código de reserva, estado y DNI enmascarado, para las pantallas de resultado del pago. Sin datos de contacto.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Compra encontrada"),
             @ApiResponse(responseCode = "404", description = "Compra no encontrada")
     })
     public ResponseEntity<CompraResponseDTO> obtenerCompraPorId(@PathVariable @Parameter(description = "ID de la compra") Long id) {
         Optional<Compra> compra = compraService.findById(id);
-        return compra.map(c -> ResponseEntity.ok(entityToDto(c)))
+        return compra.map(c -> ResponseEntity.ok(resumenPublico(c)))
                 .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/codigo/{codigoReserva}")
+    @Operation(summary = "Resumen público de una compra por código de reserva",
+            description = "Mismo resumen que por ID. Es lo que llega en external_reference cuando Mercado Pago vuelve al sitio.")
+    public ResponseEntity<CompraResponseDTO> obtenerCompraPorCodigo(@PathVariable String codigoReserva) {
+        return compraService.findByCodigoReserva(codigoReserva)
+                .map(c -> ResponseEntity.ok(resumenPublico(c)))
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    /**
+     * El endpoint es anónimo y los IDs son correlativos: con la compra completa, recorrer
+     * 1, 2, 3… alcanzaba para bajarse nombre, DNI, mail y teléfono de todos los clientes.
+     */
+    private static CompraResponseDTO resumenPublico(Compra c) {
+        CompraResponseDTO dto = new CompraResponseDTO();
+        dto.setId(c.getId());
+        dto.setCodigoReserva(c.getCodigoReserva());
+        dto.setEstado(c.getEstado() != null ? c.getEstado().name() : null);
+        dto.setFormaPago(c.getFormaPago());
+        dto.setFechaVisita(c.getFechaVisita());
+        if (c.getCliente() != null) {
+            ClienteResponseDTO cliente = new ClienteResponseDTO();
+            cliente.setDni(enmascararDocumento(c.getCliente().getDni()));
+            dto.setCliente(cliente);
+        }
+        return dto;
+    }
+
+    private static String enmascararDocumento(String documento) {
+        if (documento == null || documento.length() <= 3) {
+            return documento;
+        }
+        return "*".repeat(documento.length() - 3) + documento.substring(documento.length() - 3);
     }
 
     /** Claves de orden que expone el frontend, mapeadas a la propiedad JPA real (evita inyectar cualquier campo). */

@@ -58,9 +58,10 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/tipos-entrada/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/cupones/codigo/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/compras", "/api/compras/iniciar-pago", "/api/compras/cotizar").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/compras/{id}", "/api/compras/{id}/estado").permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/compras/{id}/verificar-pago").permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/mercadopago/preferences").permitAll()
+                // {id:\d+} y no {id}: un {id} suelto también matchea /api/compras/buscar (esta regla
+                // gana por ir primero) y dejaba la búsqueda de boletería abierta sin login.
+                .requestMatchers(HttpMethod.GET, "/api/compras/{id:\\d+}", "/api/compras/{id:\\d+}/estado", "/api/compras/codigo/*").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/compras/{id:\\d+}/verificar-pago").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/pagos/webhook").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/ping").permitAll()
 
@@ -76,6 +77,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.PUT, "/api/interno/compras/*/cancelar-venta").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/api/interno/compras/*/editar-venta").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/interno/compras/caja/*/venta-pos").hasRole("ADMIN")
+                // Devuelve plata real por la API de Mercado Pago: la UI ya lo muestra sólo al admin.
+                .requestMatchers(HttpMethod.POST, "/api/interno/compras/*/reembolsar").hasRole("ADMIN")
                 // Cerrar caja (y corregir un cierre ya hecho) dejó de ser self-service: ahora
                 // lo dispara un ADMIN desde la pantalla de Cajas, nunca el boletero desde el
                 // POS — por eso estas van ADMIN-only en vez de caer en el catch-all de abajo.

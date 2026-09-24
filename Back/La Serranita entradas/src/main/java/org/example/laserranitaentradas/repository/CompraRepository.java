@@ -20,6 +20,11 @@ public interface CompraRepository extends JpaRepository<Compra, Long>, JpaSpecif
     Optional<Compra> findByClienteDniAndFechaVisita(String dni, LocalDate fechaVisita);
 
     Optional<Compra> findByIdempotencyKey(String idempotencyKey);
+
+    Optional<Compra> findByCodigoReserva(String codigoReserva);
+
+    Optional<Compra> findFirstByClienteIdAndIdNotAndFormaPagoAndEstadoInOrderByFechaCreacionDesc(
+            Long clienteId, Long compraId, FormaPago formaPago, Collection<EstadoCompra> estados);
     List<Compra> findAllByFechaVisitaOrderByCodigoReservaAsc(LocalDate fechaVisita);
     long countByFechaVisita(LocalDate fechaVisita);
     long countByFechaVisitaIsNull();

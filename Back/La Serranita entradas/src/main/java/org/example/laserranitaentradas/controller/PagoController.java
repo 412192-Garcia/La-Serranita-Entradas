@@ -5,6 +5,7 @@ import com.mercadopago.client.payment.PaymentClient;
 import com.mercadopago.resources.merchantorder.MerchantOrder;
 import com.mercadopago.resources.payment.Payment;
 import jakarta.servlet.http.HttpServletRequest;
+import org.example.laserranitaentradas.model.entity.Compra;
 import org.example.laserranitaentradas.service.CompraService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,7 +54,12 @@ public class PagoController {
 
         String idParaFirma = dataId != null ? dataId : id;
         if (!firmaValida(xSignature, xRequestId, idParaFirma)) {
-            log.warn("Notificación de Mercado Pago con firma inválida o faltante, IP {}", request.getRemoteAddr());
+            // Tipo de aviso y qué faltaba: sin esto no hay forma de distinguir un aviso real de
+            // MP sin firma (formato IPN: topic/id) de uno firmado con un secreto que no coincide.
+            log.warn("Notificación de Mercado Pago con firma inválida o faltante: type={}, topic={}, id={}, "
+                            + "x-signature {}, x-request-id {}, IP {}",
+                    type, topic, idParaFirma, xSignature != null ? "presente" : "ausente",
+                    xRequestId != null ? "presente" : "ausente", request.getRemoteAddr());
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
@@ -73,7 +79,7 @@ public class PagoController {
 
                 if (paymentId != null) {
                     Payment payment = new PaymentClient().get(Long.parseLong(paymentId));
-                    procesarSiAprobado(payment.getStatus(), payment.getExternalReference());
+                    procesarSiAprobado(payment.getStatus(), payment.getExternalReference(), payment.getId());
                 }
 
             } else if ("merchant_order".equals(evento)) {
@@ -83,10 +89,11 @@ public class PagoController {
                 String merchantOrderId = id != null ? id : dataId;
                 if (merchantOrderId != null) {
                     MerchantOrder order = new MerchantOrderClient().get(Long.parseLong(merchantOrderId));
-                    boolean tieneAlgunPagoAprobado = order.getPayments() != null && order.getPayments().stream()
-                            .anyMatch(p -> "approved".equals(p.getStatus()));
-                    if (tieneAlgunPagoAprobado) {
-                        procesarSiAprobado("approved", order.getExternalReference());
+                    if (order.getPayments() != null) {
+                        order.getPayments().stream()
+                                .filter(p -> "approved".equals(p.getStatus()))
+                                .findFirst()
+                                .ifPresent(p -> procesarSiAprobado("approved", order.getExternalReference(), p.getId()));
                     }
                 }
             }
@@ -147,14 +154,18 @@ public class PagoController {
         }
     }
 
-    private void procesarSiAprobado(String estadoPago, String compraIdStr) {
-        if (!"approved".equals(estadoPago) || compraIdStr == null) return;
+    private void procesarSiAprobado(String estadoPago, String codigoReserva, Long mpPaymentId) {
+        if (!"approved".equals(estadoPago) || codigoReserva == null) return;
 
-        Long idDeCompra = Long.parseLong(compraIdStr);
+        Long idDeCompra = compraService.findByCodigoReserva(codigoReserva).map(Compra::getId).orElse(null);
+        if (idDeCompra == null) {
+            log.warn("Pago aprobado de Mercado Pago con external_reference {} que no corresponde a ninguna compra", codigoReserva);
+            return;
+        }
         // La idempotencia (Mercado Pago puede reenviar la misma notificación varias
         // veces) y el envío del comprobante viven en el service: es la misma lógica
         // que usa la verificación directa en /api/compras/{id}/verificar-pago.
-        if (compraService.confirmarAprobado(idDeCompra)) {
+        if (compraService.confirmarAprobado(idDeCompra, mpPaymentId)) {
             log.info("Pago APROBADO confirmado en BD para la compra ID {}", idDeCompra);
         }
     }

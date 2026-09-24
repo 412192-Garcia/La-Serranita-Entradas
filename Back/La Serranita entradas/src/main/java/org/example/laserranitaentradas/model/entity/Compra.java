@@ -101,6 +101,14 @@ public class Compra extends BaseEntity {
     private FormaPago formaPago;
 
     /**
+     * Id del pago aprobado en Mercado Pago. El reembolso va por este id y no buscando por
+     * external_reference: el código de reserva vuelve a empezar si se reinicia la base, y
+     * esa búsqueda podía encontrar (y devolver) un pago viejo de otra compra.
+     */
+    @Column(name = "mp_payment_id")
+    private Long mpPaymentId;
+
+    /**
      * Turno de caja en el que se cobró (venta de puerta o cobro de una reserva en
      * efectivo). Null en las compras online: esas nunca pasan efectivo por una caja.
      */

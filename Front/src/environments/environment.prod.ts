@@ -9,4 +9,9 @@
  */
 export const environment = {
   apiBase: '/api',
+  // Adónde termina una compra confirmada cuando la app se abre directo (sin el iframe del
+  // sitio); ahí el GTM del sitio registra la conversión. Vacío = se queda en la app.
+  urlGracias: 'https://parquelaserranita.com.ar/gracias-por-su-compra/',
+  // Adónde va el botón de las pantallas de resultado del pago cuando la ventana no se puede cerrar.
+  urlSitio: 'https://parquelaserranita.com.ar/',
 };

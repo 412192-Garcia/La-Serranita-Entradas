@@ -7,6 +7,7 @@ import { FormCliente } from '../form-cliente/form-cliente';
 import { Resumen } from '../resumen/resumen';
 import { CompraService } from '../../services/compra.service';
 import { ConfiguracionService } from '../../services/configuracion.service';
+import { AnaliticaService } from '../../services/analitica.service';
 import { ThemeService } from '../../services/theme.service';
 import { PagoExitoso } from '../../resultado-pago/pago-exitoso/pago-exitoso';
 import {FormaPagoType, ResumenCompraData} from "../../models/compra";
@@ -57,6 +58,7 @@ export class Entradas implements OnInit, OnDestroy {
               private route: ActivatedRoute,
               private themeService: ThemeService,
               private configuracionService: ConfiguracionService,
+              private analitica: AnaliticaService,
               private elementRef: ElementRef<HTMLElement>) {}
 
   /** Puntos de quiebre por defecto del layout responsive (ver aplicarBreakpoints()). */
@@ -233,6 +235,7 @@ export class Entradas implements OnInit, OnDestroy {
   procesandoPago: boolean = false;
   compraIdActual: number | null = null;
   codigoReservaActual: string | null = null;
+  private montoTotalActual: number | null = null;
   pagoConfirmado: boolean = false;
   /**
    * Aviso al usuario durante el checkout. Reemplaza a los alert() nativos, que
@@ -429,6 +432,8 @@ export class Entradas implements OnInit, OnDestroy {
       next: (res) => {
         this.compraIdActual = res.id;
         this.codigoReservaActual = res.codigoReserva;
+        // El total del backend (con cupón aplicado), que es lo que cobra Mercado Pago.
+        this.montoTotalActual = res.montoTotal;
 
         // EVALUAMOS LA ESTRATEGIA DEVUELTA POR EL BACKEND
         if (res.formaPago === 'MERCADO_PAGO' && res.initPoint) {
@@ -556,6 +561,7 @@ export class Entradas implements OnInit, OnDestroy {
     if (estado === 'APROBADO') {
       this.detenerVerificacion();
       this.cerrarVentanaPago();
+      this.registrarConversion();
       this.ngZone.run(() => {
         this.pagoConfirmado = true;
         this.procesandoPago = false;
@@ -579,6 +585,7 @@ export class Entradas implements OnInit, OnDestroy {
       next: (res) => {
         if (res.estado === 'APROBADO') {
           this.cerrarVentanaPago();
+          this.registrarConversion();
           this.ngZone.run(() => {
             this.pagoConfirmado = true;
             this.procesandoPago = false;
@@ -594,6 +601,11 @@ export class Entradas implements OnInit, OnDestroy {
         'Todavía no pudimos confirmar el pago. Si ya lo completaste vas a recibir el comprobante por mail; si no, podés reintentar.'
       ),
     });
+  }
+
+  private registrarConversion(): void {
+    if (!this.codigoReservaActual || this.montoTotalActual === null) return;
+    this.analitica.registrarCompra({ codigoReserva: this.codigoReservaActual, montoTotal: this.montoTotalActual });
   }
 
   private finalizarConAviso(mensaje: string): void {

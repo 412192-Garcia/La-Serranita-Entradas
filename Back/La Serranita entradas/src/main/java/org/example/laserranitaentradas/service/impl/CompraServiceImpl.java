@@ -43,6 +43,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -511,6 +512,11 @@ public class CompraServiceImpl implements CompraService {
     @Override
     public Optional<Compra> findById(Long id) {
         return compraRepository.findById(id);
+    }
+
+    @Override
+    public Optional<Compra> findByCodigoReserva(String codigoReserva) {
+        return compraRepository.findByCodigoReserva(codigoReserva);
     }
 
     @Override
@@ -1173,7 +1179,10 @@ public class CompraServiceImpl implements CompraService {
         Compra compra = compraRepository.findById(compraId)
                 .orElseThrow(() -> new IllegalArgumentException("Compra no encontrada ID: " + compraId));
 
-        if (compra.getEstado() != EstadoCompra.APROBADO && compra.getEstado() != EstadoCompra.USADO) {
+        // RESERVADO_EFECTIVO también tiene mail (el de "reserva confirmada, pagás en la entrada"):
+        // si ese envío inicial falla, tiene que poder reenviarse igual que el de una compra paga.
+        if (compra.getEstado() != EstadoCompra.APROBADO && compra.getEstado() != EstadoCompra.USADO
+                && compra.getEstado() != EstadoCompra.RESERVADO_EFECTIVO) {
             throw new IllegalStateException("La compra ID " + compraId + " todavía no tiene un comprobante confirmado para reenviar.");
         }
         emailService.enviarComprobanteCompra(compraId);
@@ -1184,20 +1193,29 @@ public class CompraServiceImpl implements CompraService {
 
     @Transactional
     @Override
-    public boolean confirmarAprobado(Long compraId) {
+    public boolean confirmarAprobado(Long compraId, Long mpPaymentId) {
         Compra compra = compraRepository.findById(compraId).orElse(null);
+        if (compra == null) {
+            return false;
+        }
         // Idempotente: si ya está aprobada o usada no hay nada que hacer (evita
         // reprocesar y reenviar el comprobante si Mercado Pago reintenta el aviso,
         // o si el webhook y la verificación directa llegan casi al mismo tiempo).
-        if (compra == null || compra.getEstado() == EstadoCompra.APROBADO || compra.getEstado() == EstadoCompra.USADO) {
+        if (compra.getEstado() == EstadoCompra.APROBADO || compra.getEstado() == EstadoCompra.USADO) {
+            // Mismo aviso repetido: mismo pago. Otro pago aprobado distinto: pagó dos veces.
+            if (mpPaymentId != null && compra.getMpPaymentId() != null && !mpPaymentId.equals(compra.getMpPaymentId())) {
+                log.error("La compra ID {} ({}) ya estaba paga con el pago {} de Mercado Pago y llegó otro pago "
+                                + "aprobado, el {}: el cliente pagó dos veces. Devolver el segundo desde el panel de Mercado Pago.",
+                        compraId, compra.getCodigoReserva(), compra.getMpPaymentId(), mpPaymentId);
+            }
             return false;
         }
 
         // Ya se le devolvió la plata: un aviso tardío de Mercado Pago no puede revivirla, o el
         // visitante entraría con una entrada reembolsada.
         if (compra.getEstado() == EstadoCompra.REEMBOLSADA) {
-            log.error("Llegó una confirmación de pago para la compra ID {}, que está REEMBOLSADA. "
-                    + "No se toca: revisar a mano si ese pago hay que devolverlo.", compraId);
+            log.error("Llegó una confirmación del pago {} de Mercado Pago para la compra ID {}, que está REEMBOLSADA. "
+                    + "No se toca: revisar a mano si ese pago hay que devolverlo.", mpPaymentId, compraId);
             return false;
         }
 
@@ -1221,6 +1239,7 @@ public class CompraServiceImpl implements CompraService {
             }
         }
         compra.setEstado(EstadoCompra.APROBADO);
+        compra.setMpPaymentId(mpPaymentId);
         compraRepository.save(compra);
         emailService.enviarComprobanteCompra(compraId);
         if (compra.getFechaVisita() == null) {
@@ -1241,9 +1260,7 @@ public class CompraServiceImpl implements CompraService {
         }
 
         try {
-            if (hayPagoAprobadoEnMercadoPago(compra)) {
-                confirmarAprobado(compraId);
-            }
+            pagoAprobadoEnMercadoPago(compra).ifPresent(pagoId -> confirmarAprobado(compraId, pagoId));
         } catch (MPException | MPApiException | RuntimeException e) {
             // No se pudo consultar a Mercado Pago ahora: se deja la compra como está
             // para poder reintentar más tarde (webhook, otra verificación, etc.).
@@ -1254,7 +1271,7 @@ public class CompraServiceImpl implements CompraService {
     }
 
     /**
-     * Le pregunta a Mercado Pago si esta compra tiene un pago aprobado.
+     * Le pregunta a Mercado Pago si esta compra tiene un pago aprobado, y devuelve su id.
      *
      * PROPAGA la excepción si no se pudo consultar, y esa es toda la gracia: quien llama
      * necesita poder distinguir "verifiqué y no pagó" de "no pude verificar". Cuando eso se
@@ -1266,23 +1283,30 @@ public class CompraServiceImpl implements CompraService {
     // PaymentClient del SDK contra la API real, así que sin este punto de corte no habría forma
     // de probar qué decide expirarCheckoutAbandonado cuando Mercado Pago no responde — que es
     // justo el camino en el que un cliente que pagó se quedaba sin su entrada.
-    protected boolean hayPagoAprobadoEnMercadoPago(Compra compra) throws MPException, MPApiException {
+    protected Optional<Long> pagoAprobadoEnMercadoPago(Compra compra) throws MPException, MPApiException {
         // limit/offset van explícitos: si se dejan sin setear, el SDK arma la URL
         // iterando todos los parámetros y revienta con NullPointerException al
         // encontrar esos dos en null (bug conocido de esta versión del SDK).
         MPSearchRequest searchRequest = MPSearchRequest.builder()
-                .filters(Map.of("external_reference", compra.getId().toString()))
+                .filters(Map.of("external_reference", compra.getCodigoReserva()))
                 .limit(10)
                 .offset(0)
                 .build();
         List<Payment> pagos = new PaymentClient().search(searchRequest).getResults();
         // El external_reference identifica la compra, pero no es una clave 100% exclusiva
-        // de Mercado Pago (por ejemplo, en un entorno de pruebas donde la base se reinicia
-        // y los IDs se reciclan, puede haber un pago viejo con el mismo external_reference).
-        // Exigir que el monto coincida evita aprobar una compra por un pago que en realidad
-        // es de otra.
-        return pagos != null && pagos.stream()
-                .anyMatch(p -> "approved".equals(p.getStatus()) && compra.getMontoTotal().compareTo(p.getTransactionAmount()) == 0);
+        // de Mercado Pago (si la base se reinicia, los códigos de reserva vuelven a empezar
+        // y puede haber un pago viejo con el mismo external_reference). Exigir que el monto
+        // coincida y que el pago sea posterior a la compra evita aprobarla por el pago de otra.
+        if (pagos == null) {
+            return Optional.empty();
+        }
+        return pagos.stream()
+                .filter(p -> "approved".equals(p.getStatus()) && compra.getMontoTotal().compareTo(p.getTransactionAmount()) == 0)
+                .filter(p -> compra.getFechaCreacion() == null || p.getDateCreated() == null
+                        || !p.getDateCreated().atZoneSameInstant(ZoneId.systemDefault()).toLocalDateTime()
+                                .isBefore(compra.getFechaCreacion()))
+                .map(Payment::getId)
+                .findFirst();
     }
 
     @Override
@@ -1303,8 +1327,9 @@ public class CompraServiceImpl implements CompraService {
         // compra deja de estar PENDIENTE_PAGO (no se cancela).
         if (compra.getFormaPago() == FormaPago.MERCADO_PAGO) {
             try {
-                if (hayPagoAprobadoEnMercadoPago(compra)) {
-                    confirmarAprobado(compraId);
+                Optional<Long> pagoAprobado = pagoAprobadoEnMercadoPago(compra);
+                if (pagoAprobado.isPresent()) {
+                    confirmarAprobado(compraId, pagoAprobado.get());
                     return;
                 }
             } catch (MPException | MPApiException | RuntimeException e) {
@@ -1356,21 +1381,13 @@ public class CompraServiceImpl implements CompraService {
                     "Sólo se pueden reembolsar compras pagadas online que todavía no fueron utilizadas (estado actual: " + compra.getEstado() + ")");
         }
 
+        if (compra.getMpPaymentId() == null) {
+            throw new IllegalStateException("La compra no tiene registrado su pago de Mercado Pago: "
+                    + "el reembolso hay que hacerlo desde el panel de Mercado Pago.");
+        }
+
         try {
-            MPSearchRequest searchRequest = MPSearchRequest.builder()
-                    .filters(Map.of("external_reference", compraId.toString()))
-                    .limit(10)
-                    .offset(0)
-                    .build();
-            List<Payment> pagos = new PaymentClient().search(searchRequest).getResults();
-            Payment pagoAprobado = pagos == null ? null : pagos.stream()
-                    .filter(p -> "approved".equals(p.getStatus()) && compra.getMontoTotal().compareTo(p.getTransactionAmount()) == 0)
-                    .findFirst()
-                    .orElse(null);
-            if (pagoAprobado == null) {
-                throw new IllegalStateException("No se encontró en Mercado Pago el pago aprobado de la compra ID " + compraId);
-            }
-            new PaymentRefundClient().refund(pagoAprobado.getId());
+            new PaymentRefundClient().refund(compra.getMpPaymentId());
         } catch (MPApiException e) {
             // El mensaje de MPApiException no trae el detalle; hay que sacarlo de la
             // respuesta cruda para no tener que reproducir el request a mano cada vez.

@@ -1,28 +1,47 @@
 package org.example.laserranitaentradas.service.impl;
 
 import com.mercadopago.MercadoPagoConfig;
+import com.mercadopago.client.common.IdentificationRequest;
+import com.mercadopago.client.common.PhoneRequest;
 import com.mercadopago.client.preference.PreferenceBackUrlsRequest;
+import com.mercadopago.client.preference.PreferenceCategoryDescriptorRequest;
 import com.mercadopago.client.preference.PreferenceClient;
 import com.mercadopago.client.preference.PreferenceItemRequest;
+import com.mercadopago.client.preference.PreferencePayerRequest;
 import com.mercadopago.client.preference.PreferenceRequest;
 import com.mercadopago.exceptions.MPApiException;
 import com.mercadopago.resources.preference.Preference;
+import org.example.laserranitaentradas.model.entity.Cliente;
 import org.example.laserranitaentradas.model.entity.Compra;
 import org.example.laserranitaentradas.model.entity.CompraDetalle;
 import org.example.laserranitaentradas.model.entity.EstadoCompra;
 import org.example.laserranitaentradas.model.entity.FormaPago;
+import org.example.laserranitaentradas.repository.CompraRepository;
 import org.example.laserranitaentradas.service.PagoService;
 import org.example.laserranitaentradas.model.dto.PagoResponseDTO;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import jakarta.annotation.PostConstruct;
 import java.math.BigDecimal;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service("mercadoPagoService")
 public class MercadoPagoServiceImpl implements PagoService {
+
+    private static final Logger log = LoggerFactory.getLogger(MercadoPagoServiceImpl.class);
+
+    private static final String CATEGORIA_ITEM = "tickets";
+    private static final Pattern DNI_NUMERICO = Pattern.compile("\\d{7,8}");
+    private static final Pattern TELEFONO_AREA_Y_NUMERO = Pattern.compile("(\\d{2,4}) (\\d{6,8})");
 
     @Value("${mercadopago.accessToken}")
     private String accessToken;
@@ -32,6 +51,19 @@ public class MercadoPagoServiceImpl implements PagoService {
 
     @Value("${mercadopago.frontend-url}")
     private String frontendUrl;
+
+    /** Lo que ve el cliente en el resumen de la tarjeta: si no lo reconoce, desconoce el cargo. */
+    @Value("${mercadopago.statement-descriptor:LA SERRANITA}")
+    private String statementDescriptor;
+
+    @Value("${compras.checkout-abandonado.horas:3}")
+    private int horasCheckoutAbandonado;
+
+    private final CompraRepository compraRepository;
+
+    public MercadoPagoServiceImpl(CompraRepository compraRepository) {
+        this.compraRepository = compraRepository;
+    }
 
     @PostConstruct
     public void init() {
@@ -45,14 +77,13 @@ public class MercadoPagoServiceImpl implements PagoService {
 
             if (compra.getDetalles() != null) {
                 for (CompraDetalle detalle : compra.getDetalles()) {
-                    PreferenceItemRequest itemRequest = PreferenceItemRequest.builder()
+                    items.add(item(compra)
                             .id(String.valueOf(detalle.getTipoEntrada().getId()))
                             .title(detalle.getTipoEntrada().getNombre())
+                            .description(detalle.getTipoEntrada().getDescripcion())
                             .quantity(detalle.getCantidad())
                             .unitPrice(detalle.getTipoEntrada().getPrecio())
-                            .currencyId("ARS")
-                            .build();
-                    items.add(itemRequest);
+                            .build());
                 }
             }
 
@@ -67,18 +98,25 @@ public class MercadoPagoServiceImpl implements PagoService {
             BigDecimal descuento = compra.getDescuentoAplicado();
             if (descuento != null && descuento.compareTo(BigDecimal.ZERO) > 0) {
                 items.clear();
-                items.add(PreferenceItemRequest.builder()
+                items.add(item(compra)
                         .id(compra.getCodigoReserva())
                         .title("Entradas " + compra.getCodigoReserva() + " (descuento aplicado)")
                         .quantity(1)
                         .unitPrice(compra.getMontoTotal())
-                        .currencyId("ARS")
                         .build());
             }
 
             PreferenceRequest.PreferenceRequestBuilder requestBuilder = PreferenceRequest.builder()
                     .items(items)
-                    .externalReference(String.valueOf(compra.getId())); // Impactamos el ID auto-incremental generado
+                    // El código visible (yyMMdd-N) y no el id: así en el panel de MP aparece lo mismo
+                    // que ve el cliente en el mail y lo que busca boletería.
+                    .externalReference(compra.getCodigoReserva())
+                    .payer(armarPayer(compra))
+                    .statementDescriptor(statementDescriptor)
+                    // El link vence junto con el barrido de checkouts abandonados: pasado ese plazo
+                    // la compra se cancela y libera el cupo, así que no tiene que poder pagarse.
+                    .expires(true)
+                    .expirationDateTo(OffsetDateTime.now().plusHours(horasCheckoutAbandonado));
 
             // El navegador del propio cliente vuelve acá al terminar de pagar. A diferencia
             // del webhook, esto no depende de que nuestro servidor sea alcanzable desde afuera
@@ -86,7 +124,7 @@ public class MercadoPagoServiceImpl implements PagoService {
             // Mercado Pago rechaza (o directamente ignora) back_urls con "localhost": en dev
             // se sigue dependiendo solo del webhook y de la verificación de respaldo del
             // polling, sin back_urls ni auto_return.
-            if (frontendUrl != null && !frontendUrl.contains("localhost")) {
+            if (frontendPublico()) {
                 requestBuilder.backUrls(PreferenceBackUrlsRequest.builder()
                                 .success(frontendUrl + "/pago-exitoso")
                                 .pending(frontendUrl + "/pago-exitoso")
@@ -98,8 +136,8 @@ public class MercadoPagoServiceImpl implements PagoService {
             if (notificationUrl != null && !notificationUrl.isBlank()) {
                 requestBuilder.notificationUrl(notificationUrl + "/api/pagos/webhook");
             } else {
-                System.err.println("ADVERTENCIA: mercadopago.notification-url no está configurada (MP_NOTIFICATION_URL). " +
-                        "Mercado Pago no podrá notificar el pago vía webhook y la compra ID " + compra.getId() + " quedará en PENDIENTE_PAGO.");
+                log.warn("mercadopago.notification-url no está configurada (MP_NOTIFICATION_URL): Mercado Pago no podrá "
+                        + "notificar el pago vía webhook y la compra ID {} dependerá de la verificación directa.", compra.getId());
             }
 
             PreferenceRequest preferenceRequest = requestBuilder.build();
@@ -115,11 +153,65 @@ public class MercadoPagoServiceImpl implements PagoService {
                     .mensaje("Preferencia de Mercado Pago generada correctamente.")
                     .build();}
         catch (MPApiException e) {
-            System.err.println("=== ERROR DE MERCADO PAGO API ===");
-            System.err.println("Status code: " + e.getStatusCode());
-            System.err.println("Response API: " + e.getApiResponse().getContent());
+            log.error("Mercado Pago rechazó la preferencia de la compra ID {} (HTTP {}): {}", compra.getId(),
+                    e.getStatusCode(), e.getApiResponse() != null ? e.getApiResponse().getContent() : "sin detalle");
             throw e;
         }
+    }
+
+    private boolean frontendPublico() {
+        return frontendUrl != null && !frontendUrl.contains("localhost");
+    }
+
+    /** Lo común a toda línea: categoría y el día de la visita como fecha del evento. */
+    private PreferenceItemRequest.PreferenceItemRequestBuilder item(Compra compra) {
+        PreferenceItemRequest.PreferenceItemRequestBuilder item = PreferenceItemRequest.builder()
+                .categoryId(CATEGORIA_ITEM)
+                .currencyId("ARS");
+        if (compra.getFechaVisita() != null) {
+            item.categoryDescriptor(PreferenceCategoryDescriptorRequest.builder()
+                    .eventDate(compra.getFechaVisita().atStartOfDay(ZoneId.systemDefault()).toOffsetDateTime())
+                    .build());
+        }
+        return item;
+    }
+
+    /**
+     * Datos del comprador para el motor antifraude de Mercado Pago: una preferencia sin payer
+     * le llega anónima y es mucho más propensa a rechazos "por seguridad".
+     */
+    private PreferencePayerRequest armarPayer(Compra compra) {
+        PreferencePayerRequest.PreferencePayerRequestBuilder payer = PreferencePayerRequest.builder()
+                .email(compra.getContactEmail());
+        // El formulario web lo manda como "<área> <número>" (ej. "351 5123456"); si vino en
+        // otro formato (texto libre de otra pantalla) no se manda, antes que mandarlo mal partido.
+        Matcher telefono = compra.getContactPhone() != null
+                ? TELEFONO_AREA_Y_NUMERO.matcher(compra.getContactPhone()) : null;
+        if (telefono != null && telefono.matches()) {
+            payer.phone(PhoneRequest.builder().areaCode(telefono.group(1)).number(telefono.group(2)).build());
+        }
+        Cliente cliente = compra.getCliente();
+        if (cliente != null) {
+            payer.name(cliente.getNombre()).surname(cliente.getApellido());
+            // El formulario también acepta pasaportes extranjeros (con letras): sólo se declara
+            // como DNI lo que tiene forma de DNI, para no mandarle a MP un documento mal tipado.
+            if (cliente.getDni() != null && DNI_NUMERICO.matcher(cliente.getDni()).matches()) {
+                payer.identification(IdentificationRequest.builder().type("DNI").number(cliente.getDni()).build());
+            }
+            // Historial del comprador. is_first_purchase_online es un boolean primitivo en el
+            // SDK: sin setearlo se manda false siempre, o sea "ya nos compró antes" para todos.
+            if (cliente.getFechaCreacion() != null) {
+                payer.registrationDate(cliente.getFechaCreacion().atZone(ZoneId.systemDefault()).toOffsetDateTime());
+            }
+            Optional<Compra> compraOnlineAnterior = compraRepository
+                    .findFirstByClienteIdAndIdNotAndFormaPagoAndEstadoInOrderByFechaCreacionDesc(
+                            cliente.getId(), compra.getId(), FormaPago.MERCADO_PAGO,
+                            List.of(EstadoCompra.APROBADO, EstadoCompra.USADO));
+            payer.isFirstPurchaseOnline(compraOnlineAnterior.isEmpty());
+            compraOnlineAnterior.ifPresent(anterior ->
+                    payer.lastPurchase(anterior.getFechaCreacion().atZone(ZoneId.systemDefault()).toOffsetDateTime()));
+        }
+        return payer.build();
     }
 
     @Override

@@ -220,10 +220,12 @@ class CompraServiceImplTest {
         when(compraRepository.findById(1L)).thenReturn(Optional.of(compra));
         when(compraRepository.save(any(Compra.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        boolean resultado = service.confirmarAprobado(1L);
+        boolean resultado = service.confirmarAprobado(1L, 555L);
 
         assertThat(resultado).isTrue();
         assertThat(compra.getEstado()).isEqualTo(EstadoCompra.APROBADO);
+        // Es con lo que después se reembolsa, sin buscar por external_reference.
+        assertThat(compra.getMpPaymentId()).isEqualTo(555L);
         verify(emailService).enviarComprobanteCompra(1L);
     }
 
@@ -234,7 +236,7 @@ class CompraServiceImplTest {
         compra.setEstado(EstadoCompra.APROBADO);
         when(compraRepository.findById(1L)).thenReturn(Optional.of(compra));
 
-        boolean resultado = service.confirmarAprobado(1L);
+        boolean resultado = service.confirmarAprobado(1L, 555L);
 
         assertThat(resultado).isFalse();
         verify(compraRepository, never()).save(any());
@@ -248,7 +250,7 @@ class CompraServiceImplTest {
         compra.setEstado(EstadoCompra.USADO);
         when(compraRepository.findById(1L)).thenReturn(Optional.of(compra));
 
-        boolean resultado = service.confirmarAprobado(1L);
+        boolean resultado = service.confirmarAprobado(1L, 555L);
 
         assertThat(resultado).isFalse();
         verify(compraRepository, never()).save(any());
@@ -279,6 +281,23 @@ class CompraServiceImplTest {
 
         assertThatThrownBy(() -> service.reembolsarCompra(1L))
                 .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void reembolsarCompra_sinPagoDeMercadoPagoRegistrado_rechazaSinTocarMercadoPago() {
+        // Buscar el pago por external_reference podía devolver el de otra compra (el código de
+        // reserva se repite si la base se reinicia): sin el id guardado, no se adivina.
+        Compra compra = new Compra();
+        compra.setId(1L);
+        compra.setEstado(EstadoCompra.APROBADO);
+        when(compraRepository.findById(1L)).thenReturn(Optional.of(compra));
+
+        assertThatThrownBy(() -> service.reembolsarCompra(1L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("panel de Mercado Pago");
+
+        assertThat(compra.getEstado()).isEqualTo(EstadoCompra.APROBADO);
+        verify(compraRepository, never()).save(any());
     }
 
     @Test
@@ -992,7 +1011,7 @@ class CompraServiceImplTest {
         when(compraRepository.findById(70L)).thenReturn(Optional.of(pendiente));
         // Mercado Pago caído / timeout / error de red: NO sabemos si pagó.
         org.mockito.Mockito.doThrow(new RuntimeException("Mercado Pago no responde"))
-                .when(espia).hayPagoAprobadoEnMercadoPago(any());
+                .when(espia).pagoAprobadoEnMercadoPago(any());
 
         espia.expirarCheckoutAbandonado(70L);
 
@@ -1007,7 +1026,7 @@ class CompraServiceImplTest {
         Compra pendiente = checkoutPendiente(71L);
         CompraServiceImpl espia = org.mockito.Mockito.spy(service);
         when(compraRepository.findById(71L)).thenReturn(Optional.of(pendiente));
-        org.mockito.Mockito.doReturn(true).when(espia).hayPagoAprobadoEnMercadoPago(any());
+        org.mockito.Mockito.doReturn(Optional.of(555L)).when(espia).pagoAprobadoEnMercadoPago(any());
 
         espia.expirarCheckoutAbandonado(71L);
 
@@ -1021,7 +1040,7 @@ class CompraServiceImplTest {
         Compra pendiente = checkoutPendiente(72L);
         CompraServiceImpl espia = org.mockito.Mockito.spy(service);
         when(compraRepository.findById(72L)).thenReturn(Optional.of(pendiente));
-        org.mockito.Mockito.doReturn(false).when(espia).hayPagoAprobadoEnMercadoPago(any());
+        org.mockito.Mockito.doReturn(Optional.empty()).when(espia).pagoAprobadoEnMercadoPago(any());
 
         espia.expirarCheckoutAbandonado(72L);
 
@@ -1064,7 +1083,7 @@ class CompraServiceImplTest {
         when(compraRepository.findById(74L)).thenReturn(Optional.of(reembolsada));
 
         // Aviso tardío de Mercado Pago sobre una compra a la que ya se le devolvió la plata.
-        assertThat(service.confirmarAprobado(74L)).isFalse();
+        assertThat(service.confirmarAprobado(74L, 555L)).isFalse();
 
         assertThat(reembolsada.getEstado()).isEqualTo(EstadoCompra.REEMBOLSADA);
         verify(emailService, never()).enviarComprobanteCompra(74L);
@@ -1078,7 +1097,7 @@ class CompraServiceImplTest {
 
         // Decisión deliberada: el cliente pagó, así que tiene que tener su entrada. Se prefiere
         // un lugar de más en el día antes que dejarlo afuera habiendo pagado.
-        assertThat(service.confirmarAprobado(75L)).isTrue();
+        assertThat(service.confirmarAprobado(75L, 555L)).isTrue();
 
         assertThat(cancelada.getEstado()).isEqualTo(EstadoCompra.APROBADO);
         verify(emailService).enviarComprobanteCompra(75L);
@@ -1095,7 +1114,7 @@ class CompraServiceImplTest {
         when(compraRepository.findById(77L)).thenReturn(Optional.of(cancelada));
         when(cuponService.consumirUso(9L)).thenReturn(true);
 
-        assertThat(service.confirmarAprobado(77L)).isTrue();
+        assertThat(service.confirmarAprobado(77L, 555L)).isTrue();
 
         // Al cancelarla se le había devuelto el uso: si no se vuelve a tomar, ese uso queda
         // libre para otra compra y el cupón termina aplicado dos veces.
@@ -1115,7 +1134,7 @@ class CompraServiceImplTest {
 
         // La persona pagó: se aprueba igual. El cupón sobreaplicado queda logueado para
         // corregirlo a mano, que es preferible a dejarla sin entrada.
-        assertThat(service.confirmarAprobado(78L)).isTrue();
+        assertThat(service.confirmarAprobado(78L, 555L)).isTrue();
 
         assertThat(cancelada.getEstado()).isEqualTo(EstadoCompra.APROBADO);
         verify(emailService).enviarComprobanteCompra(78L);
@@ -1126,9 +1145,9 @@ class CompraServiceImplTest {
         Compra pendiente = checkoutPendiente(73L);
         when(compraRepository.findById(73L)).thenReturn(Optional.of(pendiente));
 
-        assertThat(service.confirmarAprobado(73L)).isTrue();
+        assertThat(service.confirmarAprobado(73L, 555L)).isTrue();
         // Segunda notificación de Mercado Pago para el mismo pago (las reintenta).
-        assertThat(service.confirmarAprobado(73L)).isFalse();
+        assertThat(service.confirmarAprobado(73L, 555L)).isFalse();
 
         verify(emailService, org.mockito.Mockito.times(1)).enviarComprobanteCompra(73L);
     }
