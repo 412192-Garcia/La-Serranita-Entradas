@@ -39,10 +39,10 @@ class SecurityConfigTest {
 
     @Test
     void resumenPublicoDeCompra_sinLogin_pasaLaSeguridad() throws Exception {
-        // 404 porque no existe, pero no 401: el endpoint es público a propósito.
-        assertThat(statusAnonimo(get("/api/compras/999999"))).isNotEqualTo(401);
-        assertThat(statusAnonimo(get("/api/compras/999999/estado"))).isNotEqualTo(401);
-        assertThat(statusAnonimo(get("/api/compras/codigo/260101-1"))).isNotEqualTo(401);
+        // 404 exacto (no sólo "no 401"): llegó al controller sin login y la compra no existe.
+        assertThat(statusAnonimo(get("/api/compras/999999"))).isEqualTo(404);
+        assertThat(statusAnonimo(get("/api/compras/999999/estado"))).isEqualTo(404);
+        assertThat(statusAnonimo(get("/api/compras/codigo/260101-1"))).isEqualTo(404);
     }
 
     @Test

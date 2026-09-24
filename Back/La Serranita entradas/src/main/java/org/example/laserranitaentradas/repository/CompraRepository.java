@@ -5,9 +5,11 @@ import org.example.laserranitaentradas.model.entity.EstadoCompra;
 import org.example.laserranitaentradas.model.entity.FormaPago;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -22,6 +24,24 @@ public interface CompraRepository extends JpaRepository<Compra, Long>, JpaSpecif
     Optional<Compra> findByIdempotencyKey(String idempotencyKey);
 
     Optional<Compra> findByCodigoReserva(String codigoReserva);
+
+    /**
+     * Aprueba la compra sólo si sigue sin pagar, en una sola sentencia: el webhook y las
+     * verificaciones directas pueden llegar a la vez, y leer el estado y después guardarlo
+     * dejaba pasar a las dos (dos mails, dos usos del cupón). Devuelve 0 si otra ya la aprobó.
+     * Transaccional acá porque verificarPagoDirecto la alcanza sin transacción propia.
+     */
+    @Transactional
+    @Modifying(flushAutomatically = true)
+    @Query("""
+            UPDATE Compra c
+               SET c.estado = org.example.laserranitaentradas.model.entity.EstadoCompra.APROBADO,
+                   c.mpPaymentIds = :mpPaymentIds
+             WHERE c.id = :id
+               AND c.estado IN (org.example.laserranitaentradas.model.entity.EstadoCompra.PENDIENTE_PAGO,
+                                org.example.laserranitaentradas.model.entity.EstadoCompra.CANCELADO)
+            """)
+    int aprobarSiSigueSinPagar(@Param("id") Long id, @Param("mpPaymentIds") String mpPaymentIds);
 
     Optional<Compra> findFirstByClienteIdAndIdNotAndFormaPagoAndEstadoInOrderByFechaCreacionDesc(
             Long clienteId, Long compraId, FormaPago formaPago, Collection<EstadoCompra> estados);

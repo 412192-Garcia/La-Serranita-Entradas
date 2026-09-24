@@ -4,6 +4,7 @@ import { LucideCircleCheck } from '@lucide/angular';
 import { of } from 'rxjs';
 import { catchError, switchMap } from 'rxjs/operators';
 import { CompraService, CompraResponseDTO } from '../../services/compra.service';
+import { AnaliticaService } from '../../services/analitica.service';
 import { cerrarOVolverAlSitio, esVentanaDePago } from '../ventana-resultado.util';
 
 @Component({
@@ -25,6 +26,7 @@ export class PagoExitoso implements OnInit {
   constructor(
     private route: ActivatedRoute,
     private compraService: CompraService,
+    private analitica: AnaliticaService,
     private ngZone: NgZone,
     private cdr: ChangeDetectorRef
   ) {}
@@ -71,6 +73,13 @@ export class PagoExitoso implements OnInit {
       this.verificando = false;
       this.cdr.detectChanges();
     });
+
+    // En el popup la conversión la registra la ventana que lo abrió. Acá sólo cuando quedó sola
+    // (pestaña nueva al volver desde la app de MP, o un popup que perdió su vínculo): si no, esa
+    // venta no se contaría nunca.
+    if (compra && compra.estado === 'APROBADO' && !this.esPopup) {
+      this.analitica.registrarCompra({ codigoReserva: compra.codigoReserva, montoTotal: compra.montoTotal });
+    }
   }
 
   cerrar(): void {

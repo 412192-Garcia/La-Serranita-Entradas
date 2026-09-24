@@ -101,12 +101,21 @@ public class Compra extends BaseEntity {
     private FormaPago formaPago;
 
     /**
-     * Id del pago aprobado en Mercado Pago. El reembolso va por este id y no buscando por
-     * external_reference: el código de reserva vuelve a empezar si se reinicia la base, y
-     * esa búsqueda podía encontrar (y devolver) un pago viejo de otra compra.
+     * Ids de los pagos aprobados en Mercado Pago que pagaron la compra, separados por coma: uno,
+     * o varios si pagó con más de una tarjeta. El reembolso va por estos ids y no buscando por
+     * external_reference: el código de reserva vuelve a empezar si se reinicia la base, y esa
+     * búsqueda podía encontrar (y devolver) un pago viejo de otra compra. Es texto y no una
+     * tabla aparte para que se escriba en la misma sentencia que aprueba la compra.
      */
-    @Column(name = "mp_payment_id")
-    private Long mpPaymentId;
+    @Column(name = "mp_payment_ids", length = 200)
+    private String mpPaymentIds;
+
+    public List<Long> pagosMercadoPago() {
+        if (mpPaymentIds == null || mpPaymentIds.isBlank()) {
+            return List.of();
+        }
+        return java.util.Arrays.stream(mpPaymentIds.split(",")).map(String::trim).map(Long::valueOf).toList();
+    }
 
     /**
      * Turno de caja en el que se cobró (venta de puerta o cobro de una reserva en

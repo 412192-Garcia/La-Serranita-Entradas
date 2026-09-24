@@ -84,7 +84,7 @@ public class CompraController {
 
     @GetMapping("/{id}")
     @Operation(summary = "Resumen público de una compra",
-            description = "Código de reserva, estado y DNI enmascarado, para las pantallas de resultado del pago. Sin datos de contacto.")
+            description = "Código de reserva, estado, total y DNI enmascarado, para las pantallas de resultado del pago. Sin datos de contacto.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Compra encontrada"),
             @ApiResponse(responseCode = "404", description = "Compra no encontrada")
@@ -115,6 +115,8 @@ public class CompraController {
         dto.setEstado(c.getEstado() != null ? c.getEstado().name() : null);
         dto.setFormaPago(c.getFormaPago());
         dto.setFechaVisita(c.getFechaVisita());
+        // No es un dato personal, y la pantalla de éxito lo necesita para registrar la conversión.
+        dto.setMontoTotal(c.getMontoTotal());
         if (c.getCliente() != null) {
             ClienteResponseDTO cliente = new ClienteResponseDTO();
             cliente.setDni(enmascararDocumento(c.getCliente().getDni()));
@@ -124,8 +126,11 @@ public class CompraController {
     }
 
     private static String enmascararDocumento(String documento) {
-        if (documento == null || documento.length() <= 3) {
-            return documento;
+        if (documento == null) {
+            return null;
+        }
+        if (documento.length() <= 3) {
+            return "*".repeat(documento.length());
         }
         return "*".repeat(documento.length() - 3) + documento.substring(documento.length() - 3);
     }
