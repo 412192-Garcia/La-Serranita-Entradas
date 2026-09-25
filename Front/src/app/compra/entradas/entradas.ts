@@ -60,6 +60,8 @@ export class Entradas implements OnInit, OnDestroy {
   private static readonly VENTANA_CERRADA = 'VENTANA_CERRADA';
   /** El sitio embebido escucha este "type" para saber que el mensaje es nuestro y no de otra cosa. */
   private static readonly MENSAJE_ALTURA = 'la-serranita-alto';
+  /** Pedido al sitio de que lleve su scroll a una altura del iframe (ver llevarVistaA). */
+  private static readonly MENSAJE_DESPLAZAR = 'la-serranita-desplazar';
 
   etapa: etapaCompra = etapaCompra.SELECCION;
 
@@ -147,8 +149,24 @@ export class Entradas implements OnInit, OnDestroy {
         .columna-izquierda-contenido { min-width: 100% !important; padding: 10px 10px 10px 0 !important; }
       }
       @container modulo (max-width: ${anchoApilado}px) {
-        .modulo-compra-container { flex-direction: column !important; align-items: center !important; gap: 30px !important; padding: 0px !important; }
-        .panel-derecho { flex: none !important; width: 100% !important; }
+        .modulo-compra-container { flex-direction: column !important; align-items: center !important; gap: 16px !important; padding: 0px !important; }
+        .panel-derecho { flex: none !important; width: 100% !important; order: 3; }
+        /* Apilado, la columna izquierda se disuelve para poder ocultar sus partes por separado
+           a partir del segundo paso (ver etapa-avanzada). Orden: calendario, info, entradas. */
+        .columna-izquierda-contenido { display: contents !important; }
+        app-calendario { order: 1; }
+        .contenedor-info-util { order: 2; }
+        /* Pasado el primer paso el calendario ya no se usa: en su lugar, la barra con el día. */
+        .modulo-compra-container.etapa-avanzada app-calendario,
+        .modulo-compra-container.etapa-avanzada .contenedor-info-util { display: none !important; }
+        .modulo-compra-container.etapa-avanzada .barra-fecha-elegida { display: flex !important; order: 0; }
+        /* Las entradas recién se despliegan al elegir el día (o regalo): antes sólo alargaban la página. */
+        .modulo-compra-container.sin-fecha-elegida .panel-derecho { display: none !important; }
+        .panel-derecho { animation: serranita-desplegar 0.25s ease-out; }
+      }
+      @keyframes serranita-desplegar {
+        from { opacity: 0; transform: translateY(-8px); }
+        to { opacity: 1; transform: none; }
       }
     `;
     if (!this.estiloBreakpoints.isConnected) {
@@ -321,6 +339,8 @@ export class Entradas implements OnInit, OnDestroy {
   onFechaSeleccionada(fecha: Date | null): void {
     this.compraAcumulada.fechaVisita = fecha;
     this.cargarHorarioDelDia(fecha);
+    // En el celular las entradas se despliegan abajo del calendario y del cartel: se lleva la vista ahí.
+    if (fecha && this.estaApilado) this.llevarVistaA('entradas');
   }
 
   onEsRegaloCambio(esRegalo: boolean): void {
@@ -328,6 +348,7 @@ export class Entradas implements OnInit, OnDestroy {
     if (esRegalo) {
       this.compraAcumulada.fechaVisita = null;
       this.cargarHorarioDelDia(null);
+      if (this.estaApilado) this.llevarVistaA('entradas');
       // Un regalo tiene que estar pagado de antemano: si quedó en efectivo de un
       // paso anterior, el receptor terminaría pagando de su bolsillo lo que le
       // "regalaron" al llegar al parque.
@@ -411,6 +432,7 @@ export class Entradas implements OnInit, OnDestroy {
       this.compraAcumulada.receptor = datosPaso.receptor ?? null;
       this.etapa = etapaCompra.RESUMEN;
     }
+    this.llevarVistaAlPaso();
   }
 
   volverPasoAnterior(): void {
@@ -419,6 +441,75 @@ export class Entradas implements OnInit, OnDestroy {
     } else if (this.etapa === etapaCompra.DATOS) {
       this.etapa = etapaCompra.SELECCION;
     }
+    this.llevarVistaAlPaso();
+  }
+
+  /** "Cambiar" de la barra con el día (celular): vuelve al calendario sin perder lo cargado. */
+  volverASeleccion(): void {
+    this.etapa = etapaCompra.SELECCION;
+    // Acá sí al calendario: se vuelve justamente para cambiar el día.
+    this.llevarVistaA('inicio');
+  }
+
+  /** Una sola columna (celular): calendario, info y entradas uno abajo del otro. */
+  private get estaApilado(): boolean {
+    const contenedor = this.elementRef.nativeElement.querySelector('.modulo-compra-container');
+    return !!contenedor && getComputedStyle(contenedor).flexDirection === 'column';
+  }
+
+  /**
+   * Lleva la vista a lo que hay que mirar ahora: al cambiar de paso, el principio del módulo; en
+   * el celular, al volver al paso 1 o al elegir el día, el panel de entradas (el calendario ya
+   * se usó). Sin esto el botón para avanzar queda abajo de todo, y embebido el iframe se achica
+   * y el visitante termina mirando lo que sigue al iframe en la página del sitio.
+   *
+   * Embebido, ese scroll es de la página del sitio y un iframe de otro dominio no la puede
+   * mover: se le pasa al sitio adónde ir (y la altura nueva, para que el iframe ya la tenga
+   * al desplazarse) por postMessage, igual que la altura (snippet en el README).
+   */
+  private llevarVistaA(destino: 'inicio' | 'entradas'): void {
+    this.cuandoLaAlturaSeQuedeQuieta(() => {
+      const host = this.elementRef.nativeElement;
+      const panel = host.querySelector<HTMLElement>('.panel-derecho');
+      const objetivo = destino === 'entradas' && panel && panel.offsetParent !== null ? panel : host;
+      const y = Math.max(0, Math.round(objetivo.getBoundingClientRect().top - host.getBoundingClientRect().top));
+
+      if (window.parent !== window) {
+        window.parent.postMessage({ type: Entradas.MENSAJE_DESPLAZAR, y, alto: host.scrollHeight }, '*');
+        return;
+      }
+      // Mismo criterio que el snippet del sitio: sólo si no quedó en el tercio de arriba.
+      const enPantalla = objetivo.getBoundingClientRect().top;
+      if (enPantalla < 0 || enPantalla > window.innerHeight / 3) {
+        window.scrollTo({ top: window.scrollY + enPantalla, behavior: 'smooth' });
+      }
+    });
+  }
+
+  /**
+   * Corre la acción cuando el módulo dejó de cambiar de alto: al marcar/desmarcar regalo el
+   * calendario se cierra o se abre con una transición (0.4s), y medir en el medio mandaba al
+   * sitio una posición y un alto viejos — la vista terminaba debajo del iframe. También cubre
+   * el primer render de un paso nuevo. Tope de ~1.2s por si algo nunca se queda quieto.
+   */
+  private cuandoLaAlturaSeQuedeQuieta(accion: () => void): void {
+    const host = this.elementRef.nativeElement;
+    let altoAnterior = -1;
+    let revisiones = 0;
+    const revisar = () => {
+      const alto = host.scrollHeight;
+      if (alto === altoAnterior || ++revisiones > 20) {
+        accion();
+        return;
+      }
+      altoAnterior = alto;
+      setTimeout(revisar, 60);
+    };
+    setTimeout(revisar, 50);
+  }
+
+  private llevarVistaAlPaso(): void {
+    this.llevarVistaA(this.etapa === etapaCompra.SELECCION && this.estaApilado ? 'entradas' : 'inicio');
   }
 
   iniciarPagoMercadoPago(confirmarDniExistente: boolean = false, esOtraPersona: boolean = false): void {
@@ -538,6 +629,7 @@ export class Entradas implements OnInit, OnDestroy {
   corregirDatosPorDni(): void {
     this.dniAConfirmar = null;
     this.etapa = etapaCompra.DATOS;
+    this.llevarVistaAlPaso();
   }
 
   /**

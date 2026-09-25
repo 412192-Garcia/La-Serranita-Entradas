@@ -108,6 +108,11 @@
   text-transform: capitalize;
 }
 
+/* La corta sólo en el celular (ver @container de abajo), donde la fecha va en un renglón. */
+.fecha-corta {
+  display: none;
+}
+
 .badge-regalo {
   background-color: var(--color-accent-light);
   color: var(--color-accent-dark);
@@ -418,19 +423,137 @@
   }
 }
 
+/* Celular: el resumen tiene que entrar en una pantalla, con el botón de pagar a la vista. Las
+   tarjetas pasan a ser secciones planas separadas por una línea (sin borde, sombra ni ícono en
+   círculo), la fecha va en un renglón, el cupón queda sólo el campo y los medios de pago sin la
+   descripción larga (el botón de pagar ya dice qué pasa con cada uno). */
 @container modulo (max-width: 480px) {
-  .footer-acciones {
-    flex-direction: column;
+  .panel-resumen {
+    padding: 18px 16px;
+    gap: 12px;
   }
 
-  .btn-volver,
-  .btn-pagar {
-    flex: none;
-    width: 100%;
+  .titulo-seccion {
+    font-size: 1.2rem;
+  }
+
+  .subtitulo-seccion {
+    display: none;
+  }
+
+  .grilla-tarjetas {
+    gap: 0;
+  }
+
+  .tarjeta-resumen {
+    border: none;
+    border-bottom: 1px solid var(--color-border);
+    border-radius: 0;
+    box-shadow: none;
+    padding: 10px 0;
+    gap: 6px;
+  }
+
+  .cabecera-tarjeta {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+
+  .icono-tarjeta {
+    display: none;
+  }
+
+  .cabecera-tarjeta h3 {
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-text-muted);
+  }
+
+  .tarjeta-fecha {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .tarjeta-fecha .cuerpo-tarjeta {
+    width: auto;
+    text-align: right;
+  }
+
+  /* Regalo: el aviso del pase abierto es largo, no entra al lado del título. */
+  .tarjeta-fecha:has(.badge-regalo) {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .tarjeta-fecha:has(.badge-regalo) .cuerpo-tarjeta {
+    text-align: left;
+  }
+
+  .badge-regalo {
+    padding: 8px 12px;
+    font-size: 0.82rem;
+  }
+
+  .dato-destacado {
+    font-size: 0.95rem;
+  }
+
+  .fecha-larga {
+    display: none;
+  }
+
+  .fecha-corta {
+    display: block;
+  }
+
+  .tarjeta-cupon .cabecera-tarjeta {
+    display: none;
   }
 
   .cupon-input-grupo {
     max-width: 100%;
+  }
+
+  .opciones-pago {
+    gap: 8px;
+  }
+
+  .opcion-pago-card {
+    padding: 10px 40px 10px 12px;
+  }
+
+  .desc-opcion {
+    display: none;
+  }
+
+  .bloque-liquidacion {
+    padding: 12px 14px;
+    gap: 6px;
+  }
+
+  .linea-divisora {
+    margin: 2px 0;
+  }
+
+  .valor-total {
+    font-size: 1.35rem;
+  }
+
+  .footer-acciones {
+    gap: 8px;
+    margin-top: 0;
+  }
+
+  .btn-volver {
+    flex: 0 0 auto;
+  }
+
+  .btn-pagar {
+    flex: 1;
   }
 }
 

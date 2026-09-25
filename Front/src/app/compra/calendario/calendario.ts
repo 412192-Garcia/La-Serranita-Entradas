@@ -44,6 +44,8 @@ export class Calendario implements OnInit, OnDestroy {
   @Output() esRegaloChange = new EventEmitter<boolean>();
 
   private fechaBase: Date = new Date();
+  /** El día elegido antes de marcar "regalo", para devolverlo si lo desmarca. */
+  private fechaAntesDelRegalo: Date | null = null;
   private subscripcionApertura: Subscription | null = null;
   /** Mes/año de la fecha abierta más lejana ya cargada; null si no hay ninguna (no limita el avance). */
   private ultimaFechaAbierta: Date | null = null;
@@ -237,9 +239,16 @@ export class Calendario implements OnInit, OnDestroy {
   onCambioRegalo(valor: boolean): void {
     this.esRegalo = valor;
     if (this.esRegalo) {
+      this.fechaAntesDelRegalo = this.fechaSeleccionada;
       this.fechaSeleccionada = null;
       this.fechaSeleccionadaChange.emit(null);
     }
     this.esRegaloChange.emit(this.esRegalo);
+    // Al desmarcar el regalo vuelve el día que había elegido: si no, las entradas se ocultaban
+    // hasta volver a tocar el mismo día en el calendario.
+    if (!this.esRegalo && this.fechaAntesDelRegalo) {
+      this.onDiaSeleccionado(this.fechaAntesDelRegalo);
+      this.fechaAntesDelRegalo = null;
+    }
   }
 }

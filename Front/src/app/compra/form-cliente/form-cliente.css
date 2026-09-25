@@ -45,25 +45,6 @@
   width: 100%;
 }
 
-.grupo-telefono {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  width: 100%;
-}
-
-/* A diferencia de .fila-campos, no se apila en mobile: el código de área es corto y
-   leerlo al lado del número deja claro que son una sola cosa. */
-.fila-telefono {
-  display: flex;
-  gap: 12px;
-  width: 100%;
-}
-
-.campo-codigo-area {
-  flex: 0 0 110px;
-}
-
 .campo-grupo {
   display: flex;
   flex-direction: column;
@@ -190,9 +171,10 @@
   .panel-cliente {
     padding: 20px 16px;
   }
+  /* Los pares cortos (nombre/apellido, DNI/confirmación, edad/localidad) siguen de a dos:
+     apilados, el formulario pasaba de una pantalla y media en el celular. */
   .fila-campos {
-    flex-direction: column;
-    gap: 18px;
+    gap: 10px;
   }
   .footer-resumen {
     flex-direction: column;

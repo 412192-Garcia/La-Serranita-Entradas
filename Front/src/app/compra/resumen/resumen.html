@@ -10,7 +10,7 @@
   -->
   <div class="grilla-tarjetas">
     <!-- FECHA DE VISITA -->
-    <div class="tarjeta-resumen">
+    <div class="tarjeta-resumen tarjeta-fecha">
       <div class="cabecera-tarjeta">
         <span class="icono-tarjeta">
           <svg lucideCalendar [strokeWidth]="2.5"></svg>
@@ -24,14 +24,15 @@
             <strong>Pase Abierto para Regalo</strong> (Válido por 90 días desde la fecha de compra)
           </div>
         } @else {
-          <p class="dato-destacado">{{ datosCompra.fechaVisita | date:'fullDate':'':'es-AR' }}</p>
+          <p class="dato-destacado fecha-larga">{{ datosCompra.fechaVisita | date:'fullDate':'':'es-AR' }}</p>
+          <p class="dato-destacado fecha-corta">{{ datosCompra.fechaVisita | date:'EEEE dd/MM/yyyy':'':'es-AR' }}</p>
         }
       </div>
     </div>
 
     <!-- CUPÓN DE DESCUENTO (al lado de Fecha de Visita: ambas son tarjetas cortas,
          para que la fila no quede dispareja como con Método de Pago). -->
-    <div class="tarjeta-resumen">
+    <div class="tarjeta-resumen tarjeta-cupon">
       <div class="cabecera-tarjeta">
         <span class="icono-tarjeta">
           <svg lucideTag [strokeWidth]="2.5"></svg>
@@ -171,7 +172,7 @@
   <!-- BOTONES ACCIONES -->
   <div class="footer-acciones">
     <button type="button" class="btn-volver" (click)="onVolver()" [disabled]="cargandoPago">
-      ← Volver / Editar
+      ← Volver
     </button>
 
     <button type="button" class="btn-pagar" (click)="onPagar()" [disabled]="cargandoPago || !datosCompra.formaPago">

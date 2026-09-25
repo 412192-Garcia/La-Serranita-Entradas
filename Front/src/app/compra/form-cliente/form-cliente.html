@@ -86,44 +86,18 @@
         }
       </div>
 
-      <div class="grupo-telefono">
-        <div class="fila-telefono">
-          <div class="campo-grupo campo-codigo-area">
-            <label for="telefonoCodigoArea">Cód. de área</label>
-            <input
-              type="tel"
-              inputmode="numeric"
-              id="telefonoCodigoArea"
-              name="tel-area-code"
-              autocomplete="section-titular tel-area-code"
-              placeholder="351"
-              maxlength="4"
-              formControlName="telefonoCodigoArea"
-              [class.input-error]="f['telefonoCodigoArea'].touched && f['telefonoCodigoArea'].invalid">
-          </div>
-
-          <div class="campo-grupo">
-            <label for="telefonoNumero">Número de teléfono</label>
-            <input
-              type="tel"
-              inputmode="numeric"
-              id="telefonoNumero"
-              name="tel-local"
-              autocomplete="section-titular tel-local"
-              placeholder="5123456"
-              maxlength="10"
-              formControlName="telefonoNumero"
-              [class.input-error]="f['telefonoNumero'].touched && f['telefonoNumero'].invalid">
-          </div>
-        </div>
-        @if (f['telefonoCodigoArea'].touched && f['telefonoCodigoArea'].invalid) {
-          <small class="error-text">Ingresá el código de área sin el 0 (ej. 11, 351, 3543).</small>
-        } @else if (f['telefonoNumero'].touched && f['telefonoNumero'].errors?.['largoTotalInvalido']) {
-          <small class="error-text">Entre el código de área y el número tienen que sumar 10 dígitos. Revisá que no hayas puesto el 15.</small>
-        } @else if (f['telefonoNumero'].touched && f['telefonoNumero'].invalid) {
-          <small class="error-text">Ingresá el número sin el 15 (entre 6 y 8 dígitos).</small>
-        } @else {
-          <small class="ayuda-dni">Sin el 0 ni el 15. Ej.: 351 y 5123456.</small>
+      <div class="campo-grupo">
+        <label for="telefono">Teléfono de Contacto</label>
+        <input
+          type="tel"
+          id="telefono"
+          name="phone"
+          autocomplete="section-titular tel"
+          placeholder="Con código de área, ej. 351 5123456"
+          formControlName="telefono"
+          [class.input-error]="f['telefono'].touched && f['telefono'].invalid">
+        @if (f['telefono'].touched && f['telefono'].invalid) {
+          <small class="error-text">Ingresá un teléfono válido con código de área (podés usar espacios, guiones o "+").</small>
         }
       </div>
 

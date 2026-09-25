@@ -15,26 +15,6 @@ function telefonoValidator(control: AbstractControl): ValidationErrors | null {
   return cantidadDigitos >= 8 && cantidadDigitos <= 15 ? null : { telefonoInvalido: true };
 }
 
-function soloDigitos(valor: string | null | undefined): string {
-  return (valor ?? '').toString().replace(/\D/g, '');
-}
-
-/** Código de área argentino sin el 0 (11, 351, 3543…). */
-function codigoAreaValidator(control: AbstractControl): ValidationErrors | null {
-  const valor = soloDigitos(control.value);
-  if (!valor) return null;
-  return /^[1-9]\d{1,3}$/.test(valor) ? null : { codigoAreaInvalido: true };
-}
-
-/** Número sin el 15: junto con el código de área, todo teléfono argentino suma 10 dígitos. */
-function numeroTelefonoValidator(control: AbstractControl): ValidationErrors | null {
-  const numero = soloDigitos(control.value);
-  if (!numero) return null;
-  const area = soloDigitos(control.parent?.get('telefonoCodigoArea')?.value);
-  if (!/^\d{6,8}$/.test(numero)) return { numeroInvalido: true };
-  return !area || area.length + numero.length === 10 ? null : { largoTotalInvalido: true };
-}
-
 /** Deja sólo lo que identifica al documento (letras y números), sacando puntos, espacios
  * y guiones usados como separador visual — sirve tanto para DNI argentino como para
  * pasaporte/cédula extranjera. Mayúsculas para uniformar (los pasaportes suelen tener
@@ -94,9 +74,8 @@ export class FormCliente implements OnInit, OnChanges {
       // contraseña) atrapa errores de tipeo antes de que lleguen a generar la reserva.
       dniConfirmacion: ['', [Validators.required, confirmacionDniValidator]],
       email: ['', [Validators.required, Validators.email]],
-      // Partido en dos porque Mercado Pago lo pide así para su antifraude (payer.phone).
-      telefonoCodigoArea: ['', [Validators.required, codigoAreaValidator]],
-      telefonoNumero: ['', [Validators.required, numeroTelefonoValidator]],
+      // Libre: el backend lo parte en código de área y número para Mercado Pago.
+      telefono: ['', [Validators.required, telefonoValidator]],
       // Opcionales: no llevan Validators.required.
       edad: [null, [Validators.min(0), Validators.max(120)]],
       localidad: [''],
@@ -116,10 +95,6 @@ export class FormCliente implements OnInit, OnChanges {
 
     if (this.datosPrevios) {
       this.formGroup.patchValue(this.datosPrevios);
-      const [codigoArea, numero] = (this.datosPrevios.telefono ?? '').split(' ');
-      if (codigoArea && numero) {
-        this.formGroup.patchValue({ telefonoCodigoArea: codigoArea, telefonoNumero: numero });
-      }
     }
     if (this.datosPreviosReceptor) {
       this.formGroup.get('receptor')!.patchValue(this.datosPreviosReceptor);
@@ -132,8 +107,6 @@ export class FormCliente implements OnInit, OnChanges {
       this.formGroup.get('dniConfirmacion')!.updateValueAndValidity());
     this.formGroup.get('receptor.dni')!.valueChanges.subscribe(() =>
       this.formGroup.get('receptor.dniConfirmacion')!.updateValueAndValidity());
-    this.formGroup.get('telefonoCodigoArea')!.valueChanges.subscribe(() =>
-      this.formGroup.get('telefonoNumero')!.updateValueAndValidity());
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -169,12 +142,10 @@ export class FormCliente implements OnInit, OnChanges {
 
   onSiguiente(): void{
     if(this.formGroup.valid){
-      const { receptor, dniConfirmacion, telefonoCodigoArea, telefonoNumero, ...cliente } = this.formGroup.value;
+      const { receptor, dniConfirmacion, ...cliente } = this.formGroup.value;
       // Se limpia el separador visual (puntos, espacios, guiones) antes de mandarlo.
       // dniConfirmacion no se manda: sólo existía para que el usuario se auto-corrija antes de enviar.
       cliente.dni = normalizarDocumento(cliente.dni);
-      // Un solo espacio entre área y número: el backend parte ahí el payer.phone de Mercado Pago.
-      cliente.telefono = `${soloDigitos(telefonoCodigoArea)} ${soloDigitos(telefonoNumero)}`;
 
       let receptorLimpio = null;
       if (this.esRegalo && receptor) {
