@@ -203,12 +203,23 @@ Snippet a pegar en la página del sitio:
 <script>
   // Origen del módulo (sin barra final): sólo se aceptan avisos que vengan de ahí.
   const ORIGEN_ENTRADAS = 'https://<dominio-de-producción>';
+  // Alto del encabezado fijo del sitio, si tiene uno (para que no tape el principio del módulo).
+  const MARGEN_SUPERIOR = 0;
 
   window.addEventListener('message', (event) => {
     if (event.origin !== ORIGEN_ENTRADAS) return;
+    const iframe = document.getElementById('serranita-entradas');
 
     if (event.data?.type === 'la-serranita-alto') {
-      document.getElementById('serranita-entradas').style.height = event.data.alto + 'px';
+      iframe.style.height = event.data.alto + 'px';
+    }
+
+    if (event.data?.type === 'la-serranita-desplazar') {
+      iframe.style.height = event.data.alto + 'px';
+      const destino = iframe.getBoundingClientRect().top + event.data.y;
+      if (destino < MARGEN_SUPERIOR || destino > window.innerHeight / 3) {
+        window.scrollTo({ top: window.scrollY + destino - MARGEN_SUPERIOR, behavior: 'smooth' });
+      }
     }
 
     if (event.data?.type === 'la-serranita-compra') {
@@ -220,6 +231,14 @@ Snippet a pegar en la página del sitio:
 
 El `height: 780px` inicial es sólo un valor de arranque razonable hasta que llega el primer aviso
 de altura (llega casi de inmediato).
+
+`la-serranita-desplazar` llega cuando el módulo cambia lo que hay que mirar: al cambiar de paso, y
+en el celular al elegir el día (se despliegan las entradas). Trae `y`, la altura dentro del iframe a
+la que hay que llevar la vista (el panel de entradas, o el principio del módulo), y `alto`, la altura
+nueva del iframe, para aplicarla antes de desplazarse. Sin esto, si el iframe se achica, el
+visitante queda mirando lo que sigue al iframe en la página. El scroll lo tiene que hacer el sitio
+porque un iframe de otro dominio no puede mover la página que lo contiene. Sólo se mueve si el
+destino no quedó ya en el tercio de arriba de la pantalla.
 
 ### Página de gracias y conversiones
 

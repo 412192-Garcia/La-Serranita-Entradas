@@ -1,4 +1,18 @@
-<div class="modulo-compra-container">
+<div class="modulo-compra-container"
+     [class.etapa-avanzada]="etapa !== etapaCompra.SELECCION"
+     [class.sin-fecha-elegida]="etapa === etapaCompra.SELECCION && !compraAcumulada.fechaVisita && !compraAcumulada.esRegalo">
+  <!-- Sólo en el armado apilado (celular), pasado el primer paso: reemplaza al calendario. -->
+  <div class="barra-fecha-elegida">
+    <span>
+      @if (compraAcumulada.esRegalo) {
+        <strong>Regalo</strong>, sin fecha
+      } @else {
+        Visita: <strong>{{ compraAcumulada.fechaVisita | date:'dd/MM/yyyy' }}</strong>
+      }
+    </span>
+    <button type="button" class="btn-cambiar-fecha" (click)="volverASeleccion()">Cambiar</button>
+  </div>
+
   <div class="columna-izquierda-contenido">
     <app-calendario
       (fechaSeleccionadaChange)="onFechaSeleccionada($event)"

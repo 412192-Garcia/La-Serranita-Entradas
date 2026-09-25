@@ -1,5 +1,8 @@
 package org.example.laserranitaentradas.service.impl;
 
+import com.google.i18n.phonenumbers.NumberParseException;
+import com.google.i18n.phonenumbers.PhoneNumberUtil;
+import com.google.i18n.phonenumbers.Phonenumber;
 import com.mercadopago.MercadoPagoConfig;
 import com.mercadopago.client.common.IdentificationRequest;
 import com.mercadopago.client.common.PhoneRequest;
@@ -31,7 +34,6 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 @Service("mercadoPagoService")
@@ -41,7 +43,7 @@ public class MercadoPagoServiceImpl implements PagoService {
 
     private static final String CATEGORIA_ITEM = "tickets";
     private static final Pattern DNI_NUMERICO = Pattern.compile("\\d{7,8}");
-    private static final Pattern TELEFONO_AREA_Y_NUMERO = Pattern.compile("(\\d{2,4}) (\\d{6,8})");
+    private static final PhoneNumberUtil TELEFONOS = PhoneNumberUtil.getInstance();
 
     @Value("${mercadopago.accessToken}")
     private String accessToken;
@@ -159,6 +161,39 @@ public class MercadoPagoServiceImpl implements PagoService {
         }
     }
 
+    /**
+     * El teléfono se carga como texto libre ("351 5123456", "0351 15-512-3456", "+54 9 351...")
+     * y Mercado Pago lo pide partido en código de área y número. libphonenumber conoce los
+     * códigos de área argentinos y el "15"/"9" de los celulares, así que lo parte bien sin
+     * obligar al comprador a escribirlo de una forma puntual. Si no es un número argentino
+     * válido (sin código de área, del exterior, mal tipeado) no se manda, antes que mandarlo mal.
+     */
+    static Optional<PhoneRequest> telefonoParaMercadoPago(String telefono) {
+        if (telefono == null || telefono.isBlank()) {
+            return Optional.empty();
+        }
+        try {
+            Phonenumber.PhoneNumber numero = TELEFONOS.parse(telefono, "AR");
+            if (numero.getCountryCode() != 54 || !TELEFONOS.isValidNumber(numero)) {
+                return Optional.empty();
+            }
+            String nacional = TELEFONOS.getNationalSignificantNumber(numero);
+            int largoArea = TELEFONOS.getLengthOfNationalDestinationCode(numero);
+            if (largoArea <= 0 || largoArea >= nacional.length()) {
+                return Optional.empty();
+            }
+            String area = nacional.substring(0, largoArea);
+            // En los celulares la librería incluye el 9 de "celular" adelante del código de área
+            // (+54 9 351 ...): MP espera el código de área solo.
+            if (TELEFONOS.getNumberType(numero) == PhoneNumberUtil.PhoneNumberType.MOBILE && area.startsWith("9")) {
+                area = area.substring(1);
+            }
+            return Optional.of(PhoneRequest.builder().areaCode(area).number(nacional.substring(largoArea)).build());
+        } catch (NumberParseException e) {
+            return Optional.empty();
+        }
+    }
+
     private boolean frontendPublico() {
         return frontendUrl != null && !frontendUrl.contains("localhost");
     }
@@ -183,13 +218,7 @@ public class MercadoPagoServiceImpl implements PagoService {
     private PreferencePayerRequest armarPayer(Compra compra) {
         PreferencePayerRequest.PreferencePayerRequestBuilder payer = PreferencePayerRequest.builder()
                 .email(compra.getContactEmail());
-        // El formulario web lo manda como "<área> <número>" (ej. "351 5123456"); si vino en
-        // otro formato (texto libre de otra pantalla) no se manda, antes que mandarlo mal partido.
-        Matcher telefono = compra.getContactPhone() != null
-                ? TELEFONO_AREA_Y_NUMERO.matcher(compra.getContactPhone()) : null;
-        if (telefono != null && telefono.matches()) {
-            payer.phone(PhoneRequest.builder().areaCode(telefono.group(1)).number(telefono.group(2)).build());
-        }
+        telefonoParaMercadoPago(compra.getContactPhone()).ifPresent(payer::phone);
         Cliente cliente = compra.getCliente();
         if (cliente != null) {
             payer.name(cliente.getNombre()).surname(cliente.getApellido());
