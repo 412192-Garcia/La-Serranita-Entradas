@@ -61,6 +61,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 public class CajaServiceImpl implements CajaService {
@@ -603,9 +604,10 @@ public class CajaServiceImpl implements CajaService {
                 .totalVentasEfectivo(sumVentasPorFormaPago(compras, FormaPago.EFECTIVO_BOLETERIA))
                 .totalVentasTarjeta(sumVentasPorFormaPago(compras, FormaPago.TARJETA))
                 .totalVentasQr(sumVentasPorFormaPago(compras, FormaPago.MERCADO_PAGO_QR))
-                .totalEntradasPagas(contarEntradasPagas(compras, ajustes))
+                .totalEntradasPagas(contarEntradasPagas(compras, ajustes) + contarUnidadesEntradaPaga(anticipadasValidadas))
                 .entradasPagasAnticipadas(contarEntradasPagasAnticipadas(compras))
-                .entradasVendidasPorTipo(contarEntradasPorTipo(compras, ajustes))
+                .entradasPagasValidadas(contarUnidadesEntradaPaga(anticipadasValidadas))
+                .entradasVendidasPorTipo(contarEntradasPorTipo(compras, ajustes, anticipadasValidadas))
                 .huboVentaDolares(huboVentaDolares(compras))
                 .entradasAnticipadasEntregadas(entradasAnticipadasEntregadas)
                 .entradasFisicasRestantes(entradasFisicasRestantes)
@@ -908,9 +910,12 @@ public class CajaServiceImpl implements CajaService {
                 .sum();
     }
 
-    /** Unidades vendidas de tipos de entrada con precio > 0 (excluye las gratis, los extras y los artículos, y las compras canceladas), más el impacto de los ajustes manuales. */
-    private int contarEntradasPagas(List<Compra> compras, List<AjusteCaja> ajustes) {
-        int base = compras.stream()
+    /** Unidades de tipos de entrada con precio > 0 (excluye las gratis, los extras y los
+     * artículos) entre las compras dadas, sin las compras canceladas. Compartido por
+     * contarEntradasPagas (con ajustes, sobre las compras de la caja) y por el conteo de
+     * anticipadas validadas (sin ajustes, esas nunca los tienen). */
+    private int contarUnidadesEntradaPaga(List<Compra> compras) {
+        return compras.stream()
                 .filter(c -> c.getEstado() != EstadoCompra.CANCELADO)
                 .flatMap(c -> c.getDetalles().stream())
                 .filter(d -> d.getTipoEntrada() != null
@@ -919,7 +924,11 @@ public class CajaServiceImpl implements CajaService {
                         && d.getTipoEntrada().getPrecio().compareTo(BigDecimal.ZERO) > 0)
                 .mapToInt(CompraDetalle::getCantidad)
                 .sum();
-        return base + impactoAjustesEntradas(ajustes, tiposEntradaPorId(),
+    }
+
+    /** Unidades vendidas de tipos de entrada con precio > 0 (excluye las gratis, los extras y los artículos, y las compras canceladas), más el impacto de los ajustes manuales. */
+    private int contarEntradasPagas(List<Compra> compras, List<AjusteCaja> ajustes) {
+        return contarUnidadesEntradaPaga(compras) + impactoAjustesEntradas(ajustes, tiposEntradaPorId(),
                 t -> t.getTipo() == Tipo.ENTRADA && t.getPrecio() != null && t.getPrecio().compareTo(BigDecimal.ZERO) > 0);
     }
 
@@ -951,10 +960,14 @@ public class CajaServiceImpl implements CajaService {
         return base + impactoAjustesEntradas(ajustes, tiposEntradaPorId(), t -> t.getTipo() == Tipo.ENTRADA);
     }
 
-    /** Cuenta las unidades vendidas por tipo de entrada (ignora extras y artículos varios, y las compras canceladas), aplicando también los ajustes manuales. */
-    private List<EntradasPorTipoDTO> contarEntradasPorTipo(List<Compra> compras, List<AjusteCaja> ajustes) {
+    /** Cuenta las unidades vendidas por tipo de entrada (ignora extras y artículos varios, y las
+     * compras canceladas), aplicando también los ajustes manuales. Incluye las anticipadas
+     * validadas sin cobro en esta caja: para quien mira "Pase General N" le entraron N personas
+     * con ese pase, hayan pagado acá o no (mismo criterio que totalEntradasPagas). */
+    private List<EntradasPorTipoDTO> contarEntradasPorTipo(List<Compra> compras, List<AjusteCaja> ajustes,
+                                                            List<Compra> anticipadasValidadas) {
         Map<String, Integer> cantidadPorTipo = new LinkedHashMap<>();
-        for (Compra compra : compras) {
+        for (Compra compra : Stream.concat(compras.stream(), anticipadasValidadas.stream()).toList()) {
             if (compra.getEstado() == EstadoCompra.CANCELADO) continue;
             for (CompraDetalle detalle : compra.getDetalles()) {
                 if (detalle.getTipoEntrada() != null && detalle.getTipoEntrada().getTipo() == Tipo.ENTRADA) {
@@ -980,12 +993,29 @@ public class CajaServiceImpl implements CajaService {
                 .toList();
     }
 
-    /** Parte del monto de una compra que corresponde a artículos varios (líneas sin tipo de entrada), a precio congelado. */
+    /**
+     * Parte del monto de una compra que NO es una entrada de verdad: artículos varios (líneas
+     * sin tipo de entrada, a precio congelado) más los tipos EXTRA del catálogo de entradas (ej.
+     * "Menú Almuerzo Parque" — precio en vivo, nunca usan precioUnitario, ver el comentario de
+     * CompraDetalle.precioUnitario). segmentosEntrada resta esto antes de repartir lo que queda
+     * entre las líneas de tipo ENTRADA; sin esto, el precio de un extra se colaba entero en la
+     * entrada de la misma compra.
+     */
     private BigDecimal montoArticulos(Compra compra) {
         return compra.getDetalles().stream()
-                .filter(d -> d.getTipoEntrada() == null && d.getPrecioUnitario() != null)
-                .map(d -> d.getPrecioUnitario().multiply(BigDecimal.valueOf(d.getCantidad())))
+                .map(this::montoLineaNoEntrada)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private BigDecimal montoLineaNoEntrada(CompraDetalle d) {
+        if (d.getTipoEntrada() != null) {
+            if (d.getTipoEntrada().getTipo() != Tipo.EXTRA || d.getTipoEntrada().getPrecio() == null) {
+                return BigDecimal.ZERO;
+            }
+            return d.getTipoEntrada().getPrecio().multiply(BigDecimal.valueOf(d.getCantidad()));
+        }
+        if (d.getPrecioUnitario() == null) return BigDecimal.ZERO;
+        return d.getPrecioUnitario().multiply(BigDecimal.valueOf(d.getCantidad()));
     }
 
     /**
@@ -1098,6 +1128,8 @@ public class CajaServiceImpl implements CajaService {
                     .tipo("ANTICIPADA_VALIDADA")
                     .fecha(anticipada.getFechaValidacion())
                     .monto(anticipada.getMontoTotal())
+                    .montoArticulos(montoArticulos(anticipada))
+                    .segmentosEntrada(segmentosEntrada(anticipada))
                     .formaPago(anticipada.getFormaPago())
                     .detalle(detalle)
                     .build());
@@ -1178,6 +1210,7 @@ public class CajaServiceImpl implements CajaService {
         List<OperacionCajaDTO> operaciones = null;
         Integer totalEntradasPagas = null;
         Integer entradasPagasAnticipadas = null;
+        Integer entradasPagasValidadas = null;
         List<EntradasPorTipoDTO> entradasVendidasPorTipo = null;
         BigDecimal dolaresEsperado = null;
         BigDecimal diferenciaDolares = null;
@@ -1257,9 +1290,10 @@ public class CajaServiceImpl implements CajaService {
 
             operaciones = construirOperaciones(compras, movimientos, ingresosMovimientos, anticipadasValidadas);
 
-            entradasVendidasPorTipo = contarEntradasPorTipo(compras, ajustes);
-            totalEntradasPagas = contarEntradasPagas(compras, ajustes);
+            entradasVendidasPorTipo = contarEntradasPorTipo(compras, ajustes, anticipadasValidadas);
+            totalEntradasPagas = contarEntradasPagas(compras, ajustes) + contarUnidadesEntradaPaga(anticipadasValidadas);
             entradasPagasAnticipadas = contarEntradasPagasAnticipadas(compras);
+            entradasPagasValidadas = contarUnidadesEntradaPaga(anticipadasValidadas);
 
             if (huboVentaDolares) {
                 dolaresEsperado = sumDolaresEsperados(compras);
@@ -1337,6 +1371,7 @@ public class CajaServiceImpl implements CajaService {
                 .operaciones(operaciones)
                 .totalEntradasPagas(totalEntradasPagas)
                 .entradasPagasAnticipadas(entradasPagasAnticipadas)
+                .entradasPagasValidadas(entradasPagasValidadas)
                 .entradasVendidasPorTipo(entradasVendidasPorTipo)
                 .huboVentaDolares(huboVentaDolares)
                 .dolaresEsperado(dolaresEsperado)

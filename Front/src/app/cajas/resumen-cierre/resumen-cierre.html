@@ -6,19 +6,19 @@
 }
 
 @if (!modoRevision()) {
-<div class="tarjeta-kpis-detalle" data-tour="resumen-kpis">
+<div class="tarjeta-kpis-detalle tarjeta-kpis-detalle-3" data-tour="resumen-kpis">
   <div>
     <h2>Total vendido</h2>
     <p class="kpi-numero">{{ totalVendido() | pesos }}</p>
   </div>
   <div>
     <h2>Entradas vendidas</h2>
-    <p class="kpi-numero kpi-numero-secundario">{{ caja().totalEntradasPagas ?? 0 }}</p>
-    @if (caja().totalEntradasPagas) {
-      <p class="kpi-subtexto">
-        {{ caja().entradasPagasAnticipadas ?? 0 }} anticipadas · {{ caja().totalEntradasPagas! - (caja().entradasPagasAnticipadas ?? 0) }} en caja
-      </p>
-    }
+    <p class="kpi-numero kpi-numero-secundario">{{ caja().totalEntradasPagas! - (caja().entradasPagasAnticipadas ?? 0) - (caja().entradasPagasValidadas ?? 0) }}</p>
+  </div>
+  <div>
+    <h2>Anticipadas</h2>
+    <p class="kpi-numero kpi-numero-secundario">{{ (caja().entradasPagasAnticipadas ?? 0) + (caja().entradasPagasValidadas ?? 0) }}</p>
+    <p class="kpi-subtexto">{{ caja().entradasPagasValidadas ?? 0 }} online · {{ caja().entradasPagasAnticipadas ?? 0 }} pagado en puerta</p>
   </div>
 </div>
 
@@ -106,6 +106,55 @@
 }
 }
 
+<!-- Una fila de un grupo del desglose (por forma de pago): la comparten el resumen de ventas
+     de esta caja y el de anticipadas validadas, que sólo difieren en de dónde sale la lista. -->
+<ng-template #grupoDesgloseTpl let-grupo>
+  <div class="grupo-desglose">
+    <div class="cabecera-grupo-desglose">
+      <span>{{ grupo.etiqueta }}</span>
+      <span>{{ grupo.subtotal | pesos }}</span>
+    </div>
+    @for (item of grupo.items; track item.firma) {
+      @if (item.subs.length === 1) {
+        @let s = item.subs[0];
+        <div class="fila-desglose" [class.fila-desglose-articulos]="item.firma === 'Artículos varios'">
+          <span class="firma-desglose">
+            {{ item.firma }}
+            @if (s.descLabel !== null) {
+              <small class="etiqueta-descuento">{{ s.descLabel }}</small>
+            }
+          </span>
+          <span class="cantidad-desglose">
+            @if (item.firma !== 'Artículos varios') {
+              {{ s.cantidad }} {{ s.cantidad === 1 ? 'venta' : 'ventas' }}
+            }
+          </span>
+          <span class="monto-desglose">{{ s.monto | pesos }}</span>
+        </div>
+      } @else {
+        <div class="fila-desglose fila-desglose-titulo">
+          <span class="firma-desglose">{{ item.firma }}</span>
+          <span class="cantidad-desglose">{{ item.cantidadTotal }} ventas</span>
+          <span class="monto-desglose">{{ item.montoTotal | pesos }}</span>
+        </div>
+        @for (s of item.subs; track s.descKey) {
+          <div class="fila-desglose fila-desglose-sub">
+            <span class="firma-desglose">
+              @if (s.descLabel !== null) {
+                <small class="etiqueta-descuento">{{ s.descLabel }}</small>
+              } @else {
+                <small class="etiqueta-sin-desc">sin descuento</small>
+              }
+            </span>
+            <span class="cantidad-desglose">{{ s.cantidad }} {{ s.cantidad === 1 ? 'venta' : 'ventas' }}</span>
+            <span class="monto-desglose">{{ s.monto | pesos }}</span>
+          </div>
+        }
+      }
+    }
+  </div>
+</ng-template>
+
 <!-- ---------- Ventas por forma de pago ---------- -->
 <div class="bloque-desglose-ventas" data-tour="resumen-ventas">
   <div class="cabecera-desglose-ventas">
@@ -114,52 +163,18 @@
 
   @if (!modoRevision()) {
     @for (grupo of desglosePorFormaPago(); track grupo.clave) {
-      <div class="grupo-desglose">
-        <div class="cabecera-grupo-desglose">
-          <span>{{ grupo.etiqueta }}</span>
-          <span>{{ grupo.subtotal | pesos }}</span>
-        </div>
-        @for (item of grupo.items; track item.firma) {
-          @if (item.subs.length === 1) {
-            @let s = item.subs[0];
-            <div class="fila-desglose" [class.fila-desglose-articulos]="item.firma === 'Artículos varios'">
-              <span class="firma-desglose">
-                {{ item.firma }}
-                @if (s.descLabel !== null) {
-                  <small class="etiqueta-descuento">{{ s.descLabel }}</small>
-                }
-              </span>
-              <span class="cantidad-desglose">
-                @if (item.firma !== 'Artículos varios') {
-                  {{ s.cantidad }} {{ s.cantidad === 1 ? 'venta' : 'ventas' }}
-                }
-              </span>
-              <span class="monto-desglose">{{ s.monto | pesos }}</span>
-            </div>
-          } @else {
-            <div class="fila-desglose fila-desglose-titulo">
-              <span class="firma-desglose">{{ item.firma }}</span>
-              <span class="cantidad-desglose">{{ item.cantidadTotal }} ventas</span>
-              <span class="monto-desglose">{{ item.montoTotal | pesos }}</span>
-            </div>
-            @for (s of item.subs; track s.descKey) {
-              <div class="fila-desglose fila-desglose-sub">
-                <span class="firma-desglose">
-                  @if (s.descLabel !== null) {
-                    <small class="etiqueta-descuento">{{ s.descLabel }}</small>
-                  } @else {
-                    <small class="etiqueta-sin-desc">sin descuento</small>
-                  }
-                </span>
-                <span class="cantidad-desglose">{{ s.cantidad }} {{ s.cantidad === 1 ? 'venta' : 'ventas' }}</span>
-                <span class="monto-desglose">{{ s.monto | pesos }}</span>
-              </div>
-            }
-          }
-        }
-      </div>
+      <ng-container [ngTemplateOutlet]="grupoDesgloseTpl" [ngTemplateOutletContext]="{ $implicit: grupo }" />
     } @empty {
       <p class="sin-datos-desglose">No hubo ventas en este turno.</p>
+    }
+
+    @if (desgloseAnticipadasValidadas().length > 0) {
+      <div class="cabecera-desglose-ventas cabecera-desglose-anticipadas">
+        <h3>Anticipadas validadas <small>(sin cobro en esta caja)</small></h3>
+      </div>
+      @for (grupo of desgloseAnticipadasValidadas(); track grupo.clave) {
+        <ng-container [ngTemplateOutlet]="grupoDesgloseTpl" [ngTemplateOutletContext]="{ $implicit: grupo }" />
+      }
     }
   } @else {
 

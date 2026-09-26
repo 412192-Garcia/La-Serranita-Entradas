@@ -334,7 +334,10 @@ export class ResumenCierre {
 
   // ---------- Desglose de solo lectura ----------
 
-  desglosePorFormaPago = computed<GrupoLectura[]>(() => {
+  /** Agrupa operaciones de venta por forma de pago → firma ("5x Pase General") → descuento.
+   * Lo usan tanto el resumen de ventas de esta caja (this.ventas()) como el de anticipadas
+   * validadas sin cobro (this.anticipadasValidadas()) — misma forma, distinta fuente. */
+  private agruparPorFormaPago(ops: OperacionCaja[]): GrupoLectura[] {
     const grupos = new Map<string, GrupoLectura>();
     const grupoDe = (forma: string | null) => {
       const { clave, etiqueta } = this.grupoLectura(forma);
@@ -342,7 +345,6 @@ export class ResumenCierre {
       if (!g) { g = { clave, etiqueta, subtotal: 0, items: [] }; grupos.set(clave, g); }
       return g;
     };
-    // Acumula por forma → firma ("5x Pase General") → descuento.
     const acc = (g: GrupoLectura, firma: string, desc: Descuento, monto: number) => {
       let it = g.items.find((x) => x.firma === firma);
       if (!it) { it = { firma, cantidadTotal: 0, montoTotal: 0, subs: [] }; g.items.push(it); }
@@ -355,11 +357,11 @@ export class ResumenCierre {
       sub.monto += monto;
     };
 
-    for (const op of this.ventas()) {
+    for (const op of ops) {
       const monto = op.monto ?? 0;
       const art = this.montoArticulos(op);
       const segs = op.segmentosEntrada ?? [];
-      if (segs.length === 0 && monto === 0) continue; // venta 100% gratis: no se muestra
+      if (segs.length === 0 && monto === 0) continue; // 100% gratis: no se muestra
       const g = grupoDe(op.formaPago);
       g.subtotal += monto;
       for (const s of segs) acc(g, `${s.cantidad}x ${s.tipoNombre}`, descuentoDeSegmento(s), s.monto);
@@ -383,7 +385,17 @@ export class ResumenCierre {
       }
     }
     return [...grupos.values()].sort((a, b) => indiceOrden(a.clave) - indiceOrden(b.clave));
-  });
+  }
+
+  desglosePorFormaPago = computed<GrupoLectura[]>(() => this.agruparPorFormaPago(this.ventas()));
+
+  /** Anticipadas validadas sin cobro en esta caja (ver ANTICIPADA_VALIDADA): agrupadas por la
+   * forma con la que se pagaron online, sólo informativo — esta plata no es de esta caja. */
+  private anticipadasValidadas = computed<OperacionCaja[]>(() =>
+    (this.caja().operaciones ?? []).filter((o) => o.tipo === 'ANTICIPADA_VALIDADA')
+  );
+
+  desgloseAnticipadasValidadas = computed<GrupoLectura[]>(() => this.agruparPorFormaPago(this.anticipadasValidadas()));
 
   /** Artículos varios por forma de pago (línea aparte, tanto en el desglose como en revisión). */
   articulosPorForma = computed<{ clave: string; etiqueta: string; monto: number }[]>(() => {

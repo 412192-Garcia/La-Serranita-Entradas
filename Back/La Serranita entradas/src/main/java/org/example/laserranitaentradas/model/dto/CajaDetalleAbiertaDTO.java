@@ -20,11 +20,14 @@ public class CajaDetalleAbiertaDTO {
     private BigDecimal totalVentasEfectivo;
     private BigDecimal totalVentasTarjeta;
     private BigDecimal totalVentasQr;
-    /** Unidades vendidas de tipos de entrada con precio > 0 (excluye gratis, extras y artículos). */
+    /** Unidades de tipos de entrada con precio > 0 (excluye gratis, extras y artículos): venta de
+     * puerta + anticipadas cobradas acá + anticipadas validadas sin cobro. */
     private Integer totalEntradasPagas;
-    /** De totalEntradasPagas, cuántas son anticipadas (reservas) cobradas en esta caja — el resto
-     * (totalEntradasPagas − esto) es venta de puerta. */
+    /** De totalEntradasPagas, cuántas son anticipadas (reservas) cobradas en esta caja. */
     private Integer entradasPagasAnticipadas;
+    /** De totalEntradasPagas, cuántas son anticipadas validadas SIN cobrar nada en esta caja. El
+     * resto (totalEntradasPagas − estas dos) es venta de puerta. */
+    private Integer entradasPagasValidadas;
     private List<EntradasPorTipoDTO> entradasVendidasPorTipo;
     private boolean huboVentaDolares;
     /** Anticipadas (compradas online) que este boletero validó en su turno y a las que igual se

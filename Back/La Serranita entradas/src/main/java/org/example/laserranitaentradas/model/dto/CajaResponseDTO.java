@@ -82,11 +82,17 @@ public class CajaResponseDTO {
      */
     private List<AjusteCajaResponseDTO> ajustes;
 
-    /** Unidades vendidas de tipos de entrada con precio > 0 (excluye las gratis, los extras y los artículos), sin importar la forma de pago. Null mientras sigue ABIERTA. */
+    /** Unidades de tipos de entrada con precio > 0 (excluye las gratis, los extras y los
+     * artículos): venta de puerta + anticipadas cobradas acá + anticipadas validadas sin cobro
+     * (entraron igual, aunque esta caja no haya cobrado nada por ellas). Null mientras sigue ABIERTA. */
     private Integer totalEntradasPagas;
-    /** De totalEntradasPagas, cuántas son anticipadas (reservas) cobradas en esta caja — el resto
-     * (totalEntradasPagas − esto) es venta de puerta. Null mientras sigue ABIERTA. */
+    /** De totalEntradasPagas, cuántas son anticipadas (reservas) cobradas en esta caja. Null
+     * mientras sigue ABIERTA. */
     private Integer entradasPagasAnticipadas;
+    /** De totalEntradasPagas, cuántas son anticipadas validadas SIN cobrar nada en esta caja (ya
+     * estaban pagas online). El resto (totalEntradasPagas − estas dos) es venta de puerta. Null
+     * mientras sigue ABIERTA. */
+    private Integer entradasPagasValidadas;
     private List<EntradasPorTipoDTO> entradasVendidasPorTipo;
 
     /** false = un admin deshabilitó esta caja (no figura en listados ni reportes). El detalle por id la sigue devolviendo. Nunca null. */

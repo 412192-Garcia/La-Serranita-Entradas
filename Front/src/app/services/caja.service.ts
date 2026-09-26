@@ -137,11 +137,15 @@ export interface Caja {
   /** Ajustes manuales de la repartición por forma de pago (traspasos que cargó un admin). Vacío si no se ajustó nada. Los esperados/diferencias de arriba ya vienen con esto aplicado. */
   ajustes: AjusteCaja[];
 
-  /** Unidades vendidas de tipos de entrada con precio > 0 (excluye las gratis, los extras y los artículos), sin importar la forma de pago. Null hasta el cierre. */
+  /** Unidades de tipos de entrada con precio > 0 (excluye las gratis, los extras y los
+   * artículos): venta de puerta + anticipadas cobradas acá + anticipadas validadas sin cobro.
+   * Null hasta el cierre. */
   totalEntradasPagas: number | null;
-  /** De totalEntradasPagas, cuántas son anticipadas (reservas) cobradas en esta caja — el resto
-   * es venta de puerta. Null hasta el cierre. */
+  /** De totalEntradasPagas, cuántas son anticipadas (reservas) cobradas en esta caja. Null hasta el cierre. */
   entradasPagasAnticipadas: number | null;
+  /** De totalEntradasPagas, cuántas son anticipadas validadas SIN cobrar nada acá (ya estaban
+   * pagas online). El resto (totalEntradasPagas − estas dos) es venta de puerta. Null hasta el cierre. */
+  entradasPagasValidadas: number | null;
   entradasVendidasPorTipo: EntradasPorTipo[] | null;
 
   /**
@@ -226,11 +230,14 @@ export interface CajaDetalleAbierta {
   totalVentasEfectivo: number;
   totalVentasTarjeta: number;
   totalVentasQr: number;
-  /** Entradas vendidas de tipos con precio > 0 (excluye gratis, extras y artículos). */
+  /** Unidades de tipos con precio > 0 (excluye gratis, extras y artículos): venta de puerta +
+   * anticipadas cobradas acá + anticipadas validadas sin cobro. */
   totalEntradasPagas: number;
-  /** De totalEntradasPagas, cuántas son anticipadas (reservas) cobradas en esta caja — el resto
-   * es venta de puerta. */
+  /** De totalEntradasPagas, cuántas son anticipadas (reservas) cobradas en esta caja. */
   entradasPagasAnticipadas: number;
+  /** De totalEntradasPagas, cuántas son anticipadas validadas SIN cobrar nada acá. El resto
+   * (totalEntradasPagas − estas dos) es venta de puerta. */
+  entradasPagasValidadas: number;
   entradasVendidasPorTipo: EntradasPorTipo[];
   huboVentaDolares: boolean;
   /** Anticipadas (compradas online) que este boletero validó en su turno y a las que igual se
