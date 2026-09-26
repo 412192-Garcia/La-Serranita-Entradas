@@ -8,7 +8,7 @@
       @if (cajaActual() === null) {
         <button type="button" class="indicador-caja indicador-caja-cerrada" (click)="mostrarAperturaCaja.set(true)">
           <span class="punto-indicador-caja"></span>
-          Caja cerrada · Tocá para abrirla
+          Sin caja abierta · Podés validar y cobrar igual
         </button>
       } @else if (cajaActual()) {
         <span class="indicador-caja">

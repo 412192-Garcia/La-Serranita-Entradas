@@ -610,8 +610,9 @@ public class CompraServiceImpl implements CompraService {
         return compraRepository.save(compra);
     }
 
-    /** Ventana de tiempo, más generosa que la del frontend, para poder deshacer una validación. */
-    private static final long VENTANA_DESHACER_VALIDACION_SEGUNDOS = 120;
+    /** Ventana de tiempo para poder deshacer una validación (mismo valor que
+     * Boleteria.VENTANA_DESHACER_MENU_MS en el frontend — mantenerlos sincronizados). */
+    private static final long VENTANA_DESHACER_VALIDACION_SEGUNDOS = 2400;
 
     @Transactional
     @Override
@@ -628,11 +629,13 @@ public class CompraServiceImpl implements CompraService {
             throw new IllegalStateException("Ya pasó el tiempo para deshacer esta validación.");
         }
 
-        // Vuelve al estado del que salió: RESERVADO_EFECTIVO si el ingreso se cobró en una caja
-        // (reserva a pagar en boletería, sea en efectivo, tarjeta o QR), APROBADO si ya estaba
-        // paga online (nunca tocó una caja). Al deshacer se saca de la caja: el cierre no debe
-        // seguir contándola.
-        compra.setEstado(compra.getCaja() != null
+        // Vuelve al estado del que salió: RESERVADO_EFECTIVO si el ingreso se cobró (en una caja,
+        // sea en efectivo, tarjeta o QR; o un admin sin caja por confirmarPagoEfectivo — ver el
+        // comentario de esa interfaz), APROBADO si ya estaba paga online. No alcanza con mirar
+        // sólo `caja` (un admin puede haber cobrado efectivo sin una) ni sólo `formaPago` (el POS
+        // puede haber repreciado la reserva a tarjeta/QR al cobrarla): EFECTIVO_BOLETERIA nunca es
+        // la forma de una compra online, así que cualquiera de las dos señales alcanza.
+        compra.setEstado(compra.getCaja() != null || compra.getFormaPago() == FormaPago.EFECTIVO_BOLETERIA
                 ? EstadoCompra.RESERVADO_EFECTIVO
                 : EstadoCompra.APROBADO);
         compra.setUsuarioValidador(null);
@@ -644,7 +647,7 @@ public class CompraServiceImpl implements CompraService {
 
     @Transactional
     @Override
-    public Compra confirmarPagoEfectivo(Long compraId, Long usuarioValidadorId) {
+    public Compra confirmarPagoEfectivo(Long compraId, Long usuarioValidadorId, boolean permitirSinCaja) {
         Compra compra = compraRepository.findById(compraId)
                 .orElseThrow(() -> new IllegalArgumentException("Compra no encontrada ID: " + compraId));
 
@@ -655,8 +658,15 @@ public class CompraServiceImpl implements CompraService {
             throw new IllegalStateException("La compra ID " + compraId + " no está pendiente de cobro en boletería (estado actual: " + compra.getEstado() + ")");
         }
 
-        // El cobro pasa a integrar la caja abierta del boletero: sin caja no se puede cobrar.
-        Caja caja = cajaService.getAbiertaOrThrow(usuarioValidadorId);
+        // El cobro normalmente pasa a integrar la caja abierta de quien cobra, para poder
+        // reconciliarse al cierre. Un admin desde Control de Accesos puede no tener ninguna
+        // (no abre caja para esto, ver el comentario de la interfaz): en ese caso queda sin
+        // caja, igual que una anticipada validada — fuera de cualquier cierre, sólo en Reportes.
+        Caja caja = cajaService.getAbierta(usuarioValidadorId)
+                .orElseGet(() -> {
+                    if (permitirSinCaja) return null;
+                    throw new IllegalStateException("No hay una caja abierta: abrí la caja antes de cobrar.");
+                });
         Compra actualizada = marcarEntradasComoUsadas(compraId, usuarioValidadorId);
         actualizada.setCaja(caja);
         return compraRepository.save(actualizada);

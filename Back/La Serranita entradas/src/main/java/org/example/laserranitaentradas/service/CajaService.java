@@ -24,6 +24,10 @@ public interface CajaService {
     /** Devuelve la caja abierta de ese usuario o lanza si no tiene ninguna: la usan las ventas para bloquearse sin caja. */
     Caja getAbiertaOrThrow(Long usuarioId);
 
+    /** Igual que getAbiertaOrThrow pero sin lanzar: para el cobro en efectivo de un admin desde
+     * Control de Accesos, que puede no tener caja (ver confirmarPagoEfectivo). */
+    java.util.Optional<Caja> getAbierta(Long usuarioId);
+
     CajaResponseDTO abrir(Long usuarioId, BigDecimal montoInicial, Integer entradasFisicasInicial);
 
     /**

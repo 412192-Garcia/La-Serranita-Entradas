@@ -15,6 +15,11 @@ function telefonoValidator(control: AbstractControl): ValidationErrors | null {
   return cantidadDigitos >= 8 && cantidadDigitos <= 15 ? null : { telefonoInvalido: true };
 }
 
+/** Un documento con letras es un pasaporte o cédula extranjera, no un DNI. */
+function tieneLetras(documento: string | null | undefined): boolean {
+  return /[A-Za-z]/.test(documento ?? '');
+}
+
 /** Deja sólo lo que identifica al documento (letras y números), sacando puntos, espacios
  * y guiones usados como separador visual — sirve tanto para DNI argentino como para
  * pasaporte/cédula extranjera. Mayúsculas para uniformar (los pasaportes suelen tener
@@ -62,6 +67,14 @@ export class FormCliente implements OnInit, OnChanges {
   @Input() esRegalo: boolean = false;
   @Input() datosPreviosReceptor: any = null;
 
+  /**
+   * El DNI abre el teclado numérico (inputmode), pero eso es sólo una sugerencia: el campo acepta
+   * letras. Hace falta esta llave porque en iPhone, y en Gboard, ese teclado no tiene forma de
+   * pasar a letras, y quien tiene pasaporte extranjero no podría escribirlo.
+   */
+  usaPasaporte = false;
+  receptorUsaPasaporte = false;
+
   @Output() siguiente = new EventEmitter<any>()
   @Output() atras = new EventEmitter<any>()
 
@@ -95,9 +108,11 @@ export class FormCliente implements OnInit, OnChanges {
 
     if (this.datosPrevios) {
       this.formGroup.patchValue(this.datosPrevios);
+      this.usaPasaporte = tieneLetras(this.datosPrevios.dni);
     }
     if (this.datosPreviosReceptor) {
       this.formGroup.get('receptor')!.patchValue(this.datosPreviosReceptor);
+      this.receptorUsaPasaporte = tieneLetras(this.datosPreviosReceptor.dni);
     }
 
     // Si corrige el DNI original después de haber tipeado la confirmación, hay que
@@ -134,6 +149,19 @@ export class FormCliente implements OnInit, OnChanges {
   }
   get f() {
     return this.formGroup.controls;
+  }
+
+  alternarPasaporte(campo: HTMLInputElement, deReceptor = false): void {
+    if (deReceptor) {
+      this.receptorUsaPasaporte = !this.receptorUsaPasaporte;
+    } else {
+      this.usaPasaporte = !this.usaPasaporte;
+    }
+    // El celular recién cambia de teclado cuando el campo vuelve a tomar el foco.
+    setTimeout(() => {
+      campo.blur();
+      campo.focus();
+    });
   }
 
   get fReceptor() {

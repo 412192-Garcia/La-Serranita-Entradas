@@ -24,6 +24,12 @@
   color: var(--color-text);
 }
 
+.kpi-subtexto {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
 .chips-entradas-tipo {
   display: flex;
   flex-wrap: wrap;
@@ -130,6 +136,10 @@
 
 .fila-operacion-aporte .icono-tipo-operacion {
   color: var(--color-primary-dark);
+}
+
+.fila-operacion-anticipada .icono-tipo-operacion {
+  color: var(--color-text-muted);
 }
 
 .acciones-operacion {

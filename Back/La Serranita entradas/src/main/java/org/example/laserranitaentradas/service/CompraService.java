@@ -38,7 +38,15 @@ public interface CompraService {
 
     Compra create(CompraRequestDTO Compra);
     Compra marcarEntradasComoUsadas(Long compraId, Long usuarioValidadorId);
-    Compra confirmarPagoEfectivo(Long compraId, Long usuarioValidadorId);
+
+    /**
+     * Cobra en efectivo una reserva y habilita el ingreso. Normalmente la venta tiene que
+     * integrar la caja abierta del usuario para poder reconciliarse al cierre; con
+     * `permitirSinCaja` (ADMIN desde Control de Accesos, que no abre caja para esto) se permite
+     * cobrar igual sin una: la compra queda con caja null, fuera de cualquier cierre — sólo
+     * queda registrada para Reportes y el historial de Control de Accesos.
+     */
+    Compra confirmarPagoEfectivo(Long compraId, Long usuarioValidadorId, boolean permitirSinCaja);
 
     /**
      * Deshace una validación reciente (ventana corta, ver implementación): vuelve la compra

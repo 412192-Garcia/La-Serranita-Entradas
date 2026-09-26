@@ -554,10 +554,11 @@ export class ReservasBusqueda implements OnDestroy {
 
   // ---------- Fila recién validada: se pone roja, cuenta regresiva y desaparece sola ----------
 
-  /** Cuánto dura la ventana para arrepentirse antes de que la fila empiece a irse. Corta a
-   * propósito: es sólo para el "uy, toqué mal" inmediato, no la única forma de deshacer — ver
-   * VENTANA_DESHACER_MENU_MS en Control de Accesos para el caso de "me di cuenta minutos después". */
-  readonly VENTANA_DESHACER_MS = 8000;
+  /** Cuánto dura la ventana para arrepentirse antes de que la fila empiece a irse. En el POS
+   * (Anticipadas) es la ÚNICA forma de deshacer — no tiene el menú ⋮ de Control de Accesos — así
+   * que va generosa; ver VENTANA_DESHACER_MENU_MS en Control de Accesos, que da un poco más
+   * todavía para el caso de "me di cuenta minutos después". */
+  readonly VENTANA_DESHACER_MS = 160_000;
   private static readonly DURACION_ANIMACION_SALIDA_MS = 350;
 
   /** Ids validados en esta sesión de pantalla, todavía dentro de la ventana para deshacer. */

@@ -66,6 +66,9 @@ public class CajaResponseDTO {
     private Integer entradasFisicasEsperadas;
     /** restantes − esperadas: negativo = faltan en el talonario, positivo = sobran. */
     private Integer diferenciaEntradas;
+    /** Anticipadas (compradas online) que este boletero validó en su turno y a las que igual se
+     * les entregó talonario físico (ya restadas de entradasFisicasEsperadas). Null mientras sigue ABIERTA. */
+    private Integer entradasAnticipadasEntregadas;
     private Integer totalIngresosEntradas;
     private List<IngresoEntradasResponseDTO> ingresosEntradas;
 
@@ -81,6 +84,9 @@ public class CajaResponseDTO {
 
     /** Unidades vendidas de tipos de entrada con precio > 0 (excluye las gratis, los extras y los artículos), sin importar la forma de pago. Null mientras sigue ABIERTA. */
     private Integer totalEntradasPagas;
+    /** De totalEntradasPagas, cuántas son anticipadas (reservas) cobradas en esta caja — el resto
+     * (totalEntradasPagas − esto) es venta de puerta. Null mientras sigue ABIERTA. */
+    private Integer entradasPagasAnticipadas;
     private List<EntradasPorTipoDTO> entradasVendidasPorTipo;
 
     /** false = un admin deshabilitó esta caja (no figura en listados ni reportes). El detalle por id la sigue devolviendo. Nunca null. */

@@ -56,9 +56,10 @@ export interface SegmentoEntrada {
 }
 
 export interface OperacionCaja {
-  tipo: 'VENTA' | 'RETIRO' | 'APORTE' | 'INGRESO_ENTRADAS' | 'RETIRO_ENTRADAS';
+  tipo: 'VENTA' | 'ANTICIPADA_VALIDADA' | 'RETIRO' | 'APORTE' | 'INGRESO_ENTRADAS' | 'RETIRO_ENTRADAS';
   fecha: string;
-  /** Null en los ingresos de entradas físicas: no mueven plata. */
+  /** Null en los ingresos de entradas físicas: no mueven plata. En una ANTICIPADA_VALIDADA es el
+   * valor de la entrada, informativo — esa plata no la cobró esta caja, no suma a ningún total. */
   monto: number | null;
   /** Sólo en ventas: parte del monto que son artículos varios (no entradas). 0/ausente si la venta es sólo entradas. */
   montoArticulos?: number | null;
@@ -70,11 +71,16 @@ export interface OperacionCaja {
   detalle: string;
   /** Sólo en ventas: id de la Compra, para poder cancelarla o editarla. Null en retiros/ingresos. */
   compraId: number | null;
+  /** Sólo en tipo VENTA: true si es una anticipada (reserva) que se cobró en esta caja — a
+   * diferencia de ANTICIPADA_VALIDADA, esta plata sí es de la caja (cuenta en los totales),
+   * sólo cambia la etiqueta para no confundirla con una venta de puerta. */
+  anticipada?: boolean | null;
 }
 
 /** Nombre corto para mostrar en el detalle de caja: la forma de pago cruda del backend es un enum, no algo para mostrar tal cual. */
 export function etiquetaTipoOperacion(op: OperacionCaja): string {
-  if (op.tipo === 'VENTA') return etiquetaFormaPago(op.formaPago);
+  if (op.tipo === 'VENTA') return etiquetaFormaPago(op.formaPago) + (op.anticipada ? ' (anticipada)' : '');
+  if (op.tipo === 'ANTICIPADA_VALIDADA') return 'Anticipada validada';
   if (op.tipo === 'INGRESO_ENTRADAS') return 'Ingreso entradas';
   if (op.tipo === 'RETIRO_ENTRADAS') return 'Retiro entradas';
   if (op.tipo === 'APORTE') return 'Aporte';
@@ -120,6 +126,9 @@ export interface Caja {
   entradasFisicasRestantes: number | null;
   entradasFisicasEsperadas: number | null;
   diferenciaEntradas: number | null;
+  /** Anticipadas (compradas online) que este boletero validó en su turno y a las que igual se
+   * les entregó talonario físico (ya restadas de entradasFisicasEsperadas). Null hasta el cierre. */
+  entradasAnticipadasEntregadas: number | null;
   totalIngresosEntradas: number;
   ingresosEntradas: IngresoEntradas[];
 
@@ -130,6 +139,9 @@ export interface Caja {
 
   /** Unidades vendidas de tipos de entrada con precio > 0 (excluye las gratis, los extras y los artículos), sin importar la forma de pago. Null hasta el cierre. */
   totalEntradasPagas: number | null;
+  /** De totalEntradasPagas, cuántas son anticipadas (reservas) cobradas en esta caja — el resto
+   * es venta de puerta. Null hasta el cierre. */
+  entradasPagasAnticipadas: number | null;
   entradasVendidasPorTipo: EntradasPorTipo[] | null;
 
   /**
@@ -216,9 +228,15 @@ export interface CajaDetalleAbierta {
   totalVentasQr: number;
   /** Entradas vendidas de tipos con precio > 0 (excluye gratis, extras y artículos). */
   totalEntradasPagas: number;
+  /** De totalEntradasPagas, cuántas son anticipadas (reservas) cobradas en esta caja — el resto
+   * es venta de puerta. */
+  entradasPagasAnticipadas: number;
   entradasVendidasPorTipo: EntradasPorTipo[];
   huboVentaDolares: boolean;
-  /** Inicial + ingresos − retiros − ya cortadas vendiendo: cuántas le quedan al boletero en el talonario. Null si esta caja no tiene un inicial cargado. */
+  /** Anticipadas (compradas online) que este boletero validó en su turno y a las que igual se
+   * les entregó talonario físico (ya restadas de entradasFisicasRestantes). */
+  entradasAnticipadasEntregadas: number;
+  /** Inicial + ingresos − retiros − ya cortadas vendiendo (incluidas las anticipadas validadas): cuántas le quedan al boletero en el talonario. Null si esta caja no tiene un inicial cargado. */
   entradasFisicasRestantes: number | null;
 }
 

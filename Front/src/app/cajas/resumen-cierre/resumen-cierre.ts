@@ -12,7 +12,7 @@ import { MoneyInputDirective } from '../../shared/money-input/money-input.direct
 import { Modal } from '../../shared/modal/modal';
 import { PesosPipe } from '../../shared/pesos.pipe';
 import { ConteoCierre } from '../conteo-cierre/conteo-cierre';
-import { LucideShoppingCart, LucideArrowDownRight, LucideArrowUpRight, LucideTicketPlus, LucideTicketMinus, LucideChevronDown } from '@lucide/angular';
+import { LucideShoppingCart, LucideArrowDownRight, LucideArrowUpRight, LucideTicketPlus, LucideTicketMinus, LucideTicketCheck, LucideChevronDown } from '@lucide/angular';
 
 type FiltroOperaciones = 'TODAS' | 'VENTAS' | 'MOVIMIENTOS';
 
@@ -169,7 +169,7 @@ const COLUMNAS: ColumnaDesglose[] = [
 
 @Component({
   selector: 'app-resumen-cierre',
-  imports: [PesosPipe, DatePipe, DecimalPipe, NgTemplateOutlet, FormsModule, MoneyInputDirective, Modal, ConteoCierre, LucideShoppingCart, LucideArrowDownRight, LucideArrowUpRight, LucideTicketPlus, LucideTicketMinus, LucideChevronDown],
+  imports: [PesosPipe, DatePipe, DecimalPipe, NgTemplateOutlet, FormsModule, MoneyInputDirective, Modal, ConteoCierre, LucideShoppingCart, LucideArrowDownRight, LucideArrowUpRight, LucideTicketPlus, LucideTicketMinus, LucideTicketCheck, LucideChevronDown],
   templateUrl: './resumen-cierre.html',
   styleUrl: './resumen-cierre.css',
 })
@@ -255,8 +255,10 @@ export class ResumenCierre {
   operacionesFiltradas = computed<OperacionCaja[]>(() => {
     const ops = this.caja().operaciones ?? [];
     const filtro = this.filtroOperaciones();
+    // Una anticipada validada no es ni una venta de esta caja (no cobró nada acá) ni un
+    // movimiento de efectivo/talonario: sólo aparece en "Todas", no en estos dos filtros.
     if (filtro === 'VENTAS') return ops.filter((o) => o.tipo === 'VENTA');
-    if (filtro === 'MOVIMIENTOS') return ops.filter((o) => o.tipo !== 'VENTA');
+    if (filtro === 'MOVIMIENTOS') return ops.filter((o) => o.tipo === 'RETIRO' || o.tipo === 'APORTE' || o.tipo === 'INGRESO_ENTRADAS' || o.tipo === 'RETIRO_ENTRADAS');
     return ops;
   });
 

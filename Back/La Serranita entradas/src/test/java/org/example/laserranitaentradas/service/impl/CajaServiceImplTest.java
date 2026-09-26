@@ -1277,6 +1277,9 @@ class CajaServiceImplTest {
         caja.setMontoInicial(new BigDecimal(montoInicial));
         caja.setEntradasFisicasInicial(entradasFisicasInicial);
         caja.setFechaApertura(LocalDateTime.now()); // para que cuente como "de hoy" (ver getCajaOperativaHoy)
+        // Nunca null en la entidad real (nullable=false): toDto lo necesita para buscar las
+        // anticipadas validadas por este usuario (ver findAnticipadasValidadasPorUsuarioYFecha).
+        caja.setUsuario(usuarioConId(1L));
         return caja;
     }
 

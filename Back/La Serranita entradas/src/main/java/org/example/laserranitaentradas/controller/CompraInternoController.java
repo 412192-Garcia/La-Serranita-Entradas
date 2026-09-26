@@ -8,6 +8,7 @@ import org.example.laserranitaentradas.model.dto.EditarVentaRequestDTO;
 import org.example.laserranitaentradas.model.dto.VentaPosRequestDTO;
 import org.example.laserranitaentradas.model.entity.Compra;
 import org.example.laserranitaentradas.model.entity.FormaPago;
+import org.example.laserranitaentradas.model.entity.RolUsuario;
 import org.example.laserranitaentradas.service.CompraService;
 import org.example.laserranitaentradas.service.RechazoOperacionService;
 import org.springframework.http.HttpStatus;
@@ -32,12 +33,13 @@ public class CompraInternoController {
     }
 
     @PostMapping("/{id}/confirmar-pago-efectivo")
-    @Operation(summary = "Confirmar cobro en boletería", description = "El boletero confirma que recibió el efectivo de una reserva EFECTIVO_BOLETERIA; la compra pasa a USADO y habilita el ingreso")
+    @Operation(summary = "Confirmar cobro en boletería", description = "Confirma que se recibió el efectivo de una reserva EFECTIVO_BOLETERIA; la compra pasa a USADO y habilita el ingreso. Un boletero necesita caja abierta; un admin (Control de Accesos) puede cobrar sin una — queda sin reconciliar en ningún cierre, sólo en Reportes.")
     public ResponseEntity<CompraResponseDTO> confirmarPagoEfectivo(
             @PathVariable @Parameter(description = "ID de la compra") Long id,
             @AuthenticationPrincipal UsuarioAutenticado operador) {
         // Quién cobró sale del token, no del cuerpo del request.
-        Compra compra = compraService.confirmarPagoEfectivo(id, operador.id());
+        boolean permitirSinCaja = operador.rol() == RolUsuario.ADMIN;
+        Compra compra = compraService.confirmarPagoEfectivo(id, operador.id(), permitirSinCaja);
         return ResponseEntity.ok(CompraController.entityToDto(compra));
     }
 
