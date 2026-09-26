@@ -39,37 +39,45 @@
       <div class="grupo-dni">
         <div class="fila-campos">
           <div class="campo-grupo">
-            <label for="dni">DNI</label>
+            <label for="dni">{{ usaPasaporte ? 'Pasaporte' : 'DNI' }}</label>
             <input
+              #campoDni
               type="text"
               id="dni"
               name="dni"
               autocomplete="section-titular off"
+              [attr.inputmode]="usaPasaporte ? 'text' : 'numeric'"
+              [attr.autocapitalize]="usaPasaporte ? 'characters' : null"
               formControlName="dni"
               [class.input-error]="f['dni'].touched && f['dni'].invalid">
             @if (f['dni'].touched && f['dni'].invalid) {
-              <small class="error-text">Ingresá un documento válido: DNI o pasaporte/cédula extranjera.</small>
+              <small class="error-text">{{ usaPasaporte ? 'Ingresá un pasaporte válido: letras y números, ej. AAB123456.' : 'Ingresá un DNI válido, ej. 12.345.678.' }}</small>
             }
           </div>
 
           <div class="campo-grupo">
-            <label for="dniConfirmacion">Confirmá tu DNI</label>
+            <label for="dniConfirmacion">{{ usaPasaporte ? 'Confirmá pasaporte' : 'Confirmá tu DNI' }}</label>
             <input
               type="text"
               id="dniConfirmacion"
               name="dniConfirmacion"
               autocomplete="off"
+              [attr.inputmode]="usaPasaporte ? 'text' : 'numeric'"
+              [attr.autocapitalize]="usaPasaporte ? 'characters' : null"
               formControlName="dniConfirmacion"
               [class.input-error]="f['dniConfirmacion'].touched && f['dniConfirmacion'].invalid">
             @if (f['dniConfirmacion'].touched && f['dniConfirmacion'].errors?.['dniNoCoincide']) {
-              <small class="error-text">No coincide con el DNI de arriba.</small>
+              <small class="error-text">No coincide con el {{ usaPasaporte ? 'pasaporte' : 'DNI' }} de arriba.</small>
             }
             @if (f['dniConfirmacion'].touched && f['dniConfirmacion'].errors?.['required']) {
-              <small class="error-text">Volvé a escribir tu DNI para confirmarlo.</small>
+              <small class="error-text">Volvé a escribir tu {{ usaPasaporte ? 'pasaporte' : 'DNI' }} para confirmarlo.</small>
             }
           </div>
         </div>
         <small class="ayuda-dni">Es importante que esté bien escrito: es lo que usamos para identificarte al entrar al parque.</small>
+        <button type="button" class="link-pasaporte" (click)="alternarPasaporte(campoDni)">
+          {{ usaPasaporte ? 'Tengo DNI: volver al teclado numérico' : '¿Tenés pasaporte? Usá el teclado con letras' }}
+        </button>
       </div>
 
       <div class="campo-grupo">
@@ -93,7 +101,7 @@
           id="telefono"
           name="phone"
           autocomplete="section-titular tel"
-          placeholder="Con código de área, ej. 351 5123456"
+          placeholder="ej. 3547123456"
           formControlName="telefono"
           [class.input-error]="f['telefono'].touched && f['telefono'].invalid">
         @if (f['telefono'].touched && f['telefono'].invalid) {
@@ -151,37 +159,45 @@
         <div class="grupo-dni" formGroupName="receptor">
           <div class="fila-campos">
             <div class="campo-grupo">
-              <label for="receptorDni">DNI</label>
+              <label for="receptorDni">{{ receptorUsaPasaporte ? 'Pasaporte' : 'DNI' }}</label>
               <input
+                #campoDniReceptor
                 type="text"
                 id="receptorDni"
                 name="receptor-dni"
                 autocomplete="section-receptor off"
+                [attr.inputmode]="receptorUsaPasaporte ? 'text' : 'numeric'"
+                [attr.autocapitalize]="receptorUsaPasaporte ? 'characters' : null"
                 formControlName="dni"
                 [class.input-error]="fReceptor['dni'].touched && fReceptor['dni'].invalid">
               @if (fReceptor['dni'].touched && fReceptor['dni'].invalid) {
-                <small class="error-text">Ingresá un documento válido: DNI (7 u 8 dígitos, ej. 46.308.241) o pasaporte/cédula extranjera.</small>
+                <small class="error-text">{{ receptorUsaPasaporte ? 'Ingresá un pasaporte válido: letras y números, ej. AAB123456.' : 'Ingresá un DNI válido, ej. 12.345.678.' }}</small>
               }
             </div>
 
             <div class="campo-grupo">
-              <label for="receptorDniConfirmacion">Confirmá el DNI</label>
+              <label for="receptorDniConfirmacion">{{ receptorUsaPasaporte ? 'Confirmá pasaporte' : 'Confirmá el DNI' }}</label>
               <input
                 type="text"
                 id="receptorDniConfirmacion"
                 name="receptor-dni-confirmacion"
                 autocomplete="off"
+                [attr.inputmode]="receptorUsaPasaporte ? 'text' : 'numeric'"
+                [attr.autocapitalize]="receptorUsaPasaporte ? 'characters' : null"
                 formControlName="dniConfirmacion"
                 [class.input-error]="fReceptor['dniConfirmacion'].touched && fReceptor['dniConfirmacion'].invalid">
               @if (fReceptor['dniConfirmacion'].touched && fReceptor['dniConfirmacion'].errors?.['dniNoCoincide']) {
-                <small class="error-text">No coincide con el DNI de arriba.</small>
+                <small class="error-text">No coincide con el {{ receptorUsaPasaporte ? 'pasaporte' : 'DNI' }} de arriba.</small>
               }
               @if (fReceptor['dniConfirmacion'].touched && fReceptor['dniConfirmacion'].errors?.['required']) {
-                <small class="error-text">Volvé a escribir el DNI para confirmarlo.</small>
+                <small class="error-text">Volvé a escribir el {{ receptorUsaPasaporte ? 'pasaporte' : 'DNI' }} para confirmarlo.</small>
               }
             </div>
           </div>
           <small class="ayuda-dni">Importante que esté bien escrito: es lo que va a presentar en la entrada.</small>
+          <button type="button" class="link-pasaporte" (click)="alternarPasaporte(campoDniReceptor, true)">
+            {{ receptorUsaPasaporte ? 'Tiene DNI: volver al teclado numérico' : '¿Tiene pasaporte? Usá el teclado con letras' }}
+          </button>
         </div>
 
         <div class="fila-campos" formGroupName="receptor">

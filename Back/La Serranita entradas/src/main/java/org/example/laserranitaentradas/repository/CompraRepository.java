@@ -88,6 +88,19 @@ public interface CompraRepository extends JpaRepository<Compra, Long>, JpaSpecif
     /** Todo lo cobrado durante ese turno de caja, para calcular el efectivo esperado al cerrar. */
     List<Compra> findAllByCajaId(Long cajaId);
 
+    /**
+     * Anticipadas (compradas online, nunca pasan por caja — ver el comentario de Compra.caja)
+     * que este boletero validó durante su turno. Aunque no cobran nada acá, si el tipo tiene
+     * entregaEntrada se les entrega igual el talonario físico, así que hay que sumarlas a lo
+     * entregado por esta caja (ver calcularEntradasEntregadasAnticipadas en CajaServiceImpl).
+     */
+    @Query("SELECT c FROM Compra c WHERE c.caja IS NULL AND c.usuarioValidador.id = :usuarioId " +
+            "AND c.estado = org.example.laserranitaentradas.model.entity.EstadoCompra.USADO " +
+            "AND c.fechaValidacion >= :desde AND c.fechaValidacion <= :hasta")
+    List<Compra> findAnticipadasValidadasPorUsuarioYFecha(@Param("usuarioId") Long usuarioId,
+                                                           @Param("desde") LocalDateTime desde,
+                                                           @Param("hasta") LocalDateTime hasta);
+
     /** [idCaja, total vendido con esas formas de pago, sin canceladas] por caja, en lote. */
     @Query("SELECT c.caja.id, COALESCE(SUM(c.montoTotal), 0) FROM Compra c " +
             "WHERE c.caja.id IN :cajaIds AND c.formaPago IN :formas AND c.estado <> :cancelado GROUP BY c.caja.id")

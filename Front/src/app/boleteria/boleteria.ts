@@ -26,7 +26,7 @@ const PASOS_TUTORIAL: TourStep[] = [
   {
     selector: '[data-tour="caja"]',
     titulo: 'Tu caja',
-    texto: 'Acá ves si tu caja está abierta. Si está cerrada, tocá para abrirla antes de cobrar cualquier cosa.',
+    texto: 'Acá ves si tenés una caja abierta. No hace falta para validar ni cobrar acá — es sólo si querés que ese efectivo quede sumado a una caja para poder cerrarla y contarla después; si no abrís ninguna, el cobro queda igual registrado (aparece en Reportes) pero sin nada contra qué compararlo.',
   },
   {
     selector: '[data-tour="buscador"]',
@@ -164,7 +164,7 @@ export class Boleteria implements OnInit, OnDestroy {
    * cuando el error se nota minutos después, no al toque— pero no ilimitado, porque más allá
    * de esta ventana el backend lo rechaza igual (y correr más ese límite ahí arriescaría
    * descuadrar una caja que ya se cerró con esa venta adentro). */
-  private static readonly VENTANA_DESHACER_MENU_MS = 120_000;
+  private static readonly VENTANA_DESHACER_MENU_MS = 2_400_000;
 
   menuAbiertoId = signal<number | null>(null);
 

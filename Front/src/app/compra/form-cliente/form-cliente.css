@@ -101,6 +101,25 @@
   margin-top: 2px;
 }
 
+.link-pasaporte {
+  align-self: flex-start;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--color-primary);
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+@media (pointer: coarse) {
+  .link-pasaporte {
+    min-height: 44px;
+  }
+}
+
 .titulo-seccion-receptor {
   font-family: var(--font-heading);
   font-size: 1.1rem;

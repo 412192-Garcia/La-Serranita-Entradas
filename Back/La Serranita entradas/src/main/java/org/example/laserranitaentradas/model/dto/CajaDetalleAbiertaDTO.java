@@ -22,10 +22,17 @@ public class CajaDetalleAbiertaDTO {
     private BigDecimal totalVentasQr;
     /** Unidades vendidas de tipos de entrada con precio > 0 (excluye gratis, extras y artículos). */
     private Integer totalEntradasPagas;
+    /** De totalEntradasPagas, cuántas son anticipadas (reservas) cobradas en esta caja — el resto
+     * (totalEntradasPagas − esto) es venta de puerta. */
+    private Integer entradasPagasAnticipadas;
     private List<EntradasPorTipoDTO> entradasVendidasPorTipo;
     private boolean huboVentaDolares;
+    /** Anticipadas (compradas online) que este boletero validó en su turno y a las que igual se
+     * les entregó talonario físico (ya restadas de entradasFisicasRestantes). */
+    private Integer entradasAnticipadasEntregadas;
     /** Inicial + ingresos − retiros de entradas físicas − las que ya se cortaron vendiendo hasta
-     * ahora: cuántas le quedan al boletero en el talonario en este momento. Null si esta caja no
-     * tiene cargado un inicial (cajas abiertas antes de agregar ese campo). */
+     * ahora (incluidas las anticipadas validadas): cuántas le quedan al boletero en el talonario
+     * en este momento. Null si esta caja no tiene cargado un inicial (cajas abiertas antes de
+     * agregar ese campo). */
     private Integer entradasFisicasRestantes;
 }
