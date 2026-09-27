@@ -260,8 +260,15 @@ public class ReporteServiceImpl implements ReporteService {
                     totalDescuentos = totalDescuentos.add(compra.getDescuentoAplicado());
                     cantidadComprasConDescuento++;
                 }
+                // Pago mixto: la compra aporta a las DOS formas de pago (cada una con su parte
+                // real, ver Compra.montoPorForma), no sólo a la principal.
                 cantidadPorFormaPago.merge(compra.getFormaPago(), 1L, Long::sum);
-                montoPorFormaPago.merge(compra.getFormaPago(), compra.getMontoTotal(), BigDecimal::add);
+                montoPorFormaPago.merge(compra.getFormaPago(), compra.montoPorForma(compra.getFormaPago()), BigDecimal::add);
+                if (compra.getFormaPagoSecundaria() != null) {
+                    cantidadPorFormaPago.merge(compra.getFormaPagoSecundaria(), 1L, Long::sum);
+                    montoPorFormaPago.merge(compra.getFormaPagoSecundaria(),
+                            compra.montoPorForma(compra.getFormaPagoSecundaria()), BigDecimal::add);
+                }
 
                 if (compra.getPromocion() != null) {
                     Promocion promo = compra.getPromocion();
@@ -539,7 +546,8 @@ public class ReporteServiceImpl implements ReporteService {
                     caja.getMontoEsperado(),
                     caja.getMontoContado(),
                     diferencia,
-                    diferenciaPosnet));
+                    diferenciaPosnet,
+                    caja.getControlOmitido()));
         }
 
         List<VentaArticuloVarioDTO> ventasArticulosVarios = new ArrayList<>(articulosPorId.values().stream()

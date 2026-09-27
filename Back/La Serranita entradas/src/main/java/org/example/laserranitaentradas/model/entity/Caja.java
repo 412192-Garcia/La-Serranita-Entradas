@@ -102,4 +102,13 @@ public class Caja extends BaseEntity {
     public boolean estaHabilitada() {
         return !Boolean.FALSE.equals(habilitada);
     }
+
+    /**
+     * true = esta caja se abrió con "vender sin control de caja" (sólo disponible para un
+     * ADMIN vendiendo él mismo): nace con montoInicial/entradasFisicasInicial en 0, sin pedir
+     * el conteo de apertura, y se cierra sola a fin de día sin pedir tampoco el conteo de
+     * cierre (no hay nada que controlar). Null/false en una caja normal.
+     */
+    @Column(name = "control_omitido")
+    private Boolean controlOmitido;
 }

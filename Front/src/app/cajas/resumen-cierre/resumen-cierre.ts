@@ -4,7 +4,9 @@ import { FormsModule } from '@angular/forms';
 import { AjusteCaja, AjusteCajaInput, Caja, CajaService, OperacionCaja, SegmentoEntrada, etiquetaTipoOperacion } from '../../services/caja.service';
 import { ConfiguracionService, DescuentoEfectivo } from '../../services/configuracion.service';
 import { TipoEntradaService } from '../../services/tipo-entrada.service';
+import { ArticuloVarioService } from '../../services/articulo-vario.service';
 import { TipoEntrada } from '../../models/tipo-entrada';
+import { ArticuloVario } from '../../models/articulo-vario';
 import { FormaPagoPos } from '../../models/compra';
 import { etiquetaFormaPago } from '../../models/forma-pago';
 import { cotizarLocalmente } from '../../shared/calculo-precio.util';
@@ -177,9 +179,11 @@ export class ResumenCierre {
   private cajaService = inject(CajaService);
   private tipoEntradaService = inject(TipoEntradaService);
   private configuracionService = inject(ConfiguracionService);
+  private articuloVarioService = inject(ArticuloVarioService);
 
   private tiposEntrada = signal<TipoEntrada[]>([]);
   private descuentosEfectivo = signal<DescuentoEfectivo[]>([]);
+  private articulosVarios = signal<ArticuloVario[]>([]);
 
   constructor() {
     this.tipoEntradaService.getTiposEntrada().subscribe({
@@ -188,6 +192,10 @@ export class ResumenCierre {
     });
     this.configuracionService.getDescuentosEfectivo().subscribe({
       next: (ds) => this.descuentosEfectivo.set(ds),
+      error: () => {},
+    });
+    this.articuloVarioService.getArticulos().subscribe({
+      next: (as) => this.articulosVarios.set(as),
       error: () => {},
     });
   }
@@ -418,11 +426,12 @@ export class ResumenCierre {
   deshaciendoId = signal<number | null>(null);
   errorRevision = signal<string | null>(null);
 
-  /** Los dos formularios de "agregar algo que falta" (venta no registrada / monto suelto)
-   * arrancan colapsados: la corrección típica es sólo recontar y mover ventas en la grilla,
-   * y tenerlos siempre desplegados amontonaba la columna. */
+  /** Los formularios de "agregar algo que falta" (venta no registrada / monto suelto /
+   * artículo vario) arrancan colapsados: la corrección típica es sólo recontar y mover
+   * ventas en la grilla, y tenerlos siempre desplegados amontonaba la columna. */
   mostrarFormVentaExtra = signal(false);
   mostrarFormMontoSuelto = signal(false);
+  mostrarFormArticulo = signal(false);
 
   /** segmentoIds "sacados" con el − de una celda. Sin par (un +) al aplicar = venta fantasma; con par = reubicación. */
   private removidos = signal<Set<string>>(new Set());
@@ -437,6 +446,24 @@ export class ResumenCierre {
   signoMontoSuelto = signal<'AGREGAR' | 'QUITAR'>('AGREGAR');
   montoSuelto = signal<number | null>(null);
   notaMontoSuelto = signal('');
+
+  /** Estado del form "agregar artículo vario vendido" (souvenirs, etc.): mismo mecanismo que
+   * el monto suelto (± libre a una forma, sin venta que lo respalde), sólo que acá el monto
+   * se calcula solo (cantidad × precio) en vez de tipearlo directamente. */
+  articulosDisponibles = computed(() =>
+    this.articulosVarios().filter((a) => a.activo).sort((a, b) => a.nombre.localeCompare(b.nombre))
+  );
+  articuloSeleccionadoId = signal<number | null>(null);
+  cantidadArticuloSuelto = signal<number | null>(null);
+  precioArticuloSuelto = signal<number | null>(null);
+  formaArticuloSuelto = signal<FormaPagoPos>('EFECTIVO_BOLETERIA');
+
+  /** Al elegir un artículo, precarga su precio sugerido (editable después). */
+  seleccionarArticuloSuelto(id: number | null): void {
+    this.articuloSeleccionadoId.set(id);
+    const articulo = this.articulosDisponibles().find((a) => a.id === id);
+    this.precioArticuloSuelto.set(articulo?.precioSugerido ?? null);
+  }
 
   /** Estado del form "agregar venta no registrada". */
   nuevaVentaTipoId = signal<number | null>(null);
@@ -952,6 +979,10 @@ export class ResumenCierre {
     this.mostrarFormMontoSuelto.set(false);
     this.montoSuelto.set(null);
     this.notaMontoSuelto.set('');
+    this.mostrarFormArticulo.set(false);
+    this.articuloSeleccionadoId.set(null);
+    this.cantidadArticuloSuelto.set(null);
+    this.precioArticuloSuelto.set(null);
     this.nuevaVentaTipoId.set(null);
     this.nuevaVentaCantidad.set(null);
     this.nuevaVentaDescModo.set('ninguno');
@@ -1058,6 +1089,29 @@ export class ResumenCierre {
 
   quitarMontoSuelto(id: number): void {
     this.agregados.update((a) => a.filter((x) => x.id !== id));
+  }
+
+  agregarArticuloSuelto(): void {
+    const articulo = this.articulosDisponibles().find((a) => a.id === this.articuloSeleccionadoId());
+    if (!articulo) { this.errorRevision.set('Elegí un artículo.'); return; }
+    const cantidad = this.cantidadArticuloSuelto();
+    if (cantidad === null || cantidad <= 0) { this.errorRevision.set('Indicá cuántos se vendieron.'); return; }
+    const precio = this.precioArticuloSuelto();
+    if (precio === null || precio < 0) { this.errorRevision.set('Indicá el precio unitario.'); return; }
+    this.errorRevision.set(null);
+    this.agregados.update((a) => [
+      ...a,
+      {
+        id: this.proximoAgregadoId++,
+        forma: this.formaArticuloSuelto(),
+        signo: 'AGREGAR',
+        monto: Math.round(cantidad * precio),
+        nota: `${cantidad}x ${articulo.nombre}`,
+      },
+    ]);
+    this.articuloSeleccionadoId.set(null);
+    this.cantidadArticuloSuelto.set(null);
+    this.precioArticuloSuelto.set(null);
   }
 
   aplicar(): void {

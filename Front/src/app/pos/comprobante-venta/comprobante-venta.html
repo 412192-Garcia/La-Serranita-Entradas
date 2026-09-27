@@ -20,6 +20,13 @@
     }
   </div>
 
+  @if (formaPagoSecundaria(); as secundaria) {
+    <p class="comprobante-pago-mixto">
+      {{ etiquetaFormaPago(formaPago()) }} {{ (venta().montoTotal - (montoFormaPagoSecundaria() ?? 0)) | pesos }}
+      + {{ etiquetaFormaPago(secundaria) }} {{ montoFormaPagoSecundaria() | pesos }}
+    </p>
+  }
+
   @if (formaPago() === 'EFECTIVO_BOLETERIA' && vuelto() !== null) {
     <div class="comprobante-vuelto">
       <span class="etiqueta">Vuelto</span>

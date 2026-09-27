@@ -39,4 +39,8 @@ public interface CajaRepository extends JpaRepository<Caja, Long>, JpaSpecificat
     /** Cajas sin cerrar cuya apertura fue antes de "limite" (arranque del día de hoy): quedaron
      * pendientes de que un admin haga el control de cierre. Candidatas del aviso CAJA_ATRASADA. */
     List<Caja> findAllByFechaCierreIsNullAndFechaAperturaBefore(LocalDateTime limite);
+
+    /** Cajas "sin control" (abrirSinControl) que quedaron abiertas: las cierra solas el job
+     * programado a fin de día, sin pedir ningún conteo (ver CajaServiceImpl.cerrarSinControl). */
+    List<Caja> findAllByFechaCierreIsNullAndControlOmitidoTrue();
 }

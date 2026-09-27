@@ -31,6 +31,31 @@ public interface CajaService {
     CajaResponseDTO abrir(Long usuarioId, BigDecimal montoInicial, Integer entradasFisicasInicial);
 
     /**
+     * Abre una caja sin pedir el conteo inicial (denominaciones, entradas físicas): nace con
+     * montoInicial=0 y entradasFisicasInicial=0, marcada controlOmitido. Sólo para cuando el
+     * propio ADMIN va a vender sin pasar por la apertura formal (ADMIN-only, gateado en
+     * SecurityConfig). Se cierra sola a fin de día sin pedir tampoco el conteo de cierre — ver
+     * cerrarCajasSinControlAtrasadas.
+     */
+    CajaResponseDTO abrirSinControl(Long usuarioId);
+
+    /**
+     * Cierra automáticamente, sin conteo manual, las cajas "sin control" (abrirSinControl) que
+     * hayan quedado abiertas: no hay nada que contar en ellas, así que fija
+     * montoContado = montoEsperado (diferencia siempre 0) y quedan en "Cajas cerradas" como
+     * cualquier otra. Lo llama el job programado a medianoche.
+     */
+    void cerrarCajasSinControlAtrasadas();
+
+    /**
+     * Igual que cerrarCajasSinControlAtrasadas pero para UNA caja puntual, a pedido de un
+     * ADMIN (ej. "Cerrar caja" en el listado, en vez de esperar al job de medianoche). Lanza
+     * si la caja no existe, ya está cerrada, o no es una caja "sin control" (esas sí necesitan
+     * el flujo normal con su conteo).
+     */
+    CajaResponseDTO cerrarSinControlPorId(Long cajaId);
+
+    /**
      * idempotencyKey/fechaOriginal vienen sólo del POS con cola offline: la clave evita duplicar
      * si se reintenta un movimiento cuya respuesta se perdió en un corte, y la fecha registra
      * cuándo pasó de verdad en vez de cuándo se sincronizó. Ambos null desde el uso normal.

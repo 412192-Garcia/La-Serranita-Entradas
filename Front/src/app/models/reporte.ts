@@ -94,6 +94,8 @@ export interface CajaResumen {
   diferencia: number;
   /** Tarjeta + QR combinados: lo cerrado en el/los posnet − lo vendido con tarjeta y QR. 0 si no hubo posnet. */
   diferenciaPosnet: number;
+  /** true = se abrió con "vender sin control de caja": diferencia $0 siempre, no es un cierre real. */
+  controlOmitido: boolean | null;
 }
 
 /** articuloVarioId null = líneas sin catálogo (descripción libre tipeada en el POS). */

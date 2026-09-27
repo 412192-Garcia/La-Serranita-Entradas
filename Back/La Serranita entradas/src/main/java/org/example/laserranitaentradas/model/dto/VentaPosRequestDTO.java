@@ -64,4 +64,14 @@ public class VentaPosRequestDTO {
      * abierta, queda guardado en el rechazo para saber cuál reabrir y reintentar (ver
      * RetiroCajaRequestDTO, mismo criterio). */
     Long cajaId;
+
+    /**
+     * Pago mixto: el cliente pagó parte con esta forma y el resto con `formaPago`. Null en una
+     * venta normal (una sola forma). Sólo entre las 3 formas presenciales (efectivo/tarjeta/QR);
+     * excluyente con dólares y con el precio de grupo por DescuentoEfectivo.
+     */
+    FormaPago formaPagoSecundaria;
+    /** Monto que se cobró con formaPagoSecundaria. Obligatorio si se manda formaPagoSecundaria,
+     * y tiene que ser menor al total (el resto es de `formaPago`). */
+    BigDecimal montoFormaPagoSecundaria;
 }

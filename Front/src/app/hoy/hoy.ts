@@ -13,7 +13,7 @@ const PASOS_TUTORIAL: TourStep[] = [
   {
     selector: '[data-tour="resumen-hoy"]',
     titulo: 'Cómo viene el día',
-    texto: 'Cuánta gente entró hoy (con el desglose por tipo de entrada) y cuánto se recaudó, actualizado en vivo. Para el análisis fino de ventas está Reportes.',
+    texto: 'Cuánto se vendió hoy, cuánta gente entró al parque y cuánto se recaudó (parque vs. anticipadas web), actualizado en vivo. Para el análisis fino de ventas está Reportes.',
   },
   {
     selector: '[data-tour="cajas-abiertas"]',
@@ -89,5 +89,40 @@ export class DashboardHoy implements OnInit {
       }),
       { puerta: 0, anticipada: 0 },
     );
+  }
+
+  /** KPI principal: entradas vendidas hoy = venta directa en puerta + anticipadas compradas
+   * hoy (para cualquier fecha de visita). No confundir con "personas que entraron": esto mide
+   * venta, no ingreso real al parque. */
+  entradasVendidasHoy(r: ReporteResumen): { total: number; puerta: number; anticipada: number } {
+    const { puerta, anticipada } = r.afluenciaDiaria.reduce(
+      (acc, d) => ({
+        puerta: acc.puerta + d.pasesVendidosBoleteria,
+        anticipada: acc.anticipada + d.pasesCompradosAnticipada,
+      }),
+      { puerta: 0, anticipada: 0 },
+    );
+    return { total: puerta + anticipada, puerta, anticipada };
+  }
+
+  /** Anticipadas reservadas para VENIR hoy (por fecha de visita), estén ya validadas o no. */
+  anticipadasParaHoy(r: ReporteResumen): number {
+    return r.afluenciaDiaria.reduce((acc, d) => acc + d.pasesVendidosAnticipada, 0);
+  }
+
+  /** Recaudación de hoy vendida/cobrada en el parque: todo lo cobrado en boletería salvo lo
+   * pagado online por Mercado Pago (eso es la recaudación anticipada web, aparte). */
+  recaudacionParque(r: ReporteResumen): { monto: number; cantidad: number } {
+    return r.recaudacionPorFormaPago
+      .filter((f) => f.formaPago !== 'MERCADO_PAGO')
+      .reduce((acc, f) => ({ monto: acc.monto + f.monto, cantidad: acc.cantidad + f.cantidad }), { monto: 0, cantidad: 0 });
+  }
+
+  /** Recaudación de hoy por anticipadas pagadas online (Mercado Pago), sin importar para qué
+   * día de visita sean. */
+  recaudacionAnticipadaWeb(r: ReporteResumen): { monto: number; cantidad: number } {
+    return r.recaudacionPorFormaPago
+      .filter((f) => f.formaPago === 'MERCADO_PAGO')
+      .reduce((acc, f) => ({ monto: acc.monto + f.monto, cantidad: acc.cantidad + f.cantidad }), { monto: 0, cantidad: 0 });
   }
 }

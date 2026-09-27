@@ -27,6 +27,9 @@
             (click)="toggleOperaciones(c)">
             <span>
               {{ c.usuarioNombre }}
+              @if (c.controlOmitido) {
+                <span class="badge badge-sin-control" title="Se abrió con &quot;vender sin control de caja&quot;: sin conteo de apertura ni de cierre, se cierra sola a fin de día">Sin control</span>
+              }
               @if (esAtrasada(c)) {
                 <span class="badge badge-atrasada" title="Quedó abierta de un día anterior: hace falta cerrarla">Atrasada</span>
                 @if (cajasNuevas().has(c.id)) {
@@ -35,11 +38,23 @@
               }
             </span>
             <span data-label="Abrió">{{ c.fechaApertura | date: 'dd/MM HH:mm' }}</span>
-            <span data-label="Inicial">{{ c.montoInicial | pesos }}</span>
+            <!-- "Sin control" no tiene un inicio real de caja (nace en $0 sin que nadie cuente
+                 nada): un guion evita que parezca que sí se declaró un efectivo inicial. -->
+            <span data-label="Inicial">{{ c.controlOmitido ? '—' : (c.montoInicial | pesos) }}</span>
             <span data-label="Vendido hasta ahora">{{ c.totalVendido | pesos }}</span>
             <span data-label="Entradas">{{ c.totalEntradasPagas }}</span>
             <span class="acciones-fila-caja-abierta" data-tour="boton-cerrar-caja">
-              <button type="button" class="btn-secundario" (click)="$event.stopPropagation(); iniciarCierre(c.id)">Cerrar caja</button>
+              @if (c.controlOmitido) {
+                <button
+                  type="button"
+                  class="btn-secundario"
+                  [disabled]="cerrandoSinControlId() === c.id"
+                  (click)="$event.stopPropagation(); pedirConfirmacionCierreSinControl(c.id)">
+                  {{ cerrandoSinControlId() === c.id ? 'Cerrando…' : 'Cerrar caja' }}
+                </button>
+              } @else {
+                <button type="button" class="btn-secundario" (click)="$event.stopPropagation(); iniciarCierre(c.id)">Cerrar caja</button>
+              }
             </span>
           </div>
           @if (filaExpandidaAbiertaId() === c.id) {
@@ -106,8 +121,13 @@
               <span data-label="Día">{{ c.fechaApertura | date: 'dd/MM/yyyy' }}</span>
               <span data-label="Retiros">{{ c.totalRetiros | pesos }}</span>
               <span data-label="Esperado">{{ c.montoEsperado | pesos }}</span>
-              <span data-label="Dif. efectivo" [class]="claseDiferencia(c.diferencia)">{{ c.diferencia | pesos }}</span>
-              <span data-label="Dif. posnet" [class]="claseDiferencia(c.diferenciaPosnet)">{{ c.diferenciaPosnet | pesos }}</span>
+              <!-- "Sin control" nunca tiene un conteo real: la diferencia de efectivo siempre da
+                   $0 porque contado = esperado por definición (no porque cerró perfecto), y la de
+                   posnet no compara nada (no se cargó ningún cierre de posnet). Un guion evita que
+                   parezcan cierres reales, sobre todo la de posnet, que si no se ve como un
+                   faltante enorme. -->
+              <span data-label="Dif. efectivo" [class]="c.controlOmitido ? '' : claseDiferencia(c.diferencia)">{{ c.controlOmitido ? '—' : (c.diferencia | pesos) }}</span>
+              <span data-label="Dif. posnet" [class]="c.controlOmitido ? '' : claseDiferencia(c.diferenciaPosnet)">{{ c.controlOmitido ? '—' : (c.diferenciaPosnet | pesos) }}</span>
             </div>
             @if (filaExpandidaId() === c.id) {
               <div class="fila-detalle-expandida" (click)="$event.stopPropagation()">
@@ -136,6 +156,19 @@
   </div>
 
   </div>
+
+  @if (confirmandoCierreSinControlId(); as id) {
+    <app-modal (cerrar)="confirmandoCierreSinControlId.set(null)">
+      <div class="dialogo-confirmacion">
+        <h3>Cerrar esta caja ya mismo</h3>
+        <p>No pide ningún conteo: queda cerrada tal cual está, con diferencia $0.</p>
+        <div class="acciones-dialogo-confirmacion">
+          <button type="button" class="btn-limpiar" (click)="confirmandoCierreSinControlId.set(null)">Cancelar</button>
+          <button type="button" class="btn-primario" (click)="confirmarCierreSinControl()">Cerrar caja</button>
+        </div>
+      </div>
+    </app-modal>
+  }
 
   <!-- Se mantiene siempre montado (oculto con CSS, no @if): así "Cancelar" nunca borra los
        billetes/posnet/entradas ya cargados — ver el efecto de precarga en el componente. -->

@@ -417,6 +417,37 @@ export class ConfiguracionCajas implements OnInit {
     });
   }
 
+  /** Caja "sin control" (vender sin abrir caja): no hay nada que contar, así que se cierra ya
+   * mismo sin pasar por el modal de conteo — mismo resultado que el job de medianoche. Antes
+   * pide confirmación (con un modal propio, no window.confirm) porque es instantáneo y no da
+   * lugar a revisar nada antes de cerrar. */
+  cerrandoSinControlId = signal<number | null>(null);
+  /** Id de la caja para la que se está mostrando el modal de confirmación; null = cerrado. */
+  confirmandoCierreSinControlId = signal<number | null>(null);
+
+  pedirConfirmacionCierreSinControl(cajaId: number): void {
+    this.confirmandoCierreSinControlId.set(cajaId);
+  }
+
+  confirmarCierreSinControl(): void {
+    const cajaId = this.confirmandoCierreSinControlId();
+    if (cajaId === null) return;
+    this.confirmandoCierreSinControlId.set(null);
+    this.cerrandoSinControlId.set(cajaId);
+    this.cajaService.cerrarSinControl(cajaId).subscribe({
+      next: (c) => {
+        this.cerrandoSinControlId.set(null);
+        this.cargarCajasAbiertas();
+        this.cargar();
+        this.cajaRecienCerrada.set(c);
+      },
+      error: (err) => {
+        console.error('Error al cerrar la caja sin control:', err);
+        this.cerrandoSinControlId.set(null);
+      },
+    });
+  }
+
   /** Se cerró una caja con éxito: refresca las listas afectadas y muestra el resultado. */
   onCajaCerrada(c: Caja): void {
     this.mostrarCierre.set(false);
