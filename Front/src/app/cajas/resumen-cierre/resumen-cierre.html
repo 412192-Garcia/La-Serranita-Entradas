@@ -331,6 +331,13 @@
         (click)="mostrarFormMontoSuelto.set(!mostrarFormMontoSuelto())">
         {{ mostrarFormMontoSuelto() ? '−' : '+' }} Sumar o restar un monto
       </button>
+      <button
+        type="button"
+        class="btn-toggle-extra"
+        [class.activo]="mostrarFormArticulo()"
+        (click)="mostrarFormArticulo.set(!mostrarFormArticulo())">
+        {{ mostrarFormArticulo() ? '−' : '+' }} Agregar un artículo vendido
+      </button>
     </div>
 
     @if (mostrarFormVentaExtra()) {
@@ -426,6 +433,39 @@
         [ngModel]="notaMontoSuelto()"
         (ngModelChange)="notaMontoSuelto.set($event)" />
       <button type="button" class="btn-secundario-caja" (click)="agregarMontoSuelto()">Agregar</button>
+    </div>
+    }
+
+    @if (mostrarFormArticulo()) {
+    <div class="form-monto-suelto">
+      <select [ngModel]="articuloSeleccionadoId()" (ngModelChange)="seleccionarArticuloSuelto($event)" aria-label="Artículo">
+        <option [ngValue]="null">Artículo…</option>
+        @for (a of articulosDisponibles(); track a.id) {
+          <option [ngValue]="a.id">{{ a.nombre }}</option>
+        }
+      </select>
+      <input
+        type="number"
+        min="1"
+        class="input-cantidad-composicion"
+        placeholder="Cant."
+        [ngModel]="cantidadArticuloSuelto()"
+        (ngModelChange)="cantidadArticuloSuelto.set($event)" />
+      <span>×</span>
+      <input
+        type="text"
+        inputmode="numeric"
+        placeholder="Precio unitario"
+        appMoneyInput
+        [ngModel]="precioArticuloSuelto()"
+        (ngModelChange)="precioArticuloSuelto.set($event)" />
+      <span>en</span>
+      <select [ngModel]="formaArticuloSuelto()" (ngModelChange)="formaArticuloSuelto.set($event)" aria-label="Forma de pago">
+        @for (col of columnas; track col.clave) {
+          <option [ngValue]="col.clave">{{ col.etiqueta }}</option>
+        }
+      </select>
+      <button type="button" class="btn-secundario-caja" (click)="agregarArticuloSuelto()">Agregar</button>
     </div>
     }
 

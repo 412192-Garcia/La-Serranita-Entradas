@@ -56,6 +56,12 @@
   font-weight: 800;
 }
 
+.comprobante-pago-mixto {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  margin: 6px 0 0;
+}
+
 .comprobante-detalle {
   display: flex;
   flex-direction: column;

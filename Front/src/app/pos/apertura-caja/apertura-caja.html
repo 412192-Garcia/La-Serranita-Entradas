@@ -51,4 +51,10 @@
   <button type="button" class="btn-nueva-venta" [disabled]="abriendoCaja()" (click)="abrirCaja()">
     {{ abriendoCaja() ? 'Abriendo…' : 'Abrir caja' }}
   </button>
+
+  @if (esAdmin()) {
+    <button type="button" class="btn-link-sin-control" [disabled]="abriendoCaja()" (click)="abrirSinControl()">
+      Vender sin control de caja hoy
+    </button>
+  }
 </div>

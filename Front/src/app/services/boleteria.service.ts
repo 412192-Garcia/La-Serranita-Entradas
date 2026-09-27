@@ -137,6 +137,11 @@ export interface VentaPosRequest extends DescuentoPos {
   /** Si viene seteado, esta "venta" cierra la reserva RESERVADO_EFECTIVO de ese id (cargada en
    * el POS desde el panel de anticipadas) en vez de crear una compra nueva. */
   compraReservadaId?: number;
+  /** Pago mixto: el cliente pagó parte con esta forma y el resto con `formaPago`. Sólo entre
+   * efectivo/tarjeta/QR, excluyente con dólares. */
+  formaPagoSecundaria?: FormaPagoPos | null;
+  /** Monto cobrado con formaPagoSecundaria. Obligatorio si se manda formaPagoSecundaria. */
+  montoFormaPagoSecundaria?: number | null;
 }
 
 /** Corrección de una venta de puerta (ADMIN): reemplaza entradas, artículos y forma de pago por completo (mandar la lista final, no un diff). */

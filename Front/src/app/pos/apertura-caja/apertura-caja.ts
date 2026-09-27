@@ -1,6 +1,7 @@
 import { Component, computed, inject, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CajaService, Caja } from '../../services/caja.service';
+import { SesionService } from '../../services/sesion.service';
 import { MoneyInputDirective } from '../../shared/money-input/money-input.directive';
 import { PesosPipe } from '../../shared/pesos.pipe';
 import { LucideLockOpen } from '@lucide/angular';
@@ -16,6 +17,7 @@ const DENOMINACIONES = [100, 200, 500, 1000, 2000, 10000, 20000];
 })
 export class AperturaCaja {
   private cajaService = inject(CajaService);
+  private sesion = inject(SesionService);
 
   cajaAbierta = output<Caja>();
 
@@ -27,6 +29,10 @@ export class AperturaCaja {
   entradasFisicasApertura = signal<number | null>(null);
   abriendoCaja = signal(false);
   errorApertura = signal<string | null>(null);
+
+  /** "Vender sin control de caja" es sólo para el propio ADMIN: se salta el conteo de apertura
+   * y (a fin de día) también el de cierre — no tiene sentido ofrecérselo a un boletero. */
+  esAdmin = computed(() => this.sesion.rol() === 'ADMIN');
 
   /** Efectivo inicial calculado en vivo a partir del conteo por denominación más el cambio. */
   montoAperturaCalculado = computed(() =>
@@ -47,6 +53,21 @@ export class AperturaCaja {
     this.abriendoCaja.set(true);
     this.errorApertura.set(null);
     this.cajaService.abrir(this.montoAperturaCalculado(), entradasFisicas).subscribe({
+      next: (c) => {
+        this.abriendoCaja.set(false);
+        this.cajaAbierta.emit(c);
+      },
+      error: (err) => {
+        this.errorApertura.set(typeof err?.error === 'string' ? err.error : 'No se pudo abrir la caja. Reintentá.');
+        this.abriendoCaja.set(false);
+      },
+    });
+  }
+
+  abrirSinControl(): void {
+    this.abriendoCaja.set(true);
+    this.errorApertura.set(null);
+    this.cajaService.abrirSinControl().subscribe({
       next: (c) => {
         this.abriendoCaja.set(false);
         this.cajaAbierta.emit(c);

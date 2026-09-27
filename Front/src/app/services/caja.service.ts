@@ -162,6 +162,9 @@ export interface Caja {
 
   /** false = un admin la deshabilitó: no figura en ningún listado ni en el reporte, y sus ventas no cuentan. Irreversible. */
   habilitada: boolean;
+  /** true = se abrió con "vender sin control de caja" (sólo ADMIN vendiendo él mismo): sin
+   * conteo de apertura ni de cierre, se cierra sola a fin de día. */
+  controlOmitido: boolean | null;
 }
 
 export interface EntradasPorTipo {
@@ -222,6 +225,8 @@ export interface CajaAbierta {
   totalEntradasPagas: number;
   /** Personas que ingresaron por esta caja: todos los pases de entrada, incluidas las sin cargo. */
   personasIngresadas: number;
+  /** true = se abrió con "vender sin control de caja" (sólo ADMIN vendiendo él mismo). */
+  controlOmitido: boolean | null;
 }
 
 /** Detalle de una caja todavía abierta (ADMIN) — ver obtenerOperaciones. */
@@ -261,6 +266,8 @@ export interface CajaCerrada {
   diferencia: number;
   /** Tarjeta + QR combinados: lo cerrado en el/los posnet − lo vendido con tarjeta y QR. 0 si no hubo posnet. */
   diferenciaPosnet: number;
+  /** true = se abrió con "vender sin control de caja": diferencia $0 siempre, no es un cierre real. */
+  controlOmitido: boolean | null;
 }
 
 /** Página de "Cajas cerradas": mismas propiedades que Pagina<T>. */
@@ -280,6 +287,18 @@ export class CajaService {
 
   abrir(montoInicial: number, entradasFisicasInicial: number): Observable<Caja> {
     return this.http.post<Caja>(`${this.cajaUrl}/abrir`, { montoInicial, entradasFisicasInicial });
+  }
+
+  /** Abre una caja sin pedir el conteo inicial: sólo para cuando el propio ADMIN va a vender
+   * sin pasar por la apertura formal. Se cierra sola a fin de día. */
+  abrirSinControl(): Observable<Caja> {
+    return this.http.post<Caja>(`${this.cajaUrl}/abrir-sin-control`, {});
+  }
+
+  /** Cierra ya mismo una caja "sin control" (abrirSinControl), sin pedir ningún conteo — lo
+   * mismo que hace solo el job de medianoche, pero a pedido del admin en vez de esperar. */
+  cerrarSinControl(cajaId: number): Observable<Caja> {
+    return this.http.post<Caja>(`${this.cajaUrl}/${cajaId}/cerrar-sin-control`, {});
   }
 
   /** idempotencyKey/fechaOriginal/esReintentoEncolado sólo los manda la cola offline del POS

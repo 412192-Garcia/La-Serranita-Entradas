@@ -34,6 +34,9 @@ export interface VentaPosConfirmada {
   pagoEnDolares: boolean;
   /** La venta quedó encolada sin confirmar contra el servidor: los datos son los calculados localmente. */
   pendiente: boolean;
+  /** Pago mixto: segunda forma de pago usada, con su monto. Null en una venta con una sola forma. */
+  formaPagoSecundaria: FormaPagoPos | null;
+  montoFormaPagoSecundaria: number | null;
 }
 
 @Component({
@@ -74,11 +77,15 @@ export class CarritoVenta {
    * efectivo una venta que en realidad fue con tarjeta por olvidarse de cambiarlo. */
   formaPago = signal<FormaPagoPos | null>(null);
 
-  // ---------- Descuento: promo con nombre o manual ad-hoc, mutuamente excluyentes ----------
-  modoDescuento = signal<'ninguno' | 'promo' | 'manual'>('ninguno');
+  // ---------- Descuento: promo con nombre, manual ad-hoc, o precio fijo, mutuamente excluyentes ----------
+  modoDescuento = signal<'ninguno' | 'promo' | 'manual' | 'precioFijo'>('ninguno');
   promocionSeleccionadaId = signal<number | null>(null);
   descuentoManualPorcentaje = signal<number | null>(null);
   descuentoManualMonto = signal<number | null>(null);
+  /** Precio final que el cajero quiere cobrar (ej. "5 entradas a 5.000$ en total"): la app
+   * calcula la diferencia contra el precio de lista como descuento manual por monto, así el
+   * cajero no tiene que restar a mano. */
+  precioFijoDeseado = signal<number | null>(null);
 
   promocionesActivas = computed(() => this.promociones().filter((p) => p.activo));
 
@@ -103,6 +110,28 @@ export class CarritoVenta {
   cotizacionDolar = signal<number | null>(null);
   /** Con cuántos dólares pagó el cliente. */
   pagaConDolares = signal<number | null>(null);
+
+  // ---------- Pago mixto: el cliente paga parte con una forma y el resto con otra (ej. mitad
+  // efectivo, mitad tarjeta). Excluyente con dólares. ----------
+  pagoMixtoActivo = signal(false);
+  formaPagoSecundaria = signal<FormaPagoPos | null>(null);
+  /** Lo que se cobra con formaPagoSecundaria; lo de la forma principal es el resto del total. */
+  montoFormaPagoSecundaria = signal<number | null>(null);
+
+  /** Opciones para la segunda forma: las 3 presenciales salvo la ya elegida como principal. */
+  opcionesFormaPagoSecundaria = computed(() => FORMAS_PAGO.filter((f) => f.valor !== this.formaPago()));
+
+  /** Etiqueta de la forma principal elegida, para mostrar "Efectivo: $X" en el pago mixto. */
+  etiquetaFormaPagoActual = computed(() => FORMAS_PAGO.find((f) => f.valor === this.formaPago())?.etiqueta ?? '');
+
+  /** Etiqueta de la segunda forma ya elegida, para el label "Monto en Tarjeta". Genérico
+   * mientras no eligió ninguna todavía (el input queda deshabilitado hasta entonces). */
+  etiquetaFormaPagoSecundariaActual = computed(
+    () => FORMAS_PAGO.find((f) => f.valor === this.formaPagoSecundaria())?.etiqueta ?? 'la 2ª forma'
+  );
+
+  /** Lo que se cobra con la forma principal cuando hay pago mixto: el resto del total. */
+  montoFormaPagoPrincipal = computed(() => Math.max(0, this.total() - (this.montoFormaPagoSecundaria() ?? 0)));
 
   /** Sólo los tipos con cantidad > 0, listos para mostrar en el carrito. */
   lineas = computed(() => {
@@ -131,22 +160,39 @@ export class CarritoVenta {
 
   total = computed(() => this.cotizacion()?.subtotal ?? this.subtotalLista());
   ahorro = computed(() => this.cotizacion()?.ahorro ?? 0);
-  /** Tope del descuento manual en $: no tiene sentido descontar más que la suma de lo que hay
-   * en el carrito (ver setDescuentoManualMonto). */
-  montoMaximoDescuento = computed(() => this.subtotalLista());
+  /** Tope del descuento manual en $: el bruto real después del precio de grupo (si corresponde),
+   * no el precio de lista — si no, pedir un descuento mayor al bruto ya bonificado hace que el
+   * backend clampee el cobro a $0 en vez de al monto pedido (ver setDescuentoManualMonto y
+   * setPrecioFijoDeseado). */
+  montoMaximoDescuento = computed(() => Math.max(0, this.subtotalLista() - this.ahorro()));
 
+  /** Cuánto de esta venta hay que cobrar en efectivo de verdad: el total si se paga todo en
+   * efectivo, o sólo la parte que le toca a efectivo si hay pago mixto (efectivo puede ser
+   * la principal o la secundaria). Null si esta venta no tiene nada de efectivo — no
+   * corresponde mostrar "Paga con"/vuelto. */
+  montoEfectivoACobrar = computed<number | null>(() => {
+    if (this.pagoMixtoActivo()) {
+      if (this.formaPago() === 'EFECTIVO_BOLETERIA') return this.montoFormaPagoPrincipal();
+      if (this.formaPagoSecundaria() === 'EFECTIVO_BOLETERIA') return this.montoFormaPagoSecundaria() ?? 0;
+      return null;
+    }
+    return this.formaPago() === 'EFECTIVO_BOLETERIA' ? this.total() : null;
+  });
+
+  /** El vuelto se calcula contra lo que hay que cobrar en efectivo (montoEfectivoACobrar), no
+   * contra el total: con pago mixto sólo una parte del total se cobra en efectivo. */
   vuelto = computed(() => {
     const pagaCon = this.pagaCon();
     if (pagaCon === null) return null;
-    const diferencia = pagaCon - this.total();
+    const diferencia = pagaCon - (this.montoEfectivoACobrar() ?? 0);
     return diferencia >= 0 ? diferencia : null;
   });
 
-  /** Cuánto falta para llegar al total (pago en pesos). Null si "paga con" está vacío o ya alcanza. */
+  /** Cuánto falta para llegar a lo que hay que cobrar en efectivo. Null si "paga con" está vacío o ya alcanza. */
   falta = computed(() => {
     const pagaCon = this.pagaCon();
     if (pagaCon === null) return null;
-    const diferencia = this.total() - pagaCon;
+    const diferencia = (this.montoEfectivoACobrar() ?? 0) - pagaCon;
     return diferencia > 0 ? diferencia : null;
   });
 
@@ -186,12 +232,21 @@ export class CarritoVenta {
   /** Pagando en dólares hace falta la cotización y que "paga con" alcance el total: sin eso no hay un vuelto válido que calcular. */
   private faltaCompletarPagoDolares = computed(() => this.pagoEnDolares() && this.vueltoEnPesosPorDolares() === null);
 
+  /** Con pago mixto activo hace falta elegir la segunda forma y un monto válido (entre 0 y el
+   * total, sin llevarse todo — si no, no tiene sentido separarlo de una venta normal). */
+  private faltaCompletarPagoMixto = computed(() => {
+    if (!this.pagoMixtoActivo()) return false;
+    const monto = this.montoFormaPagoSecundaria();
+    return this.formaPagoSecundaria() === null || monto === null || monto <= 0 || monto >= this.total();
+  });
+
   puedeCobrar = computed(
     () =>
       this.hayItems() &&
       (this.sinCobro() || this.formaPago() !== null) &&
       (!this.tieneEntradas() || this.tieneObligatorio()) &&
       !this.faltaCompletarPagoDolares() &&
+      !this.faltaCompletarPagoMixto() &&
       !this.cobrando()
   );
 
@@ -273,14 +328,25 @@ export class CarritoVenta {
         descuentoManualMonto: this.descuentoManualMonto() ?? undefined,
       };
     }
+    if (this.modoDescuento() === 'precioFijo' && this.precioFijoDeseado() !== null) {
+      return { descuentoManualMonto: this.montoMaximoDescuento() - this.precioFijoDeseado()! };
+    }
     return {};
   }
 
-  cambiarModoDescuento(modo: 'ninguno' | 'promo' | 'manual'): void {
+  cambiarModoDescuento(modo: 'ninguno' | 'promo' | 'manual' | 'precioFijo'): void {
     this.modoDescuento.set(modo);
     this.promocionSeleccionadaId.set(null);
     this.descuentoManualPorcentaje.set(null);
     this.descuentoManualMonto.set(null);
+    this.precioFijoDeseado.set(null);
+  }
+
+  /** No deja tipear un precio final mayor al bruto real (de lista, o ya bonificado por precio de
+   * grupo si corresponde) ni negativo. */
+  setPrecioFijoDeseado(valor: number | null): void {
+    const acotado = valor === null ? null : Math.max(0, Math.min(valor, this.montoMaximoDescuento()));
+    this.precioFijoDeseado.set(acotado);
   }
 
   /** El % y el $ manual son excluyentes entre sí: tipear uno limpia el otro. */
@@ -302,6 +368,7 @@ export class CarritoVenta {
     this.promocionSeleccionadaId.set(null);
     this.descuentoManualPorcentaje.set(null);
     this.descuentoManualMonto.set(null);
+    this.precioFijoDeseado.set(null);
   }
 
   private limpiarPagoDolares(): void {
@@ -310,20 +377,69 @@ export class CarritoVenta {
     this.pagaConDolares.set(null);
   }
 
+  private limpiarPagoMixto(): void {
+    this.pagoMixtoActivo.set(false);
+    this.formaPagoSecundaria.set(null);
+    this.montoFormaPagoSecundaria.set(null);
+  }
+
   /** El checkbox de dólares sólo tiene sentido pagando en efectivo: cambiar de forma de pago lo apaga. */
   setFormaPago(formaPago: FormaPagoPos): void {
+    const anterior = this.formaPago();
     this.formaPago.set(formaPago);
     if (formaPago !== 'EFECTIVO_BOLETERIA') {
       this.limpiarPagoDolares();
     }
+    // La principal y la secundaria tienen que ser distintas. Si tocan como principal la que
+    // ya estaba de secundaria, lo más probable es que se confundieron de botón — no que
+    // quisieron cancelar el pago mixto — así que se intercambian (con sus montos) en vez de
+    // perder la carga.
+    if (this.pagoMixtoActivo() && this.formaPagoSecundaria() === formaPago) {
+      const montoSecundarioViejo = this.montoFormaPagoSecundaria() ?? 0;
+      this.formaPagoSecundaria.set(anterior);
+      this.montoFormaPagoSecundaria.set(Math.max(0, this.total() - montoSecundarioViejo));
+    }
   }
 
-  /** Tildar dólares oculta el "paga con" en pesos (son mutuamente excluyentes dentro de Efectivo). */
+  /** Tildar dólares oculta el "paga con" en pesos (son mutuamente excluyentes dentro de Efectivo)
+   * y apaga el pago mixto (dólares ya asume el pago 100% en efectivo). */
   setPagoEnDolares(valor: boolean): void {
     this.pagoEnDolares.set(valor);
     this.cotizacionDolar.set(null);
     this.pagaConDolares.set(null);
-    if (valor) this.pagaCon.set(null);
+    if (valor) {
+      this.pagaCon.set(null);
+      this.limpiarPagoMixto();
+    }
+  }
+
+  /** Pago mixto y dólares son excluyentes: activar uno apaga el otro. */
+  setPagoMixtoActivo(valor: boolean): void {
+    this.pagoMixtoActivo.set(valor);
+    if (valor) {
+      this.limpiarPagoDolares();
+    } else {
+      this.formaPagoSecundaria.set(null);
+      this.montoFormaPagoSecundaria.set(null);
+    }
+  }
+
+  /** No deja tipear un monto mayor o igual al total (la principal se llevaría $0 o menos). */
+  setMontoFormaPagoSecundaria(valor: number | null): void {
+    const tope = Math.max(0, this.total() - 1);
+    this.montoFormaPagoSecundaria.set(valor === null ? null : Math.max(0, Math.min(valor, tope)));
+  }
+
+  /** Simétrico a setMontoFormaPagoSecundaria: el pago mixto se puede tipear desde cualquiera
+   * de las dos formas, la otra se ajusta sola para seguir sumando el total. */
+  setMontoFormaPagoPrincipal(valor: number | null): void {
+    if (valor === null) {
+      this.montoFormaPagoSecundaria.set(null);
+      return;
+    }
+    const tope = Math.max(0, this.total() - 1);
+    const principalAcotado = Math.max(0, Math.min(valor, tope));
+    this.montoFormaPagoSecundaria.set(this.total() - principalAcotado);
   }
 
   private articulosCarritoPayload(): LineaArticuloPos[] {
@@ -347,6 +463,7 @@ export class CarritoVenta {
     this.formaPago.set(null);
     this.pagaCon.set(null);
     this.limpiarPagoDolares();
+    this.limpiarPagoMixto();
     this.error.set(null);
     this.limpiarDescuento();
     this.limpiar.emit();
@@ -378,6 +495,10 @@ export class CarritoVenta {
       ? { cotizacionDolar: this.cotizacionDolar(), dolaresRecibidos: this.pagaConDolares() }
       : {};
 
+    const pagoMixtoPayload = this.pagoMixtoActivo()
+      ? { formaPagoSecundaria: this.formaPagoSecundaria(), montoFormaPagoSecundaria: this.montoFormaPagoSecundaria() }
+      : {};
+
     const reservaId = this.compraReservada()?.id;
 
     const payload: VentaPosRequest = {
@@ -388,6 +509,7 @@ export class CarritoVenta {
       ...(reservaId ? { compraReservadaId: reservaId } : {}),
       ...this.descuentoPayload(),
       ...dolaresPayload,
+      ...pagoMixtoPayload,
     };
 
     // Toda venta pasa por la cola: si hay señal se confirma al instante y sigue todo igual que
@@ -395,8 +517,12 @@ export class CarritoVenta {
     const resultado = await this.pendientes.ejecutar<Reserva>({ tipo: 'VENTA', payload });
     this.cobrando.set(false);
 
+    const pagoMixtoConfirmado = this.pagoMixtoActivo()
+      ? { formaPagoSecundaria: this.formaPagoSecundaria(), montoFormaPagoSecundaria: this.montoFormaPagoSecundaria() }
+      : { formaPagoSecundaria: null, montoFormaPagoSecundaria: null };
+
     if (resultado.confirmada) {
-      this.ventaRegistrada.emit({ venta: resultado.resultado, formaPago, vuelto, items, pagoEnDolares, pendiente: false });
+      this.ventaRegistrada.emit({ venta: resultado.resultado, formaPago, vuelto, items, pagoEnDolares, pendiente: false, ...pagoMixtoConfirmado });
       return;
     }
 
@@ -430,6 +556,6 @@ export class CarritoVenta {
       receptorDni: null,
       receptorTelefono: null,
     };
-    this.ventaRegistrada.emit({ venta: ventaLocal, formaPago, vuelto, items, pagoEnDolares, pendiente: true });
+    this.ventaRegistrada.emit({ venta: ventaLocal, formaPago, vuelto, items, pagoEnDolares, pendiente: true, ...pagoMixtoConfirmado });
   }
 }

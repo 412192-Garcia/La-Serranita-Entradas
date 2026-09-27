@@ -96,10 +96,59 @@
   gap: 12px;
 }
 
+/* Agrupa las 3 formas de pago con el toggle de pago mixto en una sola fila: separado no
+   alcanzaba a compartir el espacio (ver .btn-pago-mixto-toggle). */
+.fila-formas-pago {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+}
+
 .formas-pago {
+  flex: 1;
+  min-width: 0;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
+}
+
+/* Chico y discreto a propósito: es la excepción a una venta normal, no debería pesar como
+   elegir Efectivo/Tarjeta/QR. Se queda toggleado (no desaparece) mientras el pago mixto
+   está activo — es el único on/off, la fila de abajo no repite un título ni una ✕ propios. */
+.btn-pago-mixto-toggle {
+  flex: 0 0 auto;
+  padding: 12px 8px;
+  border: 1.5px dashed var(--color-border);
+  background-color: var(--color-card-bg);
+  border-radius: var(--radius-sm);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.btn-pago-mixto-toggle:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary-dark);
+}
+
+.btn-pago-mixto-toggle.activo {
+  border-style: solid;
+  border-color: var(--color-primary);
+  background-color: var(--color-primary);
+  color: #fff;
+}
+
+.btn-pago-mixto-toggle:disabled {
+  border-style: dashed;
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+}
+
+.btn-pago-mixto-toggle:disabled:hover {
+  border-color: var(--color-border);
+  color: var(--color-text-muted);
 }
 
 /* Fila que junta "Paga con"/"Cotización del dólar" con el toggle de dólares: antes el
@@ -131,6 +180,16 @@
   width: 14px;
   height: 14px;
   accent-color: var(--color-primary);
+}
+
+.check-dolares-inline-disabled {
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+}
+
+.check-dolares-inline-disabled input[type='checkbox'] {
+  accent-color: var(--color-text-muted);
+  cursor: not-allowed;
 }
 
 .equivale-dolares {
@@ -194,6 +253,53 @@
   color: var(--color-accent-dark);
 }
 
+/* Mismo lenguaje visual que el resto del carrito: input con label como el de "Precio final"
+   (reusa .fila-descuento-manual) — nada de select ni fila suelta con estilo propio. Sin
+   header propio (el on/off es el botón "+2ª" de arriba), así que es sólo el margen. */
+.bloque-pago-mixto {
+  margin: 8px 0 0;
+}
+
+/* Los dos labels de la fila (texto plano "Efectivo" vs. el mini-toggle "Tarjeta/QR") tienen
+   que ocupar la misma altura: si no, el que tiene el toggle (con su borde y padding) queda
+   más alto y el input de abajo arranca un poco más abajo que el de al lado. */
+.etiqueta-monto-mixto {
+  display: flex;
+  align-items: center;
+  height: 20px;
+}
+
+/* Elegir la 2ª forma no necesita un botón de tamaño completo (sólo quedan 2 opciones): un
+   mini-toggle metido en el label del segundo monto, mismo alto que el texto que reemplaza. */
+.mini-toggle-forma {
+  gap: 4px;
+}
+
+.btn-mini-forma {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  box-sizing: border-box;
+  padding: 0 2px;
+  border: 1.5px solid var(--color-border);
+  background-color: var(--color-card-bg);
+  border-radius: var(--radius-sm);
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-family: inherit;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.btn-mini-forma.activo {
+  border-color: var(--color-primary);
+  background-color: var(--color-primary);
+  color: #fff;
+}
+
 .aviso-promo {
   margin: 0;
   font-size: 0.82rem;
@@ -202,6 +308,14 @@
   background-color: var(--color-primary-light);
   border-radius: var(--radius-sm);
   padding: 8px 12px;
+}
+
+/* "Precio fijo" pisa el precio de grupo con un total tipeado a mano: el ahorro del grupo
+   sigue siendo real, pero ya no es lo que define el total — se tacha en vez de sacarse. */
+.aviso-promo-tachado {
+  text-decoration: line-through;
+  color: var(--color-text-muted);
+  background-color: var(--color-border);
 }
 
 .aviso-sin-cobro {
@@ -255,16 +369,18 @@
 
 .modo-descuento {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
+  /* 4 modos (Sin descuento/Promo/Manual/Precio fijo): en una sola fila para no gastar una fila
+     entera del carrito en un solo botón que sobra de columna. */
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
 }
 
 .btn-modo-descuento {
-  padding: 8px 6px;
+  padding: 8px 4px;
   border: 1.5px solid var(--color-border);
   background-color: var(--color-card-bg);
   border-radius: var(--radius-sm);
-  font-size: 0.8rem;
+  font-size: 0.72rem;
   font-weight: 700;
   color: var(--color-text-secondary);
   cursor: pointer;
@@ -301,6 +417,9 @@
 
 .fila-descuento-manual label {
   flex: 1;
+  /* Sin esto un input de $ largo (pago mixto puede llegar a 6-7 dígitos) empuja el ancho
+     mínimo del flex item más allá de lo disponible y desborda la tarjeta. */
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -310,6 +429,8 @@
 }
 
 .fila-descuento-manual input {
+  width: 100%;
+  box-sizing: border-box;
   padding: 10px 12px;
   font-size: 0.95rem;
   font-family: inherit;
@@ -318,6 +439,12 @@
   outline: none;
   background-color: var(--color-input-bg);
   color: var(--color-text);
+}
+
+.fila-descuento-manual input:disabled {
+  background-color: var(--color-border);
+  color: var(--color-text-muted);
+  cursor: not-allowed;
 }
 
 .fila-descuento-manual input:focus {
@@ -357,6 +484,8 @@
 
 @container carrito (max-width: 340px) {
   .valor-total { font-size: 2rem; }
+  /* Bien angosto, 4 columnas dejaría los botones ilegibles: vuelve a 2×2. */
+  .modo-descuento { grid-template-columns: repeat(2, 1fr); }
 }
 
 @container carrito (max-width: 280px) {

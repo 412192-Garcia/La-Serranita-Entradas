@@ -50,6 +50,12 @@ public class CajaController {
                 .body(cajaService.abrir(operador.id(), request.getMontoInicial(), request.getEntradasFisicasInicial()));
     }
 
+    @PostMapping("/abrir-sin-control")
+    @Operation(summary = "Vender sin abrir caja (ADMIN)", description = "Abre una caja sin pedir el conteo inicial, sólo para cuando el propio ADMIN va a vender sin pasar por la apertura formal. Se cierra sola a fin de día, sin pedir tampoco un conteo de cierre.")
+    public ResponseEntity<CajaResponseDTO> abrirSinControl(@AuthenticationPrincipal UsuarioAutenticado operador) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(cajaService.abrirSinControl(operador.id()));
+    }
+
     @PostMapping("/retiros")
     @Operation(summary = "Registrar un retiro o aporte de efectivo en la caja abierta")
     public ResponseEntity<CajaResponseDTO> registrarRetiro(@RequestBody RetiroCajaRequestDTO request,
@@ -88,6 +94,12 @@ public class CajaController {
     public ResponseEntity<CajaResponseDTO> cerrar(@PathVariable Long id, @RequestBody CerrarCajaRequestDTO request) {
         return ResponseEntity.ok(cajaService.cerrarComoAdmin(id, request.getConteoEfectivo(), request.getCierresPosnet(),
                 request.getEntradasFisicasRestantes(), request.getCambioContado(), request.getDolaresContado()));
+    }
+
+    @PostMapping("/{id}/cerrar-sin-control")
+    @Operation(summary = "Cerrar una caja \"sin control\" (ADMIN)", description = "Para las cajas abiertas con \"vender sin control de caja\": las cierra ya mismo sin pedir ningún conteo (lo mismo que hace solo el job de medianoche), en vez de esperar. Sólo aplica a cajas con controlOmitido=true.")
+    public ResponseEntity<CajaResponseDTO> cerrarSinControl(@PathVariable Long id) {
+        return ResponseEntity.ok(cajaService.cerrarSinControlPorId(id));
     }
 
     @PostMapping("/{id}/retiros")

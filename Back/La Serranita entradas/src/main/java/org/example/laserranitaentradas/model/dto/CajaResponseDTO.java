@@ -97,4 +97,8 @@ public class CajaResponseDTO {
 
     /** false = un admin deshabilitó esta caja (no figura en listados ni reportes). El detalle por id la sigue devolviendo. Nunca null. */
     private Boolean habilitada;
+
+    /** true = se abrió con "vender sin control de caja" (sólo ADMIN vendiendo él mismo): sin
+     * conteo de apertura ni de cierre, se cierra sola a fin de día. Null/false en una caja normal. */
+    private Boolean controlOmitido;
 }

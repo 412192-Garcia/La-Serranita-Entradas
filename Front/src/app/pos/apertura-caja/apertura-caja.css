@@ -33,6 +33,24 @@
   text-align: left;
 }
 
+/* Secundario y discreto a propósito: es la excepción (sólo ADMIN), no debería competir
+   visualmente con "Abrir caja", que es el flujo normal. */
+.btn-link-sin-control {
+  margin-top: 10px;
+  padding: 6px;
+  background: none;
+  border: none;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.btn-link-sin-control:hover {
+  color: var(--color-primary);
+}
+
 @media (max-width: 480px) {
   .lista-denominaciones-apertura {
     grid-template-columns: 1fr;

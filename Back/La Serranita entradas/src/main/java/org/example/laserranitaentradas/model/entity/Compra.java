@@ -147,4 +147,36 @@ public class Compra extends BaseEntity {
     @Column(name = "idempotency_key", unique = true, length = 64)
     private String idempotencyKey;
 
+    /**
+     * Pago mixto (ej. mitad efectivo, mitad tarjeta): forma de pago SECUNDARIA con su propio
+     * monto. `formaPago` sigue siendo la principal; su parte implícita es
+     * montoTotal − montoFormaPagoSecundaria. Null en el 99% de las ventas (una sola forma).
+     * Restringido a las 3 formas presenciales (ver CompraServiceImpl) — no aplica a dólares
+     * ni al precio de grupo de DescuentoEfectivo, ambos específicos de efectivo puro.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "forma_pago_secundaria", length = 30)
+    private FormaPago formaPagoSecundaria;
+
+    @Column(name = "monto_forma_pago_secundaria")
+    private BigDecimal montoFormaPagoSecundaria;
+
+    /**
+     * Cuánto de esta compra corresponde a la forma de pago dada, contemplando el pago mixto:
+     * si `forma` es la principal, su parte es el total menos lo que se llevó la secundaria; si
+     * es la secundaria, es directamente montoFormaPagoSecundaria. 0 si la compra no tiene nada
+     * cobrado con esa forma. Reemplaza a "formaPago == forma ? montoTotal : 0" en todo cálculo
+     * de caja/reportes que antes asumía una sola forma de pago por compra.
+     */
+    public BigDecimal montoPorForma(FormaPago forma) {
+        BigDecimal total = BigDecimal.ZERO;
+        if (formaPago == forma) {
+            total = total.add(formaPagoSecundaria != null ? montoTotal.subtract(montoFormaPagoSecundaria) : montoTotal);
+        }
+        if (formaPagoSecundaria == forma) {
+            total = total.add(montoFormaPagoSecundaria);
+        }
+        return total;
+    }
+
 }

@@ -83,11 +83,14 @@ public class SecurityConfig {
                 // lo dispara un ADMIN desde la pantalla de Cajas, nunca el boletero desde el
                 // POS — por eso estas van ADMIN-only en vez de caer en el catch-all de abajo.
                 .requestMatchers(HttpMethod.POST, "/api/interno/caja/*/cerrar").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.POST, "/api/interno/caja/*/cerrar-sin-control").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/interno/caja/*/retiros").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/interno/caja/*/ingresos-entradas").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/api/interno/caja/*/correccion").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/interno/caja/*/deshabilitar").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.DELETE, "/api/interno/caja/*/ajustes/*").hasRole("ADMIN")
+                // Vender sin la apertura formal de caja: sólo para cuando el propio ADMIN vende.
+                .requestMatchers(HttpMethod.POST, "/api/interno/caja/abrir-sin-control").hasRole("ADMIN")
                 .requestMatchers("/api/interno/rechazos/**").hasRole("ADMIN")
                 .requestMatchers("/api/interno/notificaciones/**").hasRole("ADMIN")
 

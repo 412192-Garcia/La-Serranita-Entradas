@@ -155,6 +155,68 @@ public class CajaServiceImpl implements CajaService {
 
     @Transactional
     @Override
+    public CajaResponseDTO abrirSinControl(Long usuarioId) {
+        if (getCajaOperativaHoy(usuarioId).isPresent()) {
+            throw new IllegalStateException("Ya hay una caja abierta para este usuario");
+        }
+        Usuario usuario = usuarioService.obtenerUsuarioPorId(usuarioId)
+                .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado para id: " + usuarioId));
+
+        // entradasFisicasInicial queda null a propósito (no 0): no hay talonario real que
+        // controlar acá, y el resto del sistema ya sabe tratar null como "sin control de
+        // entradas físicas" (mismo criterio que las cajas de antes de que existiera el campo).
+        Caja caja = Caja.builder()
+                .usuario(usuario)
+                .fechaApertura(LocalDateTime.now())
+                .montoInicial(BigDecimal.ZERO)
+                .controlOmitido(true)
+                .build();
+
+        return toDto(cajaRepository.save(caja));
+    }
+
+    @Transactional
+    @Override
+    public void cerrarCajasSinControlAtrasadas() {
+        cajaRepository.findAllByFechaCierreIsNullAndControlOmitidoTrue().forEach(this::cerrarSinControl);
+    }
+
+    @Transactional
+    @Override
+    public CajaResponseDTO cerrarSinControlPorId(Long cajaId) {
+        Caja caja = cajaRepository.findById(cajaId)
+                .orElseThrow(() -> new IllegalArgumentException("Caja no encontrada para id: " + cajaId));
+        if (caja.getFechaCierre() != null) {
+            throw new IllegalStateException("Esta caja ya está cerrada");
+        }
+        if (!Boolean.TRUE.equals(caja.getControlOmitido())) {
+            throw new IllegalStateException("Esta caja no es \"sin control\": cerrala desde el flujo normal, con su conteo.");
+        }
+        cerrarSinControl(caja);
+        return toDto(caja);
+    }
+
+    /** No pide ningún conteo: fija montoContado = montoEsperado (diferencia siempre 0) y deja la
+     * caja lista en "Cajas cerradas", tal como si un boletero la hubiera cerrado justo a tiempo. */
+    private void cerrarSinControl(Caja caja) {
+        List<Compra> compras = compraRepository.findAllByCajaId(caja.getId());
+        List<RetiroCaja> movimientos = retiroCajaRepository.findAllByCajaIdOrderByFechaAsc(caja.getId());
+        List<AjusteCaja> ajustes = ajusteCajaRepository.findAllByCajaIdOrderByFechaAsc(caja.getId());
+        BigDecimal montoEsperado = calcularMontoEsperado(caja, compras, movimientos, ajustes);
+
+        caja.setFechaCierre(LocalDateTime.now());
+        caja.setMontoEsperado(montoEsperado);
+        caja.setMontoContado(montoEsperado);
+        caja.setDiferencia(BigDecimal.ZERO);
+        caja.setCambioContado(BigDecimal.ZERO);
+        caja.setEntradasFisicasRestantes(null);
+        // Dólares: aunque hubiera venta en dólares no se le exige el conteo — no hay nadie del
+        // otro lado para contarlos en una caja sin control.
+        cajaRepository.save(caja);
+    }
+
+    @Transactional
+    @Override
     public CajaResponseDTO registrarRetiro(Long usuarioId, BigDecimal monto, String motivo, TipoMovimientoCaja tipo,
                                             String idempotencyKey, LocalDateTime fechaOriginal) {
         // Antes que nada: si esta misma operación ya se procesó (reintento de algo cuya respuesta
@@ -658,7 +720,8 @@ public class CajaServiceImpl implements CajaService {
                         caja.getMontoEsperado(),
                         caja.getMontoContado(),
                         caja.getDiferencia(),
-                        difPosnet.getOrDefault(caja.getId(), BigDecimal.ZERO)
+                        difPosnet.getOrDefault(caja.getId(), BigDecimal.ZERO),
+                        caja.getControlOmitido()
                 ))
                 .toList();
 
@@ -698,6 +761,7 @@ public class CajaServiceImpl implements CajaService {
                             .totalVendido(totalVendido)
                             .totalEntradasPagas(contarEntradasPagas(compras, ajustes))
                             .personasIngresadas(contarEntradasTotales(compras, ajustes))
+                            .controlOmitido(caja.getControlOmitido())
                             .build();
                 })
                 .toList();
@@ -768,10 +832,13 @@ public class CajaServiceImpl implements CajaService {
     // toDto y getOperacionesCaja los piden UNA vez y los reparten a todos (antes cada helper
     // repetía su propio findAllByCajaId sobre la misma caja).
 
+    /** Contempla el pago mixto: una compra aporta a `formaPago` tanto si es su forma principal
+     * como si lo es su secundaria (ver Compra.montoPorForma). */
     private BigDecimal sumVentasPorFormaPago(List<Compra> compras, FormaPago formaPago) {
         return compras.stream()
-                .filter(c -> c.getFormaPago() == formaPago && c.getEstado() != EstadoCompra.CANCELADO)
-                .map(Compra::getMontoTotal)
+                .filter(c -> c.getEstado() != EstadoCompra.CANCELADO
+                        && (c.getFormaPago() == formaPago || c.getFormaPagoSecundaria() == formaPago))
+                .map(c -> c.montoPorForma(formaPago))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
@@ -799,19 +866,22 @@ public class CajaServiceImpl implements CajaService {
 
     /**
      * Impacto real en el cajón de PESOS de una venta en efectivo: si se pagó en pesos, entra
-     * el total de la venta; si se pagó en dólares, no entra nada en pesos (entraron dólares,
-     * contados aparte) pero SÍ sale el vuelto en pesos que se le dio al cliente — por eso acá
-     * se resta en vez de sumar. Sin esto, efectivoEsperado quedaría de más por cada venta en
-     * dólares (contaría el precio en pesos que en realidad nunca entró al cajón).
+     * la parte de la venta que corresponda a efectivo (ver Compra.montoPorForma — pago mixto
+     * puede repartir el total con tarjeta/QR); si se pagó en dólares (excluyente con pago
+     * mixto), no entra nada en pesos (entraron dólares, contados aparte) pero SÍ sale el
+     * vuelto en pesos que se le dio al cliente — por eso acá se resta en vez de sumar. Sin
+     * esto, efectivoEsperado quedaría de más por cada venta en dólares (contaría el precio en
+     * pesos que en realidad nunca entró al cajón).
      */
     private BigDecimal impactoEfectivoArs(Compra compra) {
-        if (compra.getCotizacionDolar() == null) return compra.getMontoTotal();
-        return vueltoPesos(compra).negate();
+        if (compra.getCotizacionDolar() != null) return vueltoPesos(compra).negate();
+        return compra.montoPorForma(FormaPago.EFECTIVO_BOLETERIA);
     }
 
     private BigDecimal sumImpactoEfectivoArs(List<Compra> compras) {
         return compras.stream()
-                .filter(c -> c.getFormaPago() == FormaPago.EFECTIVO_BOLETERIA && c.getEstado() != EstadoCompra.CANCELADO)
+                .filter(c -> c.getEstado() != EstadoCompra.CANCELADO
+                        && (c.getFormaPago() == FormaPago.EFECTIVO_BOLETERIA || c.getFormaPagoSecundaria() == FormaPago.EFECTIVO_BOLETERIA))
                 .map(this::impactoEfectivoArs)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
@@ -1378,6 +1448,7 @@ public class CajaServiceImpl implements CajaService {
                 .dolaresContado(caja.getDolaresContado())
                 .diferenciaDolares(diferenciaDolares)
                 .habilitada(caja.estaHabilitada())
+                .controlOmitido(caja.getControlOmitido())
                 .build();
     }
 }

@@ -19,6 +19,44 @@
   align-self: flex-end;
 }
 
+/* Confirmación de "Cerrar ya (sin control)": reemplaza a window.confirm (feo, sin estilo
+   propio) con un modal chico consistente con el resto de la app. */
+.dialogo-confirmacion {
+  background-color: var(--color-card-bg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card-lg);
+  padding: 22px 24px;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dialogo-confirmacion h3 {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--color-text);
+}
+
+.dialogo-confirmacion p {
+  margin: 0;
+  font-size: 0.92rem;
+  color: var(--color-text-secondary);
+}
+
+.acciones-dialogo-confirmacion {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.acciones-dialogo-confirmacion .btn-limpiar,
+.acciones-dialogo-confirmacion .btn-primario {
+  flex: 1;
+}
+
 .panel {
   width: 100%;
   max-width: 1360px;
@@ -124,6 +162,12 @@
 .badge-atrasada {
   background-color: var(--color-danger-light);
   color: var(--color-danger-dark);
+  margin-left: 8px;
+}
+
+.badge-sin-control {
+  background-color: var(--color-border);
+  color: var(--color-text-secondary);
   margin-left: 8px;
 }
 

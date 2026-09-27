@@ -54,6 +54,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -185,6 +186,36 @@ public class CompraServiceImpl implements CompraService {
     private void validarFormaPagoPos(FormaPago formaPago, BigDecimal montoFinal) {
         if (formaPago == FormaPago.SIN_COBRO && montoFinal.compareTo(BigDecimal.ZERO) != 0) {
             throw new IllegalArgumentException("Esta venta tiene un monto a cobrar: elegí efectivo, tarjeta o QR.");
+        }
+    }
+
+    /** Las únicas formas entre las que tiene sentido dividir un pago mixto: cobro presencial,
+     * decidido por el boletero en el momento. MERCADO_PAGO/RESERVA_ADMIN/SIN_COBRO no aplican. */
+    private static final Set<FormaPago> FORMAS_PAGO_MIXTO = Set.of(
+            FormaPago.EFECTIVO_BOLETERIA, FormaPago.TARJETA, FormaPago.MERCADO_PAGO_QR);
+
+    /**
+     * Valida el pago mixto (venta cobrada con 2 formas de pago, ej. mitad efectivo y mitad
+     * tarjeta): ambas formas tienen que ser presenciales y distintas entre sí, el monto de la
+     * secundaria tiene que ser positivo y menor al total (la principal se lleva el resto), y
+     * es excluyente con dólares (que ya asumen el pago 100% en efectivo). Sin
+     * formaPagoSecundaria en el request, no hace nada: es el 99% de las ventas.
+     */
+    private void validarPagoMixto(VentaPosRequestDTO request, BigDecimal montoFinal) {
+        FormaPago secundaria = request.getFormaPagoSecundaria();
+        if (secundaria == null) return;
+        if (request.getCotizacionDolar() != null) {
+            throw new IllegalArgumentException("No se puede combinar pago mixto con pago en dólares");
+        }
+        if (!FORMAS_PAGO_MIXTO.contains(request.getFormaPago()) || !FORMAS_PAGO_MIXTO.contains(secundaria)) {
+            throw new IllegalArgumentException("El pago mixto sólo admite efectivo, tarjeta o QR");
+        }
+        if (secundaria == request.getFormaPago()) {
+            throw new IllegalArgumentException("Las dos formas de pago tienen que ser distintas");
+        }
+        BigDecimal monto = request.getMontoFormaPagoSecundaria();
+        if (monto == null || monto.compareTo(BigDecimal.ZERO) <= 0 || monto.compareTo(montoFinal) >= 0) {
+            throw new IllegalArgumentException("El monto de la segunda forma de pago tiene que ser mayor a cero y menor al total");
         }
     }
 
@@ -1042,6 +1073,7 @@ public class CompraServiceImpl implements CompraService {
                 request.getDescuentoManualPorcentaje(), request.getDescuentoManualMonto());
         BigDecimal montoFinal = montoBruto.subtract(descuento);
         validarFormaPagoPos(request.getFormaPago(), montoFinal);
+        validarPagoMixto(request, montoFinal);
         // calcularDescuentoPos ya validó que la promo exista y esté activa: se vuelve a buscar
         // acá sólo para poder guardar la referencia en la Compra (ver comentario en Compra.promocion).
         Promocion promocionUsada = request.getPromocionId() != null
@@ -1063,6 +1095,8 @@ public class CompraServiceImpl implements CompraService {
                 .detalles(todosLosDetalles)
                 .estado(EstadoCompra.VENDIDO_EN_PUERTA)
                 .formaPago(request.getFormaPago())
+                .formaPagoSecundaria(request.getFormaPagoSecundaria())
+                .montoFormaPagoSecundaria(request.getFormaPagoSecundaria() != null ? request.getMontoFormaPagoSecundaria() : null)
                 .usuarioValidador(vendedor)
                 .fechaValidacion(momentoVenta)
                 .caja(caja)
@@ -1117,6 +1151,7 @@ public class CompraServiceImpl implements CompraService {
                 request.getDescuentoManualPorcentaje(), request.getDescuentoManualMonto());
         BigDecimal montoFinal = montoBruto.subtract(descuento);
         validarFormaPagoPos(request.getFormaPago(), montoFinal);
+        validarPagoMixto(request, montoFinal);
         Promocion promocionUsada = request.getPromocionId() != null
                 ? promocionRepository.findById(request.getPromocionId()).orElse(null)
                 : null;
@@ -1135,6 +1170,8 @@ public class CompraServiceImpl implements CompraService {
         reserva.setDescuentoAplicado(descuento);
         reserva.setPromocion(promocionUsada);
         reserva.setFormaPago(request.getFormaPago());
+        reserva.setFormaPagoSecundaria(request.getFormaPagoSecundaria());
+        reserva.setMontoFormaPagoSecundaria(request.getFormaPagoSecundaria() != null ? request.getMontoFormaPagoSecundaria() : null);
         reserva.setCotizacionDolar(cotizacionDolar);
         reserva.setDolaresRecibidos(dolaresRecibidos);
         reserva.setEstado(EstadoCompra.USADO);

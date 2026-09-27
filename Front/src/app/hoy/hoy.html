@@ -17,22 +17,42 @@
   } @else if (resumen(); as r) {
     <div class="tarjeta tarjeta-kpis-hoy">
       <div class="kpi-principal">
-        <h2>Personas que entraron hoy</h2>
-        <p class="kpi-numero">{{ r.personasIngresadas }}</p>
+        <h2>Entradas vendidas hoy</h2>
+        @let vendidas = entradasVendidasHoy(r);
+        <p class="kpi-numero">{{ vendidas.total }}</p>
+        <p class="ayuda">
+          {{ vendidas.puerta }} en puerta@if (vendidas.anticipada > 0) { · {{ vendidas.anticipada }} anticipadas}
+        </p>
+      </div>
+      <div>
+        <h2>Personas que entraron al parque</h2>
+        <p class="kpi-numero kpi-numero-secundario">{{ r.personasIngresadas }}</p>
         @let personas = desglosePersonasHoy(r);
         <p class="ayuda">
           {{ personas.puerta }} en puerta@if (personas.anticipada > 0) { · {{ personas.anticipada }} con anticipada}
         </p>
       </div>
       <div>
-        <h2>Entradas vendidas en puerta</h2>
-        <p class="kpi-numero kpi-numero-secundario">{{ r.entradasVendidasBoleteria }}</p>
+        <h2>Anticipadas para hoy</h2>
+        <p class="kpi-numero kpi-numero-secundario">{{ anticipadasParaHoy(r) }}</p>
       </div>
+    </div>
+
+    <div class="tarjeta tarjeta-kpis-hoy tarjeta-kpis-recaudacion">
+      @let parque = recaudacionParque(r);
       <div>
-        <h2>Recaudación de hoy</h2>
-        <p class="kpi-numero kpi-numero-secundario">{{ r.recaudacionTotal | pesos }}</p>
+        <h2>Recaudación en el parque</h2>
+        <p class="kpi-numero kpi-numero-secundario">{{ parque.monto | pesos }}</p>
         <p class="ayuda">
-          {{ r.cantidadCompras }} compra{{ r.cantidadCompras === 1 ? '' : 's' }} cobrada{{ r.cantidadCompras === 1 ? '' : 's' }} hoy
+          {{ parque.cantidad }} venta{{ parque.cantidad === 1 ? '' : 's' }} en el parque hoy
+        </p>
+      </div>
+      @let web = recaudacionAnticipadaWeb(r);
+      <div>
+        <h2>Recaudación anticipadas (web)</h2>
+        <p class="kpi-numero kpi-numero-secundario">{{ web.monto | pesos }}</p>
+        <p class="ayuda">
+          {{ web.cantidad }} compra{{ web.cantidad === 1 ? '' : 's' }} online hoy
         </p>
       </div>
     </div>
@@ -71,9 +91,12 @@
         </div>
         @for (c of cajasAbiertas(); track c.id) {
           <div class="fila-simple fila-simple-cajas-abiertas">
-            <span>{{ c.usuarioNombre }}</span>
+            <span>
+              {{ c.usuarioNombre }}
+              @if (c.controlOmitido) { <span class="badge badge-sin-control" title="Se vendió sin la apertura formal de caja">Sin control</span> }
+            </span>
             <span data-label="Abrió">{{ c.fechaApertura | date: 'HH:mm' }}</span>
-            <span data-label="Inicial">{{ c.montoInicial | pesos }}</span>
+            <span data-label="Inicial">{{ c.controlOmitido ? '—' : (c.montoInicial | pesos) }}</span>
             <span data-label="Vendido hasta ahora">{{ c.totalVendido | pesos }}</span>
             <span data-label="Entradas">{{ c.totalEntradasPagas }}</span>
             <span data-label="Personas">{{ c.personasIngresadas }}</span>

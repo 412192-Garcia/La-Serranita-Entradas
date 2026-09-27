@@ -52,24 +52,42 @@
     @if (sinCobro()) {
       <p class="aviso-sin-cobro">Sin cobro — el total es $0 (entradas bonificadas)</p>
     } @else {
-      <div class="formas-pago" [class.formas-pago-sin-elegir]="hayItems() && formaPago() === null">
-        @for (f of formasPago; track f.valor) {
-          <button
-            type="button"
-            class="btn-forma-pago"
-            [class.activo]="formaPago() === f.valor"
-            (click)="setFormaPago(f.valor)">
-            {{ f.etiqueta }}
-          </button>
-        }
+      <div class="fila-formas-pago">
+        <div class="formas-pago" [class.formas-pago-sin-elegir]="hayItems() && formaPago() === null">
+          @for (f of formasPago; track f.valor) {
+            <button
+              type="button"
+              class="btn-forma-pago"
+              [class.activo]="formaPago() === f.valor"
+              (click)="setFormaPago(f.valor)">
+              {{ f.etiqueta }}
+            </button>
+          }
+        </div>
+        <!-- Siempre presente (deshabilitado hasta elegir la principal) para que el ancho de
+             Efectivo/Tarjeta/QR no cambie al aparecer/desaparecer este botón. -->
+        <button
+          type="button"
+          class="btn-pago-mixto-toggle"
+          [class.activo]="pagoMixtoActivo()"
+          [disabled]="formaPago() === null || pagoEnDolares()"
+          title="Pagó con dos formas de pago"
+          aria-label="Pagó con dos formas de pago"
+          (click)="setPagoMixtoActivo(!pagoMixtoActivo())">
+          +2ª
+        </button>
       </div>
       @if (hayItems() && formaPago() === null) {
         <p class="aviso-elegir-forma">Selecciona el método de pago</p>
       }
     }
 
-    @if (ahorro() > 0) {
-      <p class="aviso-promo">
+    @if (ahorro() > 0 && !pagoMixtoActivo()) {
+      <!-- El precio de grupo es específico de efectivo 100%: con pago mixto activo no tiene
+           sentido seguir mostrando este aviso. Con "Precio fijo" el descuento manual ya lo
+           pisa (el cajero fijó el total a mano), así que queda tachado en vez de sacarse: el
+           ahorro del grupo sigue siendo cierto, sólo que el precio final ya no depende de él. -->
+      <p class="aviso-promo" [class.aviso-promo-tachado]="modoDescuento() === 'precioFijo'">
         Precio promocional por grupo aplicado — ahorra {{ ahorro() | pesos }}
       </p>
     }
@@ -80,6 +98,7 @@
           <button type="button" class="btn-modo-descuento" [class.activo]="modoDescuento() === 'ninguno'" (click)="cambiarModoDescuento('ninguno')">Sin descuento</button>
           <button type="button" class="btn-modo-descuento" [class.activo]="modoDescuento() === 'promo'" (click)="cambiarModoDescuento('promo')">Promo</button>
           <button type="button" class="btn-modo-descuento" [class.activo]="modoDescuento() === 'manual'" (click)="cambiarModoDescuento('manual')">Manual</button>
+          <button type="button" class="btn-modo-descuento" [class.activo]="modoDescuento() === 'precioFijo'" (click)="cambiarModoDescuento('precioFijo')">Precio fijo</button>
         </div>
 
         @if (modoDescuento() === 'promo') {
@@ -117,6 +136,21 @@
             </label>
           </div>
         }
+
+        @if (modoDescuento() === 'precioFijo') {
+          <div class="fila-descuento-manual">
+            <label>
+              Precio final
+              <input
+                type="text"
+                inputmode="numeric"
+                placeholder="0"
+                appMoneyInput
+                [ngModel]="precioFijoDeseado()"
+                (ngModelChange)="setPrecioFijoDeseado($event)" />
+            </label>
+          </div>
+        }
       </div>
     }
 
@@ -125,7 +159,54 @@
       <span class="valor-total">{{ total() | pesos }}</span>
     </div>
 
-    @if (formaPago() === 'EFECTIVO_BOLETERIA' && hayItems()) {
+    @if (pagoMixtoActivo()) {
+      <div class="bloque-pago-mixto">
+        <!-- Sin header propio: el on/off vive en el botón "+2ª" de la fila de formas de pago
+             (queda toggleado ahí), no hace falta un título ni una ✕ acá abajo.
+             Simétrico a propósito: cualquiera de las dos formas se puede tipear
+             directamente, la otra se ajusta sola para seguir sumando el total (ver
+             setMontoFormaPagoPrincipal/setMontoFormaPagoSecundaria). La 2ª forma se elige
+             con un mini-toggle metido en el label, no con botones de tamaño completo. -->
+        <div class="fila-descuento-manual">
+          <label>
+            <span class="etiqueta-monto-mixto">{{ etiquetaFormaPagoActual() }}</span>
+            <input
+              type="text"
+              inputmode="numeric"
+              placeholder="0"
+              appMoneyInput
+              [ngModel]="montoFormaPagoPrincipal()"
+              (ngModelChange)="setMontoFormaPagoPrincipal($event)" />
+          </label>
+          <label>
+            <span class="etiqueta-monto-mixto mini-toggle-forma">
+              @for (f of opcionesFormaPagoSecundaria(); track f.valor) {
+                <button
+                  type="button"
+                  class="btn-mini-forma"
+                  [class.activo]="formaPagoSecundaria() === f.valor"
+                  (click)="formaPagoSecundaria.set(f.valor)">
+                  {{ f.etiqueta }}
+                </button>
+              }
+            </span>
+            <input
+              type="text"
+              inputmode="numeric"
+              placeholder="0"
+              appMoneyInput
+              [disabled]="formaPagoSecundaria() === null"
+              [ngModel]="montoFormaPagoSecundaria()"
+              (ngModelChange)="setMontoFormaPagoSecundaria($event)" />
+          </label>
+        </div>
+      </div>
+    }
+
+    @if (montoEfectivoACobrar() !== null && hayItems()) {
+      <!-- Aparece también con pago mixto cuando efectivo es la forma SECUNDARIA (no sólo
+           cuando es la principal): el vuelto se calcula contra montoEfectivoACobrar (sólo la
+           parte en efectivo), no contra el total de la venta. -->
       <div class="bloque-vuelto">
         @if (pagoEnDolares()) {
           <div class="fila-paga-con">
@@ -134,7 +215,7 @@
               <input
                 type="text"
                 inputmode="numeric"
-                placeholder="Ej: 1200"
+                placeholder="0"
                 appMoneyInput
                 [ngModel]="cotizacionDolar()"
                 (ngModelChange)="cotizacionDolar.set($event)" />
@@ -159,7 +240,7 @@
               <input
                 type="text"
                 inputmode="numeric"
-                placeholder="Ej: 50"
+                placeholder="0"
                 appMoneyInput
                 [ngModel]="pagaConDolares()"
                 (ngModelChange)="pagaConDolares.set($event)" />
@@ -189,9 +270,12 @@
                 [ngModel]="pagaCon()"
                 (ngModelChange)="pagaCon.set($event)" />
             </label>
-            <label class="check-dolares-inline">
+            <!-- Dólares asume el pago 100% en efectivo: no tiene sentido tocarlo con una
+                 segunda forma de pago ya cargada (ver setPagoEnDolares, que la cancelaría). -->
+            <label class="check-dolares-inline" [class.check-dolares-inline-disabled]="pagoMixtoActivo()" [title]="pagoMixtoActivo() ? 'No disponible con pago mixto' : ''">
               <input
                 type="checkbox"
+                [disabled]="pagoMixtoActivo()"
                 [ngModel]="pagoEnDolares()"
                 (ngModelChange)="setPagoEnDolares($event)" />
               USD
