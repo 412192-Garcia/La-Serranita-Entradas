@@ -21,9 +21,10 @@ export class Login {
   username = signal('');
   password = signal('');
   mostrarPassword = signal(false);
-  /** Marcada por defecto: es lo que la app hacía siempre, y en un POS sin internet no se podría
-   * volver a ingresar después de cerrar el navegador (el login necesita conexión). */
-  mantenerSesion = signal(true);
+  /** Desmarcada por defecto: cada quien decide si quiere mantenerla en su dispositivo. Si es un
+   * POS sin internet donde importa no tener que volver a loguearse (el login necesita
+   * conexión), el boletero la tilda a mano. */
+  mantenerSesion = signal(false);
   ingresando = signal(false);
   error = signal<string | null>(null);
 
