@@ -1,0 +1,15 @@
+# Copiar a "docker-compose.override.yml" (no se versiona) para tener, sólo en desarrollo
+# local, acceso directo a backend y frontend sin pasar por Caddy — útil para pruebas
+# rápidas o para pegarle a la API con Postman/curl. Docker Compose lo combina solo con
+# docker-compose.yml al correr "docker compose up" en esta carpeta.
+#
+# En producción NO se usa: publicar estos puertos en el host los deja accesibles desde
+# internet salteando el HTTPS de Caddy (ver README, sección Despliegue en producción).
+services:
+  backend:
+    ports:
+      - "8080:8080"
+
+  frontend:
+    ports:
+      - "4200:80"

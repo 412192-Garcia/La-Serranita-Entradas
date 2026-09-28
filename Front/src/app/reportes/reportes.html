@@ -64,6 +64,20 @@
   <div class="tarjeta tarjeta-ancha" data-tour="graficos-reportes" [class.oculta]="!resumen()">
     <h2>Afluencia diaria</h2>
     <p class="ayuda">Barras: reservado para ese día, ingresos reales y venta de puerta. Línea: anticipadas compradas ese día.</p>
+    <!-- En un rango largo (varios meses) una barra por día queda ilegible: agrupar por semana
+         o mes es una opción a activar, no automática — arranca en "Día". -->
+    <div class="filtro-agrupacion">
+      @for (op of opcionesAgrupacionAfluencia; track op.valor) {
+        <button
+          type="button"
+          class="btn-agrupacion"
+          [class.activo]="agrupacionAfluencia() === op.valor"
+          [attr.aria-pressed]="agrupacionAfluencia() === op.valor"
+          (click)="agrupacionAfluencia.set(op.valor)">
+          {{ op.etiqueta }}
+        </button>
+      }
+    </div>
     <div class="grafico-contenedor grafico-contenedor-grande">
       <canvas #afluenciaCanvas></canvas>
     </div>

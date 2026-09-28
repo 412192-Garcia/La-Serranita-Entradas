@@ -56,6 +56,10 @@ public class EmailServiceImpl implements EmailService {
     @Value("${spring.mail.username}")
     private String remitente;
 
+    // Nombre para mostrar del remitente: sin esto el cliente de mail muestra la casilla cruda
+    // (ej. "reservas@...") en vez del nombre del parque.
+    private static final String NOMBRE_REMITENTE = "La Serranita Parque Recreativo";
+
     // Cada mail que sale de la app va también, en copia oculta, a esta casilla del parque: es el
     // mismo mensaje (un solo envío con BCC), así el destinatario no ve la copia. Viene de la env
     // MAIL_COPIA; si está vacía no se manda copia.
@@ -108,7 +112,7 @@ public class EmailServiceImpl implements EmailService {
             boolean pendienteDePago = compra.getEstado() == EstadoCompra.RESERVADO_EFECTIVO;
             boolean esRegalo = compra.getFechaVisita() == null;
 
-            helper.setFrom(remitente);
+            helper.setFrom(remitente, NOMBRE_REMITENTE);
             helper.setTo(compra.getContactEmail());
             agregarCopia(helper);
             String asunto;
@@ -154,7 +158,7 @@ public class EmailServiceImpl implements EmailService {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
-            helper.setFrom(remitente);
+            helper.setFrom(remitente, NOMBRE_REMITENTE);
             helper.setTo(compra.getReceptorEmail());
             agregarCopia(helper);
             helper.setSubject("¡Recibiste un regalo! - La Serranita Parque Recreativo");

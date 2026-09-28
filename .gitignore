@@ -2,6 +2,12 @@
 .env
 Back/La Serranita entradas/.env
 
+# Acceso directo a puertos sólo para desarrollo local (ver docker-compose.override.yml.example)
+docker-compose.override.yml
+
+# Sitios extra del Caddy de cada host, no se versionan (ver Caddyfile e caddy-extra en docker-compose.yml)
+caddy-extra/*.caddy
+
 # IDEs
 .idea/
 
