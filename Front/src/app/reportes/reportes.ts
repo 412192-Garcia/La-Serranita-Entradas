@@ -3,7 +3,7 @@ import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Chart, ChartOptions, registerables } from 'chart.js';
 import { ReporteService } from '../services/reporte.service';
-import { ComprasPorEstado, DiaSemana, RecaudacionPorFormaPago, ReporteResumen, VentasPorOrigen } from '../models/reporte';
+import { AfluenciaDiaria, ComprasPorEstado, DiaSemana, RecaudacionPorFormaPago, ReporteResumen, VentasPorOrigen } from '../models/reporte';
 import { CabeceraInterna } from '../shared/cabecera-interna/cabecera-interna';
 import { FiltroRangoFechas } from '../shared/filtro-rango-fechas/filtro-rango-fechas';
 import { aFechaISO, restarUnAnio } from '../shared/fecha.util';
@@ -111,6 +111,10 @@ const DIAS_SEMANA: { valor: DiaSemana; etiqueta: string }[] = [
   { valor: 'SUNDAY', etiqueta: 'Dom' },
 ];
 
+/** Cómo se agrupa el gráfico de "Afluencia diaria" cuando el rango es muy largo para ver un
+ * día por barra. */
+type PeriodoAgrupacion = 'dia' | 'semana' | 'mes';
+
 @Component({
   selector: 'app-configuracion-reportes',
   imports: [FormsModule, PesosPipe, DecimalPipe, CabeceraInterna, FiltroRangoFechas],
@@ -184,6 +188,17 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
     });
   }
 
+  /** "Afluencia diaria" es el único gráfico con una fila por día: en un rango de varios meses
+   * quedan demasiadas barras para leer nada. Es una opción a activar (arranca en "Día", como
+   * siempre), no automática — el admin decide cuándo agrupar. Sin pedirle nada nuevo al back:
+   * afluenciaDiaria ya trae los 4 números por día, esto sólo los suma por semana/mes. */
+  readonly opcionesAgrupacionAfluencia: { valor: PeriodoAgrupacion; etiqueta: string }[] = [
+    { valor: 'dia', etiqueta: 'Día' },
+    { valor: 'semana', etiqueta: 'Semana' },
+    { valor: 'mes', etiqueta: 'Mes' },
+  ];
+  agrupacionAfluencia = signal<PeriodoAgrupacion>('dia');
+
   /* La tarjeta "Cupones aplicados" mostraba totalDescuentos / cantidadComprasConDescuento, que
      el backend acumula para CUALQUIER descuento: también las promociones de puerta y los
      descuentos manuales. En un rango con una promo y ningún cupón, el número de arriba daba
@@ -224,6 +239,15 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
       if (this.vista() === 'resumen') {
         const r = this.resumen();
         if (r) this.renderGraficoHora(r);
+      }
+    });
+
+    // Mismo criterio: cambiar la agrupación de "Afluencia diaria" no debería redibujar el resto
+    // de los gráficos, así que vive en su propio effect — sólo éste depende de agrupacionAfluencia().
+    effect(() => {
+      if (this.vista() === 'resumen') {
+        const r = this.resumen();
+        if (r) this.renderGraficoAfluencia(r);
       }
     });
 
@@ -476,28 +500,6 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
   }
 
   private renderGraficos(r: ReporteResumen): void {
-    if (this.afluenciaCanvas()) {
-      this.afluenciaChart?.destroy();
-      this.afluenciaChart = new Chart(this.afluenciaCanvas()!.nativeElement, {
-        type: 'bar',
-        data: {
-          labels: r.afluenciaDiaria.map((d) => d.fecha.slice(5)),
-          datasets: [
-            { label: 'Reservado para ese día', data: r.afluenciaDiaria.map((d) => d.pasesVendidosAnticipada), backgroundColor: '#39a935' },
-            { label: 'Ingresos de anticipada/regalo ese día', data: r.afluenciaDiaria.map((d) => d.pasesValidadosAnticipada), backgroundColor: '#1f6b1c' },
-            { label: 'Venta de puerta ese día', data: r.afluenciaDiaria.map((d) => d.pasesVendidosBoleteria), backgroundColor: '#4a7fc9' },
-            // Ritmo de venta anticipada (cuándo se compró, no cuándo se usa): línea encima de las barras.
-            { type: 'line', label: 'Anticipadas compradas ese día', data: r.afluenciaDiaria.map((d) => d.pasesCompradosAnticipada), borderColor: '#c96bb0', backgroundColor: '#c96bb0', tension: 0.3, pointRadius: 2 },
-          ],
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
-        },
-      });
-    }
-
     if (this.anticipacionCanvas()) {
       this.anticipacionChart?.destroy();
       this.anticipacionChart = new Chart(this.anticipacionCanvas()!.nativeElement, {
@@ -675,5 +677,84 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
         scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } } },
       },
     });
+  }
+
+  /** "Afluencia diaria" con la agrupación elegida (ver agrupacionAfluencia): en "Día" es
+   * exactamente lo de antes, y en "Semana"/"Mes" suma los mismos 4 números por período —
+   * sin pedirle nada nuevo al back, afluenciaDiaria ya trae todo lo necesario. */
+  private renderGraficoAfluencia(r: ReporteResumen): void {
+    if (!this.afluenciaCanvas()) return;
+
+    const datos = this.agruparAfluencia(r.afluenciaDiaria, this.agrupacionAfluencia());
+
+    this.afluenciaChart?.destroy();
+    this.afluenciaChart = new Chart(this.afluenciaCanvas()!.nativeElement, {
+      type: 'bar',
+      data: {
+        labels: datos.map((d) => d.etiqueta),
+        datasets: [
+          { label: 'Reservado para ese día', data: datos.map((d) => d.pasesVendidosAnticipada), backgroundColor: '#39a935' },
+          { label: 'Ingresos de anticipada/regalo ese día', data: datos.map((d) => d.pasesValidadosAnticipada), backgroundColor: '#1f6b1c' },
+          { label: 'Venta de puerta ese día', data: datos.map((d) => d.pasesVendidosBoleteria), backgroundColor: '#4a7fc9' },
+          // Ritmo de venta anticipada (cuándo se compró, no cuándo se usa): línea encima de las barras.
+          { type: 'line', label: 'Anticipadas compradas ese día', data: datos.map((d) => d.pasesCompradosAnticipada), borderColor: '#c96bb0', backgroundColor: '#c96bb0', tension: 0.3, pointRadius: 2 },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+      },
+    });
+  }
+
+  /** En "Día" pasa los datos tal cual. En "Semana"/"Mes" suma los 4 números de cada fila que
+   * cae en el mismo período — la clave decide el orden (cronológico) y la etiqueta es lo que
+   * se ve en el eje. Semana = lunes de esa semana (mismo criterio "lunes primero" que el resto
+   * de la app); mes = "Ene 2026". */
+  private agruparAfluencia(datos: AfluenciaDiaria[], modo: PeriodoAgrupacion): (AfluenciaDiaria & { etiqueta: string })[] {
+    if (modo === 'dia') {
+      return datos.map((d) => ({ ...d, etiqueta: d.fecha.slice(5) }));
+    }
+
+    const acumulado = new Map<string, AfluenciaDiaria & { etiqueta: string }>();
+    for (const d of datos) {
+      const { clave, etiqueta } = this.claveYEtiquetaPeriodo(d.fecha, modo);
+      const actual = acumulado.get(clave) ?? {
+        fecha: clave,
+        etiqueta,
+        pasesVendidosAnticipada: 0,
+        pasesValidadosAnticipada: 0,
+        pasesVendidosBoleteria: 0,
+        pasesCompradosAnticipada: 0,
+      };
+      actual.pasesVendidosAnticipada += d.pasesVendidosAnticipada;
+      actual.pasesValidadosAnticipada += d.pasesValidadosAnticipada;
+      actual.pasesVendidosBoleteria += d.pasesVendidosBoleteria;
+      actual.pasesCompradosAnticipada += d.pasesCompradosAnticipada;
+      acumulado.set(clave, actual);
+    }
+    return [...acumulado.values()].sort((a, b) => a.fecha.localeCompare(b.fecha));
+  }
+
+  /** clave = para ordenar y para agrupar (dos fechas del mismo período dan la misma clave);
+   * etiqueta = lo que se muestra en el gráfico. */
+  private claveYEtiquetaPeriodo(fechaISO: string, modo: 'semana' | 'mes'): { clave: string; etiqueta: string } {
+    const [anio, mes, dia] = fechaISO.split('-').map(Number);
+    const fecha = new Date(anio, mes - 1, dia);
+
+    if (modo === 'mes') {
+      const clave = `${anio}-${String(mes).padStart(2, '0')}`;
+      const etiqueta = fecha.toLocaleDateString('es-AR', { month: 'short', year: 'numeric' });
+      return { clave, etiqueta };
+    }
+
+    // Semana: el lunes de esa semana, tanto para la clave (ordena bien) como para la etiqueta.
+    const diaSemanaJs = fecha.getDay(); // 0 = domingo … 6 = sábado
+    const offsetHastaLunes = diaSemanaJs === 0 ? 6 : diaSemanaJs - 1;
+    const lunes = new Date(fecha);
+    lunes.setDate(fecha.getDate() - offsetHastaLunes);
+    const clave = aFechaISO(lunes);
+    return { clave, etiqueta: `Sem. ${clave.slice(5)}` };
   }
 }

@@ -67,8 +67,9 @@ services:
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:4200}
       BOOTSTRAP_ADMIN_USERNAME: ${BOOTSTRAP_ADMIN_USERNAME:-}
       BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-}
-    ports:
-      - "8080:8080"
+    # Sin ports: acá a propósito — en producción no hace falta, Caddy llega por la red
+    # interna, y publicarlo en el host lo deja accesible desde internet salteando el
+    # HTTPS. Para acceso directo en desarrollo local, ver docker-compose.override.yml.example.
 
   frontend:
     image: ghcr.io/412192-garcia/la-serranita-frontend:latest
@@ -77,8 +78,8 @@ services:
     restart: unless-stopped
     depends_on:
       - backend
-    ports:
-      - "4200:80" # acceso directo sin pasar por Caddy — útil para probar local
+    # Ídem backend: sin ports: acá. docker-compose.override.yml.example lo publica sólo
+    # en desarrollo local.
 
   # HTTPS de verdad delante de todo (obligatorio para que Mercado Pago acepte el
   # webhook en producción): con DOMAIN seteado en el .env, pide y renueva el
@@ -103,6 +104,10 @@ services:
     volumes:
       - caddy_data:/data
       - caddy_config:/config
+      # Sitios extra del host (ej. otro subdominio detrás del mismo Caddy) sin tocar el
+      # Caddyfile del repo ni reconstruir la imagen — ver el "import" al final del Caddyfile.
+      # Carpeta vacía acá; en el VPS puede tener archivos .caddy sueltos que no se versionan.
+      - ./caddy-extra:/etc/caddy/extra:ro
 
 volumes:
   db_data:

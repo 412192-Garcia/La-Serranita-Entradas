@@ -17,3 +17,8 @@
 {$DOMAIN:localhost} {
 	reverse_proxy frontend:80
 }
+
+# Sitios extra que corren en el mismo Caddy del host (ej. un subdominio de otro servicio),
+# definidos fuera del repo — ver ./caddy-extra en docker-compose.yml. Si la carpeta está
+# vacía, Caddy sólo tira una advertencia y sigue funcionando normal.
+import /etc/caddy/extra/*.caddy

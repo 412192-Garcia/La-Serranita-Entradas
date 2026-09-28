@@ -124,11 +124,16 @@ cp .env.example .env   # completar los valores (ver el archivo para el detalle d
 docker compose up -d --build
 ```
 
-Esto levanta `db` (Postgres), `backend` (puerto 8080), `frontend` (nginx interno, que sirve el
-build de Angular y reenvía `/api/*` al backend — por eso `environment.prod.ts` usa un `apiBase`
-relativo en vez de una URL absoluta) y `caddy` (puertos 80/443, HTTPS delante de todo). Los datos
-de Postgres quedan en un volumen (`db_data`) que sobrevive a `docker compose down` (usar `down -v`
-si realmente se quiere borrar todo).
+Esto levanta `db` (Postgres), `backend`, `frontend` (nginx interno, que sirve el build de Angular
+y reenvía `/api/*` al backend — por eso `environment.prod.ts` usa un `apiBase` relativo en vez de
+una URL absoluta) y `caddy` (puertos 80/443, HTTPS delante de todo). Los datos de Postgres quedan
+en un volumen (`db_data`) que sobrevive a `docker compose down` (usar `down -v` si realmente se
+quiere borrar todo).
+
+`backend` y `frontend` no publican puertos propios: todo el tráfico entra por Caddy. Para pegarle
+directo a alguno de los dos en desarrollo local (Postman, curl, etc.), copiar
+`docker-compose.override.yml.example` a `docker-compose.override.yml` (no se versiona) — Docker
+Compose lo combina solo.
 
 **HTTPS (obligatorio para el webhook de Mercado Pago en producción):** con `DOMAIN` seteado en el
 `.env` a tu dominio real (y ese dominio ya apuntando por DNS a este servidor), Caddy pide y renueva

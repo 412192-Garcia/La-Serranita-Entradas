@@ -160,8 +160,8 @@
   @if (confirmandoCierreSinControlId(); as id) {
     <app-modal (cerrar)="confirmandoCierreSinControlId.set(null)">
       <div class="dialogo-confirmacion">
-        <h3>Cerrar esta caja ya mismo</h3>
-        <p>No pide ningún conteo: queda cerrada tal cual está, con diferencia $0.</p>
+        <h3>Cerrar esta caja</h3>
+        <p>Esta caja no requiere ningun ingreso de cierre.</p>
         <div class="acciones-dialogo-confirmacion">
           <button type="button" class="btn-limpiar" (click)="confirmandoCierreSinControlId.set(null)">Cancelar</button>
           <button type="button" class="btn-primario" (click)="confirmarCierreSinControl()">Cerrar caja</button>

@@ -129,6 +129,38 @@
   color: #fff;
 }
 
+/* Mismo look que .filtro-dias-semana/.btn-dia-semana: es el mismo patrón de "chips de un solo
+   filtro", acá para elegir Día/Semana/Mes en vez de un día puntual. */
+.filtro-agrupacion {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.btn-agrupacion {
+  padding: 6px 14px;
+  border: 1.5px solid var(--color-border);
+  border-radius: 999px;
+  background-color: var(--color-card-bg);
+  color: var(--color-text-secondary);
+  font-size: 0.82rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-agrupacion:hover {
+  border-color: var(--color-primary);
+}
+
+.btn-agrupacion.activo {
+  border-color: var(--color-primary);
+  background-color: var(--color-primary);
+  color: #fff;
+}
+
 /** Afluencia diaria tiene 3 series y hasta 30 días: necesita más aire vertical que el resto. */
 .grafico-contenedor-grande {
   height: 420px;
