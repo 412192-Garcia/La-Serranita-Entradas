@@ -1,5 +1,7 @@
 package org.example.laserranitaentradas.controller;
 
+import org.example.laserranitaentradas.model.dto.ActualizarCuponRequest;
+import org.example.laserranitaentradas.model.dto.ActualizarFamiliaCuponRequest;
 import org.example.laserranitaentradas.model.dto.CrearCuponRequest;
 import org.example.laserranitaentradas.model.dto.CrearFamiliaCuponRequest;
 import org.example.laserranitaentradas.model.entity.Cupon;
@@ -44,6 +46,27 @@ public class CuponController {
     public ResponseEntity<FamiliaCupon> generarFamilia(@RequestBody CrearFamiliaCuponRequest request) {
         FamiliaCupon guardada = familiaService.create(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(guardada);
+    }
+
+    @PutMapping("/{id}")
+    @Operation(summary = "Actualizar cupón", description = "Cambia usos máximos, vencimiento y activo de un cupón (null = sin límite / sin vencimiento)")
+    public ResponseEntity<Cupon> actualizarCupon(@PathVariable Long id, @RequestBody ActualizarCuponRequest request) {
+        return ResponseEntity.ok(cuponService.actualizar(id, request));
+    }
+
+    @PutMapping("/familias/{id}/activo")
+    @Operation(summary = "Activar o desactivar un lote", description = "Prende o apaga todos los cupones del lote; al prender, sólo los que todavía pueden usarse")
+    public ResponseEntity<FamiliaCupon> cambiarActivoFamilia(@PathVariable Long id, @RequestBody ActualizarFamiliaCuponRequest request) {
+        if (request.getActivo() == null) {
+            throw new IllegalArgumentException("Falta indicar si el lote queda activo o no.");
+        }
+        return ResponseEntity.ok(familiaService.cambiarActivo(id, request.getActivo()));
+    }
+
+    @PutMapping("/familias/{id}/vencimiento")
+    @Operation(summary = "Cambiar el vencimiento de un lote", description = "Cambia el vencimiento de todos los cupones del lote (null = sin vencimiento)")
+    public ResponseEntity<FamiliaCupon> cambiarVencimientoFamilia(@PathVariable Long id, @RequestBody ActualizarFamiliaCuponRequest request) {
+        return ResponseEntity.ok(familiaService.cambiarVencimiento(id, request.getFechaExpiracion()));
     }
 
     @GetMapping("/{id}")

@@ -1,0 +1,11 @@
+@if (pasos().length > 0) {
+  <button
+    type="button"
+    class="btn-tutorial-tarjeta"
+    (click)="activo.set(true)"
+    [attr.aria-label]="'Ver tutorial de ' + descripcion()"
+    [title]="'Ver tutorial de ' + descripcion()">
+    <svg lucideCircleHelp [strokeWidth]="2"></svg>
+  </button>
+  <app-tour [pasos]="pasos()" [(activo)]="activo" />
+}

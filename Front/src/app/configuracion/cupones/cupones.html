@@ -1,92 +1,152 @@
 <div class="seccion seccion-cupones">
 
-  <div class="tarjeta tarjeta-formulario">
+  <div class="tarjeta tarjeta-formulario tarjeta-con-tutorial">
+    <app-tutorial-tarjeta [pasos]="pasosTutorialCupon()" descripcion="nuevo cupón" />
     <h2>Nuevo cupón individual</h2>
     @if (errorCupon()) {
       <p class="alerta-error">{{ errorCupon() }}</p>
     }
     <div class="form-grid">
-      <label>
+      <label data-tour="c-codigo">
         <span class="etiqueta-campo">Código <span class="opcional">(opcional, se genera solo)</span></span>
         <input type="text" [ngModel]="codigoCupon()" (ngModelChange)="codigoCupon.set($event)" placeholder="Ej: VERANO25" />
       </label>
-      <label>
+      <label data-tour="c-tipo">
         Tipo de descuento
         <select [ngModel]="tipoDescuentoCupon()" (ngModelChange)="tipoDescuentoCupon.set($event)">
           <option value="porcentaje">Porcentaje (%)</option>
-          <option value="monto">Monto fijo ($)</option>
+          <option value="monto">Restar un monto a la compra ($)</option>
+          <option value="monto-entrada">Restar un monto a cada entrada ($)</option>
+          <option value="precio-entrada">Precio fijo por entrada ($)</option>
         </select>
       </label>
-      <label>
+      <label data-tour="c-valor">
         Valor
         <input
           type="text"
           inputmode="decimal"
-          [appMoneyInput]="tipoDescuentoCupon() === 'monto'"
+          [appMoneyInput]="tipoDescuentoCupon() !== 'porcentaje'"
           [ngModel]="valorDescuentoCupon()"
           (ngModelChange)="valorDescuentoCupon.set($event)" />
       </label>
-      <label>
-        Usos máximos
+      <label data-tour="c-usos">
+        <span class="etiqueta-campo">Usos máximos <span class="opcional">(opcional)</span></span>
         <input type="number" min="1" [ngModel]="usosMaximosCupon()" (ngModelChange)="usosMaximosCupon.set($event)" />
       </label>
-      <label>
-        Fecha de expiración
+      <label data-tour="c-expiracion">
+        <span class="etiqueta-campo">Fecha de expiración <span class="opcional">(opcional)</span></span>
         <input type="date" [ngModel]="fechaExpiracionCupon()" (ngModelChange)="fechaExpiracionCupon.set($event)" />
       </label>
+      <label data-tour="c-desde">
+        <span class="etiqueta-campo">Válido desde <span class="opcional">(opcional)</span></span>
+        <input type="date" [ngModel]="fechaDesdeCupon()" (ngModelChange)="fechaDesdeCupon.set($event)" />
+      </label>
+      <label data-tour="c-min">
+        <span class="etiqueta-campo">Mínimo de entradas <span class="opcional">(opcional)</span></span>
+        <input type="number" min="1" [ngModel]="minEntradasCupon()" (ngModelChange)="minEntradasCupon.set($event)" />
+      </label>
+      <label data-tour="c-max">
+        <span class="etiqueta-campo">Máximo de entradas con descuento <span class="opcional">(opcional)</span></span>
+        <input type="number" min="1" [ngModel]="maxEntradasCupon()" (ngModelChange)="maxEntradasCupon.set($event)" />
+      </label>
+      <label data-tour="c-tope">
+        <span class="etiqueta-campo">Tope de descuento en $ <span class="opcional">(opcional)</span></span>
+        <input type="text" inputmode="decimal" appMoneyInput [ngModel]="topeCupon()" (ngModelChange)="topeCupon.set($event)" />
+      </label>
     </div>
+    @if (tiposEntrada().length > 1) {
+    <div class="tipos-cupon" data-tour="c-tipos">
+      <span class="etiqueta-campo">Tipos de entrada a los que alcanza <span class="opcional">(opcional)</span></span>
+      @for (t of tiposEntrada(); track t.id) {
+        <label class="tipo-cupon-check">
+          <input type="checkbox" [checked]="tiposCupon().includes(t.id)" (change)="alternarTipo('cupon', t.id)" />
+          {{ t.nombre }}
+        </label>
+      }
+    </div>
+    }
     <button type="button" class="btn-primario" [disabled]="creandoCupon()" (click)="crearCupon()">
       {{ creandoCupon() ? 'Creando…' : 'Crear cupón' }}
     </button>
   </div>
 
-  <div class="tarjeta tarjeta-formulario">
+  <div class="tarjeta tarjeta-formulario tarjeta-con-tutorial">
+    <app-tutorial-tarjeta [pasos]="pasosTutorialLote()" descripcion="generar lote" />
     <h2>Generar lote de cupones</h2>
     @if (errorLote()) {
       <p class="alerta-error">{{ errorLote() }}</p>
     }
     <div class="form-grid">
-      <label>
+      <label data-tour="l-nombre">
         Nombre del lote
         <input type="text" [ngModel]="nombreLote()" (ngModelChange)="nombreLote.set($event)" placeholder="Ej: Promociones Invierno" />
       </label>
-      <label>
+      <label data-tour="l-prefijo">
         Prefijo
         <input type="text" [ngModel]="prefijoLote()" (ngModelChange)="prefijoLote.set($event)" placeholder="Ej: INV" maxlength="10" />
       </label>
-      <label>
+      <label data-tour="l-descripcion">
         <span class="etiqueta-campo">Descripción <span class="opcional">(opcional)</span></span>
         <input type="text" [ngModel]="descripcionLote()" (ngModelChange)="descripcionLote.set($event)" />
       </label>
-      <label>
+      <label data-tour="l-cantidad">
         Cantidad a generar
         <input type="number" min="1" [ngModel]="cantidadLote()" (ngModelChange)="cantidadLote.set($event)" />
       </label>
-      <label>
+      <label data-tour="l-tipo">
         Tipo de descuento
         <select [ngModel]="tipoDescuentoLote()" (ngModelChange)="tipoDescuentoLote.set($event)">
           <option value="porcentaje">Porcentaje (%)</option>
-          <option value="monto">Monto fijo ($)</option>
+          <option value="monto">Restar un monto a la compra ($)</option>
+          <option value="monto-entrada">Restar un monto a cada entrada ($)</option>
+          <option value="precio-entrada">Precio fijo por entrada ($)</option>
         </select>
       </label>
-      <label>
+      <label data-tour="l-valor">
         Valor
         <input
           type="text"
           inputmode="decimal"
-          [appMoneyInput]="tipoDescuentoLote() === 'monto'"
+          [appMoneyInput]="tipoDescuentoLote() !== 'porcentaje'"
           [ngModel]="valorDescuentoLote()"
           (ngModelChange)="valorDescuentoLote.set($event)" />
       </label>
-      <label>
-        Usos máximos por cupón
+      <label data-tour="l-usos">
+        <span class="etiqueta-campo">Usos máximos por cupón <span class="opcional">(opcional)</span></span>
         <input type="number" min="1" [ngModel]="usosMaximosLote()" (ngModelChange)="usosMaximosLote.set($event)" />
       </label>
-      <label>
-        Fecha de expiración
+      <label data-tour="l-expiracion">
+        <span class="etiqueta-campo">Fecha de expiración <span class="opcional">(opcional)</span></span>
         <input type="date" [ngModel]="fechaExpiracionLote()" (ngModelChange)="fechaExpiracionLote.set($event)" />
       </label>
+      <label data-tour="l-desde">
+        <span class="etiqueta-campo">Válido desde <span class="opcional">(opcional)</span></span>
+        <input type="date" [ngModel]="fechaDesdeLote()" (ngModelChange)="fechaDesdeLote.set($event)" />
+      </label>
+      <label data-tour="l-min">
+        <span class="etiqueta-campo">Mínimo de entradas <span class="opcional">(opcional)</span></span>
+        <input type="number" min="1" [ngModel]="minEntradasLote()" (ngModelChange)="minEntradasLote.set($event)" />
+      </label>
+      <label data-tour="l-max">
+        <span class="etiqueta-campo">Máximo de entradas con descuento <span class="opcional">(opcional)</span></span>
+        <input type="number" min="1" [ngModel]="maxEntradasLote()" (ngModelChange)="maxEntradasLote.set($event)" />
+      </label>
+      <label data-tour="l-tope">
+        <span class="etiqueta-campo">Tope de descuento en $ <span class="opcional">(opcional)</span></span>
+        <input type="text" inputmode="decimal" appMoneyInput [ngModel]="topeLote()" (ngModelChange)="topeLote.set($event)" />
+      </label>
     </div>
+    @if (tiposEntrada().length > 1) {
+    <div class="tipos-cupon" data-tour="l-tipos">
+      <span class="etiqueta-campo">Tipos de entrada a los que alcanza <span class="opcional">(opcional)</span></span>
+      @for (t of tiposEntrada(); track t.id) {
+        <label class="tipo-cupon-check">
+          <input type="checkbox" [checked]="tiposLote().includes(t.id)" (change)="alternarTipo('lote', t.id)" />
+          {{ t.nombre }}
+        </label>
+      }
+    </div>
+    }
     <button type="button" class="btn-primario" [disabled]="generandoLote()" (click)="generarLote()">
       {{ generandoLote() ? 'Generando…' : 'Generar lote' }}
     </button>
@@ -101,16 +161,45 @@
     } @else {
       <div class="tabla-simple">
         <div class="fila-simple fila-simple-header">
-          <span>Código</span><span>Descuento</span><span>Usos</span><span>Expira</span><span>Estado</span>
+          <span>Código</span><span>Descuento</span><span>Usos</span><span>Expira</span><span>Estado</span><span></span>
         </div>
+        @if (errorTabla()) {
+          <p class="alerta-error">{{ errorTabla() }}</p>
+        }
         @for (c of cupones(); track c.id) {
           <div class="fila-simple">
             <span class="codigo-mono">{{ c.codigo }}</span>
-            <span data-label="Descuento">{{ descuentoLegible(c) }}</span>
-            <span data-label="Usos">{{ c.usosActuales }} / {{ c.usosMaximos }}</span>
-            <span data-label="Expira">{{ c.fechaExpiracion | date: 'dd/MM/yyyy' }}</span>
+            <span data-label="Descuento">
+              {{ descuentoLegible(c) }}
+              @if (reglasLegibles(c)) {
+                <small class="cupon-reglas">{{ reglasLegibles(c) }}</small>
+              }
+            </span>
+            @if (editandoId() === c.id) {
+              <span data-label="Usos">
+                {{ c.usosActuales }} /
+                <input type="number" min="1" class="input-edicion" placeholder="Opcional" [ngModel]="editUsos()" (ngModelChange)="editUsos.set($event)" />
+              </span>
+              <span data-label="Expira">
+                <input type="date" class="input-edicion" [ngModel]="editVence()" (ngModelChange)="editVence.set($event)" />
+              </span>
+            } @else {
+              <span data-label="Usos">{{ c.usosActuales }} / {{ c.usosMaximos ?? 'sin límite' }}</span>
+              <span data-label="Expira">{{ c.fechaExpiracion ? (c.fechaExpiracion | date: 'dd/MM/yyyy') : 'Sin vencimiento' }}</span>
+            }
             <span class="badge" [class.badge-activo]="c.activo" [class.badge-inactivo]="!c.activo">
               {{ c.activo ? 'Activo' : 'Inactivo' }}
+            </span>
+            <span class="acciones-cupon">
+              @if (editandoId() === c.id) {
+                <button type="button" class="btn-primario btn-mini" [disabled]="guardandoCupon()" (click)="guardarEdicion(c)">Guardar</button>
+                <button type="button" class="btn-secundario btn-mini" (click)="cancelarEdicion()">Cancelar</button>
+              } @else {
+                <button type="button" class="btn-secundario btn-mini" [disabled]="guardandoCupon()" (click)="empezarEdicion(c)">Editar</button>
+                <button type="button" class="btn-secundario btn-mini" [disabled]="guardandoCupon()" (click)="alternarActivo(c)">
+                  {{ c.activo ? 'Desactivar' : 'Activar' }}
+                </button>
+              }
             </span>
           </div>
         }
@@ -140,15 +229,34 @@
               }
             </span>
             <span class="lote-prefijo">{{ l.prefijo }}</span>
-            <span class="lote-descuento">{{ l.cupones.length ? descuentoLegible(l.cupones[0]) : '—' }}</span>
-            <span class="lote-expira">{{ l.cupones.length ? (l.cupones[0].fechaExpiracion | date: 'dd/MM/yyyy') : '—' }}</span>
+            <span class="lote-descuento">
+              {{ l.cupones.length ? descuentoLegible(l.cupones[0]) : '—' }}
+              @if (l.cupones.length && reglasLegibles(l.cupones[0])) {
+                <small class="cupon-reglas">{{ reglasLegibles(l.cupones[0]) }}</small>
+              }
+            </span>
+            <span class="lote-expira">{{ l.cupones.length ? (l.cupones[0].fechaExpiracion ? (l.cupones[0].fechaExpiracion | date: 'dd/MM/yyyy') : 'Sin vencimiento') : '—' }}</span>
             <span class="lote-cantidad">{{ l.cupones.length }} cupones</span>
             <span class="lote-toggle">{{ loteExpandidoId() === l.id ? '▲' : '▼' }}</span>
           </button>
           @if (loteExpandidoId() === l.id) {
+            <div class="lote-acciones">
+              <span class="lote-acciones-estado">{{ cuponesActivosDelLote(l) }} de {{ l.cupones.length }} activos</span>
+              <button type="button" class="btn-secundario btn-mini" [disabled]="accionandoLote()" (click)="alternarActivoLote(l)">
+                {{ cuponesActivosDelLote(l) === 0 ? 'Activar lote' : 'Desactivar lote' }}
+              </button>
+              <label class="lote-vencimiento">
+                <span class="opcional">Vencimiento (opcional)</span>
+                <input type="date" class="input-edicion" [ngModel]="vencimientoLote()" (ngModelChange)="vencimientoLote.set($event)" />
+              </label>
+              <button type="button" class="btn-secundario btn-mini" [disabled]="accionandoLote()" (click)="guardarVencimientoLote(l)">Cambiar vencimiento</button>
+            </div>
+            @if (errorAccionLote()) {
+              <p class="alerta-error">{{ errorAccionLote() }}</p>
+            }
             <div class="lote-codigos">
               @for (c of l.cupones; track c.id) {
-                <span class="codigo-chip" [class.chip-usado]="!c.activo || c.usosActuales >= c.usosMaximos">
+                <span class="codigo-chip" [class.chip-usado]="!c.activo || (c.usosMaximos !== null && c.usosActuales >= c.usosMaximos)">
                   {{ c.codigo }}
                 </span>
               }

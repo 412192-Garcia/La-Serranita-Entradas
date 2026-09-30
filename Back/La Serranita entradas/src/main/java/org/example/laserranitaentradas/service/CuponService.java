@@ -1,5 +1,6 @@
 package org.example.laserranitaentradas.service;
 
+import org.example.laserranitaentradas.model.dto.ActualizarCuponRequest;
 import org.example.laserranitaentradas.model.dto.CrearCuponRequest;
 import org.example.laserranitaentradas.model.entity.Cupon;
 
@@ -15,6 +16,9 @@ public interface CuponService {
     List<Cupon> getAllIndividuales();
     Cupon create(CrearCuponRequest request);
     Cupon update(Cupon cupon);
+
+    /** Cambia usos máximos, vencimiento y activo de un cupón, con las validaciones de coherencia. */
+    Cupon actualizar(Long id, ActualizarCuponRequest request);
 
     /**
      * Consume un uso del cupón de forma atómica. Devuelve true si quedaba disponible (y lo

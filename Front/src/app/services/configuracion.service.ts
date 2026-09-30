@@ -39,6 +39,12 @@ export interface CrearCuponRequest {
   fechaExpiracion?: string | null;
   porcentajeDescuento?: number | null;
   montoDescuento?: number | null;
+  fechaDesde?: string | null;
+  aplicaPor?: 'COMPRA' | 'ENTRADA' | 'PRECIO_ENTRADA' | null;
+  tiposEntradaIds?: number[] | null;
+  minEntradas?: number | null;
+  maxEntradasAfectadas?: number | null;
+  topeDescuento?: number | null;
 }
 
 export interface CrearFamiliaCuponRequest {
@@ -50,6 +56,12 @@ export interface CrearFamiliaCuponRequest {
   fechaExpiracion?: string | null;
   porcentajeDescuento?: number | null;
   montoDescuento?: number | null;
+  fechaDesde?: string | null;
+  aplicaPor?: 'COMPRA' | 'ENTRADA' | 'PRECIO_ENTRADA' | null;
+  tiposEntradaIds?: number[] | null;
+  minEntradas?: number | null;
+  maxEntradasAfectadas?: number | null;
+  topeDescuento?: number | null;
 }
 
 export interface DescuentoEfectivo {
@@ -117,6 +129,19 @@ export class ConfiguracionService {
 
   crearCupon(request: CrearCuponRequest): Observable<Cupon> {
     return this.http.post<Cupon>(this.cuponesUrl, request);
+  }
+
+  /** Reemplaza usos máximos, vencimiento y activo (null = sin límite / sin vencimiento). */
+  actualizarCupon(id: number, cambios: { usosMaximos: number | null; fechaExpiracion: string | null; activo: boolean }): Observable<Cupon> {
+    return this.http.put<Cupon>(`${this.cuponesUrl}/${id}`, cambios);
+  }
+
+  cambiarActivoFamilia(id: number, activo: boolean): Observable<FamiliaCupon> {
+    return this.http.put<FamiliaCupon>(`${this.cuponesUrl}/familias/${id}/activo`, { activo });
+  }
+
+  cambiarVencimientoFamilia(id: number, fechaExpiracion: string | null): Observable<FamiliaCupon> {
+    return this.http.put<FamiliaCupon>(`${this.cuponesUrl}/familias/${id}/vencimiento`, { fechaExpiracion });
   }
 
   generarFamilia(request: CrearFamiliaCuponRequest): Observable<FamiliaCupon> {

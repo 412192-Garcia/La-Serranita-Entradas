@@ -22,6 +22,10 @@ export interface CompraResponseDTO {
 export interface CotizacionResponseDTO {
   subtotal: number;
   ahorro: number;
+  /** Lo que descuenta el cupón sobre las entradas (0 si no vino cupón o no aplica). */
+  descuentoCupon?: number;
+  /** Por qué el cupón no aplica con estas entradas, o null. */
+  avisoCupon?: string | null;
 }
 
 @Injectable({

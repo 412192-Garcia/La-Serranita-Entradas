@@ -28,6 +28,8 @@ export class Resumen {
   @Input() cargandoPago: boolean = false;
   /** Fuente de verdad: vive en el padre porque debe sobrevivir a un cambio de forma de pago. */
   @Input() cuponAplicado: Cupon | null = null;
+  /** Por qué el cupón aplicado no descuenta con las entradas elegidas, o null. */
+  @Input() avisoCupon: string | null = null;
 
   @Output() confirmarPago = new EventEmitter<void>();
   @Output() volverAtras = new EventEmitter<void>();

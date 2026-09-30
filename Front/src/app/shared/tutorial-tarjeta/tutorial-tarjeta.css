@@ -1,0 +1,48 @@
+/* Ancla: la tarjeta que lo contiene es `position: relative` (clase .tarjeta-con-tutorial).
+   Sin z-index a propósito: con z-index este host crea su propio contexto de apilamiento y el
+   overlay del tutorial (position: fixed, z-index 998) queda atrapado adentro, por debajo del
+   botón de la tarjeta que viene después en el DOM — que se veía "iluminado" encima. */
+:host {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+}
+
+.btn-tutorial-tarjeta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1.5px solid var(--color-border);
+  border-radius: 50%;
+  background-color: var(--color-card-bg);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-tutorial-tarjeta svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.btn-tutorial-tarjeta:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary-dark);
+}
+
+.btn-tutorial-tarjeta:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(57, 169, 53, 0.35);
+}
+
+/* Mínimo táctil en pantallas táctiles, igual que el resto de los botones (ver pointer: coarse). */
+@media (pointer: coarse) {
+  .btn-tutorial-tarjeta {
+    width: 44px;
+    height: 44px;
+  }
+}

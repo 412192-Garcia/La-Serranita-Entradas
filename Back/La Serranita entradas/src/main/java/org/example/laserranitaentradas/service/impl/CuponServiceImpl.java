@@ -1,14 +1,18 @@
 package org.example.laserranitaentradas.service.impl;
 
+import org.example.laserranitaentradas.model.dto.ActualizarCuponRequest;
 import org.example.laserranitaentradas.model.dto.CrearCuponRequest;
+import org.example.laserranitaentradas.model.entity.AplicacionDescuento;
 import org.example.laserranitaentradas.model.entity.Cupon;
 import org.example.laserranitaentradas.repository.CuponRepository;
 import org.example.laserranitaentradas.service.CuponService;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.security.SecureRandom;
 import java.time.LocalDate;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -43,7 +47,7 @@ public class CuponServiceImpl implements CuponService {
     public List<Cupon> getAllActive() {
         LocalDate hoy = LocalDate.now();
         return cuponRepository.findAll().stream()
-                .filter(cupon -> cupon.getActivo() && cupon.getFechaExpiracion().isAfter(hoy))
+                .filter(cupon -> cupon.getActivo() && (cupon.getFechaExpiracion() == null || cupon.getFechaExpiracion().isAfter(hoy)))
                 .collect(Collectors.toList());
     }
 
@@ -69,12 +73,12 @@ public class CuponServiceImpl implements CuponService {
 
     @Override
     public Cupon create(CrearCuponRequest request) {
-        boolean tienePorcentaje = request.getPorcentajeDescuento() != null && request.getPorcentajeDescuento().compareTo(BigDecimal.ZERO) > 0;
-        boolean tieneMonto = request.getMontoDescuento() != null && request.getMontoDescuento().compareTo(BigDecimal.ZERO) > 0;
-        // Exactamente uno: si vienen los dos, el cálculo del descuento (ver CompraServiceImpl)
-        // usaría el porcentaje y el monto quedaría de adorno, callado.
-        if (tienePorcentaje == tieneMonto) {
-            throw new IllegalArgumentException("El cupón necesita un porcentaje o un monto de descuento mayor a cero (uno solo, no los dos).");
+        CuponDescuentoCalculator.validarReglas(request.getPorcentajeDescuento(), request.getMontoDescuento(),
+                request.getAplicaPor(), request.getMinEntradas(), request.getMaxEntradasAfectadas(),
+                request.getTopeDescuento(), request.getFechaDesde(), request.getFechaExpiracion());
+
+        if (request.getUsosMaximos() != null && request.getUsosMaximos() < 1) {
+            throw new IllegalArgumentException("Los usos máximos tienen que ser 1 o más (o dejarlo vacío para no limitarlos).");
         }
 
         String codigo = request.getCodigo();
@@ -93,15 +97,56 @@ public class CuponServiceImpl implements CuponService {
 
         Cupon cupon = Cupon.builder()
                 .codigo(codigo)
-                .fechaExpiracion(request.getFechaExpiracion() == null ? LocalDate.now().plusMonths(1) : request.getFechaExpiracion())
-                .usosMaximos(request.getUsosMaximos() == null ? 1 : request.getUsosMaximos())
+                // Opcionales: vacío es sin vencimiento / sin límite de usos.
+                .fechaExpiracion(request.getFechaExpiracion())
+                .usosMaximos(request.getUsosMaximos())
                 .porcentajeDescuento(request.getPorcentajeDescuento())
                 .montoDescuento(request.getMontoDescuento())
                 .activo(true)
                 .usosActuales(0)
+                .fechaDesde(request.getFechaDesde())
+                .aplicaPor(request.getAplicaPor() == null ? AplicacionDescuento.COMPRA : request.getAplicaPor())
+                .tiposEntradaIds(request.getTiposEntradaIds() == null ? new HashSet<>() : new HashSet<>(request.getTiposEntradaIds()))
+                .minEntradas(request.getMinEntradas())
+                .maxEntradasAfectadas(request.getMaxEntradasAfectadas())
+                .topeDescuento(request.getTopeDescuento())
                 .build();
 
         return cuponRepository.save(cupon);
+    }
+
+    @Override
+    @Transactional
+    public Cupon actualizar(Long id, ActualizarCuponRequest request) {
+        Cupon cupon = cuponRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Cupón no encontrado ID: " + id));
+        if (request.getActivo() == null) {
+            throw new IllegalArgumentException("Falta indicar si el cupón queda activo o no.");
+        }
+        Integer usos = request.getUsosMaximos();
+        LocalDate vence = request.getFechaExpiracion();
+        boolean activo = request.getActivo();
+
+        if (usos != null && usos < 1) {
+            throw new IllegalArgumentException("Los usos máximos tienen que ser 1 o más (o dejarlo vacío para no limitarlos).");
+        }
+        if (usos != null && usos < cupon.getUsosActuales()) {
+            throw new IllegalArgumentException("El cupón ya se usó " + cupon.getUsosActuales()
+                    + " veces: los usos máximos no pueden ser menos.");
+        }
+        if (vence != null && cupon.getFechaDesde() != null && vence.isBefore(cupon.getFechaDesde())) {
+            throw new IllegalArgumentException("El vencimiento no puede ser anterior a la fecha desde (" + cupon.getFechaDesde() + ").");
+        }
+        // Un cupón agotado o vencido no se puede dejar activo: se rechazaría en cada compra.
+        if (activo && usos != null && cupon.getUsosActuales() >= usos) {
+            throw new IllegalArgumentException("El cupón está agotado: subí los usos máximos para poder activarlo.");
+        }
+        if (activo && vence != null && vence.isBefore(LocalDate.now())) {
+            throw new IllegalArgumentException("El cupón está vencido: cambiá el vencimiento para poder activarlo.");
+        }
+
+        cuponRepository.actualizarVigencia(id, usos, vence, activo);
+        return cuponRepository.findById(id).orElseThrow();
     }
 
     private String generarCodigoAleatorio(int length) {
