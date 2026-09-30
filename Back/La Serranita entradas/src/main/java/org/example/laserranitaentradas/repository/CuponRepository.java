@@ -27,6 +27,8 @@ public interface CuponRepository extends JpaRepository<Cupon, Long> {
      * validación y las diez se llevaban el descuento: un cupón de un solo uso se canjeaba diez
      * veces y el contador terminaba en 1, sin ningún error ni log que lo delatara.
      *
+     * Un cupón sin fecha de expiración no vence y uno sin usos máximos no se agota.
+     *
      * Devuelve la cantidad de filas afectadas: 1 si se pudo consumir, 0 si el cupón ya estaba
      * agotado, inactivo o vencido — quien llama tiene que rechazar la compra en ese caso.
      */
@@ -39,11 +41,12 @@ public interface CuponRepository extends JpaRepository<Cupon, Long> {
     @Query("""
             UPDATE Cupon c
                SET c.usosActuales = c.usosActuales + 1,
-                   c.activo = CASE WHEN c.usosActuales + 1 >= c.usosMaximos THEN false ELSE c.activo END
+                   c.activo = CASE WHEN c.usosMaximos IS NOT NULL AND c.usosActuales + 1 >= c.usosMaximos THEN false ELSE c.activo END
              WHERE c.id = :id
                AND c.activo = true
-               AND c.usosActuales < c.usosMaximos
-               AND c.fechaExpiracion >= :hoy
+               AND (c.usosMaximos IS NULL OR c.usosActuales < c.usosMaximos)
+               AND (c.fechaExpiracion IS NULL OR c.fechaExpiracion >= :hoy)
+               AND (c.fechaDesde IS NULL OR c.fechaDesde <= :hoy)
             """)
     int consumirUso(@Param("id") Long id, @Param("hoy") LocalDate hoy);
 
@@ -64,12 +67,51 @@ public interface CuponRepository extends JpaRepository<Cupon, Long> {
     @Query("""
             UPDATE Cupon c
                SET c.usosActuales = c.usosActuales - 1,
-                   c.activo = CASE WHEN c.usosActuales - 1 < c.usosMaximos
-                                    AND c.fechaExpiracion >= :hoy
+                   c.activo = CASE WHEN (c.usosMaximos IS NULL OR c.usosActuales - 1 < c.usosMaximos)
+                                    AND (c.fechaExpiracion IS NULL OR c.fechaExpiracion >= :hoy)
                                    THEN true ELSE c.activo END
              WHERE c.id = :id
                AND c.usosActuales > 0
             """)
     int liberarUso(@Param("id") Long id, @Param("hoy") LocalDate hoy);
-}
 
+    /**
+     * Cambia usos máximos, vencimiento y activo de UN cupón sin tocar usosActuales, que sigue
+     * siendo cosa de consumirUso/liberarUso: guardar la entidad entera pisaría con un valor
+     * viejo el uso que otra compra acaba de consumir.
+     */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("""
+            UPDATE Cupon c
+               SET c.usosMaximos = :usosMaximos,
+                   c.fechaExpiracion = :fechaExpiracion,
+                   c.activo = :activo
+             WHERE c.id = :id
+            """)
+    int actualizarVigencia(@Param("id") Long id, @Param("usosMaximos") Integer usosMaximos,
+                           @Param("fechaExpiracion") LocalDate fechaExpiracion, @Param("activo") boolean activo);
+
+    /** Apaga todos los cupones de un lote. */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("UPDATE Cupon c SET c.activo = false WHERE c.familiaCupon.id = :familiaId")
+    int desactivarFamilia(@Param("familiaId") Long familiaId);
+
+    /**
+     * Prende los cupones de un lote que todavía pueden usarse: un cupón agotado o vencido se
+     * queda apagado (reactivarlo sólo lo dejaría rechazando compras).
+     */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("""
+            UPDATE Cupon c
+               SET c.activo = true
+             WHERE c.familiaCupon.id = :familiaId
+               AND (c.usosMaximos IS NULL OR c.usosActuales < c.usosMaximos)
+               AND (c.fechaExpiracion IS NULL OR c.fechaExpiracion >= :hoy)
+            """)
+    int activarFamilia(@Param("familiaId") Long familiaId, @Param("hoy") LocalDate hoy);
+
+    /** Cambia el vencimiento de todos los cupones de un lote (null = sin vencimiento). */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("UPDATE Cupon c SET c.fechaExpiracion = :fechaExpiracion WHERE c.familiaCupon.id = :familiaId")
+    int cambiarVencimientoFamilia(@Param("familiaId") Long familiaId, @Param("fechaExpiracion") LocalDate fechaExpiracion);
+}

@@ -320,6 +320,8 @@ export class Entradas implements OnInit, OnDestroy {
    * (precio de lista o precio de grupo), que sólo se conoce en este nivel.
    */
   cuponAplicado: Cupon | null = null;
+  /** Por qué el cupón aplicado no descuenta con las entradas elegidas (mínimo, tipo de entrada...), o null. */
+  avisoCupon: string | null = null;
 
   compraAcumulada: ResumenCompraData = {
     fechaVisita: null,
@@ -372,13 +374,19 @@ export class Entradas implements OnInit, OnDestroy {
 
     this.compraService.cotizar({
       formaPago: this.compraAcumulada.formaPago,
-      entradas: entradasPayload
+      entradas: entradasPayload,
+      cuponCodigo: this.cuponAplicado?.codigo ?? null
     }).subscribe({
       next: (res) => {
         this.ngZone.run(() => {
           this.compraAcumulada.subtotal = res.subtotal;
           this.compraAcumulada.descuentoGrupo = res.ahorro > 0 ? res.ahorro : 0;
-          this.recalcularTotal();
+          // El descuento del cupón lo calcula el backend (tipos de entrada, mínimo y máximo de
+          // entradas, por compra o por entrada, tope): así el total que se ve es el que se cobra.
+          const descuentoCupon = this.cuponAplicado ? (res.descuentoCupon ?? 0) : 0;
+          this.avisoCupon = this.cuponAplicado ? (res.avisoCupon ?? null) : null;
+          this.compraAcumulada.descuentoMonto = descuentoCupon;
+          this.compraAcumulada.total = Math.max(0, this.compraAcumulada.subtotal - descuentoCupon);
           this.cdr.detectChanges();
         });
       },
@@ -402,16 +410,18 @@ export class Entradas implements OnInit, OnDestroy {
    * no deja un monto de cupón calculado sobre una base que ya no corresponde.
    */
   private recalcularTotal(): void {
-    const descuentoCupon = this.calcularDescuentoCupon(this.cuponAplicado, this.compraAcumulada.subtotal);
-    this.compraAcumulada.descuentoMonto = descuentoCupon;
-    this.compraAcumulada.total = Math.max(0, this.compraAcumulada.subtotal - descuentoCupon);
-  }
-
-  private calcularDescuentoCupon(cupon: Cupon | null, subtotal: number): number {
-    if (!cupon || subtotal <= 0) return 0;
-    if (cupon.porcentajeDescuento) return (subtotal * cupon.porcentajeDescuento) / 100;
-    if (cupon.montoDescuento) return Math.min(cupon.montoDescuento, subtotal);
-    return 0;
+    // Sin cupón no hay nada que pedirle al backend. Con cupón se cotiza de nuevo, porque el
+    // descuento depende de las entradas elegidas (ver actualizarCotizacion).
+    if (!this.cuponAplicado) {
+      this.avisoCupon = null;
+      this.compraAcumulada.descuentoMonto = 0;
+      this.compraAcumulada.total = Math.max(0, this.compraAcumulada.subtotal);
+      return;
+    }
+    // Mientras llega la cotización no se muestra ningún descuento (mejor que uno desactualizado).
+    this.compraAcumulada.descuentoMonto = 0;
+    this.compraAcumulada.total = Math.max(0, this.compraAcumulada.subtotal);
+    this.actualizarCotizacion();
   }
 
   onPasoSiguiente(datosPaso: any): void {

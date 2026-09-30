@@ -19,6 +19,7 @@ import org.example.laserranitaentradas.model.entity.ArticuloVario;
 import org.example.laserranitaentradas.model.entity.Caja;
 import org.example.laserranitaentradas.model.entity.Compra;
 import org.example.laserranitaentradas.model.entity.CompraDetalle;
+import org.example.laserranitaentradas.model.entity.AplicacionDescuento;
 import org.example.laserranitaentradas.model.entity.Cupon;
 import org.example.laserranitaentradas.model.entity.EstadoCompra;
 import org.example.laserranitaentradas.model.entity.FormaPago;
@@ -84,15 +85,23 @@ public class ReporteServiceImpl implements ReporteService {
      * en vez de bucketear sólo por hora como antes. */
     private record ClaveHora(DayOfWeek dia, int hora) {}
 
-    /** "15%" o "$1.000" según cómo esté definido el cupón. */
+    /**
+     * Cómo se agrupa un cupón en el reporte: el nombre del lote si es de un lote (así los miles
+     * de códigos de un lote cuentan juntos), o su código si es individual, más el valor del
+     * descuento: "La Voz (importado) · 20%", "NUEVAWEB · $17.500".
+     */
     private static String etiquetaCupon(Cupon cupon) {
+        String valor = "Cupón";
         if (cupon.getPorcentajeDescuento() != null && cupon.getPorcentajeDescuento().compareTo(BigDecimal.ZERO) > 0) {
-            return cupon.getPorcentajeDescuento().stripTrailingZeros().toPlainString() + "%";
+            valor = cupon.getPorcentajeDescuento().stripTrailingZeros().toPlainString() + "%";
+        } else if (cupon.getMontoDescuento() != null && cupon.getMontoDescuento().compareTo(BigDecimal.ZERO) > 0) {
+            String monto = "$" + cupon.getMontoDescuento().stripTrailingZeros().toPlainString();
+            valor = cupon.getAplicaPor() == AplicacionDescuento.ENTRADA ? monto + " por entrada"
+                    : cupon.getAplicaPor() == AplicacionDescuento.PRECIO_ENTRADA ? "entrada a " + monto
+                    : monto;
         }
-        if (cupon.getMontoDescuento() != null && cupon.getMontoDescuento().compareTo(BigDecimal.ZERO) > 0) {
-            return "$" + cupon.getMontoDescuento().stripTrailingZeros().toPlainString();
-        }
-        return "Cupón";
+        String origen = cupon.getFamiliaCupon() != null ? cupon.getFamiliaCupon().getNombre() : cupon.getCodigo();
+        return origen == null ? valor : origen + " · " + valor;
     }
 
     private final CompraRepository compraRepository;

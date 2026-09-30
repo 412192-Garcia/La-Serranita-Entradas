@@ -14,4 +14,6 @@ public class CotizacionRequestDTO {
     Long promocionId;
     BigDecimal descuentoManualPorcentaje;
     BigDecimal descuentoManualMonto;
+    /** Cupón online a aplicar sobre las entradas (opcional). */
+    String cuponCodigo;
 }

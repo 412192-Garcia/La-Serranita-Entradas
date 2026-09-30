@@ -443,8 +443,12 @@ public class CompraServiceImpl implements CompraService {
                 if (cupon.getUsosMaximos() != null && cupon.getUsosActuales() >= cupon.getUsosMaximos()) {
                     throw new IllegalArgumentException("Cupón ha alcanzado su límite de usos: " + compraRequest.getCuponCodigo());
                 }
-                if (!cupon.getActivo() || cupon.getFechaExpiracion().isBefore(hoy)) {
+                if (!cupon.getActivo() || (cupon.getFechaExpiracion() != null && cupon.getFechaExpiracion().isBefore(hoy))) {
                     throw new IllegalArgumentException("Cupón no válido o expirado: " + compraRequest.getCuponCodigo());
+                }
+                if (cupon.getFechaDesde() != null && cupon.getFechaDesde().isAfter(hoy)) {
+                    throw new IllegalArgumentException("El cupón " + compraRequest.getCuponCodigo()
+                            + " recién se puede usar desde el " + cupon.getFechaDesde() + ".");
                 }
             } else {
                 throw new IllegalArgumentException("Cupón no encontrado para código: " + compraRequest.getCuponCodigo());
@@ -461,11 +465,13 @@ public class CompraServiceImpl implements CompraService {
 
         BigDecimal descuentoAplicado = BigDecimal.ZERO;
         if (cupon != null) {
-            if (cupon.getPorcentajeDescuento() != null) {
-                descuentoAplicado = montoTotal.multiply(cupon.getPorcentajeDescuento()).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-            } else if (cupon.getMontoDescuento() != null) {
-                descuentoAplicado = cupon.getMontoDescuento();
+            // Las reglas del cupón (tipos de entrada, mínimo/máximo de entradas, por compra o por
+            // entrada, tope) están en el calculador, el mismo que usa la cotización.
+            CuponDescuentoCalculator.Resultado resultadoCupon = CuponDescuentoCalculator.calcular(cupon, calculo.lineasEntrada());
+            if (resultadoCupon.motivoNoAplica() != null) {
+                throw new IllegalArgumentException(resultadoCupon.motivoNoAplica());
             }
+            descuentoAplicado = resultadoCupon.descuento();
 
             if (descuentoAplicado.compareTo(montoTotal) > 0) {
                 descuentoAplicado = montoTotal;
@@ -712,6 +718,7 @@ public class CompraServiceImpl implements CompraService {
 
         BigDecimal subtotal = BigDecimal.ZERO;
         BigDecimal ahorro = BigDecimal.ZERO;
+        List<CuponDescuentoCalculator.Linea> lineasCupon = new ArrayList<>();
 
         if (cotizacionRequest.getEntradas() != null) {
             for (DetalleCompraDTO d : cotizacionRequest.getEntradas()) {
@@ -720,8 +727,10 @@ public class CompraServiceImpl implements CompraService {
                 TipoEntrada tipoEntrada = tipoEntradaService.findById(d.getTipoEntradaId())
                         .orElseThrow(() -> new IllegalArgumentException("TipoEntrada no encontrada para id: " + d.getTipoEntradaId()));
 
-                subtotal = subtotal.add(calculoPrecioService.calcularTotal(tipoEntrada, d.getCantidad(), formaPago));
+                BigDecimal totalLinea = calculoPrecioService.calcularTotal(tipoEntrada, d.getCantidad(), formaPago);
+                subtotal = subtotal.add(totalLinea);
                 ahorro = ahorro.add(calculoPrecioService.calcularAhorro(tipoEntrada, d.getCantidad(), formaPago));
+                lineasCupon.add(new CuponDescuentoCalculator.Linea(d.getTipoEntradaId(), d.getCantidad(), totalLinea));
             }
         }
 
@@ -740,7 +749,39 @@ public class CompraServiceImpl implements CompraService {
         CotizacionResponseDTO dto = new CotizacionResponseDTO();
         dto.setSubtotal(subtotal.subtract(descuento));
         dto.setAhorro(ahorro);
+        aplicarCuponACotizacion(cotizacionRequest, lineasCupon, dto);
         return dto;
+    }
+
+    /**
+     * Le suma a la cotización lo que descontaría el cupón. Nunca tira: si el cupón no aplica
+     * (no existe, no vigente, o no cumple sus reglas con estas entradas) el descuento queda en
+     * cero y el motivo va en avisoCupon, para que el resumen lo muestre en vez de dar error.
+     * La compra en sí sí lo rechaza (ver create).
+     */
+    private void aplicarCuponACotizacion(CotizacionRequestDTO request, List<CuponDescuentoCalculator.Linea> lineas,
+                                         CotizacionResponseDTO dto) {
+        String codigo = request.getCuponCodigo();
+        if (codigo == null || codigo.isBlank()) return;
+
+        Optional<Cupon> encontrado = cuponService.getByCode(codigo);
+        if (encontrado.isEmpty()) {
+            dto.setAvisoCupon("Cupón no encontrado: " + codigo);
+            return;
+        }
+        Cupon cupon = encontrado.get();
+        LocalDate hoy = LocalDate.now();
+        if (!cupon.getActivo() || (cupon.getFechaExpiracion() != null && cupon.getFechaExpiracion().isBefore(hoy))) {
+            dto.setAvisoCupon("Cupón no válido o expirado: " + codigo);
+            return;
+        }
+        if (cupon.getFechaDesde() != null && cupon.getFechaDesde().isAfter(hoy)) {
+            dto.setAvisoCupon("El cupón " + codigo + " recién se puede usar desde el " + cupon.getFechaDesde() + ".");
+            return;
+        }
+        CuponDescuentoCalculator.Resultado resultado = CuponDescuentoCalculator.calcular(cupon, lineas);
+        dto.setAvisoCupon(resultado.motivoNoAplica());
+        dto.setDescuentoCupon(resultado.descuento());
     }
 
     @Override
@@ -789,7 +830,12 @@ public class CompraServiceImpl implements CompraService {
     }
 
     /** Detalles ya validados junto con el monto que suman, para devolver ambos de una sola pasada. */
-    private record DetallesCalculados(List<CompraDetalle> detalles, BigDecimal montoTotal) {}
+    private record DetallesCalculados(List<CompraDetalle> detalles, BigDecimal montoTotal,
+                                      List<CuponDescuentoCalculator.Linea> lineasEntrada) {
+        DetallesCalculados(List<CompraDetalle> detalles, BigDecimal montoTotal) {
+            this(detalles, montoTotal, List.of());
+        }
+    }
 
     /**
      * Cantidad ya vendida ese día por tipo de entrada, para chequear contra el cupo diario:
@@ -845,6 +891,7 @@ public class CompraServiceImpl implements CompraService {
 
         BigDecimal montoTotal = BigDecimal.ZERO;
         List<CompraDetalle> detalles = new ArrayList<>();
+        List<CuponDescuentoCalculator.Linea> lineasEntrada = new ArrayList<>();
 
         if (entradas != null) {
             for (DetalleCompraDTO d : entradas) {
@@ -865,9 +912,12 @@ public class CompraServiceImpl implements CompraService {
 
                 // RESERVA_ADMIN no cobra nada por acá: no tiene sentido pedirle un precio a
                 // calculoPrecioService (que sólo sabe de precio de lista/grupo para las formas de pago reales).
+                BigDecimal totalLinea = BigDecimal.ZERO;
                 if (formaPago != FormaPago.RESERVA_ADMIN) {
-                    montoTotal = montoTotal.add(calculoPrecioService.calcularTotal(tipoEntrada, d.getCantidad(), formaPago));
+                    totalLinea = calculoPrecioService.calcularTotal(tipoEntrada, d.getCantidad(), formaPago);
+                    montoTotal = montoTotal.add(totalLinea);
                 }
+                lineasEntrada.add(new CuponDescuentoCalculator.Linea(tipoId, d.getCantidad(), totalLinea));
 
                 detalles.add(CompraDetalle.builder()
                         .tipoEntrada(tipoEntrada)
@@ -876,7 +926,7 @@ public class CompraServiceImpl implements CompraService {
             }
         }
 
-        return new DetallesCalculados(detalles, montoTotal);
+        return new DetallesCalculados(detalles, montoTotal, lineasEntrada);
     }
 
     /**

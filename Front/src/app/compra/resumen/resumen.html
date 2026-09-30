@@ -58,9 +58,13 @@
             <small class="cupon-error-msg">{{ errorCupon }}</small>
           }
           @if (cuponAplicado) {
-            <small class="cupon-success-msg">
-              ¡Cupón {{ cuponAplicado.codigo }} aplicado! (-{{ cuponAplicado.porcentajeDescuento ? cuponAplicado.porcentajeDescuento + '%' : (cuponAplicado.montoDescuento | pesos) }})
-            </small>
+            @if (avisoCupon) {
+              <small class="cupon-error-msg">{{ avisoCupon }}</small>
+            } @else {
+              <small class="cupon-success-msg">
+                ¡Cupón {{ cuponAplicado.codigo }} aplicado! (-{{ datosCompra.descuentoMonto | pesos }})
+              </small>
+            }
           }
         </div>
       </div>

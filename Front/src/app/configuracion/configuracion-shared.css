@@ -40,6 +40,16 @@
   padding-left: 20px;
 }
 
+/* Tarjeta con botón de tutorial en la esquina (ver shared/tutorial-tarjeta): es el ancla del
+   botón y el título deja lugar para que no se le monte encima. */
+.tarjeta-con-tutorial {
+  position: relative;
+}
+
+.tarjeta-con-tutorial > h2 {
+  padding-right: 3rem;
+}
+
 .tarjeta-formulario h2 {
   display: flex;
   align-items: center;

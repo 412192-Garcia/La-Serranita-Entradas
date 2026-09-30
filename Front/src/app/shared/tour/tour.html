@@ -3,6 +3,7 @@
     @if (rectObjetivo(); as r) {
       <div
         class="tour-spotlight"
+        [class.tour-animado]="animar()"
         [style.top.px]="r.top - 6"
         [style.left.px]="r.left - 6"
         [style.width.px]="r.width + 12"
@@ -13,6 +14,7 @@
       <div
         #popover
         class="tour-popover"
+        [class.tour-animado]="animar()"
         [style.top.px]="pos.top"
         [style.left.px]="pos.left"
         tabindex="-1"

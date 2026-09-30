@@ -8,6 +8,7 @@ import org.example.laserranitaentradas.model.dto.VentasPorHoraDTO;
 import org.example.laserranitaentradas.model.entity.Caja;
 import org.example.laserranitaentradas.model.entity.Compra;
 import org.example.laserranitaentradas.model.entity.Cupon;
+import org.example.laserranitaentradas.model.entity.FamiliaCupon;
 import org.example.laserranitaentradas.model.entity.CompraDetalle;
 import org.example.laserranitaentradas.model.entity.EstadoCompra;
 import org.example.laserranitaentradas.model.entity.FormaPago;
@@ -271,6 +272,7 @@ class ReporteServiceImplTest {
     void generarResumen_compraConCupon_seDesglosaPorEtiquetaDeCupon() {
         Cupon cupon = new Cupon();
         cupon.setId(7L);
+        cupon.setCodigo("VERANO");
         cupon.setPorcentajeDescuento(new BigDecimal("15"));
         Compra conCupon = ventaPuerta("3000", FormaPago.EFECTIVO_BOLETERIA, DIA);
         conCupon.setDescuentoAplicado(new BigDecimal("450"));
@@ -280,9 +282,40 @@ class ReporteServiceImplTest {
         ReporteResumenDTO resumen = service.generarResumen(DIA, DIA);
 
         assertThat(resumen.getUsoCupones()).singleElement().satisfies(u -> {
-            assertThat(u.getEtiqueta()).isEqualTo("15%");
+            assertThat(u.getEtiqueta()).isEqualTo("VERANO · 15%");
             assertThat(u.getCantidad()).isEqualTo(1);
             assertThat(u.getMontoDescontado()).isEqualByComparingTo("450");
+        });
+    }
+
+    @Test
+    void generarResumen_cuponesDeUnLote_seAgrupanPorNombreDelLote() {
+        FamiliaCupon lote = new FamiliaCupon();
+        lote.setNombre("La Voz");
+        Cupon a = new Cupon();
+        a.setId(1L);
+        a.setCodigo("LAVOZAAA");
+        a.setPorcentajeDescuento(new BigDecimal("20"));
+        a.setFamiliaCupon(lote);
+        Cupon b = new Cupon();
+        b.setId(2L);
+        b.setCodigo("LAVOZBBB");
+        b.setPorcentajeDescuento(new BigDecimal("20"));
+        b.setFamiliaCupon(lote);
+        Compra c1 = ventaPuerta("3000", FormaPago.EFECTIVO_BOLETERIA, DIA);
+        c1.setDescuentoAplicado(new BigDecimal("600"));
+        c1.setCupon(a);
+        Compra c2 = ventaPuerta("4000", FormaPago.EFECTIVO_BOLETERIA, DIA);
+        c2.setDescuentoAplicado(new BigDecimal("800"));
+        c2.setCupon(b);
+
+        stubReporte(c1, c2);
+        ReporteResumenDTO resumen = service.generarResumen(DIA, DIA);
+
+        assertThat(resumen.getUsoCupones()).singleElement().satisfies(u -> {
+            assertThat(u.getEtiqueta()).isEqualTo("La Voz · 20%");
+            assertThat(u.getCantidad()).isEqualTo(2);
+            assertThat(u.getMontoDescontado()).isEqualByComparingTo("1400");
         });
     }
 

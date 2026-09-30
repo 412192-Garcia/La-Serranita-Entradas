@@ -10,6 +10,11 @@
   border-radius: 10px;
   box-shadow: 0 0 0 9999px rgba(15, 23, 42, 0.65);
   pointer-events: none;
+}
+
+/* La transición sólo se activa al viajar a otro paso (clase puesta desde tour.ts): al seguir un
+   scroll o un resize tiene que ir sin ella, o el recuadro se arrastra 250 ms atrás del elemento. */
+.tour-spotlight.tour-animado {
   transition: top 0.25s ease, left 0.25s ease, width 0.25s ease, height 0.25s ease;
 }
 
@@ -25,6 +30,9 @@
   box-shadow: var(--shadow-card-lg);
   padding: 20px 22px;
   z-index: 999;
+}
+
+.tour-popover.tour-animado {
   transition: top 0.25s ease, left 0.25s ease;
 }
 

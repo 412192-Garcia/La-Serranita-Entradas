@@ -6,13 +6,13 @@ import lombok.Data;
 import java.math.BigDecimal;
 
 /**
- * Cupones aplicados en el rango, agrupados por el valor del descuento del cupón ("10%", "$500"),
- * para ver qué descuentos se usan más. Sólo cuenta compras cobradas.
+ * Cupones aplicados en el rango, agrupados por lote (o por código si es individual) y valor del
+ * descuento, para ver qué promociones se usan más. Sólo cuenta compras cobradas.
  */
 @Data
 @AllArgsConstructor
 public class UsoCuponDTO {
-    /** El valor del cupón: "15%" o "$1.000". */
+    /** Lote o código y valor del cupón: "La Voz · 20%", "NUEVAWEB · $17.500 por entrada". */
     private String etiqueta;
     private long cantidad;
     /** Suma de descuentoAplicado de esas compras. */

@@ -67,6 +67,14 @@ export class Tour {
   pasoActual = signal(0);
   rectObjetivo = signal<RectObjetivo | null>(null);
   posicionPopover = signal<PosicionPopover | null>(null);
+  /** Si spotlight y popover se desplazan con transición CSS: sólo al pasar de un paso a otro (el
+   * recuadro "viaja" al nuevo elemento). Al seguir un scroll o un resize tiene que ser false: con
+   * la transición, cada movimiento llega 250 ms tarde y el recuadro se ve arrastrándose atrás del
+   * elemento. */
+  animar = signal(false);
+  /** id del requestAnimationFrame pendiente de onScroll/onResize (0 = ninguno): agrupa todos los
+   * eventos de un mismo cuadro en una sola medición. */
+  private cuadroPendiente = 0;
 
   pasoInfo = computed(() => this.pasos()[this.pasoActual()] ?? null);
   esUltimoPaso = computed(() => this.pasoActual() >= this.pasos().length - 1);
@@ -101,7 +109,7 @@ export class Tour {
 
   @HostListener('window:resize')
   onResize(): void {
-    if (this.activo()) this.reposicionar();
+    if (this.activo()) this.reposicionarEnElProximoCuadro();
   }
 
   /** A propósito NO llama a posicionar() (que hace scrollIntoView): un scroll programático
@@ -112,7 +120,18 @@ export class Tour {
    * mientras el tour está abierto) sin tocar el scroll en sí. */
   @HostListener('window:scroll')
   onScroll(): void {
-    if (this.activo()) this.reposicionar();
+    if (this.activo()) this.reposicionarEnElProximoCuadro();
+  }
+
+  /** Los eventos de scroll/resize pueden llegar varias veces por cuadro: se mide una sola vez,
+   * justo antes de pintar, para que el recuadro quede clavado al elemento y no vaya un cuadro
+   * atrás. */
+  private reposicionarEnElProximoCuadro(): void {
+    if (this.cuadroPendiente) return;
+    this.cuadroPendiente = requestAnimationFrame(() => {
+      this.cuadroPendiente = 0;
+      if (this.activo()) this.reposicionar();
+    });
   }
 
   @HostListener('window:keydown', ['$event'])
@@ -183,6 +202,7 @@ export class Tour {
       // El elemento no está (ej. el POS sin caja abierta no tiene ni catálogo ni barra de caja):
       // antes el popover desaparecía y el tour quedaba trabado sin botones. Ahora el paso se
       // muestra igual, centrado y sin resaltar nada, para poder leerlo, seguir o saltar.
+      this.animar.set(true);
       this.rectObjetivo.set(null);
       this.posicionPopover.set({
         top: Math.max(MARGEN, (window.innerHeight - this.alturaPopover) / 2),
@@ -194,7 +214,7 @@ export class Tour {
     // Si ya está a la vista no hace falta scrollear ni esperar nada — eso era justamente lo que
     // podía asomar la posición vieja/a mitad de camino por un instante antes de acomodarse.
     if (this.elementoYaVisible(elemento)) {
-      this.medirYPosicionar(elemento);
+      this.medirYPosicionar(elemento, true);
       this.medirAlturaPopoverYRefinar(paso);
       return;
     }
@@ -209,7 +229,7 @@ export class Tour {
       // tanto, el viejo está desconectado y mide todo en cero.
       const actual = this.elementoDe(paso);
       if (!actual || this.pasoInfo() !== paso) return;
-      this.medirYPosicionar(actual);
+      this.medirYPosicionar(actual, true);
       this.medirAlturaPopoverYRefinar(paso);
     });
   }
@@ -250,8 +270,11 @@ export class Tour {
     return r.top >= 0 && r.bottom <= window.innerHeight;
   }
 
-  private medirYPosicionar(elemento: HTMLElement): void {
+  /** `animar`: true sólo al llegar a un paso nuevo (ver la señal `animar`); seguir un scroll o un
+   * resize va sin transición. */
+  private medirYPosicionar(elemento: HTMLElement, animar = false): void {
     const r = this.medirRect(elemento);
+    this.animar.set(animar);
     this.rectObjetivo.set({ top: r.top, left: r.left, width: r.width, height: r.height });
     this.posicionPopover.set(this.calcularPosicionPopover(r));
   }
@@ -269,7 +292,7 @@ export class Tour {
         this.alturaPopover = alturaReal;
         // Elemento vuelto a buscar (ver posicionar): el que había puede haberse reemplazado.
         const actual = this.elementoDe(paso);
-        if (actual && this.pasoInfo() === paso) this.medirYPosicionar(actual);
+        if (actual && this.pasoInfo() === paso) this.medirYPosicionar(actual, this.animar());
       }
     });
   }
