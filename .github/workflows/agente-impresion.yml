@@ -1,0 +1,75 @@
+name: Agente de impresión
+
+# Compila el agente de la PC de la entrada y lo publica listo para instalar: un zip con el .exe
+# (con su propio Java, no hace falta instalar nada) y el instalador de doble clic. Así instalarlo
+# no requiere el repo ni Maven: se baja el zip de Releases y listo (ver AgenteImpresion/README.md).
+#
+# - Tag "agente-vX.Y.Z" (ej. git tag agente-v1.0.0 && git push origin agente-v1.0.0): crea el
+#   Release con el zip.
+# - "Run workflow" a mano, o un cambio en AgenteImpresion/ en main: sólo lo deja como artefacto
+#   del run, para probar sin publicar.
+
+on:
+  push:
+    tags: ["agente-v*"]
+    branches: [main]
+    paths: ["AgenteImpresion/**", ".github/workflows/agente-impresion.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    name: Compilar y empaquetar (Windows)
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+
+      - name: Compilar el agente
+        run: '"Back/La Serranita entradas/mvnw" -B -f AgenteImpresion/pom.xml package'
+
+      - name: Empaquetar con su propio Java (jpackage)
+        run: |
+          mkdir -p AgenteImpresion/target/paquete
+          cp AgenteImpresion/target/agente-impresion.jar AgenteImpresion/target/paquete/
+          jpackage --type app-image --name AgenteImpresion \
+            --input AgenteImpresion/target/paquete --main-jar agente-impresion.jar \
+            --add-modules java.base,java.logging \
+            --dest salida/AgenteImpresion-windows
+
+      - name: Armar el zip con el instalador
+        shell: pwsh
+        run: |
+          Copy-Item AgenteImpresion/instalador/* salida/AgenteImpresion-windows/
+          Copy-Item AgenteImpresion/agente.properties.example salida/AgenteImpresion-windows/AgenteImpresion/
+          Compress-Archive -Path salida/AgenteImpresion-windows/* -DestinationPath salida/AgenteImpresion-windows.zip
+
+      - name: Guardar como artefacto del run
+        uses: actions/upload-artifact@v4
+        with:
+          name: AgenteImpresion-windows
+          path: salida/AgenteImpresion-windows.zip
+
+      - name: Publicar Release
+        if: startsWith(github.ref, 'refs/tags/agente-v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: salida/AgenteImpresion-windows.zip
+          body: |
+            Agente de impresión para la PC de la entrada.
+
+            1. Bajar `AgenteImpresion-windows.zip` y descomprimirlo.
+            2. Doble clic en `instalar.bat` y contestar las preguntas (dirección del backend, token, IP de la ticketera).
+
+            Se instala en `C:\AgenteImpresion` y arranca solo con Windows. Para actualizar, repetir los mismos pasos con la versión nueva.
