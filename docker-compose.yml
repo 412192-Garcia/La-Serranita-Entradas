@@ -67,6 +67,12 @@ services:
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:4200}
       BOOTSTRAP_ADMIN_USERNAME: ${BOOTSTRAP_ADMIN_USERNAME:-}
       BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-}
+      AFIPSDK_ACCESS_TOKEN: ${AFIPSDK_ACCESS_TOKEN:-}
+      AFIP_ENVIRONMENT: ${AFIP_ENVIRONMENT:-dev}
+      AFIP_CUIT: ${AFIP_CUIT:-20409378472}
+      AFIP_CERT: ${AFIP_CERT:-}
+      AFIP_KEY: ${AFIP_KEY:-}
+      AFIP_PUNTO_VENTA_BOLETERIA: ${AFIP_PUNTO_VENTA_BOLETERIA:-1}
     # Sin ports: acá a propósito — en producción no hace falta, Caddy llega por la red
     # interna, y publicarlo en el host lo deja accesible desde internet salteando el
     # HTTPS. Para acceso directo en desarrollo local, ver docker-compose.override.yml.example.

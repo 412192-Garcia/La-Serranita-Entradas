@@ -1,0 +1,108 @@
+package org.example.laserranitaentradas.model.entity;
+
+import jakarta.persistence.*;
+import lombok.*;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+
+/**
+ * Factura electrónica B (Consumidor Final) de una compra, autorizada por ARCA vía AfipSDK.
+ *
+ * Vive aparte de la Compra a propósito: la venta se confirma siempre, aunque ARCA esté caída,
+ * y la factura se emite después en segundo plano (ver FacturaServiceImpl). Por eso nace
+ * PENDIENTE, sin número ni CAE.
+ *
+ * El número de comprobante lo asigna ARCA en orden estricto por punto de venta: no se elige,
+ * se pide el último autorizado y se usa el siguiente. numeroIntentado guarda el número con el
+ * que se mandó el último pedido ANTES de mandarlo, para que si la respuesta se pierde (timeout,
+ * corte) el próximo intento pueda preguntarle a ARCA si ese número quedó autorizado en vez de
+ * emitir la misma venta dos veces.
+ */
+@Entity
+@Table(name = "facturas", uniqueConstraints = {
+        @UniqueConstraint(name = "uk_factura_compra", columnNames = "id_compra"),
+        @UniqueConstraint(name = "uk_factura_numero", columnNames = {"punto_venta", "tipo_comprobante", "numero"})
+})
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@EqualsAndHashCode(callSuper = true, exclude = {"compra"})
+@ToString(callSuper = true, exclude = {"compra"})
+@Builder
+public class Factura extends BaseEntity {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_compra", nullable = false)
+    private Compra compra;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    @Builder.Default
+    private EstadoFactura estado = EstadoFactura.PENDIENTE;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private DestinoFactura destino;
+
+    /** Sólo con destino MAIL. */
+    @Column(length = 150)
+    private String email;
+
+    @Column(name = "punto_venta", nullable = false)
+    private Integer puntoVenta;
+
+    /** Código ARCA del comprobante: 6 = Factura B. */
+    @Column(name = "tipo_comprobante", nullable = false)
+    private Integer tipoComprobante;
+
+    /** Código ARCA del concepto: 1 = productos, 2 = servicios, 3 = ambos. */
+    @Column(nullable = false)
+    private Integer concepto;
+
+    /** Número autorizado por ARCA. Null hasta que la factura queda EMITIDA. */
+    private Long numero;
+
+    /** Número con el que se mandó el último pedido a ARCA (ver comentario de la clase). */
+    @Column(name = "numero_intentado")
+    private Long numeroIntentado;
+
+    @Column(length = 20)
+    private String cae;
+
+    @Column(name = "cae_vencimiento")
+    private LocalDate caeVencimiento;
+
+    /** Fecha del comprobante (CbteFch): el día en que se emitió, no el de la venta. */
+    @Column(name = "fecha_emision")
+    private LocalDate fechaEmision;
+
+    /** Día del servicio (FchServDesde/Hasta): la fecha de visita de la compra. */
+    @Column(name = "fecha_servicio")
+    private LocalDate fechaServicio;
+
+    @Column(name = "importe_total", nullable = false)
+    private BigDecimal importeTotal;
+
+    @Column(name = "importe_neto", nullable = false)
+    private BigDecimal importeNeto;
+
+    /** IVA contenido en el total: se imprime en el ticket por la Ley 27.743. */
+    @Column(name = "importe_iva", nullable = false)
+    private BigDecimal importeIva;
+
+    @Column(nullable = false, columnDefinition = "integer default 0")
+    @Builder.Default
+    private Integer intentos = 0;
+
+    @Column(name = "proximo_intento")
+    private LocalDateTime proximoIntento;
+
+    @Column(name = "ultimo_error", length = 1000)
+    private String ultimoError;
+}

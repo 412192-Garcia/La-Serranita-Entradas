@@ -74,6 +74,7 @@ public class CompraServiceImpl implements CompraService {
     private final CajaRepository cajaRepository;
     private final PromocionRepository promocionRepository;
     private final ArticuloVarioRepository articuloVarioRepository;
+    private final FacturaService facturaService;
     private final Map<FormaPago, PagoService> estrategiasPago;
     private final EntityManager em;
     /** El propio bean, pero visto a través del proxy de Spring: es la única forma de que
@@ -94,6 +95,7 @@ public class CompraServiceImpl implements CompraService {
              CajaRepository cajaRepository,
              PromocionRepository promocionRepository,
              ArticuloVarioRepository articuloVarioRepository,
+             FacturaService facturaService,
              List<PagoService> estrategiasDisponibles,
              EntityManager em,
              @Lazy CompraService self)
@@ -110,6 +112,7 @@ public class CompraServiceImpl implements CompraService {
         this.cajaRepository = cajaRepository;
         this.promocionRepository = promocionRepository;
         this.articuloVarioRepository = articuloVarioRepository;
+        this.facturaService = facturaService;
         this.estrategiasPago = estrategiasDisponibles.stream()
                 .collect(Collectors.toMap(PagoService::getFormaPago, estrategia -> estrategia));
         this.em = em;
@@ -1064,11 +1067,13 @@ public class CompraServiceImpl implements CompraService {
 
         // Si el boletero cargó una anticipada RESERVADO_EFECTIVO en el POS, esto no crea una
         // compra nueva: reprecia y cierra la reserva existente.
-        if (request.getCompraReservadaId() != null) {
-            return cobrarReservaComoVentaPos(request, caja, vendedor, idempotencyKey);
-        }
-
-        return crearVenta(request, caja, vendedor, idempotencyKey);
+        Compra venta = request.getCompraReservadaId() != null
+                ? cobrarReservaComoVentaPos(request, caja, vendedor, idempotencyKey)
+                : crearVenta(request, caja, vendedor, idempotencyKey);
+        // En la misma transacción que la venta: si la venta no se guarda, tampoco queda la
+        // factura encolada. La emisión contra ARCA arranca recién después del commit.
+        facturaService.solicitar(venta, request.getFacturacion());
+        return venta;
     }
 
     @Transactional
@@ -1081,7 +1086,9 @@ public class CompraServiceImpl implements CompraService {
         }
         // Queda a nombre del boletero dueño de la caja (no del admin que la carga): es una
         // venta que le faltó registrar a esa persona, no una del admin.
-        return crearVenta(request, caja, caja.getUsuario(), null);
+        Compra venta = crearVenta(request, caja, caja.getUsuario(), null);
+        facturaService.solicitar(venta, request.getFacturacion());
+        return venta;
     }
 
     /** Arma y guarda la venta contra una caja y un vendedor ya resueltos (turno propio o, vía
