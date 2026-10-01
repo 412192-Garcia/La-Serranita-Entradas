@@ -46,10 +46,14 @@ No hace falta el repo, ni Maven, ni Java:
    | Pregunta | Qué poner |
    |---|---|
    | Dirección del backend | `https://<dominio del sistema>/api` |
-   | Token del agente | el valor de `IMPRESION_AGENTE_TOKEN` del `.env` del servidor |
+   | Token del agente | el `IMPRESION_AGENTE_TOKEN` del `.env` del servidor. Si todavía no hay uno, **Enter**: genera uno seguro, lo muestra y lo deja copiado para pegarlo en el `.env` (y reiniciar el backend). Pide al menos 16 caracteres |
    | Nombre de la ticketera | el que se va a ver en la tablet (Enter = `Boleteria`) |
-   | IP de la ticketera | la IP fija de la SOL 802 en la red del parque |
+   | IP de la ticketera | la IP fija de la impresora en la red del parque |
    | Puerto | Enter (9100, el estándar de las ticketeras de red) |
+   | ¿Agregar otra ticketera? | `s` para cargar otra (nombre, IP, puerto) en el mismo agente |
+
+   Con más de una ticketera, en la tablet aparece un selector para elegir en cuál imprime;
+   cada tablet recuerda la suya.
 
    El instalador prueba que llegue a la ticketera y al backend, copia el agente a
    `C:\AgenteImpresion`, lo deja como tarea programada (arranca sola al prender la PC, sin
