@@ -50,6 +50,11 @@ public class Factura extends BaseEntity {
     @Column(nullable = false, length = 20)
     private DestinoFactura destino;
 
+    /** Sólo con destino IMPRIMIR: en qué ticketera (nombre que anuncia el agente). Null = la
+     * única conectada, si hay una sola. */
+    @Column(length = 60)
+    private String impresora;
+
     /** Sólo con destino MAIL. */
     @Column(length = 150)
     private String email;

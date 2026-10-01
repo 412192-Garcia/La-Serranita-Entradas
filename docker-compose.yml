@@ -73,6 +73,11 @@ services:
       AFIP_CERT: ${AFIP_CERT:-}
       AFIP_KEY: ${AFIP_KEY:-}
       AFIP_PUNTO_VENTA_BOLETERIA: ${AFIP_PUNTO_VENTA_BOLETERIA:-1}
+      AFIP_EMISOR_RAZON_SOCIAL: ${AFIP_EMISOR_RAZON_SOCIAL:-PARQUE RECREATIVO LA SERRANITA S.A.S.}
+      AFIP_EMISOR_DOMICILIO: ${AFIP_EMISOR_DOMICILIO:-RUTA 5 KM43,5}
+      AFIP_EMISOR_INGRESOS_BRUTOS: ${AFIP_EMISOR_INGRESOS_BRUTOS:-287116730}
+      AFIP_EMISOR_INICIO_ACTIVIDADES: ${AFIP_EMISOR_INICIO_ACTIVIDADES:-30/11/2020}
+      IMPRESION_AGENTE_TOKEN: ${IMPRESION_AGENTE_TOKEN:-}
     # Sin ports: acá a propósito — en producción no hace falta, Caddy llega por la red
     # interna, y publicarlo en el host lo deja accesible desde internet salteando el
     # HTTPS. Para acceso directo en desarrollo local, ver docker-compose.override.yml.example.

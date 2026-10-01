@@ -42,13 +42,14 @@ class FacturaServiceImplTest {
     @Mock private org.example.laserranitaentradas.service.factura.ComprobanteFacturaService comprobanteFacturaService;
     @Mock private org.example.laserranitaentradas.service.factura.FacturaPdfGenerator pdfGenerator;
     @Mock private org.example.laserranitaentradas.service.EmailService emailService;
+    @Mock private org.example.laserranitaentradas.service.impresion.ImpresionService impresionService;
 
     private FacturaServiceImpl service;
 
     @BeforeEach
     void setUp() {
         service = new FacturaServiceImpl(facturaRepository, wsfe, afipClient, eventPublisher, transactionManager,
-                comprobanteFacturaService, pdfGenerator, emailService);
+                comprobanteFacturaService, pdfGenerator, emailService, impresionService);
         ReflectionTestUtils.setField(service, "puntoVentaBoleteria", 5);
         when(afipClient.estaConfigurado()).thenReturn(true);
         when(afipClient.getCuit()).thenReturn("20409378472");
@@ -163,6 +164,32 @@ class FacturaServiceImplTest {
         service.emitir(10L);
 
         verify(emailService).enviarFactura(10L);
+    }
+
+    @Test
+    void emitir_destinoImprimir_loMandaALaImpresoraElegida() {
+        Factura f = pendiente();
+        f.setImpresora("Boletería");
+        when(facturaRepository.findById(10L)).thenReturn(Optional.of(f));
+        when(wsfe.ultimoAutorizado(5, 6)).thenReturn(41L);
+        when(wsfe.solicitarCae(any())).thenReturn(new WsfeService.ResultadoCae(true, "1", LocalDate.now(), List.of(), List.of()));
+
+        service.emitir(10L);
+
+        verify(impresionService).imprimirFactura(10L, "Boletería");
+    }
+
+    @Test
+    void emitir_siFallaLaImpresora_laFacturaQuedaEmitidaIgual() {
+        Factura f = pendiente();
+        when(facturaRepository.findById(10L)).thenReturn(Optional.of(f));
+        when(wsfe.ultimoAutorizado(5, 6)).thenReturn(41L);
+        when(wsfe.solicitarCae(any())).thenReturn(new WsfeService.ResultadoCae(true, "1", LocalDate.now(), List.of(), List.of()));
+        when(impresionService.imprimirFactura(anyLong(), any())).thenThrow(new RuntimeException("sin agente"));
+
+        service.emitir(10L);
+
+        assertThat(f.getEstado()).isEqualTo(EstadoFactura.EMITIDA);
     }
 
     @Test

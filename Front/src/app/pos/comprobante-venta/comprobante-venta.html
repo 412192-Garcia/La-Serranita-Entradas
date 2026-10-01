@@ -41,30 +41,77 @@
   </p>
 
   @if (facturacion(); as pedido) {
-    <div class="comprobante-factura">
-      @if (pendiente()) {
+    @if (factura(); as f) {
+      @if (f.estado === 'EMITIDA') {
+        <div class="comprobante-factura">
+          <svg lucideFileText [strokeWidth]="2"></svg>
+          <span>
+            <strong>Factura B {{ numeroComprobante(f) }}</strong>
+            · CAE {{ f.cae }}
+            @if (pedido.destino === 'MAIL') {
+              <br />Se envía a {{ pedido.email }}
+            }
+          </span>
+        </div>
+
+        @if (pedido.destino === 'IMPRIMIR' || f.impresionEstado !== null) {
+          <!-- El ticket lo imprime el agente de la PC de la entrada en la ticketera. -->
+          <div class="comprobante-factura comprobante-impresion">
+            @switch (f.impresionEstado) {
+              @case ('IMPRESO') {
+                <svg lucidePrinter [strokeWidth]="2"></svg>
+                <span>Ticket impreso</span>
+              }
+              @case ('ERROR') {
+                <svg lucideCircleAlert class="icono-factura-error" [strokeWidth]="2"></svg>
+                <span>No se pudo imprimir: {{ f.impresionError }}</span>
+              }
+              @default {
+                @if (facturaDemorada()) {
+                  <svg lucideCircleAlert class="icono-factura-demorada" [strokeWidth]="2"></svg>
+                  <span>La ticketera no responde: revisá que la PC de la entrada y la impresora estén prendidas.</span>
+                } @else {
+                  <svg lucideLoaderCircle class="icono-girando" [strokeWidth]="2"></svg>
+                  <span>Imprimiendo…</span>
+                }
+              }
+            }
+            <button type="button" class="btn-reimprimir" [disabled]="reimprimiendo()" (click)="reimprimir()">
+              {{ reimprimiendo() ? 'Enviando…' : 'Reimprimir' }}
+            </button>
+          </div>
+          @if (errorReimpresion(); as error) {
+            <p class="aviso-reimpresion">{{ error }}</p>
+          }
+        }
+      } @else if (f.estado === 'ERROR') {
+        <div class="comprobante-factura">
+          <svg lucideCircleAlert class="icono-factura-error" [strokeWidth]="2"></svg>
+          <span>No se pudo emitir la factura. Un administrador la puede revisar y reintentar.</span>
+        </div>
+      } @else {
+        <ng-container *ngTemplateOutlet="emitiendo" />
+      }
+    } @else if (pendiente()) {
+      <div class="comprobante-factura">
         <svg lucideCloudOff [strokeWidth]="2"></svg>
         <span>La factura se emite y se envía a {{ pedido.email }} cuando vuelva la señal.</span>
-      } @else if (factura()?.estado === 'EMITIDA') {
-        <svg lucideFileText [strokeWidth]="2"></svg>
-        <span>
-          <strong>Factura B {{ numeroComprobante(factura()!) }}</strong>
-          · CAE {{ factura()!.cae }}
-          @if (pedido.destino === 'MAIL') {
-            <br />Se envía a {{ pedido.email }}
-          }
-        </span>
-      } @else if (factura()?.estado === 'ERROR') {
-        <svg lucideCircleAlert class="icono-factura-error" [strokeWidth]="2"></svg>
-        <span>No se pudo emitir la factura. Un administrador la puede revisar y reintentar.</span>
-      } @else if (facturaDemorada()) {
-        <svg lucideCircleAlert class="icono-factura-demorada" [strokeWidth]="2"></svg>
-        <span>ARCA está demorando: la factura se sigue intentando sola en segundo plano.</span>
-      } @else {
-        <svg lucideLoaderCircle class="icono-girando" [strokeWidth]="2"></svg>
-        <span>Emitiendo factura…</span>
-      }
-    </div>
+      </div>
+    } @else {
+      <ng-container *ngTemplateOutlet="emitiendo" />
+    }
+
+    <ng-template #emitiendo>
+      <div class="comprobante-factura">
+        @if (facturaDemorada()) {
+          <svg lucideCircleAlert class="icono-factura-demorada" [strokeWidth]="2"></svg>
+          <span>ARCA está demorando: la factura se sigue intentando sola en segundo plano.</span>
+        } @else {
+          <svg lucideLoaderCircle class="icono-girando" [strokeWidth]="2"></svg>
+          <span>Emitiendo factura…</span>
+        }
+      </div>
+    </ng-template>
   }
 
   <button type="button" class="btn-nueva-venta" (click)="nuevaVenta.emit()">Nueva venta</button>

@@ -2,6 +2,14 @@ export type DestinoFactura = 'IMPRIMIR' | 'MAIL';
 
 export type EstadoFactura = 'PENDIENTE' | 'EMITIDA' | 'ERROR';
 
+export type EstadoImpresion = 'PENDIENTE' | 'ENVIADO' | 'IMPRESO' | 'ERROR';
+
+/** Ticketera anunciada por el agente de impresión de la PC de la entrada. */
+export interface ImpresoraConectada {
+  nombre: string;
+  agente: string;
+}
+
 /**
  * Lo que eligió el boletero en el POS: "Imprimir factura" o "Enviar por mail" (+ email).
  * MAIL con email vacío = no se factura (es lo que queda por defecto al cobrar en efectivo).
@@ -9,6 +17,8 @@ export type EstadoFactura = 'PENDIENTE' | 'EMITIDA' | 'ERROR';
 export interface FacturacionPos {
   destino: DestinoFactura;
   email: string | null;
+  /** Ticketera elegida en esta tablet (sólo IMPRIMIR). Null = la única conectada. */
+  impresora?: string | null;
 }
 
 export interface Factura {
@@ -29,6 +39,10 @@ export interface Factura {
   intentos: number;
   ultimoError: string | null;
   qrUrl: string | null;
+  mailEnviadoEn: string | null;
+  /** Último intento de imprimir el ticket; null si nunca se mandó a imprimir. */
+  impresionEstado: EstadoImpresion | null;
+  impresionError: string | null;
 }
 
 /** "0037-00000019", como se imprime en el comprobante. */

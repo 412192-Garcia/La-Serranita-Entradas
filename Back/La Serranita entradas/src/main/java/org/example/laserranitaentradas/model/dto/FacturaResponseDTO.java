@@ -4,6 +4,7 @@ import lombok.Builder;
 import lombok.Data;
 import org.example.laserranitaentradas.model.entity.DestinoFactura;
 import org.example.laserranitaentradas.model.entity.EstadoFactura;
+import org.example.laserranitaentradas.model.entity.EstadoTrabajoImpresion;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -29,6 +30,9 @@ public class FacturaResponseDTO {
     private Integer intentos;
     private String ultimoError;
     private LocalDateTime mailEnviadoEn;
+    /** Estado del último trabajo de impresión de esta factura; null si nunca se mandó a imprimir. */
+    private EstadoTrabajoImpresion impresionEstado;
+    private String impresionError;
     /** URL del QR de ARCA (RG 4892). Sólo cuando está EMITIDA. */
     private String qrUrl;
 }

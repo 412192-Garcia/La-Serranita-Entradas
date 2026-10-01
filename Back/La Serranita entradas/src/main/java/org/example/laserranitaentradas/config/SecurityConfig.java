@@ -64,6 +64,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/compras/{id:\\d+}/verificar-pago").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/pagos/webhook").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/ping").permitAll()
+                // El agente de impresión no tiene JWT: se autentica con su propio token en el controller.
+                .requestMatchers("/api/impresion/agente/**").permitAll()
 
                 // ---------- Sólo ADMIN, dentro del módulo interno ----------
                 // Va antes que la regla general de /api/interno/** (más abajo): Spring Security

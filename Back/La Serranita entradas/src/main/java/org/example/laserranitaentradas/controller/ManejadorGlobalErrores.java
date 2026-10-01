@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.server.ResponseStatusException;
 
 /**
  * Traduce las excepciones de los servicios a respuestas HTTP en un solo lugar.
@@ -25,6 +26,13 @@ public class ManejadorGlobalErrores {
     @ExceptionHandler({IllegalArgumentException.class, IllegalStateException.class})
     public ResponseEntity<String> solicitudInvalida(RuntimeException ex) {
         return ResponseEntity.badRequest().body(ex.getMessage());
+    }
+
+    /** Un controller que ya decidió el código HTTP (ej. 401 del agente de impresión con un token
+     * inválido): se respeta ese código en vez de convertirlo en un 500. */
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<String> conCodigo(ResponseStatusException ex) {
+        return ResponseEntity.status(ex.getStatusCode()).body(ex.getReason());
     }
 
     /** Cualquier otra cosa: se registra completa y al cliente se le da un mensaje neutro. */

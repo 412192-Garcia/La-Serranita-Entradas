@@ -2,7 +2,7 @@ import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
-import { Factura } from '../models/factura';
+import { Factura, ImpresoraConectada } from '../models/factura';
 
 const CLAVE_HABILITADA = 'facturacion-habilitada';
 
@@ -36,6 +36,17 @@ export class FacturaService {
   /** Reenvía la factura por mail (ADMIN): para cuando el envío automático falló. */
   reenviarMail(facturaId: number): Observable<void> {
     return this.http.post<void>(`${this.url}/${facturaId}/reenviar-mail`, null);
+  }
+
+  /** Ticketeras con su agente conectado ahora mismo. */
+  impresoras(): Observable<ImpresoraConectada[]> {
+    return this.http.get<ImpresoraConectada[]>(`${environment.apiBase}/interno/impresion/impresoras`);
+  }
+
+  /** Manda (o vuelve a mandar) el ticket de una factura emitida a la ticketera. */
+  imprimir(facturaId: number, impresora: string | null): Observable<unknown> {
+    const params = impresora ? `?impresora=${encodeURIComponent(impresora)}` : '';
+    return this.http.post(`${environment.apiBase}/interno/impresion/facturas/${facturaId}${params}`, null);
   }
 
   /** 404 si la compra no se facturó. */

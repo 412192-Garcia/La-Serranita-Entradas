@@ -19,7 +19,13 @@ import { aFechaISO, aFechaHoraISO } from '../../shared/fecha.util';
 import { PesosPipe } from '../../shared/pesos.pipe';
 import { LucideMail, LucidePrinter, LucideTrash2 } from '@lucide/angular';
 import { FacturaService } from '../../services/factura.service';
-import { DestinoFactura, FacturacionPos } from '../../models/factura';
+import { DestinoFactura, FacturacionPos, ImpresoraConectada } from '../../models/factura';
+import { interval } from 'rxjs';
+
+/** Ticketera elegida en ESTA tablet: cada dispositivo puede imprimir en una distinta. */
+const CLAVE_IMPRESORA = 'pos-impresora';
+/** Cada cuánto se revisa qué ticketeras están conectadas. */
+const INTERVALO_IMPRESORAS_MS = 20_000;
 
 export interface ItemVentaResumen {
   cantidad: number;
@@ -100,9 +106,27 @@ export class CarritoVenta {
   readonly facturacionHabilitada = this.facturaService.habilitada;
   destinoFactura = signal<DestinoFactura>('MAIL');
   emailFactura = signal('');
-  /** Imprimir necesita el CAE en el momento, así que sin conexión no se puede. Mail sí: la
-   * venta queda en la cola y la factura se emite cuando vuelve la señal. */
-  imprimirFacturaDisponible = computed(() => this.conectividad.enLinea());
+  /** Ticketeras con su agente conectado (PC de la entrada prendida). */
+  impresoras = signal<ImpresoraConectada[]>([]);
+  impresoraElegida = signal<string | null>(this.leerImpresoraGuardada());
+  /** La que se usa: la elegida si está conectada; si no, la única conectada; si hay varias y
+   * ninguna elegida, null (el boletero elige). */
+  impresoraEfectiva = computed<string | null>(() => {
+    const conectadas = this.impresoras().map((i) => i.nombre);
+    const elegida = this.impresoraElegida();
+    if (elegida && conectadas.includes(elegida)) return elegida;
+    return conectadas.length === 1 ? conectadas[0] : null;
+  });
+  /** Imprimir necesita el CAE en el momento y la ticketera conectada: sin señal o con la PC de
+   * la entrada apagada no se puede. Mail sí: la venta queda en la cola y la factura se emite
+   * cuando vuelve la señal. */
+  imprimirFacturaDisponible = computed(() => this.conectividad.enLinea() && this.impresoraEfectiva() !== null);
+  motivoImprimirNoDisponible = computed<string | null>(() => {
+    if (!this.conectividad.enLinea()) return 'Sin conexión: la factura sólo se puede mandar por mail.';
+    if (this.impresoras().length === 0) return 'La ticketera no está conectada: la factura sólo se puede mandar por mail.';
+    if (this.impresoraEfectiva() === null) return 'Elegí en qué ticketera imprimir.';
+    return null;
+  });
   emailFacturaInvalido = computed(() => {
     const email = this.emailFactura().trim();
     return this.destinoFactura() === 'MAIL' && email !== '' && !EMAIL_VALIDO.test(email);
@@ -285,6 +309,10 @@ export class CarritoVenta {
 
   constructor() {
     this.facturaService.actualizarEstadoServicio();
+    this.actualizarImpresoras();
+    interval(INTERVALO_IMPRESORAS_MS)
+      .pipe(takeUntilDestroyed())
+      .subscribe(() => this.actualizarImpresoras());
 
     // Si se corta la señal con "Imprimir" marcado, pasa a mail (vacío = sin factura): imprimir
     // no se puede, y así el botón Cobrar no queda trabado sin que se entienda por qué.
@@ -444,6 +472,34 @@ export class CarritoVenta {
     this.destinoFactura.set(imprimir ? 'IMPRIMIR' : 'MAIL');
   }
 
+  private actualizarImpresoras(): void {
+    if (!this.facturacionHabilitada() || !this.conectividad.enLinea()) return;
+    this.facturaService.impresoras().subscribe({
+      next: (lista) => this.impresoras.set(lista),
+      // Si falla la consulta se deja la última lista conocida: no hace falta bloquear Imprimir
+      // por un pedido perdido; si la ticketera de verdad no está, el ticket queda en espera.
+      error: () => {},
+    });
+  }
+
+  setImpresoraElegida(nombre: string | null): void {
+    this.impresoraElegida.set(nombre);
+    try {
+      if (nombre) localStorage.setItem(CLAVE_IMPRESORA, nombre);
+      else localStorage.removeItem(CLAVE_IMPRESORA);
+    } catch {
+      // Sin storage: la elección vale sólo hasta recargar.
+    }
+  }
+
+  private leerImpresoraGuardada(): string | null {
+    try {
+      return localStorage.getItem(CLAVE_IMPRESORA);
+    } catch {
+      return null;
+    }
+  }
+
   setDestinoFactura(destino: DestinoFactura): void {
     if (destino === 'IMPRIMIR' && !this.imprimirFacturaDisponible()) return;
     this.destinoFactura.set(destino);
@@ -452,7 +508,7 @@ export class CarritoVenta {
   /** Lo que viaja en el cobro. Null = no se factura. */
   private facturacionPayload(): FacturacionPos | null {
     if (!this.facturacionHabilitada() || this.sinCobro()) return null;
-    if (this.destinoFactura() === 'IMPRIMIR') return { destino: 'IMPRIMIR', email: null };
+    if (this.destinoFactura() === 'IMPRIMIR') return { destino: 'IMPRIMIR', email: null, impresora: this.impresoraEfectiva() };
     const email = this.emailFactura().trim();
     return email === '' ? null : { destino: 'MAIL', email };
   }

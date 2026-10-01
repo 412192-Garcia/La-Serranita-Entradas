@@ -308,7 +308,7 @@
             [class.activo]="destinoFactura() === 'IMPRIMIR'"
             [attr.aria-checked]="destinoFactura() === 'IMPRIMIR'"
             [disabled]="!imprimirFacturaDisponible()"
-            [title]="imprimirFacturaDisponible() ? '' : 'Sin conexión no se puede imprimir la factura'"
+            [title]="motivoImprimirNoDisponible() ?? ''"
             (click)="setDestinoFactura('IMPRIMIR')">
             <svg lucidePrinter [strokeWidth]="2"></svg>
             Imprimir factura
@@ -339,8 +339,21 @@
             <p class="aviso-factura aviso-factura-error">El email no es válido.</p>
           }
         }
-        @if (!imprimirFacturaDisponible()) {
-          <p class="aviso-factura">Sin conexión: la factura sólo se puede mandar por mail.</p>
+        @if (impresoras().length > 1) {
+          <!-- Varias ticketeras: cada tablet recuerda la suya. -->
+          <select
+            class="select-impresora"
+            aria-label="Ticketera"
+            [ngModel]="impresoraEfectiva()"
+            (ngModelChange)="setImpresoraElegida($event)">
+            <option [ngValue]="null" disabled>Elegí la ticketera…</option>
+            @for (i of impresoras(); track i.nombre) {
+              <option [ngValue]="i.nombre">{{ i.nombre }}</option>
+            }
+          </select>
+        }
+        @if (motivoImprimirNoDisponible(); as motivo) {
+          <p class="aviso-factura">{{ motivo }}</p>
         }
       </div>
     }

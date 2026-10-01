@@ -1,0 +1,23 @@
+# Configuración del agente de impresión. Copiar como "agente.properties" en la misma carpeta
+# que el agente y completar.
+
+# Dirección del backend, terminando en /api (la misma que usa la app, sin barra final).
+backend.url=https://tu-dominio.com/api
+
+# Mismo valor que IMPRESION_AGENTE_TOKEN en el .env del servidor.
+agente.token=
+
+# Nombre de esta PC, sólo para los logs del servidor.
+agente.nombre=PC Entrada
+
+# Ticketeras que maneja este agente. El nombre es el que aparece en la tablet; host es la IP
+# de la impresora en la red del parque (conviene fijarla en la impresora o en el router para
+# que no cambie). Puerto 9100 = impresión directa (RAW), el estándar de las ticketeras de red.
+impresora.1.nombre=Boletería
+impresora.1.host=192.168.1.50
+impresora.1.puerto=9100
+
+# Para una segunda ticketera:
+# impresora.2.nombre=Boletería 2
+# impresora.2.host=192.168.1.51
+# impresora.2.puerto=9100

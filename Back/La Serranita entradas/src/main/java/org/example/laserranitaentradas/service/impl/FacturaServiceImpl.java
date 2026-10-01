@@ -7,11 +7,13 @@ import org.example.laserranitaentradas.model.entity.CompraDetalle;
 import org.example.laserranitaentradas.model.entity.DestinoFactura;
 import org.example.laserranitaentradas.model.entity.EstadoFactura;
 import org.example.laserranitaentradas.model.entity.Factura;
+import org.example.laserranitaentradas.model.entity.TrabajoImpresion;
 import org.example.laserranitaentradas.repository.FacturaRepository;
 import org.example.laserranitaentradas.service.EmailService;
 import org.example.laserranitaentradas.service.FacturaService;
 import org.example.laserranitaentradas.service.factura.ComprobanteFacturaService;
 import org.example.laserranitaentradas.service.factura.FacturaPdfGenerator;
+import org.example.laserranitaentradas.service.impresion.ImpresionService;
 import org.example.laserranitaentradas.service.afip.AfipException;
 import org.example.laserranitaentradas.service.afip.AfipSdkClient;
 import org.example.laserranitaentradas.service.afip.WsfeService;
@@ -53,6 +55,7 @@ public class FacturaServiceImpl implements FacturaService {
     private final ComprobanteFacturaService comprobanteFacturaService;
     private final FacturaPdfGenerator pdfGenerator;
     private final EmailService emailService;
+    private final ImpresionService impresionService;
 
     /**
      * ARCA numera en orden estricto por punto de venta: dos emisiones a la vez pedirían el mismo
@@ -70,7 +73,7 @@ public class FacturaServiceImpl implements FacturaService {
     public FacturaServiceImpl(FacturaRepository facturaRepository, WsfeService wsfe, AfipSdkClient afipClient,
                               ApplicationEventPublisher eventPublisher, PlatformTransactionManager transactionManager,
                               ComprobanteFacturaService comprobanteFacturaService, FacturaPdfGenerator pdfGenerator,
-                              EmailService emailService) {
+                              EmailService emailService, ImpresionService impresionService) {
         this.facturaRepository = facturaRepository;
         this.wsfe = wsfe;
         this.afipClient = afipClient;
@@ -79,6 +82,7 @@ public class FacturaServiceImpl implements FacturaService {
         this.comprobanteFacturaService = comprobanteFacturaService;
         this.pdfGenerator = pdfGenerator;
         this.emailService = emailService;
+        this.impresionService = impresionService;
     }
 
     @Override
@@ -121,6 +125,8 @@ public class FacturaServiceImpl implements FacturaService {
                 .compra(compra)
                 .destino(pedido.getDestino())
                 .email(pedido.getDestino() == DestinoFactura.MAIL ? email : null)
+                .impresora(pedido.getDestino() == DestinoFactura.IMPRIMIR && pedido.getImpresora() != null
+                        && !pedido.getImpresora().isBlank() ? pedido.getImpresora().trim() : null)
                 .puntoVenta(puntoVentaBoleteria)
                 .tipoComprobante(WsfeService.CBTE_TIPO_FACTURA_B)
                 .concepto(concepto(compra.getDetalles()))
@@ -226,7 +232,7 @@ public class FacturaServiceImpl implements FacturaService {
     }
 
     private void marcarEmitida(Long id, long numero, String cae, LocalDate caeVencimiento, LocalDate fecha) {
-        DestinoFactura destino = tx.execute(s -> facturaRepository.findById(id).map(f -> {
+        Factura emitida = tx.execute(s -> facturaRepository.findById(id).map(f -> {
             f.setEstado(EstadoFactura.EMITIDA);
             f.setNumero(numero);
             f.setNumeroIntentado(numero);
@@ -235,14 +241,21 @@ public class FacturaServiceImpl implements FacturaService {
             f.setFechaEmision(fecha);
             f.setUltimoError(null);
             f.setProximoIntento(null);
-            facturaRepository.save(f);
-            return f.getDestino();
+            return facturaRepository.save(f);
         }).orElse(null));
-        // Ya commiteada como EMITIDA: el mail sale en segundo plano. Si falla, queda como rechazo
-        // para reenviar; la factura sigue siendo válida igual. IMPRIMIR lo resuelve el POS, que
-        // espera a que la factura quede EMITIDA.
-        if (destino == DestinoFactura.MAIL) {
+        if (emitida == null) return;
+        // Ya commiteada como EMITIDA: el mail sale en segundo plano (si falla, queda como rechazo
+        // para reenviar) y el ticket va a la cola del agente de impresión. En los dos casos la
+        // factura sigue siendo válida aunque el envío falle.
+        if (emitida.getDestino() == DestinoFactura.MAIL) {
             emailService.enviarFactura(id);
+        } else if (emitida.getDestino() == DestinoFactura.IMPRIMIR) {
+            try {
+                impresionService.imprimirFactura(id, emitida.getImpresora());
+            } catch (Exception e) {
+                // Un problema con la impresora no tumba la factura: desde el POS se reimprime.
+                log.warn("No se pudo mandar a imprimir la factura ID {}", id, e);
+            }
         }
     }
 
@@ -324,6 +337,7 @@ public class FacturaServiceImpl implements FacturaService {
     }
 
     private FacturaResponseDTO toDto(Factura f) {
+        Optional<TrabajoImpresion> ultimo = impresionService.ultimoTrabajo(f.getId());
         return FacturaResponseDTO.builder()
                 .id(f.getId())
                 .compraId(f.getCompra().getId())
@@ -343,6 +357,8 @@ public class FacturaServiceImpl implements FacturaService {
                 .ultimoError(f.getUltimoError())
                 .mailEnviadoEn(f.getMailEnviadoEn())
                 .qrUrl(comprobanteFacturaService.qrUrl(f))
+                .impresionEstado(ultimo.map(TrabajoImpresion::getEstado).orElse(null))
+                .impresionError(ultimo.map(TrabajoImpresion::getError).orElse(null))
                 .build();
     }
 
