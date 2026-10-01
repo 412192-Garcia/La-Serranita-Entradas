@@ -33,6 +33,11 @@ export class FacturaService {
     });
   }
 
+  /** Reenvía la factura por mail (ADMIN): para cuando el envío automático falló. */
+  reenviarMail(facturaId: number): Observable<void> {
+    return this.http.post<void>(`${this.url}/${facturaId}/reenviar-mail`, null);
+  }
+
   /** 404 si la compra no se facturó. */
   porCompra(compraId: number): Observable<Factura> {
     return this.http.get<Factura>(`${this.url}/compra/${compraId}`);

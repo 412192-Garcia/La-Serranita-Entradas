@@ -1,6 +1,5 @@
 package org.example.laserranitaentradas.service.impl;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.example.laserranitaentradas.model.dto.FacturaResponseDTO;
 import org.example.laserranitaentradas.model.dto.FacturacionPosDTO;
 import org.example.laserranitaentradas.model.entity.Compra;
@@ -9,7 +8,10 @@ import org.example.laserranitaentradas.model.entity.DestinoFactura;
 import org.example.laserranitaentradas.model.entity.EstadoFactura;
 import org.example.laserranitaentradas.model.entity.Factura;
 import org.example.laserranitaentradas.repository.FacturaRepository;
+import org.example.laserranitaentradas.service.EmailService;
 import org.example.laserranitaentradas.service.FacturaService;
+import org.example.laserranitaentradas.service.factura.ComprobanteFacturaService;
+import org.example.laserranitaentradas.service.factura.FacturaPdfGenerator;
 import org.example.laserranitaentradas.service.afip.AfipException;
 import org.example.laserranitaentradas.service.afip.AfipSdkClient;
 import org.example.laserranitaentradas.service.afip.WsfeService;
@@ -23,13 +25,9 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.Base64;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -46,14 +44,15 @@ public class FacturaServiceImpl implements FacturaService {
      * mire: con el backoff de abajo son ~15 horas reintentando. */
     private static final int MAX_INTENTOS = 20;
     private static final long BACKOFF_MAX_MINUTOS = 60;
-    private static final String URL_QR_ARCA = "https://www.afip.gob.ar/fe/qr/?p=";
 
     private final FacturaRepository facturaRepository;
     private final WsfeService wsfe;
     private final AfipSdkClient afipClient;
     private final ApplicationEventPublisher eventPublisher;
     private final TransactionTemplate tx;
-    private final ObjectMapper objectMapper;
+    private final ComprobanteFacturaService comprobanteFacturaService;
+    private final FacturaPdfGenerator pdfGenerator;
+    private final EmailService emailService;
 
     /**
      * ARCA numera en orden estricto por punto de venta: dos emisiones a la vez pedirían el mismo
@@ -70,13 +69,16 @@ public class FacturaServiceImpl implements FacturaService {
 
     public FacturaServiceImpl(FacturaRepository facturaRepository, WsfeService wsfe, AfipSdkClient afipClient,
                               ApplicationEventPublisher eventPublisher, PlatformTransactionManager transactionManager,
-                              ObjectMapper objectMapper) {
+                              ComprobanteFacturaService comprobanteFacturaService, FacturaPdfGenerator pdfGenerator,
+                              EmailService emailService) {
         this.facturaRepository = facturaRepository;
         this.wsfe = wsfe;
         this.afipClient = afipClient;
         this.eventPublisher = eventPublisher;
         this.tx = new TransactionTemplate(transactionManager);
-        this.objectMapper = objectMapper;
+        this.comprobanteFacturaService = comprobanteFacturaService;
+        this.pdfGenerator = pdfGenerator;
+        this.emailService = emailService;
     }
 
     @Override
@@ -224,7 +226,7 @@ public class FacturaServiceImpl implements FacturaService {
     }
 
     private void marcarEmitida(Long id, long numero, String cae, LocalDate caeVencimiento, LocalDate fecha) {
-        tx.executeWithoutResult(s -> facturaRepository.findById(id).ifPresent(f -> {
+        DestinoFactura destino = tx.execute(s -> facturaRepository.findById(id).map(f -> {
             f.setEstado(EstadoFactura.EMITIDA);
             f.setNumero(numero);
             f.setNumeroIntentado(numero);
@@ -234,9 +236,14 @@ public class FacturaServiceImpl implements FacturaService {
             f.setUltimoError(null);
             f.setProximoIntento(null);
             facturaRepository.save(f);
-        }));
-        // TODO etapa 2: destino MAIL -> mandar el PDF por mail. Destino IMPRIMIR lo resuelve
-        // el POS, que espera a que la factura quede EMITIDA para imprimirla.
+            return f.getDestino();
+        }).orElse(null));
+        // Ya commiteada como EMITIDA: el mail sale en segundo plano. Si falla, queda como rechazo
+        // para reenviar; la factura sigue siendo válida igual. IMPRIMIR lo resuelve el POS, que
+        // espera a que la factura quede EMITIDA.
+        if (destino == DestinoFactura.MAIL) {
+            emailService.enviarFactura(id);
+        }
     }
 
     private void liberarNumero(Long id) {
@@ -297,6 +304,21 @@ public class FacturaServiceImpl implements FacturaService {
     }
 
     @Override
+    public void reenviarMail(Long facturaId) {
+        Factura factura = facturaRepository.findById(facturaId)
+                .orElseThrow(() -> new IllegalArgumentException("Factura no encontrada ID: " + facturaId));
+        if (factura.getEstado() != EstadoFactura.EMITIDA) {
+            throw new IllegalStateException("La factura todavía no está emitida");
+        }
+        emailService.enviarFacturaOFallar(facturaId);
+    }
+
+    @Override
+    public byte[] generarPdf(Long facturaId) {
+        return pdfGenerator.generar(comprobanteFacturaService.armar(facturaId));
+    }
+
+    @Override
     public Optional<FacturaResponseDTO> obtenerPorCompra(Long compraId) {
         return facturaRepository.findByCompraId(compraId).map(this::toDto);
     }
@@ -319,34 +341,9 @@ public class FacturaServiceImpl implements FacturaService {
                 .importeIva(f.getImporteIva())
                 .intentos(f.getIntentos())
                 .ultimoError(f.getUltimoError())
-                .qrUrl(f.getEstado() == EstadoFactura.EMITIDA ? qrUrl(f) : null)
+                .mailEnviadoEn(f.getMailEnviadoEn())
+                .qrUrl(comprobanteFacturaService.qrUrl(f))
                 .build();
-    }
-
-    /** QR obligatorio de los comprobantes electrónicos (RG 4892): la URL de ARCA con los datos
-     * del comprobante en JSON y base64. */
-    private String qrUrl(Factura f) {
-        Map<String, Object> datos = new LinkedHashMap<>();
-        datos.put("ver", 1);
-        datos.put("fecha", f.getFechaEmision().toString());
-        datos.put("cuit", Long.parseLong(afipClient.getCuit()));
-        datos.put("ptoVta", f.getPuntoVenta());
-        datos.put("tipoCmp", f.getTipoComprobante());
-        datos.put("nroCmp", f.getNumero());
-        datos.put("importe", f.getImporteTotal());
-        datos.put("moneda", "PES");
-        datos.put("ctz", 1);
-        datos.put("tipoDocRec", 99);
-        datos.put("nroDocRec", 0);
-        datos.put("tipoCodAut", "E");
-        datos.put("codAut", Long.parseLong(f.getCae()));
-        try {
-            String json = objectMapper.writeValueAsString(datos);
-            return URL_QR_ARCA + Base64.getEncoder().encodeToString(json.getBytes(StandardCharsets.UTF_8));
-        } catch (Exception e) {
-            log.warn("No se pudo armar el QR de la factura ID {}", f.getId(), e);
-            return null;
-        }
     }
 
     private static String recortar(String texto) {

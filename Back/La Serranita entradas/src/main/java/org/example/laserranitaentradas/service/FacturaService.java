@@ -28,6 +28,12 @@ public interface FacturaService {
     /** Vuelve a PENDIENTE una factura en ERROR y la emite (ADMIN, después de revisar el error). */
     FacturaResponseDTO reintentar(Long facturaId);
 
+    /** Reenvía el mail con el PDF (ADMIN, desde los rechazos). Lanza si no sale. */
+    void reenviarMail(Long facturaId);
+
+    /** PDF de una factura emitida (mismo formato que el ticket). */
+    byte[] generarPdf(Long facturaId);
+
     Optional<FacturaResponseDTO> obtenerPorCompra(Long compraId);
 
     boolean estaHabilitada();

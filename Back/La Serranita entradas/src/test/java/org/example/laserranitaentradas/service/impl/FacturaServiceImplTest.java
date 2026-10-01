@@ -1,6 +1,5 @@
 package org.example.laserranitaentradas.service.impl;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.example.laserranitaentradas.model.dto.FacturacionPosDTO;
 import org.example.laserranitaentradas.model.entity.*;
 import org.example.laserranitaentradas.repository.FacturaRepository;
@@ -40,12 +39,16 @@ class FacturaServiceImplTest {
     @Mock private AfipSdkClient afipClient;
     @Mock private ApplicationEventPublisher eventPublisher;
     @Mock private PlatformTransactionManager transactionManager;
+    @Mock private org.example.laserranitaentradas.service.factura.ComprobanteFacturaService comprobanteFacturaService;
+    @Mock private org.example.laserranitaentradas.service.factura.FacturaPdfGenerator pdfGenerator;
+    @Mock private org.example.laserranitaentradas.service.EmailService emailService;
 
     private FacturaServiceImpl service;
 
     @BeforeEach
     void setUp() {
-        service = new FacturaServiceImpl(facturaRepository, wsfe, afipClient, eventPublisher, transactionManager, new ObjectMapper());
+        service = new FacturaServiceImpl(facturaRepository, wsfe, afipClient, eventPublisher, transactionManager,
+                comprobanteFacturaService, pdfGenerator, emailService);
         ReflectionTestUtils.setField(service, "puntoVentaBoleteria", 5);
         when(afipClient.estaConfigurado()).thenReturn(true);
         when(afipClient.getCuit()).thenReturn("20409378472");
@@ -146,6 +149,45 @@ class FacturaServiceImplTest {
         assertThat(f.getEstado()).isEqualTo(EstadoFactura.EMITIDA);
         assertThat(f.getNumero()).isEqualTo(42L);
         assertThat(f.getCae()).isEqualTo("86383799071902");
+    }
+
+    @Test
+    void emitir_destinoMail_mandaElMailAlQuedarEmitida() {
+        Factura f = pendiente();
+        f.setDestino(DestinoFactura.MAIL);
+        f.setEmail("a@b.com");
+        when(facturaRepository.findById(10L)).thenReturn(Optional.of(f));
+        when(wsfe.ultimoAutorizado(5, 6)).thenReturn(41L);
+        when(wsfe.solicitarCae(any())).thenReturn(new WsfeService.ResultadoCae(true, "1", LocalDate.now(), List.of(), List.of()));
+
+        service.emitir(10L);
+
+        verify(emailService).enviarFactura(10L);
+    }
+
+    @Test
+    void emitir_destinoImprimir_noMandaMail() {
+        Factura f = pendiente();
+        when(facturaRepository.findById(10L)).thenReturn(Optional.of(f));
+        when(wsfe.ultimoAutorizado(5, 6)).thenReturn(41L);
+        when(wsfe.solicitarCae(any())).thenReturn(new WsfeService.ResultadoCae(true, "1", LocalDate.now(), List.of(), List.of()));
+
+        service.emitir(10L);
+
+        verifyNoInteractions(emailService);
+    }
+
+    @Test
+    void emitir_rechazada_noMandaMail() {
+        Factura f = pendiente();
+        f.setDestino(DestinoFactura.MAIL);
+        when(facturaRepository.findById(10L)).thenReturn(Optional.of(f));
+        when(wsfe.ultimoAutorizado(5, 6)).thenReturn(41L);
+        when(wsfe.solicitarCae(any())).thenReturn(new WsfeService.ResultadoCae(false, null, null, List.of("x"), List.of(10048)));
+
+        service.emitir(10L);
+
+        verifyNoInteractions(emailService);
     }
 
     @Test

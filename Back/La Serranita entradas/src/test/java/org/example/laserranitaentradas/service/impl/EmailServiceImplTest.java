@@ -26,6 +26,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -42,12 +43,16 @@ class EmailServiceImplTest {
     @Mock private JavaMailSender mailSender;
     @Mock private CompraRepository compraRepository;
     @Mock private RechazoOperacionService rechazoService;
+    @Mock private org.example.laserranitaentradas.repository.FacturaRepository facturaRepository;
+    @Mock private org.example.laserranitaentradas.service.factura.ComprobanteFacturaService comprobanteFacturaService;
+    @Mock private org.example.laserranitaentradas.service.factura.FacturaPdfGenerator facturaPdfGenerator;
 
     private EmailServiceImpl service;
 
     @BeforeEach
     void setUp() {
-        service = new EmailServiceImpl(mailSender, compraRepository, rechazoService);
+        service = new EmailServiceImpl(mailSender, compraRepository, rechazoService,
+                facturaRepository, comprobanteFacturaService, facturaPdfGenerator);
         // @Value no se inyecta fuera de un contexto de Spring: sin esto, helper.setFrom(null)
         // explota con NPE antes de siquiera llegar al mailSender.send(...) que cada test stubea.
         ReflectionTestUtils.setField(service, "remitente", "no-reply@laserranita.com");
@@ -142,5 +147,52 @@ class EmailServiceImplTest {
 
         verifyNoInteractions(rechazoService);
         verifyNoInteractions(mailSender);
+    }
+
+    // ---------- Factura ----------
+
+    private org.example.laserranitaentradas.service.factura.ComprobanteFactura comprobante() {
+        return new org.example.laserranitaentradas.service.factura.ComprobanteFactura(
+                "PARQUE", "RUTA 5", "20409378472", "1", "30/11/2020", 37, 21L, java.time.LocalDate.now(),
+                "260930-6", java.util.List.of(), new java.math.BigDecimal("2500"), new java.math.BigDecimal("433.88"),
+                "86390938715788", java.time.LocalDate.now().plusDays(10), "https://www.afip.gob.ar/fe/qr/?p=x");
+    }
+
+    private org.example.laserranitaentradas.model.entity.Factura facturaMail() {
+        return org.example.laserranitaentradas.model.entity.Factura.builder()
+                .id(5L).email("cliente@mail.com")
+                .compra(Compra.builder().id(9L).build())
+                .build();
+    }
+
+    @Test
+    void enviarFactura_mandaElPdfAdjuntoYMarcaElEnvio() throws Exception {
+        var factura = facturaMail();
+        when(facturaRepository.findById(5L)).thenReturn(Optional.of(factura));
+        when(comprobanteFacturaService.armar(5L)).thenReturn(comprobante());
+        when(facturaPdfGenerator.generar(any())).thenReturn("%PDF-1.4".getBytes());
+        when(mailSender.createMimeMessage()).thenReturn(new jakarta.mail.internet.MimeMessage((jakarta.mail.Session) null));
+
+        service.enviarFactura(5L);
+
+        org.mockito.ArgumentCaptor<jakarta.mail.internet.MimeMessage> captor =
+                org.mockito.ArgumentCaptor.forClass(jakarta.mail.internet.MimeMessage.class);
+        verify(mailSender).send(captor.capture());
+        assertThat(captor.getValue().getSubject()).contains("0037-00000021");
+        assertThat(factura.getMailEnviadoEn()).isNotNull();
+        verify(rechazoService, never()).registrar(any(), any(), any(), any());
+    }
+
+    @Test
+    void enviarFactura_fallaElEnvio_registraRechazoFacturaEmail() {
+        when(facturaRepository.findById(5L)).thenReturn(Optional.of(facturaMail()));
+        when(comprobanteFacturaService.armar(5L)).thenReturn(comprobante());
+        when(facturaPdfGenerator.generar(any())).thenReturn("%PDF-1.4".getBytes());
+        when(mailSender.createMimeMessage()).thenReturn(new jakarta.mail.internet.MimeMessage((jakarta.mail.Session) null));
+        doThrow(new org.springframework.mail.MailSendException("SMTP caído")).when(mailSender).send(any(jakarta.mail.internet.MimeMessage.class));
+
+        service.enviarFactura(5L);
+
+        verify(rechazoService).registrar(eq("FACTURA_EMAIL"), any(), any(), any());
     }
 }

@@ -5,6 +5,8 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.example.laserranitaentradas.model.dto.FacturaResponseDTO;
 import org.example.laserranitaentradas.service.FacturaService;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -33,6 +35,21 @@ public class FacturaController {
         return facturaService.obtenerPorCompra(compraId)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
+    }
+
+    @GetMapping(value = "/{id}/pdf", produces = MediaType.APPLICATION_PDF_VALUE)
+    @Operation(summary = "PDF de una factura emitida", description = "Mismo formato que el ticket: sirve para reimprimir o mandarla por otro medio.")
+    public ResponseEntity<byte[]> pdf(@PathVariable @Parameter(description = "ID de la factura") Long id) {
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"factura-" + id + ".pdf\"")
+                .body(facturaService.generarPdf(id));
+    }
+
+    @PostMapping("/{id}/reenviar-mail")
+    @Operation(summary = "Reenviar la factura por mail (ADMIN)", description = "Para cuando el envío automático falló (queda como rechazo FACTURA_EMAIL).")
+    public ResponseEntity<Void> reenviarMail(@PathVariable @Parameter(description = "ID de la factura") Long id) {
+        facturaService.reenviarMail(id);
+        return ResponseEntity.ok().build();
     }
 
     @PostMapping("/{id}/reintentar")

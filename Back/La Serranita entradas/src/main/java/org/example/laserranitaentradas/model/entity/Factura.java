@@ -105,4 +105,8 @@ public class Factura extends BaseEntity {
 
     @Column(name = "ultimo_error", length = 1000)
     private String ultimoError;
+
+    /** Cuándo salió el mail con el PDF (destino MAIL). Null = todavía no, o falló. */
+    @Column(name = "mail_enviado_en")
+    private LocalDateTime mailEnviadoEn;
 }

@@ -15,11 +15,18 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.core.io.ByteArrayResource;
+import org.example.laserranitaentradas.model.entity.Factura;
+import org.example.laserranitaentradas.repository.FacturaRepository;
+import org.example.laserranitaentradas.service.factura.ComprobanteFactura;
+import org.example.laserranitaentradas.service.factura.ComprobanteFacturaService;
+import org.example.laserranitaentradas.service.factura.FacturaPdfGenerator;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.text.NumberFormat;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
 import java.util.Locale;
@@ -52,6 +59,9 @@ public class EmailServiceImpl implements EmailService {
     private final JavaMailSender mailSender;
     private final CompraRepository compraRepository;
     private final RechazoOperacionService rechazoService;
+    private final FacturaRepository facturaRepository;
+    private final ComprobanteFacturaService comprobanteFacturaService;
+    private final FacturaPdfGenerator facturaPdfGenerator;
 
     @Value("${spring.mail.username}")
     private String remitente;
@@ -89,10 +99,16 @@ public class EmailServiceImpl implements EmailService {
     // constructor recibe un proxy que recién resuelve el bean real la primera vez que
     // registrarRechazoEnvio() lo usa, momento en el que el contexto ya terminó de armarse.
     public EmailServiceImpl(JavaMailSender mailSender, CompraRepository compraRepository,
-                             @Lazy RechazoOperacionService rechazoService) {
+                             @Lazy RechazoOperacionService rechazoService,
+                             FacturaRepository facturaRepository,
+                             ComprobanteFacturaService comprobanteFacturaService,
+                             FacturaPdfGenerator facturaPdfGenerator) {
         this.mailSender = mailSender;
         this.compraRepository = compraRepository;
         this.rechazoService = rechazoService;
+        this.facturaRepository = facturaRepository;
+        this.comprobanteFacturaService = comprobanteFacturaService;
+        this.facturaPdfGenerator = facturaPdfGenerator;
     }
 
     @Async
@@ -173,6 +189,59 @@ public class EmailServiceImpl implements EmailService {
             log.error("Error al enviar el email de aviso de regalo de la compra ID {}", compraId, e);
             registrarRechazoEnvio(compra, "aviso de regalo", e);
         }
+    }
+
+    @Async
+    @Override
+    public void enviarFactura(Long facturaId) {
+        try {
+            enviarFacturaOFallar(facturaId);
+        } catch (Exception e) {
+            log.error("Error al enviar el email de la factura ID {}", facturaId, e);
+            registrarRechazoEnvioFactura(facturaId, e);
+        }
+    }
+
+    @Override
+    public void enviarFacturaOFallar(Long facturaId) {
+        Factura factura = facturaRepository.findById(facturaId)
+                .orElseThrow(() -> new IllegalArgumentException("Factura no encontrada ID: " + facturaId));
+        if (factura.getEmail() == null || factura.getEmail().isBlank()) {
+            throw new IllegalStateException("La factura no tiene un email al que mandarla");
+        }
+        ComprobanteFactura comprobante = comprobanteFacturaService.armar(facturaId);
+        byte[] pdf = facturaPdfGenerator.generar(comprobante);
+
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setFrom(remitente, NOMBRE_REMITENTE);
+            helper.setTo(factura.getEmail());
+            agregarCopia(helper);
+            helper.setSubject("Tu factura " + comprobante.numeroFormateado() + " - La Serranita Parque Recreativo");
+            helper.setText(construirHtmlFactura(comprobante), true);
+            helper.addAttachment("Factura-B-" + comprobante.numeroFormateado() + ".pdf",
+                    new ByteArrayResource(pdf), "application/pdf");
+            mailSender.send(message);
+        } catch (jakarta.mail.MessagingException | java.io.UnsupportedEncodingException e) {
+            throw new IllegalStateException("No se pudo armar el mail de la factura", e);
+        }
+
+        factura.setMailEnviadoEn(LocalDateTime.now());
+        facturaRepository.save(factura);
+        log.info("Email de la factura ID {} enviado", facturaId);
+    }
+
+    private void registrarRechazoEnvioFactura(Long facturaId, Exception causa) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("facturaId", facturaId);
+        facturaRepository.findById(facturaId).ifPresent(f -> {
+            payload.put("compraId", f.getCompra().getId());
+            payload.put("email", f.getEmail());
+        });
+        payload.put("detalleTecnico", causa.getMessage());
+        rechazoService.registrar("FACTURA_EMAIL", payload,
+                "No se pudo enviar la factura por mail. Reenviala desde acá una vez resuelto.", null);
     }
 
     private void agregarCopia(MimeMessageHelper helper) throws jakarta.mail.MessagingException {
@@ -502,6 +571,23 @@ public class EmailServiceImpl implements EmailService {
                 tarjetaModalidad,
                 construirTarjetaDetalle(compra, etiquetaTotal, colorTotal, mostrarTotal));
 
+        return envolverEnLayout(header, cuerpo, construirFooter());
+    }
+
+    // ---------- Factura ----------
+
+    private String construirHtmlFactura(ComprobanteFactura c) {
+        String header = construirHeader("Tu factura", "Gracias por visitar La Serranita.",
+                "FACTURA B " + c.numeroFormateado(), COLOR_PRIMARIO_OSCURO, COLOR_PRIMARIO_CLARO);
+        String cuerpo = """
+            <p style="margin:0 0 16px; font-family:Arial,Helvetica,sans-serif; font-size:14px; color:%s; line-height:1.5;">
+              Te adjuntamos la factura de tu compra del <strong style="color:%s;">%s</strong> por
+              <strong style="color:%s;">%s</strong>.
+            </p>
+            %s
+            """.formatted(COLOR_TEXTO_SECUNDARIO, COLOR_TEXTO,
+                c.fechaEmision().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")),
+                COLOR_TEXTO, formatearMonto(c.total()), construirTarjetaAyuda());
         return envolverEnLayout(header, cuerpo, construirFooter());
     }
 

@@ -7,6 +7,7 @@ import org.example.laserranitaentradas.model.entity.EstadoFactura;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Data
 @Builder
@@ -27,6 +28,7 @@ public class FacturaResponseDTO {
     private BigDecimal importeIva;
     private Integer intentos;
     private String ultimoError;
+    private LocalDateTime mailEnviadoEn;
     /** URL del QR de ARCA (RG 4892). Sólo cuando está EMITIDA. */
     private String qrUrl;
 }

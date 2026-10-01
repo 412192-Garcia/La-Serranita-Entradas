@@ -73,6 +73,19 @@
             <version>3.0.0</version>
         </dependency>
 
+        <!-- PDF de la factura (representación impresa con formato de ticket) -->
+        <dependency>
+            <groupId>com.github.librepdf</groupId>
+            <artifactId>openpdf</artifactId>
+            <version>2.0.3</version>
+        </dependency>
+        <!-- QR de ARCA (RG 4892) en el PDF y, más adelante, en el ticket impreso -->
+        <dependency>
+            <groupId>com.google.zxing</groupId>
+            <artifactId>core</artifactId>
+            <version>3.5.3</version>
+        </dependency>
+
         <!-- Mercado Pago Java SDK -->
         <dependency>
             <groupId>com.mercadopago</groupId>
