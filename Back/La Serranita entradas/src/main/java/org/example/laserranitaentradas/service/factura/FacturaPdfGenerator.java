@@ -66,8 +66,8 @@ public class FacturaPdfGenerator {
             centrado(doc, "Responsable Inscripto", NORMAL);
             separador(doc);
 
-            centrado(doc, "FACTURA B", TITULO);
-            centrado(doc, "ORIGINAL (COD. 006)", NORMAL);
+            centrado(doc, c.titulo(), TITULO);
+            centrado(doc, c.codigoOriginal(), NORMAL);
             centrado(doc, "Pto Vta: " + String.format("%04d", c.puntoVenta())
                     + "    Nro: " + String.format("%08d", c.numero()), NORMAL);
             separador(doc);
@@ -76,6 +76,9 @@ public class FacturaPdfGenerator {
             izquierda(doc, "Cliente: Consumidor Final", NORMAL);
             izquierda(doc, "Cond. IVA: Consumidor Final", NORMAL);
             izquierda(doc, "Cond. Venta: Contado", NORMAL);
+            if (c.comprobanteAsociado() != null) {
+                izquierda(doc, "Comprobante asociado: " + c.comprobanteAsociado(), NEGRITA);
+            }
             separador(doc);
 
             izquierda(doc, "CANT  DESCRIPCIÓN", NEGRITA);

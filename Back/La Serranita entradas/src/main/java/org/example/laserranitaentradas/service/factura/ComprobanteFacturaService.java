@@ -57,18 +57,29 @@ public class ComprobanteFacturaService {
         }
 
         List<ComprobanteFactura.Item> items = new ArrayList<>();
-        List<CompraDetalle> detalles = f.getCompra().getDetalles();
-        if (detalles != null) {
-            for (CompraDetalle d : detalles) {
+        if (f.getDetalle() != null && !f.getDetalle().isBlank()) {
+            // Lo que se facturó, aunque la venta se haya editado después.
+            for (String linea : f.getDetalle().split("\n")) {
+                String[] partes = linea.split("\t", 2);
+                if (partes.length == 2) items.add(new ComprobanteFactura.Item(Integer.parseInt(partes[0]), partes[1]));
+            }
+        } else if (f.getCompra().getDetalles() != null) {
+            for (CompraDetalle d : f.getCompra().getDetalles()) {
                 items.add(new ComprobanteFactura.Item(d.getCantidad(), descripcion(d)));
             }
+        }
+
+        String asociado = null;
+        if (f.getComprobanteAsociado() != null) {
+            Factura a = f.getComprobanteAsociado();
+            asociado = String.format("Factura B %04d-%08d", a.getPuntoVenta(), a.getNumero());
         }
 
         return new ComprobanteFactura(
                 razonSocial, domicilio, afipClient.getCuit(), ingresosBrutos, inicioActividades,
                 f.getPuntoVenta(), f.getNumero(), f.getFechaEmision(), f.getCompra().getCodigoReserva(),
                 items, f.getImporteTotal(), f.getImporteIva(), f.getCae(), f.getCaeVencimiento(),
-                qrUrl(f));
+                qrUrl(f), f.getTipoComprobante(), asociado);
     }
 
     private static String descripcion(CompraDetalle d) {

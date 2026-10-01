@@ -22,14 +22,13 @@ import java.time.LocalDateTime;
  */
 @Entity
 @Table(name = "facturas", uniqueConstraints = {
-        @UniqueConstraint(name = "uk_factura_compra", columnNames = "id_compra"),
         @UniqueConstraint(name = "uk_factura_numero", columnNames = {"punto_venta", "tipo_comprobante", "numero"})
 })
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@EqualsAndHashCode(callSuper = true, exclude = {"compra"})
-@ToString(callSuper = true, exclude = {"compra"})
+@EqualsAndHashCode(callSuper = true, exclude = {"compra", "comprobanteAsociado"})
+@ToString(callSuper = true, exclude = {"compra", "comprobanteAsociado"})
 @Builder
 public class Factura extends BaseEntity {
 
@@ -37,9 +36,30 @@ public class Factura extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @OneToOne(fetch = FetchType.LAZY)
+    /** Una compra puede tener varios comprobantes: la factura, su nota de crédito si se canceló,
+     * y una factura nueva si se editó el monto. */
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_compra", nullable = false)
     private Compra compra;
+
+    /** Sólo en una nota de crédito: la factura que anula (va en CbtesAsoc del pedido a ARCA). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_comprobante_asociado")
+    private Factura comprobanteAsociado;
+
+    /**
+     * La venta se canceló o cambió de monto mientras esta factura estaba en camino (pidió número a
+     * ARCA y no se sabe si quedó autorizada). Al resolverse: si quedó autorizada se le emite la
+     * nota de crédito; si no, pasa a ANULADA sin pedir otro número.
+     */
+    @Column(name = "anulacion_pedida", nullable = false, columnDefinition = "boolean default false")
+    @Builder.Default
+    private Boolean anulacionPedida = false;
+
+    /** Copia de los ítems al momento de facturar ("cantidad<TAB>descripción" por línea): si después
+     * se edita la venta, el comprobante sigue mostrando lo que se facturó. */
+    @Column(length = 2000)
+    private String detalle;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)

@@ -30,6 +30,8 @@ public class FacturaResponseDTO {
     private Integer intentos;
     private String ultimoError;
     private LocalDateTime mailEnviadoEn;
+    /** La venta se canceló o cambió de monto: esta factura se anula o ya tiene nota de crédito. */
+    private boolean anulacionPedida;
     /** Estado del último trabajo de impresión de esta factura; null si nunca se mandó a imprimir. */
     private EstadoTrabajoImpresion impresionEstado;
     private String impresionError;

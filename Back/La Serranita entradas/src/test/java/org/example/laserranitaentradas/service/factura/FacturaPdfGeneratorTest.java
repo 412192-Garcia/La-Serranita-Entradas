@@ -23,7 +23,7 @@ class FacturaPdfGeneratorTest {
                 37, 21L, LocalDate.of(2026, 9, 30), "260930-6", items,
                 new BigDecimal("68600.00"), new BigDecimal("11905.79"),
                 "86390938715788", LocalDate.of(2026, 10, 10),
-                "https://www.afip.gob.ar/fe/qr/?p=eyJ2ZXIiOjF9");
+                "https://www.afip.gob.ar/fe/qr/?p=eyJ2ZXIiOjF9", 6, null);
     }
 
     @Test
@@ -48,6 +48,21 @@ class FacturaPdfGeneratorTest {
                 .contains("86390938715788")
                 .contains("Ley 27.743")
                 .contains("General");
+    }
+
+    @Test
+    void notaDeCredito_llevaSuTituloYLaFacturaQueAnula() throws Exception {
+        ComprobanteFactura f = comprobante(List.of(new ComprobanteFactura.Item(2, "General")));
+        ComprobanteFactura nc = new ComprobanteFactura(f.razonSocial(), f.domicilio(), f.cuit(), f.ingresosBrutos(),
+                f.inicioActividades(), 37, 3L, f.fechaEmision(), f.codigoReserva(), f.items(), f.total(), f.ivaContenido(),
+                f.cae(), f.caeVencimiento(), f.qrUrl(), 8, "Factura B 0037-00000021");
+
+        String texto = new PdfTextExtractor(new PdfReader(generator.generar(nc))).getTextFromPage(1);
+
+        assertThat(texto)
+                .contains("NOTA DE CRÉDITO B")
+                .contains("COD. 008")
+                .contains("Comprobante asociado: Factura B 0037-00000021");
     }
 
     @Test

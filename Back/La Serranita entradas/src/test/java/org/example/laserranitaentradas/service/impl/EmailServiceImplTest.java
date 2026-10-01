@@ -155,7 +155,7 @@ class EmailServiceImplTest {
         return new org.example.laserranitaentradas.service.factura.ComprobanteFactura(
                 "PARQUE", "RUTA 5", "20409378472", "1", "30/11/2020", 37, 21L, java.time.LocalDate.now(),
                 "260930-6", java.util.List.of(), new java.math.BigDecimal("2500"), new java.math.BigDecimal("433.88"),
-                "86390938715788", java.time.LocalDate.now().plusDays(10), "https://www.afip.gob.ar/fe/qr/?p=x");
+                "86390938715788", java.time.LocalDate.now().plusDays(10), "https://www.afip.gob.ar/fe/qr/?p=x", 6, null);
     }
 
     private org.example.laserranitaentradas.model.entity.Factura facturaMail() {

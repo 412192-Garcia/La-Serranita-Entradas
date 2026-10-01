@@ -10,5 +10,8 @@ package org.example.laserranitaentradas.model.entity;
  */
 public enum DestinoFactura {
     IMPRIMIR,
-    MAIL
+    MAIL,
+    /** Sin envío automático: notas de crédito y refacturaciones hechas por un admin desde la
+     * oficina (imprimirlas solas en la boletería no tendría sentido). Quedan en PDF. */
+    NINGUNO
 }

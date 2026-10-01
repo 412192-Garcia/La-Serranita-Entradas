@@ -1,6 +1,6 @@
-export type DestinoFactura = 'IMPRIMIR' | 'MAIL';
+export type DestinoFactura = 'IMPRIMIR' | 'MAIL' | 'NINGUNO';
 
-export type EstadoFactura = 'PENDIENTE' | 'EMITIDA' | 'ERROR';
+export type EstadoFactura = 'PENDIENTE' | 'EMITIDA' | 'ERROR' | 'ANULADA';
 
 export type EstadoImpresion = 'PENDIENTE' | 'ENVIADO' | 'IMPRESO' | 'ERROR';
 
@@ -40,6 +40,8 @@ export interface Factura {
   ultimoError: string | null;
   qrUrl: string | null;
   mailEnviadoEn: string | null;
+  /** La venta se canceló o cambió de monto: la factura se anula o ya tiene nota de crédito. */
+  anulacionPedida: boolean;
   /** Último intento de imprimir el ticket; null si nunca se mandó a imprimir. */
   impresionEstado: EstadoImpresion | null;
   impresionError: string | null;

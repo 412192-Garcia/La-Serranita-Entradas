@@ -23,12 +23,30 @@ public record ComprobanteFactura(
         BigDecimal ivaContenido,
         String cae,
         LocalDate caeVencimiento,
-        String qrUrl
+        String qrUrl,
+        /** Código ARCA: 6 = Factura B, 8 = Nota de Crédito B. */
+        int tipoComprobante,
+        /** Sólo en una nota de crédito: "Factura B 0037-00000024". */
+        String comprobanteAsociado
 ) {
     /** Sin precio por línea a propósito (mismo criterio que el mail de comprobante): el precio
      * de una entrada depende de la forma de pago, el grupo y los descuentos, así que
      * "cantidad × precio de lista" puede no coincidir con lo cobrado. El total sí es exacto. */
     public record Item(int cantidad, String descripcion) {}
+
+    public boolean esNotaDeCredito() {
+        return tipoComprobante == 8;
+    }
+
+    /** "FACTURA B" / "NOTA DE CRÉDITO B". */
+    public String titulo() {
+        return esNotaDeCredito() ? "NOTA DE CRÉDITO B" : "FACTURA B";
+    }
+
+    /** "ORIGINAL (COD. 006)". */
+    public String codigoOriginal() {
+        return String.format("ORIGINAL (COD. %03d)", tipoComprobante);
+    }
 
     /** "0037-00000021". */
     public String numeroFormateado() {

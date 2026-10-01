@@ -1606,6 +1606,8 @@ public class CompraServiceImpl implements CompraService {
             throw new IllegalStateException("Esta venta ya está cancelada.");
         }
         compra.setEstado(EstadoCompra.CANCELADO);
+        // Si estaba facturada: nota de crédito (o anulación si la factura no llegó a ARCA).
+        facturaService.alCancelarVenta(compra);
         return compraRepository.save(compra);
     }
 
@@ -1623,6 +1625,7 @@ public class CompraServiceImpl implements CompraService {
         if (request.getFormaPago() == null) {
             throw new IllegalArgumentException("Falta indicar la forma de pago.");
         }
+        BigDecimal montoAnterior = compra.getMontoTotal();
 
         LocalDate fechaVisita = compra.getFechaVisita();
         // Cupo diario: se cuenta contra todas las compras del día MENOS esta misma (se está
@@ -1690,6 +1693,9 @@ public class CompraServiceImpl implements CompraService {
         compra.setMontoTotal(montoFinal);
         compra.setDescuentoAplicado(descuento);
 
-        return compraRepository.save(compra);
+        Compra guardada = compraRepository.save(compra);
+        // Si cambió el total de una venta facturada: nota de crédito + factura nueva.
+        facturaService.alEditarVenta(guardada, montoAnterior);
+        return guardada;
     }
 }

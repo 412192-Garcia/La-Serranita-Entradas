@@ -14,9 +14,8 @@ import java.util.Optional;
 @Repository
 public interface FacturaRepository extends JpaRepository<Factura, Long> {
 
-    Optional<Factura> findByCompraId(Long compraId);
-
-    boolean existsByCompraId(Long compraId);
+    /** El último comprobante de ese tipo de la compra (6 = la factura vigente, la más nueva). */
+    Optional<Factura> findFirstByCompraIdAndTipoComprobanteOrderByIdDesc(Long compraId, Integer tipoComprobante);
 
     /** Pendientes cuyo próximo intento ya llegó, de la más vieja a la más nueva (así se respeta
      * el orden de venta en la numeración, dentro de lo posible). */

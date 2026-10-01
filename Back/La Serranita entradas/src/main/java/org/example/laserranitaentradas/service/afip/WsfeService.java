@@ -20,6 +20,7 @@ import java.util.Optional;
 public class WsfeService {
 
     public static final int CBTE_TIPO_FACTURA_B = 6;
+    public static final int CBTE_TIPO_NOTA_CREDITO_B = 8;
     /** DocTipo 99 + DocNro 0 = consumidor final sin identificar. */
     private static final int DOC_TIPO_SIN_IDENTIFICAR = 99;
     private static final int CONDICION_IVA_CONSUMIDOR_FINAL = 5;
@@ -94,6 +95,16 @@ public class WsfeService {
         det.put("MonId", "PES");
         det.put("MonCotiz", 1);
         det.put("CondicionIVAReceptorId", CONDICION_IVA_CONSUMIDOR_FINAL);
+        // Nota de crédito: la factura que anula. Va antes de Iva: en el SOAP de ARCA el orden
+        // de los campos importa, y AfipSDK respeta el orden de este mapa.
+        if (s.asociado() != null) {
+            det.put("CbtesAsoc", Map.of("CbteAsoc", List.of(Map.of(
+                    "Tipo", s.asociado().tipo(),
+                    "PtoVta", s.asociado().puntoVenta(),
+                    "Nro", s.asociado().numero(),
+                    "Cuit", client.getCuit(),
+                    "CbteFch", s.asociado().fecha().format(FORMATO_FECHA)))));
+        }
         det.put("Iva", Map.of("AlicIva", List.of(Map.of(
                 "Id", ALICUOTA_IVA_21,
                 "BaseImp", s.neto(),
@@ -169,7 +180,10 @@ public class WsfeService {
 
     public record SolicitudCae(int puntoVenta, int tipoComprobante, int concepto, long numero,
                                LocalDate fecha, LocalDate fechaServicio,
-                               BigDecimal total, BigDecimal neto, BigDecimal iva) {}
+                               BigDecimal total, BigDecimal neto, BigDecimal iva, Asociado asociado) {}
+
+    /** Comprobante que anula una nota de crédito. */
+    public record Asociado(int tipo, int puntoVenta, long numero, LocalDate fecha) {}
 
     public record ResultadoCae(boolean aprobado, String cae, LocalDate caeVencimiento,
                                List<String> mensajes, List<Integer> codigos) {}

@@ -28,6 +28,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -95,8 +96,8 @@ class FacturaServiceImplTest {
 
     @Test
     void reintentoConMismaCompra_noDuplica() {
-        Factura existente = Factura.builder().id(7L).build();
-        when(facturaRepository.findByCompraId(1L)).thenReturn(Optional.of(existente));
+        Factura existente = Factura.builder().id(7L).estado(EstadoFactura.PENDIENTE).build();
+        when(facturaRepository.findFirstByCompraIdAndTipoComprobanteOrderByIdDesc(1L, 6)).thenReturn(Optional.of(existente));
 
         Optional<Factura> r = service.solicitar(compra("2500", entrada()), pedido(DestinoFactura.IMPRIMIR, null));
 
@@ -317,6 +318,163 @@ class FacturaServiceImplTest {
         verify(wsfe, never()).consultar(anyInt(), anyInt(), anyLong());
     }
 
+    // ---------- Notas de crédito ----------
+
+    private Factura emitida() {
+        Factura f = pendiente();
+        f.setEstado(EstadoFactura.EMITIDA);
+        f.setNumero(24L);
+        f.setNumeroIntentado(24L);
+        f.setCae("123");
+        f.setFechaEmision(LocalDate.now());
+        f.setDetalle("2\tGeneral");
+        return f;
+    }
+
+    private List<Factura> capturarGuardadas() {
+        ArgumentCaptor<Factura> captor = ArgumentCaptor.forClass(Factura.class);
+        verify(facturaRepository, atLeastOnce()).save(captor.capture());
+        return captor.getAllValues();
+    }
+
+    @Test
+    void cancelarVentaFacturada_emiteNotaDeCreditoPorElTotalAsociadaALaFactura() {
+        Factura f = emitida();
+        when(facturaRepository.findFirstByCompraIdAndTipoComprobanteOrderByIdDesc(1L, 6)).thenReturn(Optional.of(f));
+
+        service.alCancelarVenta(Compra.builder().id(1L).build());
+
+        Factura nc = capturarGuardadas().stream().filter(x -> x.getTipoComprobante() == 8).findFirst().orElseThrow();
+        assertThat(nc.getComprobanteAsociado()).isSameAs(f);
+        assertThat(nc.getImporteTotal()).isEqualByComparingTo("2500.00");
+        assertThat(nc.getDestino()).isEqualTo(DestinoFactura.NINGUNO);
+        assertThat(nc.getDetalle()).isEqualTo("2\tGeneral");
+        assertThat(f.getAnulacionPedida()).isTrue();
+        verify(eventPublisher).publishEvent(any(FacturaServiceImpl.FacturaSolicitadaEvent.class));
+    }
+
+    @Test
+    void cancelarVenta_conFacturaQueNuncaLlegoAArca_laAnulaSinNotaDeCredito() {
+        Factura f = pendiente();
+        when(facturaRepository.findFirstByCompraIdAndTipoComprobanteOrderByIdDesc(1L, 6)).thenReturn(Optional.of(f));
+
+        service.alCancelarVenta(Compra.builder().id(1L).build());
+
+        assertThat(f.getEstado()).isEqualTo(EstadoFactura.ANULADA);
+        assertThat(capturarGuardadas()).noneMatch(x -> x.getTipoComprobante() == 8);
+    }
+
+    @Test
+    void cancelarVenta_sinFactura_noHaceNada() {
+        service.alCancelarVenta(Compra.builder().id(1L).build());
+        verify(facturaRepository, never()).save(any());
+    }
+
+    @Test
+    void cancelarVenta_conFacturaEnVuelo_laMarcaYAlNoEstarAutorizadaSeAnulaSinPedirOtroNumero() {
+        Factura f = pendiente();
+        f.setNumeroIntentado(42L);
+        when(facturaRepository.findFirstByCompraIdAndTipoComprobanteOrderByIdDesc(1L, 6)).thenReturn(Optional.of(f));
+        when(facturaRepository.findById(10L)).thenReturn(Optional.of(f));
+        when(wsfe.consultar(5, 6, 42L)).thenReturn(Optional.empty());
+
+        service.alCancelarVenta(Compra.builder().id(1L).build());
+        assertThat(f.getAnulacionPedida()).isTrue();
+        assertThat(f.getEstado()).isEqualTo(EstadoFactura.PENDIENTE);
+
+        service.emitir(10L);
+
+        assertThat(f.getEstado()).isEqualTo(EstadoFactura.ANULADA);
+        verify(wsfe, never()).ultimoAutorizado(anyInt(), anyInt());
+        verify(wsfe, never()).solicitarCae(any());
+    }
+
+    @Test
+    void facturaEnVueloQueResultoAutorizada_trasCancelar_sacaNotaDeCreditoYNoSeImprime() {
+        Factura f = pendiente();
+        f.setNumeroIntentado(42L);
+        f.setAnulacionPedida(true);
+        when(facturaRepository.findById(10L)).thenReturn(Optional.of(f));
+        when(wsfe.consultar(5, 6, 42L)).thenReturn(Optional.of(
+                new WsfeService.ComprobanteAutorizado("123", LocalDate.now().plusDays(10), LocalDate.now(), new BigDecimal("2500.00"))));
+
+        service.emitir(10L);
+
+        assertThat(f.getEstado()).isEqualTo(EstadoFactura.EMITIDA);
+        assertThat(capturarGuardadas()).anyMatch(x -> x.getTipoComprobante() == 8);
+        verifyNoInteractions(impresionService);
+        verifyNoInteractions(emailService);
+    }
+
+    @Test
+    void emitirNotaDeCredito_mandaLaFacturaAsociadaAArca() {
+        Factura factura = emitida();
+        Factura nc = Factura.builder()
+                .id(11L).compra(Compra.builder().id(1L).build()).comprobanteAsociado(factura)
+                .estado(EstadoFactura.PENDIENTE).destino(DestinoFactura.NINGUNO)
+                .puntoVenta(5).tipoComprobante(8).concepto(2).fechaServicio(LocalDate.now())
+                .importeTotal(new BigDecimal("2500.00")).importeNeto(new BigDecimal("2066.12")).importeIva(new BigDecimal("433.88"))
+                .build();
+        when(facturaRepository.findById(11L)).thenReturn(Optional.of(nc));
+        when(facturaRepository.findById(10L)).thenReturn(Optional.of(factura));
+        when(wsfe.ultimoAutorizado(5, 8)).thenReturn(3L);
+        when(wsfe.solicitarCae(any())).thenReturn(new WsfeService.ResultadoCae(true, "999", LocalDate.now(), List.of(), List.of()));
+
+        service.emitir(11L);
+
+        ArgumentCaptor<WsfeService.SolicitudCae> captor = ArgumentCaptor.forClass(WsfeService.SolicitudCae.class);
+        verify(wsfe).solicitarCae(captor.capture());
+        assertThat(captor.getValue().tipoComprobante()).isEqualTo(8);
+        assertThat(captor.getValue().numero()).isEqualTo(4L);
+        assertThat(captor.getValue().asociado()).isEqualTo(new WsfeService.Asociado(6, 5, 24L, factura.getFechaEmision()));
+        assertThat(nc.getEstado()).isEqualTo(EstadoFactura.EMITIDA);
+        verifyNoInteractions(emailService);
+        verifyNoInteractions(impresionService);
+    }
+
+    @Test
+    void editarVenta_conOtroTotal_notaDeCreditoYFacturaNuevaAlMismoMail() {
+        Factura f = emitida();
+        f.setDestino(DestinoFactura.MAIL);
+        f.setEmail("a@b.com");
+        when(facturaRepository.findFirstByCompraIdAndTipoComprobanteOrderByIdDesc(1L, 6)).thenReturn(Optional.of(f));
+
+        service.alEditarVenta(compra("3000", entrada()), new BigDecimal("2500"));
+
+        List<Factura> guardadas = capturarGuardadas();
+        assertThat(guardadas).anyMatch(x -> x.getTipoComprobante() == 8 && x.getComprobanteAsociado() == f);
+        Factura nueva = guardadas.stream().filter(x -> x.getTipoComprobante() == 6 && x != f).findFirst().orElseThrow();
+        assertThat(nueva.getImporteTotal()).isEqualByComparingTo("3000");
+        assertThat(nueva.getDestino()).isEqualTo(DestinoFactura.MAIL);
+        assertThat(nueva.getEmail()).isEqualTo("a@b.com");
+    }
+
+    @Test
+    void editarVenta_facturaImpresa_laNuevaNoSeImprimeSola() {
+        Factura f = emitida();
+        when(facturaRepository.findFirstByCompraIdAndTipoComprobanteOrderByIdDesc(1L, 6)).thenReturn(Optional.of(f));
+
+        service.alEditarVenta(compra("3000", entrada()), new BigDecimal("2500"));
+
+        Factura nueva = capturarGuardadas().stream().filter(x -> x.getTipoComprobante() == 6 && x != f).findFirst().orElseThrow();
+        assertThat(nueva.getDestino()).isEqualTo(DestinoFactura.NINGUNO);
+    }
+
+    @Test
+    void editarVenta_mismoTotal_noTocaLaFactura() {
+        service.alEditarVenta(compra("2500", entrada()), new BigDecimal("2500.00"));
+
+        verify(facturaRepository, never()).save(any());
+        verify(facturaRepository, never()).findFirstByCompraIdAndTipoComprobanteOrderByIdDesc(anyLong(), any());
+    }
+
+    @Test
+    void solicitar_guardaCopiaDeLosItems() {
+        Factura f = service.solicitar(compra("3000", entrada(), articulo()), pedido(DestinoFactura.IMPRIMIR, null)).orElseThrow();
+
+        assertThat(f.getDetalle()).isEqualTo("1\tGeneral\n1\tSouvenir");
+    }
+
     // ---------- helpers ----------
 
     private static FacturacionPosDTO pedido(DestinoFactura destino, String email) {
@@ -336,7 +494,7 @@ class FacturaServiceImplTest {
     }
 
     private static CompraDetalle entrada() {
-        return CompraDetalle.builder().tipoEntrada(new TipoEntrada()).cantidad(1).build();
+        return CompraDetalle.builder().tipoEntrada(TipoEntrada.builder().nombre("General").build()).cantidad(1).build();
     }
 
     private static CompraDetalle articulo() {

@@ -112,21 +112,30 @@ public class FacturaServiceImpl implements FacturaService {
             log.warn("Se pidió factura para la compra ID {} pero la facturación no está configurada (falta AFIPSDK_ACCESS_TOKEN)", compra.getId());
             return Optional.empty();
         }
-        Optional<Factura> existente = facturaRepository.findByCompraId(compra.getId());
+        // Reintento de la cola offline con la misma venta: ya tiene su factura.
+        Optional<Factura> existente = facturaVigente(compra.getId());
         if (existente.isPresent()) {
             return existente;
         }
 
+        String impresora = pedido.getDestino() == DestinoFactura.IMPRIMIR && pedido.getImpresora() != null
+                && !pedido.getImpresora().isBlank() ? pedido.getImpresora().trim() : null;
+        return Optional.of(crearFactura(compra, pedido.getDestino(),
+                pedido.getDestino() == DestinoFactura.MAIL ? email : null, impresora));
+    }
+
+    /** Crea una factura B PENDIENTE por el total actual de la compra y la deja lista para emitir
+     * cuando commitee la transacción en curso (la de la venta, o la de la cancelación/edición). */
+    private Factura crearFactura(Compra compra, DestinoFactura destino, String email, String impresora) {
         BigDecimal total = compra.getMontoTotal().setScale(2, RoundingMode.HALF_UP);
         BigDecimal neto = total.divide(DIVISOR_IVA_21, 2, RoundingMode.HALF_UP);
         BigDecimal iva = total.subtract(neto);
 
         Factura factura = Factura.builder()
                 .compra(compra)
-                .destino(pedido.getDestino())
-                .email(pedido.getDestino() == DestinoFactura.MAIL ? email : null)
-                .impresora(pedido.getDestino() == DestinoFactura.IMPRIMIR && pedido.getImpresora() != null
-                        && !pedido.getImpresora().isBlank() ? pedido.getImpresora().trim() : null)
+                .destino(destino)
+                .email(email)
+                .impresora(impresora)
                 .puntoVenta(puntoVentaBoleteria)
                 .tipoComprobante(WsfeService.CBTE_TIPO_FACTURA_B)
                 .concepto(concepto(compra.getDetalles()))
@@ -134,12 +143,105 @@ public class FacturaServiceImpl implements FacturaService {
                 .importeTotal(total)
                 .importeNeto(neto)
                 .importeIva(iva)
+                .detalle(detalleTexto(compra.getDetalles()))
                 .build();
         factura = facturaRepository.save(factura);
-        // Se emite recién cuando la venta commitea (ver EmisionFacturaListener): si la venta
-        // terminara haciendo rollback, no puede quedar una factura autorizada en ARCA.
+        // Se emite recién cuando commitea la transacción (ver EmisionFacturasScheduler): si hiciera
+        // rollback, no puede quedar un comprobante autorizado en ARCA.
         eventPublisher.publishEvent(new FacturaSolicitadaEvent(factura.getId()));
-        return Optional.of(factura);
+        return factura;
+    }
+
+    /** La factura que hoy vale para la compra: la última, salvo que esté anulada o en camino de
+     * anularse. */
+    private Optional<Factura> facturaVigente(Long compraId) {
+        return facturaRepository.findFirstByCompraIdAndTipoComprobanteOrderByIdDesc(compraId, WsfeService.CBTE_TIPO_FACTURA_B)
+                .filter(f -> f.getEstado() != EstadoFactura.ANULADA && !Boolean.TRUE.equals(f.getAnulacionPedida()));
+    }
+
+    private static String detalleTexto(List<CompraDetalle> detalles) {
+        if (detalles == null) return null;
+        StringBuilder sb = new StringBuilder();
+        for (CompraDetalle d : detalles) {
+            String descripcion = d.getTipoEntrada() != null ? d.getTipoEntrada().getNombre()
+                    : d.getArticuloVario() != null ? d.getArticuloVario().getNombre()
+                    : d.getDescripcionLibre();
+            if (descripcion == null || descripcion.isBlank()) descripcion = "Artículo";
+            if (sb.length() > 0) sb.append('\n');
+            sb.append(d.getCantidad()).append('\t').append(descripcion.replace('\n', ' ').replace('\t', ' '));
+        }
+        String texto = sb.toString();
+        return texto.length() > 2000 ? texto.substring(0, 2000) : texto;
+    }
+
+    // ---------- Cancelación y edición de ventas facturadas ----------
+
+    @Override
+    public void alCancelarVenta(Compra compra) {
+        facturaVigente(compra.getId()).ifPresent(this::anular);
+    }
+
+    @Override
+    public void alEditarVenta(Compra compra, BigDecimal montoAnterior) {
+        if (montoAnterior != null && compra.getMontoTotal() != null && montoAnterior.compareTo(compra.getMontoTotal()) == 0) {
+            // Mismo total (ej. sólo se corrigió la forma de pago): la factura sigue siendo correcta.
+            return;
+        }
+        facturaVigente(compra.getId()).ifPresent(vieja -> {
+            anular(vieja);
+            if (compra.getMontoTotal() != null && compra.getMontoTotal().signum() > 0) {
+                // La corrección la hace un admin desde la oficina: si iba por mail se le manda la
+                // nueva al mismo cliente; si era impresa no se imprime sola en la boletería.
+                boolean porMail = vieja.getDestino() == DestinoFactura.MAIL;
+                crearFactura(compra, porMail ? DestinoFactura.MAIL : DestinoFactura.NINGUNO,
+                        porMail ? vieja.getEmail() : null, null);
+            }
+        });
+    }
+
+    /**
+     * Deja sin efecto una factura. Si nunca llegó a ARCA, alcanza con anularla acá. Si ya está
+     * autorizada, ARCA no permite borrarla: se emite una nota de crédito por el total. Y si está
+     * en camino (pidió número y no se sabe si quedó autorizada) se marca, y lo resuelve la
+     * emisión: nota de crédito si quedó autorizada, anulada si no.
+     */
+    private void anular(Factura f) {
+        if (f.getEstado() != EstadoFactura.EMITIDA && f.getNumeroIntentado() == null) {
+            f.setEstado(EstadoFactura.ANULADA);
+            f.setProximoIntento(null);
+            facturaRepository.save(f);
+            return;
+        }
+        f.setAnulacionPedida(true);
+        if (f.getEstado() == EstadoFactura.EMITIDA) {
+            facturaRepository.save(f);
+            Factura nc = facturaRepository.save(notaDeCredito(f));
+            eventPublisher.publishEvent(new FacturaSolicitadaEvent(nc.getId()));
+            return;
+        }
+        // En ERROR con número pedido tampoco se sabe si quedó autorizada: vuelve a la cola para
+        // que la emisión lo consulte y lo resuelva.
+        f.setEstado(EstadoFactura.PENDIENTE);
+        f.setIntentos(0);
+        f.setProximoIntento(null);
+        facturaRepository.save(f);
+        eventPublisher.publishEvent(new FacturaSolicitadaEvent(f.getId()));
+    }
+
+    private Factura notaDeCredito(Factura factura) {
+        return Factura.builder()
+                .compra(factura.getCompra())
+                .comprobanteAsociado(factura)
+                .destino(DestinoFactura.NINGUNO)
+                .puntoVenta(factura.getPuntoVenta())
+                .tipoComprobante(WsfeService.CBTE_TIPO_NOTA_CREDITO_B)
+                .concepto(factura.getConcepto())
+                .fechaServicio(factura.getFechaServicio())
+                .importeTotal(factura.getImporteTotal())
+                .importeNeto(factura.getImporteNeto())
+                .importeIva(factura.getImporteIva())
+                .detalle(factura.getDetalle())
+                .build();
     }
 
     /** Entradas = servicio; artículos varios (souvenirs) = producto. */
@@ -177,7 +279,12 @@ public class FacturaServiceImpl implements FacturaService {
     private void emitirBajoLock(Factura factura) {
         int pv = factura.getPuntoVenta();
         int tipo = factura.getTipoComprobante();
+        boolean anular = Boolean.TRUE.equals(factura.getAnulacionPedida());
         try {
+            if (anular && factura.getNumeroIntentado() == null) {
+                marcarAnulada(factura.getId());
+                return;
+            }
             // Un intento anterior mandó el pedido con este número y nunca supo la respuesta
             // (timeout, corte): antes de pedir otro número hay que preguntar si ese quedó
             // autorizado. Si no se hace esto, un timeout = la misma venta facturada dos veces.
@@ -187,6 +294,11 @@ public class FacturaServiceImpl implements FacturaService {
                     log.info("La factura ID {} ya había quedado autorizada en ARCA con el número {}", factura.getId(), factura.getNumeroIntentado());
                     marcarEmitida(factura.getId(), factura.getNumeroIntentado(), previo.get().cae(),
                             previo.get().caeVencimiento(), previo.get().fecha());
+                    return;
+                }
+                if (anular) {
+                    // No había quedado autorizada y la venta ya se canceló: no se pide otro número.
+                    marcarAnulada(factura.getId());
                     return;
                 }
             }
@@ -203,11 +315,12 @@ public class FacturaServiceImpl implements FacturaService {
 
             WsfeService.ResultadoCae resultado = wsfe.solicitarCae(new WsfeService.SolicitudCae(
                     pv, tipo, factura.getConcepto(), numero, fecha, factura.getFechaServicio(),
-                    factura.getImporteTotal(), factura.getImporteNeto(), factura.getImporteIva()));
+                    factura.getImporteTotal(), factura.getImporteNeto(), factura.getImporteIva(),
+                    asociado(factura)));
 
             if (resultado.aprobado()) {
                 marcarEmitida(factura.getId(), numero, resultado.cae(), resultado.caeVencimiento(), fecha);
-                log.info("Factura ID {} emitida: B {}-{} CAE {}", factura.getId(), pv, numero, resultado.cae());
+                log.info("Comprobante ID {} (tipo {}) emitido: {}-{} CAE {}", factura.getId(), tipo, pv, numero, resultado.cae());
             } else if (resultado.codigos().contains(WsfeService.ERROR_NUMERO_NO_ES_EL_PROXIMO)) {
                 // Otro comprobante tomó ese número entre la consulta y el pedido (no debería
                 // pasar con un punto de venta propio, pero sí en homologación, donde el CUIT de
@@ -244,6 +357,13 @@ public class FacturaServiceImpl implements FacturaService {
             return facturaRepository.save(f);
         }).orElse(null));
         if (emitida == null) return;
+        if (Boolean.TRUE.equals(emitida.getAnulacionPedida())) {
+            // Quedó autorizada pero la venta ya se había cancelado: ni mail ni ticket, va directo
+            // la nota de crédito.
+            Factura nc = tx.execute(s -> facturaRepository.save(notaDeCredito(facturaRepository.findById(id).orElseThrow())));
+            emitir(nc.getId());
+            return;
+        }
         // Ya commiteada como EMITIDA: el mail sale en segundo plano (si falla, queda como rechazo
         // para reenviar) y el ticket va a la cola del agente de impresión. En los dos casos la
         // factura sigue siendo válida aunque el envío falle.
@@ -257,6 +377,24 @@ public class FacturaServiceImpl implements FacturaService {
                 log.warn("No se pudo mandar a imprimir la factura ID {}", id, e);
             }
         }
+    }
+
+    private void marcarAnulada(Long id) {
+        log.info("Factura ID {} anulada antes de autorizarse (la venta se canceló o cambió)", id);
+        tx.executeWithoutResult(s -> facturaRepository.findById(id).ifPresent(f -> {
+            f.setEstado(EstadoFactura.ANULADA);
+            f.setNumeroIntentado(null);
+            f.setProximoIntento(null);
+            facturaRepository.save(f);
+        }));
+    }
+
+    /** El comprobante que anula una nota de crédito, para el CbtesAsoc del pedido. */
+    private WsfeService.Asociado asociado(Factura f) {
+        if (f.getComprobanteAsociado() == null) return null;
+        Factura a = facturaRepository.findById(f.getComprobanteAsociado().getId())
+                .orElseThrow(() -> new IllegalStateException("No se encontró la factura asociada a la nota de crédito " + f.getId()));
+        return new WsfeService.Asociado(a.getTipoComprobante(), a.getPuntoVenta(), a.getNumero(), a.getFechaEmision());
     }
 
     private void liberarNumero(Long id) {
@@ -333,7 +471,8 @@ public class FacturaServiceImpl implements FacturaService {
 
     @Override
     public Optional<FacturaResponseDTO> obtenerPorCompra(Long compraId) {
-        return facturaRepository.findByCompraId(compraId).map(this::toDto);
+        return facturaRepository.findFirstByCompraIdAndTipoComprobanteOrderByIdDesc(compraId, WsfeService.CBTE_TIPO_FACTURA_B)
+                .map(this::toDto);
     }
 
     private FacturaResponseDTO toDto(Factura f) {
@@ -356,6 +495,7 @@ public class FacturaServiceImpl implements FacturaService {
                 .intentos(f.getIntentos())
                 .ultimoError(f.getUltimoError())
                 .mailEnviadoEn(f.getMailEnviadoEn())
+                .anulacionPedida(Boolean.TRUE.equals(f.getAnulacionPedida()))
                 .qrUrl(comprobanteFacturaService.qrUrl(f))
                 .impresionEstado(ultimo.map(TrabajoImpresion::getEstado).orElse(null))
                 .impresionError(ultimo.map(TrabajoImpresion::getError).orElse(null))

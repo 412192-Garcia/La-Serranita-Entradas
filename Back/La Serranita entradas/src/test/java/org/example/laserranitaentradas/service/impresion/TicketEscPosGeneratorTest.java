@@ -20,7 +20,7 @@ class TicketEscPosGeneratorTest {
                 37, 21L, LocalDate.of(2026, 9, 30), "260930-6",
                 List.of(new ComprobanteFactura.Item(2, "General"), new ComprobanteFactura.Item(1, "Menú Almuerzo")),
                 new BigDecimal("68600.00"), new BigDecimal("11905.79"),
-                "86390938715788", LocalDate.of(2026, 10, 10), qr);
+                "86390938715788", LocalDate.of(2026, 10, 10), qr, 6, null);
     }
 
     @Test

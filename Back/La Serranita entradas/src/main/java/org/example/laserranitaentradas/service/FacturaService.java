@@ -19,6 +19,14 @@ public interface FacturaService {
      */
     Optional<Factura> solicitar(Compra compra, FacturacionPosDTO pedido);
 
+    /** La venta se canceló: anula su factura (o le emite nota de crédito si ya estaba autorizada).
+     * Corre dentro de la transacción de la cancelación. */
+    void alCancelarVenta(Compra compra);
+
+    /** La venta se editó: si cambió el total, nota de crédito por la factura vieja y factura nueva
+     * por el monto nuevo. Si el total no cambió, no hace nada. */
+    void alEditarVenta(Compra compra, java.math.BigDecimal montoAnterior);
+
     /** Intenta emitir una factura PENDIENTE contra ARCA. Seguro de llamar en paralelo y repetido. */
     void emitir(Long facturaId);
 

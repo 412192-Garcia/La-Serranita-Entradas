@@ -52,8 +52,8 @@ public class TicketEscPosGenerator {
         t.linea("Responsable Inscripto");
         t.separador();
 
-        t.grande(true).negrita(true).linea("FACTURA B").negrita(false).grande(false);
-        t.linea("ORIGINAL (COD. 006)");
+        t.grande(true).negrita(true).linea(c.titulo()).negrita(false).grande(false);
+        t.linea(c.codigoOriginal());
         t.linea(String.format("Pto Vta: %04d   Nro: %08d", c.puntoVenta(), c.numero()));
         t.separador();
 
@@ -62,6 +62,9 @@ public class TicketEscPosGenerator {
         t.linea("Cliente: Consumidor Final");
         t.linea("Cond. IVA: Consumidor Final");
         t.linea("Cond. Venta: Contado");
+        if (c.comprobanteAsociado() != null) {
+            t.negrita(true).linea("Asociado: " + c.comprobanteAsociado()).negrita(false);
+        }
         t.separador();
 
         t.negrita(true).linea("CANT DESCRIPCIÓN").negrita(false);
