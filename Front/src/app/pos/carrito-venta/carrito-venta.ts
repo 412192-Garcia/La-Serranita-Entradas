@@ -17,7 +17,9 @@ import { DescuentoEfectivo } from '../../services/configuracion.service';
 import { cotizarLocalmente } from '../../shared/calculo-precio.util';
 import { aFechaISO, aFechaHoraISO } from '../../shared/fecha.util';
 import { PesosPipe } from '../../shared/pesos.pipe';
-import { LucideTrash2 } from '@lucide/angular';
+import { LucideMail, LucidePrinter, LucideTrash2 } from '@lucide/angular';
+import { FacturaService } from '../../services/factura.service';
+import { DestinoFactura, FacturacionPos } from '../../models/factura';
 
 export interface ItemVentaResumen {
   cantidad: number;
@@ -37,11 +39,15 @@ export interface VentaPosConfirmada {
   /** Pago mixto: segunda forma de pago usada, con su monto. Null en una venta con una sola forma. */
   formaPagoSecundaria: FormaPagoPos | null;
   montoFormaPagoSecundaria: number | null;
+  /** Lo que se pidió de factura; null si no se factura (mail con el campo vacío, $0, etc.). */
+  facturacion: FacturacionPos | null;
 }
+
+const EMAIL_VALIDO = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 @Component({
   selector: 'app-carrito-venta',
-  imports: [PesosPipe, DecimalPipe, FormsModule, MoneyInputDirective, LucideTrash2],
+  imports: [PesosPipe, DecimalPipe, FormsModule, MoneyInputDirective, LucideTrash2, LucidePrinter, LucideMail],
   templateUrl: './carrito-venta.html',
   styleUrl: './carrito-venta.css',
 })
@@ -49,6 +55,7 @@ export class CarritoVenta {
   private boleteriaService = inject(BoleteriaService);
   private conectividad = inject(ConectividadService);
   private pendientes = inject(OperacionesPendientesService);
+  private facturaService = inject(FacturaService);
 
   tiposEntrada = input<TipoEntrada[]>([]);
   cantidades = input<Record<number, number>>({});
@@ -86,6 +93,20 @@ export class CarritoVenta {
    * calcula la diferencia contra el precio de lista como descuento manual por monto, así el
    * cajero no tiene que restar a mano. */
   precioFijoDeseado = signal<number | null>(null);
+
+  // ---------- Factura: "Imprimir factura" o "Enviar por mail", una u otra. Mail con el campo
+  // vacío = no facturar, sin error. La forma de pago sólo cambia cuál arranca marcada: tarjeta y
+  // QR arrancan en Imprimir, efectivo en mail vacío (el cajero ni toca nada). ----------
+  readonly facturacionHabilitada = this.facturaService.habilitada;
+  destinoFactura = signal<DestinoFactura>('MAIL');
+  emailFactura = signal('');
+  /** Imprimir necesita el CAE en el momento, así que sin conexión no se puede. Mail sí: la
+   * venta queda en la cola y la factura se emite cuando vuelve la señal. */
+  imprimirFacturaDisponible = computed(() => this.conectividad.enLinea());
+  emailFacturaInvalido = computed(() => {
+    const email = this.emailFactura().trim();
+    return this.destinoFactura() === 'MAIL' && email !== '' && !EMAIL_VALIDO.test(email);
+  });
 
   promocionesActivas = computed(() => this.promociones().filter((p) => p.activo));
 
@@ -247,6 +268,8 @@ export class CarritoVenta {
       (!this.tieneEntradas() || this.tieneObligatorio()) &&
       !this.faltaCompletarPagoDolares() &&
       !this.faltaCompletarPagoMixto() &&
+      !this.emailFacturaInvalido() &&
+      !(this.destinoFactura() === 'IMPRIMIR' && !this.imprimirFacturaDisponible()) &&
       !this.cobrando()
   );
 
@@ -261,6 +284,16 @@ export class CarritoVenta {
   });
 
   constructor() {
+    this.facturaService.actualizarEstadoServicio();
+
+    // Si se corta la señal con "Imprimir" marcado, pasa a mail (vacío = sin factura): imprimir
+    // no se puede, y así el botón Cobrar no queda trabado sin que se entienda por qué.
+    effect(() => {
+      if (!this.imprimirFacturaDisponible() && this.destinoFactura() === 'IMPRIMIR') {
+        this.destinoFactura.set('MAIL');
+      }
+    });
+
     // El total depende de la forma de pago (el precio por grupo sólo existe en efectivo) y
     // del descuento elegido, así que se recotiza ante cualquier cambio del carrito, la forma
     // de pago o el descuento. Pagar en dólares no cambia el precio (sigue siendo efectivo),
@@ -387,6 +420,9 @@ export class CarritoVenta {
   setFormaPago(formaPago: FormaPagoPos): void {
     const anterior = this.formaPago();
     this.formaPago.set(formaPago);
+    if (formaPago !== anterior) {
+      this.aplicarDestinoFacturaPorDefecto(formaPago);
+    }
     if (formaPago !== 'EFECTIVO_BOLETERIA') {
       this.limpiarPagoDolares();
     }
@@ -399,6 +435,26 @@ export class CarritoVenta {
       this.formaPagoSecundaria.set(anterior);
       this.montoFormaPagoSecundaria.set(Math.max(0, this.total() - montoSecundarioViejo));
     }
+  }
+
+  /** Tarjeta/QR arrancan en Imprimir; efectivo en mail (vacío = sin factura). El email que ya
+   * se haya tipeado no se borra: cambiar de forma de pago no debería hacer perder lo cargado. */
+  private aplicarDestinoFacturaPorDefecto(formaPago: FormaPagoPos): void {
+    const imprimir = formaPago !== 'EFECTIVO_BOLETERIA' && this.imprimirFacturaDisponible();
+    this.destinoFactura.set(imprimir ? 'IMPRIMIR' : 'MAIL');
+  }
+
+  setDestinoFactura(destino: DestinoFactura): void {
+    if (destino === 'IMPRIMIR' && !this.imprimirFacturaDisponible()) return;
+    this.destinoFactura.set(destino);
+  }
+
+  /** Lo que viaja en el cobro. Null = no se factura. */
+  private facturacionPayload(): FacturacionPos | null {
+    if (!this.facturacionHabilitada() || this.sinCobro()) return null;
+    if (this.destinoFactura() === 'IMPRIMIR') return { destino: 'IMPRIMIR', email: null };
+    const email = this.emailFactura().trim();
+    return email === '' ? null : { destino: 'MAIL', email };
   }
 
   /** Tildar dólares oculta el "paga con" en pesos (son mutuamente excluyentes dentro de Efectivo)
@@ -464,6 +520,8 @@ export class CarritoVenta {
     this.pagaCon.set(null);
     this.limpiarPagoDolares();
     this.limpiarPagoMixto();
+    this.destinoFactura.set('MAIL');
+    this.emailFactura.set('');
     this.error.set(null);
     this.limpiarDescuento();
     this.limpiar.emit();
@@ -500,6 +558,7 @@ export class CarritoVenta {
       : {};
 
     const reservaId = this.compraReservada()?.id;
+    const facturacion = this.facturacionPayload();
 
     const payload: VentaPosRequest = {
       formaPago,
@@ -510,6 +569,7 @@ export class CarritoVenta {
       ...this.descuentoPayload(),
       ...dolaresPayload,
       ...pagoMixtoPayload,
+      ...(facturacion ? { facturacion } : {}),
     };
 
     // Toda venta pasa por la cola: si hay señal se confirma al instante y sigue todo igual que
@@ -522,7 +582,7 @@ export class CarritoVenta {
       : { formaPagoSecundaria: null, montoFormaPagoSecundaria: null };
 
     if (resultado.confirmada) {
-      this.ventaRegistrada.emit({ venta: resultado.resultado, formaPago, vuelto, items, pagoEnDolares, pendiente: false, ...pagoMixtoConfirmado });
+      this.ventaRegistrada.emit({ venta: resultado.resultado, formaPago, vuelto, items, pagoEnDolares, pendiente: false, ...pagoMixtoConfirmado, facturacion });
       return;
     }
 
@@ -556,6 +616,6 @@ export class CarritoVenta {
       receptorDni: null,
       receptorTelefono: null,
     };
-    this.ventaRegistrada.emit({ venta: ventaLocal, formaPago, vuelto, items, pagoEnDolares, pendiente: true, ...pagoMixtoConfirmado });
+    this.ventaRegistrada.emit({ venta: ventaLocal, formaPago, vuelto, items, pagoEnDolares, pendiente: true, ...pagoMixtoConfirmado, facturacion });
   }
 }

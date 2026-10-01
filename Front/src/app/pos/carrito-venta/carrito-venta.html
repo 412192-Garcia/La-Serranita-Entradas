@@ -296,6 +296,55 @@
       </div>
     }
 
+    @if (facturacionHabilitada() && hayItems() && !sinCobro()) {
+      <!-- Una u otra, nunca las dos. "Enviar por mail" con el campo vacío = no se factura, y es
+           lo que queda marcado por defecto en efectivo: el cajero no tiene que tocar nada. -->
+      <div class="bloque-factura">
+        <div class="destino-factura" role="radiogroup" aria-label="Factura">
+          <button
+            type="button"
+            role="radio"
+            class="btn-destino-factura"
+            [class.activo]="destinoFactura() === 'IMPRIMIR'"
+            [attr.aria-checked]="destinoFactura() === 'IMPRIMIR'"
+            [disabled]="!imprimirFacturaDisponible()"
+            [title]="imprimirFacturaDisponible() ? '' : 'Sin conexión no se puede imprimir la factura'"
+            (click)="setDestinoFactura('IMPRIMIR')">
+            <svg lucidePrinter [strokeWidth]="2"></svg>
+            Imprimir factura
+          </button>
+          <button
+            type="button"
+            role="radio"
+            class="btn-destino-factura"
+            [class.activo]="destinoFactura() === 'MAIL'"
+            [attr.aria-checked]="destinoFactura() === 'MAIL'"
+            (click)="setDestinoFactura('MAIL')">
+            <svg lucideMail [strokeWidth]="2"></svg>
+            Enviar por mail
+          </button>
+        </div>
+        @if (destinoFactura() === 'MAIL') {
+          <input
+            type="email"
+            inputmode="email"
+            autocomplete="off"
+            class="input-email-factura"
+            [class.input-invalido]="emailFacturaInvalido()"
+            placeholder="Email del cliente"
+            aria-label="Email para enviar la factura"
+            [ngModel]="emailFactura()"
+            (ngModelChange)="emailFactura.set($event)" />
+          @if (emailFacturaInvalido()) {
+            <p class="aviso-factura aviso-factura-error">El email no es válido.</p>
+          }
+        }
+        @if (!imprimirFacturaDisponible()) {
+          <p class="aviso-factura">Sin conexión: la factura sólo se puede mandar por mail.</p>
+        }
+      </div>
+    }
+
     @if (motivoBloqueo(); as motivo) {
       <p class="motivo-bloqueo">{{ motivo }}</p>
     }

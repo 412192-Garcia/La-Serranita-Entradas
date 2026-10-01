@@ -40,5 +40,32 @@
     }
   </p>
 
+  @if (facturacion(); as pedido) {
+    <div class="comprobante-factura">
+      @if (pendiente()) {
+        <svg lucideCloudOff [strokeWidth]="2"></svg>
+        <span>La factura se emite y se envía a {{ pedido.email }} cuando vuelva la señal.</span>
+      } @else if (factura()?.estado === 'EMITIDA') {
+        <svg lucideFileText [strokeWidth]="2"></svg>
+        <span>
+          <strong>Factura B {{ numeroComprobante(factura()!) }}</strong>
+          · CAE {{ factura()!.cae }}
+          @if (pedido.destino === 'MAIL') {
+            <br />Se envía a {{ pedido.email }}
+          }
+        </span>
+      } @else if (factura()?.estado === 'ERROR') {
+        <svg lucideCircleAlert class="icono-factura-error" [strokeWidth]="2"></svg>
+        <span>No se pudo emitir la factura. Un administrador la puede revisar y reintentar.</span>
+      } @else if (facturaDemorada()) {
+        <svg lucideCircleAlert class="icono-factura-demorada" [strokeWidth]="2"></svg>
+        <span>ARCA está demorando: la factura se sigue intentando sola en segundo plano.</span>
+      } @else {
+        <svg lucideLoaderCircle class="icono-girando" [strokeWidth]="2"></svg>
+        <span>Emitiendo factura…</span>
+      }
+    </div>
+  }
+
   <button type="button" class="btn-nueva-venta" (click)="nuevaVenta.emit()">Nueva venta</button>
 </div>

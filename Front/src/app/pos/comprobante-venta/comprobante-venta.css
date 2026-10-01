@@ -70,3 +70,50 @@
   font-size: 0.9rem;
   color: var(--color-text-secondary);
 }
+
+/* ---------- Estado de la factura de la venta ---------- */
+.comprobante-factura {
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  border: 1.5px solid var(--color-border);
+  font-size: 0.85rem;
+  text-align: left;
+  color: var(--color-text-secondary);
+}
+
+.comprobante-factura svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.comprobante-factura strong {
+  color: var(--color-text);
+}
+
+.icono-factura-error {
+  color: var(--color-danger-dark);
+}
+
+.icono-factura-demorada {
+  color: var(--color-accent-dark);
+}
+
+.icono-girando {
+  animation: girar 1s linear infinite;
+}
+
+@keyframes girar {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .icono-girando { animation: none; }
+}

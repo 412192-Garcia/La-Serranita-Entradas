@@ -4,6 +4,7 @@ import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { TipoEntrada } from '../models/tipo-entrada';
 import { FormaPagoPos, FormaPagoType, FormaPagoVentaPos } from '../models/compra';
+import { FacturacionPos } from '../models/factura';
 
 export type EstadoCompra =
   | 'PENDIENTE_PAGO'
@@ -142,6 +143,8 @@ export interface VentaPosRequest extends DescuentoPos {
   formaPagoSecundaria?: FormaPagoPos | null;
   /** Monto cobrado con formaPagoSecundaria. Obligatorio si se manda formaPagoSecundaria. */
   montoFormaPagoSecundaria?: number | null;
+  /** "Imprimir factura" / "Enviar por mail". Ausente = no se factura. */
+  facturacion?: FacturacionPos;
 }
 
 /** Corrección de una venta de puerta (ADMIN): reemplaza entradas, artículos y forma de pago por completo (mandar la lista final, no un diff). */

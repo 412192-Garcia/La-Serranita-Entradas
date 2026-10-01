@@ -564,3 +564,95 @@
 
   .carrito-lineas { max-height: none; }
 }
+
+/* ---------- Factura: Imprimir / Enviar por mail ---------- */
+.bloque-factura {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.destino-factura {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+
+.btn-destino-factura {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 6px;
+  border: 1.5px solid var(--color-border);
+  background-color: var(--color-card-bg);
+  border-radius: var(--radius-sm);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.btn-destino-factura svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.btn-destino-factura:hover:not(:disabled) { border-color: var(--color-primary); }
+
+.btn-destino-factura:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(57, 169, 53, 0.35);
+}
+
+.btn-destino-factura.activo {
+  border-color: var(--color-primary);
+  background-color: var(--color-primary);
+  color: #fff;
+}
+
+.btn-destino-factura:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.input-email-factura {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  outline: none;
+  background-color: var(--color-input-bg);
+  color: var(--color-text);
+}
+
+.input-email-factura:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(57, 169, 53, 0.15);
+}
+
+.input-email-factura.input-invalido {
+  border-color: var(--color-danger-dark);
+}
+
+.aviso-factura {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+}
+
+.aviso-factura-error {
+  color: var(--color-danger-dark);
+}
+
+@media (pointer: coarse) {
+  .btn-destino-factura,
+  .input-email-factura {
+    min-height: 44px;
+  }
+}
