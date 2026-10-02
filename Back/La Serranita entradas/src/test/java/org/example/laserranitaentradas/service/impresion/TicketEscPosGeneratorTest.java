@@ -51,11 +51,32 @@ class TicketEscPosGeneratorTest {
     }
 
     @Test
-    void conQr_agregaLaImagenRaster() {
-        byte[] sinQr = generator.generar(comprobante(null));
-        byte[] conQr = generator.generar(comprobante("https://www.afip.gob.ar/fe/qr/?p=eyJ2ZXIiOjF9"));
+    void qrNativo_porDefecto_leMandaElTextoALaTicketera() {
+        byte[] t = generator.generar(comprobante(URL_QR_REAL));
+        String texto = new String(t, Charset.forName("ISO-8859-1"));
 
-        assertThat(conQr.length).isGreaterThan(sinQr.length + 1000);
-        assertThat(new String(conQr, Charset.forName("IBM850"))).contains("\u001Dv0");
+        // GS ( k con la función de guardar datos (cn=49, fn=80) seguida de la URL tal cual...
+        assertThat(texto).contains("\u001D(k").contains(URL_QR_REAL);
+        // ...y la de imprimir (fn=81). Nada de imagen.
+        assertThat(texto).contains("\u001D(k\u0003\u00001Q0").doesNotContain("\u001Dv0");
     }
+
+    @Test
+    void qrImagen_conMargenBlanco_paraTicketerasSinComandoDeQr() {
+        org.springframework.test.util.ReflectionTestUtils.setField(generator, "qrModo", "imagen");
+        byte[] t = generator.generar(comprobante(URL_QR_REAL));
+
+        // Cabecera de GS v 0: 1D 76 30 m xL xH yL yH; el alto en puntos está en yL/yH.
+        int i = new String(t, Charset.forName("ISO-8859-1")).indexOf("\u001Dv0");
+        int alto = (t[i + 6] & 0xFF) | ((t[i + 7] & 0xFF) << 8);
+        // (57 cuadraditos + 4 de margen a cada lado) × 6 puntos = 390 puntos.
+        assertThat(alto).isEqualTo(390);
+    }
+
+    /** Una URL real de ARCA, ya sin los campos opcionales del receptor: QR de 57×57 cuadraditos. */
+    private static final String URL_QR_REAL = "https://www.afip.gob.ar/fe/qr/?p="
+            + java.util.Base64.getEncoder().encodeToString(("{\"ver\":1,\"fecha\":\"2026-10-02\",\"cuit\":30717015734,"
+            + "\"ptoVta\":37,\"tipoCmp\":6,\"nroCmp\":35,\"importe\":34300,\"moneda\":\"PES\",\"ctz\":1,"
+            + "\"tipoCodAut\":\"E\",\"codAut\":86400941725284}").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+
 }

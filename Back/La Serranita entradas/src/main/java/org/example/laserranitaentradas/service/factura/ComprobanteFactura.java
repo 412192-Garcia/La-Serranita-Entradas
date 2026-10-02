@@ -29,10 +29,20 @@ public record ComprobanteFactura(
         /** Sólo en una nota de crédito: "Factura B 0037-00000024". */
         String comprobanteAsociado
 ) {
-    /** Sin precio por línea a propósito (mismo criterio que el mail de comprobante): el precio
-     * de una entrada depende de la forma de pago, el grupo y los descuentos, así que
-     * "cantidad × precio de lista" puede no coincidir con lo cobrado. El total sí es exacto. */
-    public record Item(int cantidad, String descripcion) {}
+    /**
+     * Una línea del comprobante. subtotal = lo que se cobró por esa línea (con el precio de grupo si
+     * correspondía); null en facturas viejas o si no se pudo calcular de forma que cierre con el
+     * total. cantidad 0 = línea sin cantidad (la de "Descuento", con subtotal negativo).
+     */
+    public record Item(int cantidad, String descripcion, BigDecimal subtotal) {
+        public Item(int cantidad, String descripcion) {
+            this(cantidad, descripcion, null);
+        }
+
+        public boolean esDescuento() {
+            return cantidad == 0;
+        }
+    }
 
     public boolean esNotaDeCredito() {
         return tipoComprobante == 8;

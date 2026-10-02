@@ -45,13 +45,14 @@ class FacturaServiceImplTest {
     @Mock private org.example.laserranitaentradas.service.factura.FacturaPdfGenerator pdfGenerator;
     @Mock private org.example.laserranitaentradas.service.EmailService emailService;
     @Mock private org.example.laserranitaentradas.service.impresion.ImpresionService impresionService;
+    @Mock private org.example.laserranitaentradas.service.CalculoPrecioService calculoPrecioService;
 
     private FacturaServiceImpl service;
 
     @BeforeEach
     void setUp() {
         service = new FacturaServiceImpl(facturaRepository, wsfe, afipClient, eventPublisher, transactionManager, em,
-                comprobanteFacturaService, pdfGenerator, emailService, impresionService);
+                comprobanteFacturaService, pdfGenerator, emailService, impresionService, calculoPrecioService);
         ReflectionTestUtils.setField(service, "puntoVentaBoleteria", 5);
         when(afipClient.estaConfigurado()).thenReturn(true);
         when(afipClient.getCuit()).thenReturn("20409378472");
@@ -467,6 +468,40 @@ class FacturaServiceImplTest {
 
         verify(facturaRepository, never()).save(any());
         verify(facturaRepository, never()).findFirstByCompraIdAndTipoComprobanteOrderByIdDesc(anyLong(), any());
+    }
+
+    @Test
+    void solicitar_guardaSubtotalPorLinea_conElPrecioQueUsoLaVenta() {
+        when(calculoPrecioService.calcularTotal(any(), eq(1), any())).thenReturn(new BigDecimal("2500"));
+        Compra c = compra("3000", entrada(), articulo());
+        c.setFormaPago(FormaPago.TARJETA);
+
+        Factura f = service.solicitar(c, pedido(DestinoFactura.IMPRIMIR, null)).orElseThrow();
+
+        assertThat(f.getDetalle()).isEqualTo("1\tGeneral\t2500.00\n1\tSouvenir\t500.00");
+    }
+
+    @Test
+    void solicitar_conDescuento_agregaLaLineaDeDescuentoParaQueCierreConElTotal() {
+        when(calculoPrecioService.calcularTotal(any(), eq(1), any())).thenReturn(new BigDecimal("2500"));
+        Compra c = compra("2700", entrada(), articulo()); // 2500 + 500 - 300 de descuento
+        c.setFormaPago(FormaPago.TARJETA);
+
+        Factura f = service.solicitar(c, pedido(DestinoFactura.IMPRIMIR, null)).orElseThrow();
+
+        assertThat(f.getDetalle()).isEqualTo("1\tGeneral\t2500.00\n1\tSouvenir\t500.00\n0\tDescuento\t-300.00");
+    }
+
+    @Test
+    void solicitar_siLaSumaNoCierra_guardaLosItemsSinSubtotal() {
+        // Precio que bajó entre la venta y la factura: las líneas sumarían menos que el total.
+        when(calculoPrecioService.calcularTotal(any(), eq(1), any())).thenReturn(new BigDecimal("1000"));
+        Compra c = compra("3000", entrada(), articulo());
+        c.setFormaPago(FormaPago.TARJETA);
+
+        Factura f = service.solicitar(c, pedido(DestinoFactura.IMPRIMIR, null)).orElseThrow();
+
+        assertThat(f.getDetalle()).isEqualTo("1\tGeneral\n1\tSouvenir");
     }
 
     @Test

@@ -9,6 +9,7 @@ import org.example.laserranitaentradas.model.entity.EstadoFactura;
 import org.example.laserranitaentradas.model.entity.Factura;
 import org.example.laserranitaentradas.model.entity.TrabajoImpresion;
 import org.example.laserranitaentradas.repository.FacturaRepository;
+import org.example.laserranitaentradas.service.CalculoPrecioService;
 import org.example.laserranitaentradas.service.EmailService;
 import org.example.laserranitaentradas.service.FacturaService;
 import org.example.laserranitaentradas.service.factura.ComprobanteFacturaService;
@@ -31,6 +32,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.locks.ReentrantLock;
@@ -59,6 +61,7 @@ public class FacturaServiceImpl implements FacturaService {
     private final FacturaPdfGenerator pdfGenerator;
     private final EmailService emailService;
     private final ImpresionService impresionService;
+    private final CalculoPrecioService calculoPrecioService;
 
     /**
      * ARCA numera en orden estricto por punto de venta: dos emisiones a la vez pedirían el mismo
@@ -77,7 +80,8 @@ public class FacturaServiceImpl implements FacturaService {
                               ApplicationEventPublisher eventPublisher, PlatformTransactionManager transactionManager,
                               EntityManager em,
                               ComprobanteFacturaService comprobanteFacturaService, FacturaPdfGenerator pdfGenerator,
-                              EmailService emailService, ImpresionService impresionService) {
+                              EmailService emailService, ImpresionService impresionService,
+                              CalculoPrecioService calculoPrecioService) {
         this.facturaRepository = facturaRepository;
         this.wsfe = wsfe;
         this.afipClient = afipClient;
@@ -88,6 +92,7 @@ public class FacturaServiceImpl implements FacturaService {
         this.pdfGenerator = pdfGenerator;
         this.emailService = emailService;
         this.impresionService = impresionService;
+        this.calculoPrecioService = calculoPrecioService;
     }
 
     @Override
@@ -148,7 +153,7 @@ public class FacturaServiceImpl implements FacturaService {
                 .importeTotal(total)
                 .importeNeto(neto)
                 .importeIva(iva)
-                .detalle(detalleTexto(compra.getDetalles()))
+                .detalle(detalleTexto(compra, total))
                 .build();
         factura = facturaRepository.save(factura);
         // Se emite recién cuando commitea la transacción (ver EmisionFacturasScheduler): si hiciera
@@ -164,19 +169,63 @@ public class FacturaServiceImpl implements FacturaService {
                 .filter(f -> f.getEstado() != EstadoFactura.ANULADA && !Boolean.TRUE.equals(f.getAnulacionPedida()));
     }
 
-    private static String detalleTexto(List<CompraDetalle> detalles) {
+    /**
+     * Copia de los ítems al facturar: "cantidad<TAB>descripción<TAB>subtotal" por línea, más una línea
+     * "0<TAB>Descuento<TAB>-monto" si hubo descuento, para que el ticket muestre cuánto salió cada
+     * cosa y la cuenta cierre con el total.
+     *
+     * El subtotal de una entrada se calcula con la misma regla de precios que usó la venta (precio de
+     * grupo si se cobró en efectivo, ver CompraServiceImpl#construirDetalles), y el de un artículo con
+     * el precio que cargó el cajero. Si aun así la suma diera MENOS que el total (no debería: sería un
+     * precio que cambió entre la venta y la factura), se guardan las líneas sin subtotal: un ticket
+     * con números que no cierran es peor que uno sin el detalle.
+     */
+    private String detalleTexto(Compra compra, BigDecimal total) {
+        List<CompraDetalle> detalles = compra.getDetalles();
         if (detalles == null) return null;
-        StringBuilder sb = new StringBuilder();
+        List<String> descripciones = new ArrayList<>();
+        List<BigDecimal> subtotales = new ArrayList<>();
+        boolean todosConPrecio = true;
         for (CompraDetalle d : detalles) {
             String descripcion = d.getTipoEntrada() != null ? d.getTipoEntrada().getNombre()
                     : d.getArticuloVario() != null ? d.getArticuloVario().getNombre()
                     : d.getDescripcionLibre();
             if (descripcion == null || descripcion.isBlank()) descripcion = "Artículo";
+            descripciones.add(descripcion.replace('\n', ' ').replace('\t', ' '));
+            BigDecimal subtotal = subtotal(d, compra);
+            subtotales.add(subtotal);
+            if (subtotal == null) todosConPrecio = false;
+        }
+
+        BigDecimal suma = subtotales.stream().filter(java.util.Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add)
+                .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal descuento = suma.subtract(total);
+        boolean cierra = todosConPrecio && descuento.signum() >= 0;
+
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < detalles.size(); i++) {
             if (sb.length() > 0) sb.append('\n');
-            sb.append(d.getCantidad()).append('\t').append(descripcion.replace('\n', ' ').replace('\t', ' '));
+            sb.append(detalles.get(i).getCantidad()).append('\t').append(descripciones.get(i));
+            if (cierra) sb.append('\t').append(subtotales.get(i).setScale(2, RoundingMode.HALF_UP).toPlainString());
+        }
+        if (cierra && descuento.signum() > 0) {
+            sb.append('\n').append(0).append('\t').append("Descuento").append('\t').append(descuento.negate().toPlainString());
         }
         String texto = sb.toString();
         return texto.length() > 2000 ? texto.substring(0, 2000) : texto;
+    }
+
+    private BigDecimal subtotal(CompraDetalle d, Compra compra) {
+        try {
+            if (d.getTipoEntrada() != null) {
+                return compra.getFormaPago() == null ? null
+                        : calculoPrecioService.calcularTotal(d.getTipoEntrada(), d.getCantidad(), compra.getFormaPago());
+            }
+            return d.getPrecioUnitario() == null ? null : d.getPrecioUnitario().multiply(BigDecimal.valueOf(d.getCantidad()));
+        } catch (RuntimeException e) {
+            log.warn("No se pudo calcular el subtotal de una línea de la compra ID {}", compra.getId(), e);
+            return null;
+        }
     }
 
     // ---------- Cancelación y edición de ventas facturadas ----------

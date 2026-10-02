@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.text.NumberFormat;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
@@ -31,13 +32,28 @@ public class TicketEscPosGenerator {
     /** Página de códigos 850 (Multilingual Latin I): tiene ñ y vocales con tilde. */
     private static final int CODEPAGE_PC850 = 2;
     private static final Charset CHARSET = Charset.forName("IBM850");
-    /** Puntos por módulo del QR: con 5 (a 203 ppp) queda de unos 38 mm, como el de la cantina. */
-    private static final int PUNTOS_POR_MODULO = 5;
     private static final DateTimeFormatter FECHA = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     /** Caracteres por línea con la fuente A: 48 en papel de 80 mm, 32 en 58 mm. */
     @Value("${impresion.columnas:48}")
     private int columnas = 48;
+
+    /**
+     * Cómo se imprime el QR. "nativo" (por defecto): se le manda el texto y la ticketera lo dibuja
+     * ella misma (GS ( k). Con la SOL 802 se lee mucho mejor que la imagen: sale nítido y con su
+     * propio margen. "imagen": el QR se arma acá como imagen (GS v 0), para una ticketera que no
+     * tenga el comando de QR.
+     */
+    @Value("${impresion.qr-modo:nativo}")
+    private String qrModo = "nativo";
+
+    /**
+     * Puntos de impresora por cuadradito del QR (1 a 16). El contenido que exige ARCA (una URL con los
+     * datos del comprobante en base64) da un QR muy denso, de 57×57 cuadraditos: lo que lo hace
+     * legible en papel térmico es que cada cuadradito sea grande. Con 6 el QR mide ~43 mm.
+     */
+    @Value("${impresion.qr-puntos-por-modulo:6}")
+    private int puntosPorModulo = 6;
 
     public byte[] generar(ComprobanteFactura c) {
         Ticket t = new Ticket();
@@ -67,9 +83,15 @@ public class TicketEscPosGenerator {
         }
         t.separador();
 
-        t.negrita(true).linea("CANT DESCRIPCIÓN").negrita(false);
+        boolean conSubtotales = c.items().stream().allMatch(i -> i.subtotal() != null);
+        t.negrita(true);
+        if (conSubtotales) t.fila("CANT DESCRIPCIÓN", "IMPORTE");
+        else t.linea("CANT DESCRIPCIÓN");
+        t.negrita(false);
         for (ComprobanteFactura.Item item : c.items()) {
-            t.linea(item.cantidad() + "x " + item.descripcion());
+            String texto = item.esDescuento() ? item.descripcion() : item.cantidad() + "x " + item.descripcion();
+            if (conSubtotales) t.fila(texto, pesos(item.subtotal()));
+            else t.linea(texto);
         }
         t.separador();
 
@@ -89,7 +111,9 @@ public class TicketEscPosGenerator {
         if (c.qrUrl() != null) {
             t.centro();
             t.saltos(1);
-            t.qr(c.qrUrl());
+            if ("imagen".equalsIgnoreCase(qrModo)) t.qrImagen(c.qrUrl());
+            else t.qrNativo(c.qrUrl());
+            t.saltos(1);
         }
         t.centro().linea("Comprobante Autorizado");
 
@@ -138,16 +162,37 @@ public class TicketEscPosGenerator {
 
         void saltos(int n) { comando(ESC, 'd', n); }
 
-        /** GS v 0: imagen monocromo, 1 bit por punto, filas de ancho múltiplo de 8. */
-        void qr(String contenido) {
+        /**
+         * GS ( k: la ticketera arma y dibuja el QR (modelo 2, corrección L, la mínima: con un contenido
+         * tan largo, más corrección = más cuadraditos). Primero se guardan los datos, después se imprime.
+         */
+        void qrNativo(String contenido) {
+            byte[] datos = contenido.getBytes(StandardCharsets.US_ASCII);
+            int modulo = Math.max(1, Math.min(16, puntosPorModulo));
+            comando(GS, '(', 'k', 4, 0, 49, 65, 50, 0);          // modelo 2
+            comando(GS, '(', 'k', 3, 0, 49, 67, modulo);         // tamaño del cuadradito
+            comando(GS, '(', 'k', 3, 0, 49, 69, 48);             // corrección L
+            int largo = datos.length + 3;
+            comando(GS, '(', 'k', largo & 0xFF, (largo >> 8) & 0xFF, 49, 80, 48);
+            out.writeBytes(datos);                               // guardar los datos
+            comando(GS, '(', 'k', 3, 0, 49, 81, 48);             // imprimir
+            out.write('\n');
+        }
+
+        /**
+         * GS v 0: el QR como imagen monocromo (1 bit por punto, filas de ancho múltiplo de 8), para
+         * ticketeras sin comando de QR. Con margen blanco de 4 cuadraditos alrededor: sin él (y pegado
+         * al texto de arriba y abajo) el celular no encuentra el código.
+         */
+        void qrImagen(String contenido) {
             BitMatrix m;
             try {
-                m = new QRCodeWriter().encode(contenido, BarcodeFormat.QR_CODE, 0, 0, Map.of(EncodeHintType.MARGIN, 0));
+                m = new QRCodeWriter().encode(contenido, BarcodeFormat.QR_CODE, 0, 0, Map.of(EncodeHintType.MARGIN, 4));
             } catch (Exception e) {
                 throw new IllegalStateException("No se pudo generar el QR del ticket", e);
             }
-            int ancho = m.getWidth() * PUNTOS_POR_MODULO;
-            int alto = m.getHeight() * PUNTOS_POR_MODULO;
+            int ancho = m.getWidth() * puntosPorModulo;
+            int alto = m.getHeight() * puntosPorModulo;
             int bytesPorFila = (ancho + 7) / 8;
             comando(GS, 'v', '0', 0, bytesPorFila & 0xFF, (bytesPorFila >> 8) & 0xFF, alto & 0xFF, (alto >> 8) & 0xFF);
             for (int y = 0; y < alto; y++) {
@@ -155,7 +200,7 @@ public class TicketEscPosGenerator {
                     int b = 0;
                     for (int bit = 0; bit < 8; bit++) {
                         int x = bx * 8 + bit;
-                        if (x < ancho && m.get(x / PUNTOS_POR_MODULO, y / PUNTOS_POR_MODULO)) {
+                        if (x < ancho && m.get(x / puntosPorModulo, y / puntosPorModulo)) {
                             b |= 0x80 >> bit;
                         }
                     }

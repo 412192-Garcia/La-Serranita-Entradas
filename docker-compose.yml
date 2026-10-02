@@ -78,6 +78,8 @@ services:
       AFIP_EMISOR_INGRESOS_BRUTOS: ${AFIP_EMISOR_INGRESOS_BRUTOS:-287116730}
       AFIP_EMISOR_INICIO_ACTIVIDADES: ${AFIP_EMISOR_INICIO_ACTIVIDADES:-30/11/2020}
       IMPRESION_AGENTE_TOKEN: ${IMPRESION_AGENTE_TOKEN:-}
+      IMPRESION_QR_MODO: ${IMPRESION_QR_MODO:-nativo}
+      IMPRESION_QR_PUNTOS: ${IMPRESION_QR_PUNTOS:-6}
     # Sin ports: acá a propósito — en producción no hace falta, Caddy llega por la red
     # interna, y publicarlo en el host lo deja accesible desde internet salteando el
     # HTTPS. Para acceso directo en desarrollo local, ver docker-compose.override.yml.example.

@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -60,8 +61,11 @@ public class ComprobanteFacturaService {
         if (f.getDetalle() != null && !f.getDetalle().isBlank()) {
             // Lo que se facturó, aunque la venta se haya editado después.
             for (String linea : f.getDetalle().split("\n")) {
-                String[] partes = linea.split("\t", 2);
-                if (partes.length == 2) items.add(new ComprobanteFactura.Item(Integer.parseInt(partes[0]), partes[1]));
+                // "cantidad<TAB>descripción[<TAB>subtotal]": las facturas viejas no tienen subtotal.
+                String[] partes = linea.split("\t", 3);
+                if (partes.length < 2) continue;
+                BigDecimal subtotal = partes.length == 3 && !partes[2].isBlank() ? new BigDecimal(partes[2]) : null;
+                items.add(new ComprobanteFactura.Item(Integer.parseInt(partes[0]), partes[1], subtotal));
             }
         } else if (f.getCompra().getDetalles() != null) {
             for (CompraDetalle d : f.getCompra().getDetalles()) {
@@ -101,11 +105,13 @@ public class ComprobanteFacturaService {
         datos.put("ptoVta", f.getPuntoVenta());
         datos.put("tipoCmp", f.getTipoComprobante());
         datos.put("nroCmp", f.getNumero());
-        datos.put("importe", f.getImporteTotal());
+        // Sin ceros decimales de más ("34300" y no "34300.00"): cada carácter agranda el QR.
+        datos.put("importe", new java.math.BigDecimal(f.getImporteTotal().stripTrailingZeros().toPlainString()));
         datos.put("moneda", "PES");
         datos.put("ctz", 1);
-        datos.put("tipoDocRec", 99);
-        datos.put("nroDocRec", 0);
+        // tipoDocRec/nroDocRec son opcionales en la especificación de ARCA y no se informan para un
+        // consumidor final sin identificar (99/0). Omitirlos achica el QR de 61x61 a 57x57
+        // cuadraditos: el contenido es lo que lo hace tan denso y difícil de leer en papel térmico.
         datos.put("tipoCodAut", "E");
         datos.put("codAut", Long.parseLong(f.getCae()));
         try {

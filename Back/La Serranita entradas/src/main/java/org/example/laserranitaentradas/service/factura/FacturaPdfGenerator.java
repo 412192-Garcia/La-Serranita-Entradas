@@ -33,7 +33,8 @@ public class FacturaPdfGenerator {
     private static final float MARGEN = 12f;
     /** Alto de la primera pasada: de sobra para cualquier venta; después se recorta al real. */
     private static final float ALTO_BORRADOR = 5000f;
-    private static final float LADO_QR = 120f;
+    /** ~40 mm: el QR de ARCA es muy denso y, si se imprime el PDF, cuadraditos chicos cuestan de leer. */
+    private static final float LADO_QR = 115f;
 
     private static final Font NORMAL = new Font(Font.HELVETICA, 8f, Font.NORMAL);
     private static final Font NEGRITA = new Font(Font.HELVETICA, 8f, Font.BOLD);
@@ -81,9 +82,13 @@ public class FacturaPdfGenerator {
             }
             separador(doc);
 
-            izquierda(doc, "CANT  DESCRIPCIÓN", NEGRITA);
+            boolean conSubtotales = c.items().stream().allMatch(i -> i.subtotal() != null);
+            if (conSubtotales) fila(doc, "CANT  DESCRIPCIÓN", "IMPORTE", NEGRITA);
+            else izquierda(doc, "CANT  DESCRIPCIÓN", NEGRITA);
             for (ComprobanteFactura.Item item : c.items()) {
-                izquierda(doc, item.cantidad() + "x  " + item.descripcion(), NORMAL);
+                String texto = item.esDescuento() ? item.descripcion() : item.cantidad() + "x  " + item.descripcion();
+                if (conSubtotales) fila(doc, texto, pesos(item.subtotal()), NORMAL);
+                else izquierda(doc, texto, NORMAL);
             }
             separador(doc);
 
