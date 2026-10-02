@@ -28,6 +28,7 @@ class CasillaFacturasTest {
         assertThat(s.getUsername()).isEqualTo("facturas@parque.com");
         assertThat(s.getHost()).isEqualTo("smtp.hostinger.com");
         assertThat(s.getPort()).isEqualTo(587);
+        assertThat(s.getJavaMailProperties().getProperty("mail.smtp.starttls.enable")).isEqualTo("true");
     }
 
     @Test
@@ -37,5 +38,8 @@ class CasillaFacturasTest {
         JavaMailSenderImpl s = (JavaMailSenderImpl) c.sender();
         assertThat(s.getHost()).isEqualTo("smtp.otro.com");
         assertThat(s.getPort()).isEqualTo(465);
+        // 465 es TLS desde el arranque, no STARTTLS.
+        assertThat(s.getJavaMailProperties().getProperty("mail.smtp.ssl.enable")).isEqualTo("true");
+        assertThat(s.getJavaMailProperties().getProperty("mail.smtp.starttls.enable")).isNull();
     }
 }

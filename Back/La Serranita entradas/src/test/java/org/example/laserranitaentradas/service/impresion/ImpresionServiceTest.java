@@ -90,6 +90,28 @@ class ImpresionServiceTest {
     }
 
     @Test
+    void facturaAnuladaMientrasEsperaba_noSeImprime() {
+        Factura anulada = Factura.builder().id(1L).anulacionPedida(true).build();
+        when(facturaRepository.findById(1L)).thenReturn(Optional.of(anulada));
+        service.conectarAgente("PC Entrada", Set.of("Boletería"));
+
+        service.imprimirFactura(1L, "Boletería");
+
+        verify(escPos, never()).generar(any());
+        verify(trabajoRepository, never()).marcarEnviado(any(), any(), any(), any(), any());
+        verify(trabajoRepository).registrarResultado(eq(50L), eq(EstadoTrabajoImpresion.ERROR), any(), any(), any());
+    }
+
+    @Test
+    void cancelarTrabajos_soloLosQueNoTienenResultado() {
+        service.cancelarTrabajos(7L);
+
+        verify(trabajoRepository).cancelarDeFactura(eq(7L), any(), any(), eq(EstadoTrabajoImpresion.ERROR),
+                org.mockito.ArgumentMatchers.argThat(estados -> estados.size() == 2
+                        && estados.containsAll(List.of(EstadoTrabajoImpresion.PENDIENTE, EstadoTrabajoImpresion.ENVIADO))));
+    }
+
+    @Test
     void siYaTeniaResultado_noSeVuelveAMandar() {
         service.conectarAgente("PC Entrada", Set.of("Boletería"));
         when(trabajoRepository.marcarEnviado(eq(50L), anyString(), any(), any(), any())).thenReturn(0);

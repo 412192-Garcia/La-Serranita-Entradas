@@ -173,6 +173,17 @@ public class ImpresionService {
         return trabajoRepository.findById(trabajo.getId()).orElse(trabajo);
     }
 
+    /**
+     * La factura se anuló (venta cancelada o corregida): sus trabajos sin imprimir no tienen que
+     * salir. Si el agente estaba apagado y reconecta después, el reenvío ya no los encuentra.
+     * Corre en la transacción de la cancelación.
+     */
+    public void cancelarTrabajos(Long facturaId) {
+        int n = trabajoRepository.cancelarDeFactura(facturaId, "Cancelado: la factura se anuló",
+                LocalDateTime.now(), EstadoTrabajoImpresion.ERROR, SIN_CONFIRMAR);
+        if (n > 0) log.info("Factura ID {} anulada: {} trabajo(s) de impresión cancelado(s)", facturaId, n);
+    }
+
     public Optional<TrabajoImpresion> ultimoTrabajo(Long facturaId) {
         return trabajoRepository.findFirstByFacturaIdOrderByIdDesc(facturaId);
     }
@@ -209,6 +220,13 @@ public class ImpresionService {
         AgenteConectado agente = agenteCon(trabajo.getImpresora());
         if (agente == null) {
             log.info("Trabajo de impresión ID {} en espera: la impresora '{}' no está conectada", trabajoId, trabajo.getImpresora());
+            return;
+        }
+        // Por si la anulación llegó entre la consulta y el envío (o el trabajo es anterior a ella).
+        Factura factura = facturaRepository.findById(trabajo.getFactura().getId()).orElse(null);
+        if (factura == null || Boolean.TRUE.equals(factura.getAnulacionPedida())
+                || factura.getEstado() == org.example.laserranitaentradas.model.entity.EstadoFactura.ANULADA) {
+            registrarResultado(trabajoId, false, "Cancelado: la factura se anuló");
             return;
         }
         String impresora = CUALQUIERA.equals(trabajo.getImpresora())

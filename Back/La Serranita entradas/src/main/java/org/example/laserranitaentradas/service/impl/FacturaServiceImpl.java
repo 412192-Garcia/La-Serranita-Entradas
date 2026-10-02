@@ -108,6 +108,11 @@ public class FacturaServiceImpl implements FacturaService {
         if (pedido == null || pedido.getDestino() == null) {
             return Optional.empty();
         }
+        if (pedido.getDestino() == DestinoFactura.NINGUNO) {
+            // Sólo para las facturas que arma el sistema (refacturar una venta corregida): pedida
+            // desde afuera sería una factura que no se imprime ni se manda.
+            throw new IllegalArgumentException("La factura se imprime o se manda por mail");
+        }
         String email = pedido.getEmail() == null ? null : pedido.getEmail().trim();
         boolean sinEmail = email == null || email.isEmpty();
         // "Enviar por mail" con el campo vacío = no facturar. No es un error: es lo que pasa
@@ -241,12 +246,17 @@ public class FacturaServiceImpl implements FacturaService {
 
     @Override
     public void alEditarVenta(Compra compra, BigDecimal montoAnterior) {
-        if (montoAnterior != null && compra.getMontoTotal() != null && montoAnterior.compareTo(compra.getMontoTotal()) == 0) {
-            // Mismo total (ej. sólo se corrigió la forma de pago): la factura sigue siendo correcta.
-            return;
-        }
         bloquear(compra);
         facturaVigente(compra.getId()).ifPresent(vieja -> {
+            boolean mismoTotal = montoAnterior != null && compra.getMontoTotal() != null
+                    && montoAnterior.compareTo(compra.getMontoTotal()) == 0;
+            // Mismo total y mismos ítems (ej. sólo se corrigió la forma de pago sin mover precios):
+            // la factura sigue siendo correcta. Si cambió lo que dice (otro artículo del mismo
+            // precio, otras cantidades), va nota de crédito y factura nueva igual.
+            if (mismoTotal && (vieja.getDetalle() == null
+                    || vieja.getDetalle().equals(detalleTexto(compra, compra.getMontoTotal())))) {
+                return;
+            }
             anular(vieja);
             if (compra.getMontoTotal() != null && compra.getMontoTotal().signum() > 0) {
                 // La corrección la hace un admin desde la oficina: si iba por mail se le manda la
@@ -272,6 +282,8 @@ public class FacturaServiceImpl implements FacturaService {
         if (f.getEstado() == EstadoFactura.ANULADA || Boolean.TRUE.equals(f.getAnulacionPedida())) {
             return;
         }
+        // Un ticket en cola (agente apagado) no tiene que salir después de la nota de crédito.
+        impresionService.cancelarTrabajos(f.getId());
         if (f.getEstado() != EstadoFactura.EMITIDA && f.getNumeroIntentado() == null) {
             f.setEstado(EstadoFactura.ANULADA);
             f.setProximoIntento(null);

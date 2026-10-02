@@ -79,7 +79,10 @@ public class AfipSdkClient {
 
     /** Sin access token no hay facturación: las ventas se registran igual, sin factura. */
     public boolean estaConfigurado() {
-        return accessToken != null && !accessToken.isBlank();
+        if (accessToken == null || accessToken.isBlank()) return false;
+        // En producción ARCA exige el certificado y la clave del CUIT: sin ellos cada factura
+        // fallaría al autenticar y se acumularía en errores. Mejor apagada, como sin token.
+        return !esProduccion() || (cert != null && !cert.isBlank() && key != null && !key.isBlank());
     }
 
     public String getCuit() {

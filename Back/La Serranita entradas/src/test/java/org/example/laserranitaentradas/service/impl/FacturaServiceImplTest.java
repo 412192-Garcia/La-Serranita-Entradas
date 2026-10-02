@@ -501,11 +501,45 @@ class FacturaServiceImplTest {
     }
 
     @Test
-    void editarVenta_mismoTotal_noTocaLaFactura() {
+    void editarVenta_mismoTotalYMismosItems_noTocaLaFactura() {
+        Factura f = emitida();
+        f.setDetalle("1\tGeneral");
+        when(facturaRepository.findFirstByCompraIdAndTipoComprobanteOrderByIdDesc(1L, 6)).thenReturn(Optional.of(f));
+
         service.alEditarVenta(compra("2500", entrada()), new BigDecimal("2500.00"));
 
         verify(facturaRepository, never()).save(any());
-        verify(facturaRepository, never()).findFirstByCompraIdAndTipoComprobanteOrderByIdDesc(anyLong(), any());
+    }
+
+    @Test
+    void editarVenta_mismoTotalPeroOtrosItems_notaDeCreditoYFacturaNueva() {
+        Factura f = emitida();
+        f.setDetalle("1\tGeneral");
+        when(facturaRepository.findFirstByCompraIdAndTipoComprobanteOrderByIdDesc(1L, 6)).thenReturn(Optional.of(f));
+
+        // Se cambió la entrada por un artículo: mismo total, pero la factura ya no dice lo que se vendió.
+        service.alEditarVenta(compra("2500", articulo()), new BigDecimal("2500"));
+
+        List<Factura> guardadas = capturarGuardadas();
+        assertThat(guardadas).anyMatch(x -> x.getTipoComprobante() == 8);
+        assertThat(guardadas).anyMatch(x -> x.getTipoComprobante() == 6 && x != f && x.getDetalle().contains("Souvenir"));
+    }
+
+    @Test
+    void anular_cancelaLosTrabajosDeImpresionEnCola() {
+        Factura f = emitida();
+        when(facturaRepository.findFirstByCompraIdAndTipoComprobanteOrderByIdDesc(1L, 6)).thenReturn(Optional.of(f));
+
+        service.alCancelarVenta(Compra.builder().id(1L).build());
+
+        verify(impresionService).cancelarTrabajos(10L);
+    }
+
+    @Test
+    void solicitar_conDestinoNinguno_rechazado() {
+        assertThatThrownBy(() -> service.solicitar(compra("2500", entrada()), pedido(DestinoFactura.NINGUNO, null)))
+                .isInstanceOf(IllegalArgumentException.class);
+        verify(facturaRepository, never()).save(any());
     }
 
     @Test

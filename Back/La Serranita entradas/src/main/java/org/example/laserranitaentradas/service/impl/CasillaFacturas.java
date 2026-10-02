@@ -51,7 +51,11 @@ public class CasillaFacturas {
         propio.setDefaultEncoding("UTF-8");
         Properties props = propio.getJavaMailProperties();
         props.put("mail.smtp.auth", "true");
-        props.put("mail.smtp.starttls.enable", "true");
+        if (propio.getPort() == 465) {
+            props.put("mail.smtp.ssl.enable", "true");      // 465: TLS desde el arranque
+        } else {
+            props.put("mail.smtp.starttls.enable", "true"); // 587: arranca en claro y pasa a TLS
+        }
         this.sender = propio;
         this.direccion = usuario.trim();
         log.info("Las facturas se envían desde {}", this.direccion);

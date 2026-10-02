@@ -53,6 +53,15 @@ public interface TrabajoImpresionRepository extends JpaRepository<TrabajoImpresi
     int registrarResultado(@Param("id") Long id, @Param("nuevo") EstadoTrabajoImpresion nuevo, @Param("error") String error,
                            @Param("ahora") LocalDateTime ahora, @Param("impreso") EstadoTrabajoImpresion impreso);
 
+    /** Cancela los trabajos todavía sin resultado de una factura (se anuló: no tiene que salir). */
+    @Modifying
+    @Transactional
+    @Query("UPDATE TrabajoImpresion t SET t.estado = :error, t.error = :mensaje, t.fechaResultado = :ahora " +
+            "WHERE t.factura.id = :facturaId AND t.estado IN :sinResultado")
+    int cancelarDeFactura(@Param("facturaId") Long facturaId, @Param("mensaje") String mensaje,
+                          @Param("ahora") LocalDateTime ahora, @Param("error") EstadoTrabajoImpresion error,
+                          @Param("sinResultado") Collection<EstadoTrabajoImpresion> sinResultado);
+
     /** Vence los que quedaron sin resultado desde antes de `limite`. */
     @Modifying
     @Transactional
