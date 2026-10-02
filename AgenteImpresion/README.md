@@ -1,7 +1,8 @@
 # Agente de impresión
 
 Programa chico que corre en la **PC de la entrada** e imprime las facturas en la ticketera de la
-boletería (Elitronic SOL 802, por red).
+boletería (Elitronic SOL 802). La ticketera puede estar **por red** (con IP propia) o **por USB**
+(instalada en Windows); se pueden mezclar varias en el mismo agente.
 
 ## Por qué hace falta
 
@@ -28,9 +29,11 @@ quedaron sin confirmar se reenvían al reconectar y el agente no imprime dos vec
 
 ## Requisitos
 
-- La PC de la entrada y la ticketera en la **misma red local**.
-- La ticketera con **IP fija** (configurada en la propia impresora, o reservada en el router):
-  si la IP cambia, el agente deja de encontrarla.
+- Ticketera **por red**: en la misma red local que la PC y con **IP fija** (configurada en la
+  propia impresora, o reservada en el router): si la IP cambia, el agente deja de encontrarla.
+- Ticketera **por USB**: instalada en Windows como impresora, con el driver de la marca o con el
+  genérico "Generic / Text Only". El agente le pasa a la cola de Windows los bytes del ticket tal
+  cual (sin convertir), así que salen igual que por red, con QR y corte.
 - En el servidor, `IMPRESION_AGENTE_TOKEN` en el `.env` (generar con `openssl rand -base64 32`)
   y reiniciar el backend.
 
@@ -48,8 +51,9 @@ No hace falta el repo, ni Maven, ni Java:
    | Dirección del backend | `https://<dominio del sistema>/api` |
    | Token del agente | el `IMPRESION_AGENTE_TOKEN` del `.env` del servidor. Si todavía no hay uno, **Enter**: genera uno seguro, lo muestra y lo deja copiado para pegarlo en el `.env` (y reiniciar el backend). Pide al menos 16 caracteres |
    | Nombre de la ticketera | el que se va a ver en la tablet (Enter = `Boleteria`) |
-   | IP de la ticketera | la IP fija de la impresora en la red del parque |
-   | Puerto | Enter (9100, el estándar de las ticketeras de red) |
+   | Conexión | `1` = red, `2` = USB / instalada en Windows |
+   | Red: IP y puerto | la IP fija de la impresora; puerto Enter (9100, el estándar) |
+   | USB: impresora | se elige por número de la lista de impresoras instaladas en Windows |
    | ¿Agregar otra ticketera? | `s` para cargar otra (nombre, IP, puerto) en el mismo agente |
 
    Con más de una ticketera, en la tablet aparece un selector para elegir en cuál imprime;
@@ -59,13 +63,17 @@ No hace falta el repo, ni Maven, ni Java:
    `C:\AgenteImpresion`, lo deja como tarea programada (arranca sola al prender la PC, sin
    iniciar sesión, y Windows la vuelve a levantar si se cae) y avisa si quedó conectado.
 
-Para **cambiar un dato o actualizar** a una versión nueva: volver a correr `instalar.bat`
-(ofrece los valores actuales, alcanza con Enter). Para **sacarlo**: `desinstalar.bat`.
+Para **cambiar la configuración** (token, una IP, pasar de red a USB, agregar o sacar una
+ticketera): `C:\AgenteImpresion\configurar.bat`. Hace las mismas preguntas con los valores
+actuales (Enter deja cada uno), guarda y reinicia el agente, sin reinstalar nada.
+
+Para **actualizar** a una versión nueva: correr el `instalar.bat` del zip nuevo (también ofrece
+los valores actuales). Para **sacarlo**: `C:\AgenteImpresion\desinstalar.bat`.
 
 ## Publicar una versión nueva
 
 El zip lo arma GitHub Actions (`.github/workflows/agente-impresion.yml`) en Windows: compila,
-empaqueta con su propio Java recortado (~37 MB, 14 MB comprimido) y lo sube al Release. El
+empaqueta con su propio Java recortado (~65 MB) y lo sube al Release. El
 módulo `jdk.crypto.ec` no se puede sacar del paquete: sin él no conecta por HTTPS con
 certificados de curva elíptica, que son los que usa Caddy por defecto.
 
@@ -93,4 +101,5 @@ java -jar AgenteImpresion/target/agente-impresion.jar ruta/a/agente.properties
 - `C:\AgenteImpresion\agente0.log`: tiene que decir `Conectado al backend`. Si dice
   `rechazó el token`, el `agente.token` no coincide con `IMPRESION_AGENTE_TOKEN` del servidor.
 - Si la factura sale pero el ticket dice "No se pudo imprimir", el agente no llega a la
-  impresora: revisar la IP, que esté prendida y en la misma red.
+  impresora. Por red: revisar la IP, que esté prendida y en la misma red. Por USB: que Windows la
+  muestre como lista (sin error ni "sin conexión") y que el nombre coincida.

@@ -110,6 +110,38 @@ class ImpresionServiceTest {
     }
 
     @Test
+    void estadoInformadoPorElAgente_seVeEnLaListaDeImpresoras() {
+        service.conectarAgente("PC Entrada", Set.of("Boletería", "Caja"));
+
+        service.actualizarEstados("PC Entrada", java.util.Map.of(
+                "Boletería", new ImpresionService.EstadoImpresora(false, "apagada o desconectada"),
+                "Inventada", new ImpresionService.EstadoImpresora(false, "x")));
+
+        assertThat(service.impresorasConectadas()).containsExactly(
+                new ImpresionService.ImpresoraConectada("Boletería", "PC Entrada", false, "apagada o desconectada"),
+                // Sin informe todavía: se la da por disponible.
+                new ImpresionService.ImpresoraConectada("Caja", "PC Entrada", true, null));
+    }
+
+    @Test
+    void agenteSinNoticias_dejaDeFigurarAunqueLaConexionParezcaAbierta() {
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "segundosSinNoticias", 0);
+        service.conectarAgente("PC Entrada", Set.of("Boletería"));
+        try { Thread.sleep(5); } catch (InterruptedException ignored) {}
+
+        assertThat(service.impresorasConectadas()).isEmpty();
+        service.latido();
+        assertThat(service.impresorasConectadas()).isEmpty();
+    }
+
+    @Test
+    void estadoDeUnAgenteQueNoEstaConectado_seIgnora() {
+        service.actualizarEstados("Fantasma", java.util.Map.of("Boletería", new ImpresionService.EstadoImpresora(false, "x")));
+
+        assertThat(service.impresorasConectadas()).isEmpty();
+    }
+
+    @Test
     void resultado_esUnUpdateQueNuncaPisaUnImpreso() {
         service.registrarResultado(50L, false, "Sin papel");
 

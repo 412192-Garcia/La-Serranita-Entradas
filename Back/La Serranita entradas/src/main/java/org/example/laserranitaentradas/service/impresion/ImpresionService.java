@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Impresión de tickets en la boletería a través del agente de la PC de la entrada.
@@ -57,6 +58,16 @@ public class ImpresionService {
     @Value("${impresion.minutos-vencimiento:15}")
     private int minutosVencimiento;
 
+    /**
+     * Sin noticias del agente en este tiempo = la PC de la entrada se apagó o perdió internet. No
+     * alcanza con esperar a que falle un envío: entre el backend y el agente hay intermediarios
+     * (nginx, Caddy, el proxy de Docker) que siguen aceptando los latidos aunque del otro lado ya
+     * no haya nadie, y la tablet seguía mostrando la ticketera como disponible. El agente informa
+     * el estado de sus ticketeras cada 15 s: eso es la señal de vida (35 s = dos avisos perdidos).
+     */
+    @Value("${impresion.segundos-sin-noticias:35}")
+    private int segundosSinNoticias = 35;
+
     public ImpresionService(TrabajoImpresionRepository trabajoRepository, FacturaRepository facturaRepository,
                             ComprobanteFacturaService comprobanteService, TicketEscPosGenerator escPos,
                             PlatformTransactionManager transactionManager) {
@@ -67,9 +78,26 @@ public class ImpresionService {
         this.tx = new TransactionTemplate(transactionManager);
     }
 
-    public record ImpresoraConectada(String nombre, String agente) {}
+    /**
+     * Una ticketera de un agente conectado. disponible = el agente la ve prendida (responde por
+     * red, o Windows la da por lista); si no, detalle dice qué le pasa ("apagada o desconectada",
+     * "sin papel"...). Hasta que el agente informa (o con un agente viejo que no informa) se la
+     * da por disponible: mejor intentar imprimir que bloquear sin motivo.
+     */
+    public record ImpresoraConectada(String nombre, String agente, boolean disponible, String detalle) {}
 
-    private record AgenteConectado(String nombre, Set<String> impresoras, SseEmitter emitter) {}
+    public record EstadoImpresora(boolean disponible, String detalle) {}
+
+    private record AgenteConectado(String nombre, Set<String> impresoras, SseEmitter emitter,
+                                   Map<String, EstadoImpresora> estados, AtomicLong ultimoContactoMs) {
+        void tocar() {
+            ultimoContactoMs.set(System.currentTimeMillis());
+        }
+    }
+
+    private boolean vivo(AgenteConectado a) {
+        return System.currentTimeMillis() - a.ultimoContactoMs().get() <= segundosSinNoticias * 1000L;
+    }
 
     // ---------- Agentes ----------
 
@@ -77,7 +105,8 @@ public class ImpresionService {
         // Sin timeout: la conexión dura lo que dure el agente prendido. Un corte se detecta al
         // fallar el envío del heartbeat.
         SseEmitter emitter = new SseEmitter(0L);
-        AgenteConectado agente = new AgenteConectado(nombre, Set.copyOf(impresoras), emitter);
+        AgenteConectado agente = new AgenteConectado(nombre, Set.copyOf(impresoras), emitter, new ConcurrentHashMap<>(),
+                new AtomicLong(System.currentTimeMillis()));
         AgenteConectado anterior = agentes.put(nombre, agente);
         if (anterior != null) {
             // El mismo agente reconectó antes de que se detectara la caída de la conexión vieja.
@@ -101,12 +130,30 @@ public class ImpresionService {
     public List<ImpresoraConectada> impresorasConectadas() {
         List<ImpresoraConectada> salida = new ArrayList<>();
         for (AgenteConectado a : agentes.values()) {
+            if (!vivo(a)) continue;
             for (String impresora : a.impresoras()) {
-                salida.add(new ImpresoraConectada(impresora, a.nombre()));
+                EstadoImpresora estado = a.estados().get(impresora);
+                salida.add(new ImpresoraConectada(impresora, a.nombre(),
+                        estado == null || estado.disponible(), estado == null ? null : estado.detalle()));
             }
         }
         salida.sort(Comparator.comparing(ImpresoraConectada::nombre));
         return salida;
+    }
+
+    /** Lo que informa el agente cada vez que cambia el estado de sus ticketeras. */
+    public void actualizarEstados(String nombreAgente, Map<String, EstadoImpresora> estados) {
+        AgenteConectado agente = agentes.get(nombreAgente);
+        if (agente == null) return; // todavía no conectó (o ya se fue): lo reenvía al conectar
+        agente.tocar();
+        estados.forEach((impresora, estado) -> {
+            if (!agente.impresoras().contains(impresora)) return;
+            EstadoImpresora antes = agente.estados().put(impresora, estado);
+            if (antes == null || antes.disponible() != estado.disponible()) {
+                log.info("Ticketera '{}' del agente '{}': {}", impresora, nombreAgente,
+                        estado.disponible() ? "lista" : estado.detalle());
+            }
+        });
     }
 
     // ---------- Trabajos ----------
@@ -194,6 +241,7 @@ public class ImpresionService {
 
     private AgenteConectado agenteCon(String impresora) {
         for (AgenteConectado a : agentes.values()) {
+            if (!vivo(a)) continue;
             if (a.impresoras().isEmpty()) continue;
             if (CUALQUIERA.equals(impresora) || a.impresoras().contains(impresora)) return a;
         }
@@ -221,6 +269,12 @@ public class ImpresionService {
      */
     @Scheduled(fixedDelay = 20_000, initialDelay = 20_000)
     public void latido() {
+        for (AgenteConectado a : List.copyOf(agentes.values())) {
+            if (!vivo(a) && agentes.remove(a.nombre(), a)) {
+                log.info("Agente de impresión '{}' sin noticias hace más de {} s: desconectado", a.nombre(), segundosSinNoticias);
+                a.emitter().complete();
+            }
+        }
         for (AgenteConectado a : List.copyOf(agentes.values())) {
             try {
                 synchronized (a.emitter()) {

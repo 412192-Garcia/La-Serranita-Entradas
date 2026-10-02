@@ -8,6 +8,10 @@ export type EstadoImpresion = 'PENDIENTE' | 'ENVIADO' | 'IMPRESO' | 'ERROR';
 export interface ImpresoraConectada {
   nombre: string;
   agente: string;
+  /** El agente la ve prendida (responde por red, o Windows la da por lista). */
+  disponible: boolean;
+  /** Qué le pasa cuando no está disponible: "apagada o desconectada", "sin papel"... */
+  detalle: string | null;
 }
 
 /**

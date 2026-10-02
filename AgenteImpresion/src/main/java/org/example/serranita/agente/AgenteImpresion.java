@@ -8,9 +8,16 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.*;
+import javax.print.DocFlavor;
+import javax.print.DocPrintJob;
+import javax.print.PrintService;
+import javax.print.PrintServiceLookup;
+import javax.print.SimpleDoc;
+import javax.print.attribute.HashPrintRequestAttributeSet;
 
 /**
  * Agente de impresión de la PC de la entrada.
@@ -19,6 +26,9 @@ import java.util.logging.*;
  * revés sí: este agente abre una conexión SSE hacia el backend, se anuncia con sus impresoras y
  * queda escuchando. Cada ticket que llega (ya armado en ESC/POS) lo manda a la impresora por la
  * red local (puerto 9100) y le confirma al backend si salió.
+ *
+ * Además revisa cada 10 s si cada ticketera responde y se lo informa al backend: así la tablet
+ * distingue "PC de la entrada apagada" de "ticketera apagada" y bloquea "Imprimir" antes de cobrar.
  *
  * Si la conexión se corta (Starlink, reinicio del servidor), reintenta solo con espera creciente.
  * Los tickets ya impresos se recuerdan en impresos.txt: si el backend reenvía uno que no llegó a
@@ -30,13 +40,21 @@ public class AgenteImpresion {
     /** El backend manda un latido cada 20 s: 65 s sin nada = conexión muerta, reconectar. */
     private static final int TIMEOUT_LECTURA_MS = 65_000;
     private static final int MAX_IMPRESOS_RECORDADOS = 500;
+    private static final long SEGUNDOS_ENTRE_REVISIONES = 10;
+    /** Aunque no cambie nada, el estado se reenvía cada 15 s: es la señal de vida del agente. El
+     * backend lo da por desconectado ("PC de la entrada apagada") a los 35 s sin noticias. */
+    private static final Duration REENVIO_ESTADO = Duration.ofSeconds(15);
 
     private final Configuracion config;
     private final Path archivoImpresos;
     private final LinkedHashSet<String> impresos = new LinkedHashSet<>();
-    /** Un solo hilo: los tickets salen en el orden en que llegan y la lectura de la conexión
-     * no se traba mientras la impresora está ocupada. */
-    private final ExecutorService impresora = Executors.newSingleThreadExecutor();
+    /** Un solo hilo para imprimir y para revisar las ticketeras: los tickets salen en el orden en
+     * que llegan, la lectura de la conexión no se traba mientras la impresora está ocupada, y una
+     * revisión nunca choca con un ticket que se está mandando (hay ticketeras que atienden de a
+     * una conexión, y lo darían por apagada). */
+    private final ScheduledExecutorService impresora = Executors.newSingleThreadScheduledExecutor();
+    private volatile Map<String, MonitorImpresoras.Estado> ultimoEstado = Map.of();
+    private volatile Instant ultimoEnvioEstado = Instant.EPOCH;
 
     public static void main(String[] args) throws Exception {
         Path archivoConfig = args.length > 0 ? Path.of(args[0]).toAbsolutePath() : carpetaDelAgente().resolve("agente.properties");
@@ -53,6 +71,59 @@ public class AgenteImpresion {
         this.archivoImpresos = archivoImpresos;
         if (Files.exists(archivoImpresos)) {
             impresos.addAll(Files.readAllLines(archivoImpresos, StandardCharsets.UTF_8));
+        }
+        impresora.scheduleWithFixedDelay(() -> revisarImpresoras(false),
+                SEGUNDOS_ENTRE_REVISIONES, SEGUNDOS_ENTRE_REVISIONES, TimeUnit.SECONDS);
+    }
+
+    /** Revisa las ticketeras y, si cambió algo (o pasó un rato, o recién conectó), le avisa al
+     * backend. Corre en el hilo de impresión. */
+    private void revisarImpresoras(boolean forzar) {
+        try {
+            Map<String, MonitorImpresoras.Estado> estados = MonitorImpresoras.revisar(config);
+            boolean cambio = !estados.equals(ultimoEstado);
+            if (cambio) {
+                estados.forEach((nombre, e) -> {
+                    MonitorImpresoras.Estado antes = ultimoEstado.get(nombre);
+                    if (antes == null || antes.disponible() != e.disponible()) {
+                        log.info("Ticketera '" + nombre + "': " + (e.disponible() ? "lista" : e.detalle()));
+                    }
+                });
+            }
+            if (forzar || cambio || Duration.between(ultimoEnvioEstado, Instant.now()).compareTo(REENVIO_ESTADO) > 0) {
+                if (enviarEstado(estados)) {
+                    ultimoEnvioEstado = Instant.now();
+                }
+            }
+            ultimoEstado = estados;
+        } catch (Exception e) {
+            log.warning("No se pudieron revisar las ticketeras: " + e.getMessage());
+        }
+    }
+
+    /** Una línea por ticketera: "nombre<TAB>1|0<TAB>detalle". */
+    private boolean enviarEstado(Map<String, MonitorImpresoras.Estado> estados) {
+        StringBuilder cuerpo = new StringBuilder();
+        estados.forEach((nombre, e) -> cuerpo.append(nombre).append('\t').append(e.disponible() ? '1' : '0')
+                .append('\t').append(e.detalle() == null ? "" : e.detalle()).append('\n'));
+        try {
+            HttpURLConnection c = (HttpURLConnection) URI.create(config.backendUrl + "/impresion/agente/estado?agente="
+                    + codificar(config.nombre)).toURL().openConnection();
+            c.setRequestMethod("POST");
+            c.setRequestProperty("X-Agente-Token", config.token);
+            c.setRequestProperty("Content-Type", "text/plain; charset=UTF-8");
+            c.setConnectTimeout(10_000);
+            c.setReadTimeout(15_000);
+            c.setDoOutput(true);
+            try (OutputStream out = c.getOutputStream()) {
+                out.write(cuerpo.toString().getBytes(StandardCharsets.UTF_8));
+            }
+            int codigo = c.getResponseCode();
+            c.disconnect();
+            return codigo == 200;
+        } catch (IOException e) {
+            // Sin conexión con el backend: no pasa nada, al reconectar se reenvía.
+            return false;
         }
     }
 
@@ -118,6 +189,11 @@ public class AgenteImpresion {
     }
 
     private void procesarEvento(String evento, String datos) {
+        if ("conectado".equals(evento)) {
+            // Recién conectado (o reconectado): el backend todavía no sabe cómo están las ticketeras.
+            impresora.submit(() -> revisarImpresoras(true));
+            return;
+        }
         if (!"trabajo".equals(evento)) return;
         // Formato: "id;impresora;ticket en base64".
         String[] partes = datos.split(";", 3);
@@ -143,19 +219,55 @@ public class AgenteImpresion {
             confirmar(id, false, "El agente no conoce la impresora '" + nombreImpresora + "'");
             return;
         }
+        try {
+            if (destino instanceof Configuracion.Red red) {
+                imprimirPorRed(red, ticket);
+            } else if (destino instanceof Configuracion.Windows windows) {
+                imprimirPorWindows(windows, ticket);
+            }
+            recordarImpreso(id);
+            log.info("Trabajo " + id + " impreso en '" + nombreImpresora + "' (" + destino + ", " + ticket.length + " bytes)");
+            confirmar(id, true, null);
+        } catch (Exception e) {
+            log.warning("No se pudo imprimir el trabajo " + id + " en " + destino + ": " + e.getMessage());
+            // Lo lee el cajero en la tablet: algo que entienda, no "Connection refused".
+            String motivo = destino instanceof Configuracion.Red
+                    ? "la ticketera está apagada o desconectada (no responde en " + destino + ")"
+                    : e.getMessage();
+            confirmar(id, false, motivo);
+        }
+    }
+
+    /** Ticketera de red: los bytes ESC/POS directo al puerto RAW (9100). */
+    private static void imprimirPorRed(Configuracion.Red red, byte[] ticket) throws IOException {
         try (Socket socket = new Socket()) {
-            socket.connect(new InetSocketAddress(destino.host(), destino.puerto()), 5_000);
+            socket.connect(new InetSocketAddress(red.host(), red.puerto()), 5_000);
             socket.setSoTimeout(15_000);
             OutputStream salida = socket.getOutputStream();
             salida.write(ticket);
             salida.flush();
-            recordarImpreso(id);
-            log.info("Trabajo " + id + " impreso en '" + nombreImpresora + "' (" + ticket.length + " bytes)");
-            confirmar(id, true, null);
-        } catch (IOException e) {
-            log.warning("No se pudo imprimir el trabajo " + id + " en " + destino + ": " + e.getMessage());
-            confirmar(id, false, "No se pudo conectar con la impresora " + destino.host() + ": " + e.getMessage());
         }
+    }
+
+    /**
+     * Ticketera instalada en Windows (USB o compartida): el ticket va a la cola de impresión de
+     * Windows. Con el tipo AUTOSENSE de bytes, Java se los pasa al spooler tal cual (RAW), sin
+     * convertirlos: los comandos ESC/POS (negrita, QR, corte) llegan intactos a la impresora,
+     * igual que por red. Funciona con el driver de la marca o con "Generic / Text Only".
+     */
+    private static void imprimirPorWindows(Configuracion.Windows windows, byte[] ticket) throws Exception {
+        PrintService servicio = null;
+        for (PrintService s : PrintServiceLookup.lookupPrintServices(null, null)) {
+            if (s.getName().equalsIgnoreCase(windows.impresora())) {
+                servicio = s;
+                break;
+            }
+        }
+        if (servicio == null) {
+            throw new IOException("Windows no tiene una impresora llamada '" + windows.impresora() + "'");
+        }
+        DocPrintJob trabajo = servicio.createPrintJob();
+        trabajo.print(new SimpleDoc(ticket, DocFlavor.BYTE_ARRAY.AUTOSENSE, null), new HashPrintRequestAttributeSet());
     }
 
     private void confirmar(String id, boolean ok, String error) {

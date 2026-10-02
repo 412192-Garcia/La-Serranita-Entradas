@@ -54,6 +54,9 @@ export class CabeceraInterna implements OnInit {
   /** Cuando la pantalla define pasos, se muestra el botón "Tutorial" acá — centralizado en
    * la cabecera común para no repetir el botón + <app-tour> en cada pantalla. Vacío = sin tutorial. */
   @Input() pasosTutorial: TourStep[] = [];
+  /** Botón "Tutorial" sólo con el ícono también en pantallas grandes, para pantallas con muchas
+   * acciones propias en la barra (ej. el POS). En mobile ya es así siempre. */
+  @Input() tutorialCompacto = false;
 
   /** Avisan cuándo empieza y termina el tutorial: una pantalla cuyos pasos cambian de modo (ver
    * `TourStep.antes`, ej. el POS pasando a Anticipadas) guarda el modo al empezar y lo repone al terminar. */

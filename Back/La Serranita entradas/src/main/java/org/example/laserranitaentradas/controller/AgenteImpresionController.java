@@ -15,7 +15,9 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -54,6 +56,27 @@ public class AgenteImpresionController {
         response.setHeader("X-Accel-Buffering", "no");
         response.setHeader("Cache-Control", "no-cache");
         return impresionService.conectarAgente(agente.trim(), nombres);
+    }
+
+    @PostMapping(value = "/estado", consumes = MediaType.TEXT_PLAIN_VALUE)
+    @Operation(summary = "El agente informa si cada ticketera responde",
+            description = "Una línea por ticketera: nombre<TAB>1|0<TAB>detalle. Lo usa la tablet para avisar 'ticketera apagada' antes de cobrar.")
+    public ResponseEntity<Void> estado(@RequestHeader(value = "X-Agente-Token", required = false) String token,
+                                       @RequestParam String agente,
+                                       @RequestBody(required = false) String cuerpo) {
+        validarToken(token);
+        Map<String, ImpresionService.EstadoImpresora> estados = new LinkedHashMap<>();
+        if (cuerpo != null) {
+            for (String linea : cuerpo.split("\n")) {
+                String[] partes = linea.split("\t", 3);
+                if (partes.length < 2 || partes[0].isBlank()) continue;
+                String detalle = partes.length == 3 && !partes[2].isBlank() ? partes[2].trim() : null;
+                if (detalle != null && detalle.length() > 200) detalle = detalle.substring(0, 200);
+                estados.put(partes[0].trim(), new ImpresionService.EstadoImpresora("1".equals(partes[1].trim()), detalle));
+            }
+        }
+        impresionService.actualizarEstados(agente.trim(), estados);
+        return ResponseEntity.ok().build();
     }
 
     @PostMapping("/trabajos/{id}/resultado")

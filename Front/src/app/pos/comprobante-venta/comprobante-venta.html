@@ -69,7 +69,7 @@
               @default {
                 @if (facturaDemorada()) {
                   <svg lucideCircleAlert class="icono-factura-demorada" [strokeWidth]="2"></svg>
-                  <span>La ticketera no responde: revisá que la PC de la entrada y la impresora estén prendidas.</span>
+                  <span>La PC de la entrada no responde (apagada o sin internet). El ticket sale solo si vuelve en los próximos minutos.</span>
                 } @else {
                   <svg lucideLoaderCircle class="icono-girando" [strokeWidth]="2"></svg>
                   <span>Imprimiendo…</span>

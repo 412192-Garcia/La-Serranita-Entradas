@@ -1,0 +1,31 @@
+<div class="menu-caja">
+  <button
+    type="button"
+    class="btn-caja"
+    aria-haspopup="menu"
+    [attr.aria-expanded]="abierto()"
+    (click)="abierto.set(!abierto())">
+    <svg lucideWallet [strokeWidth]="2"></svg>
+    Caja
+    <svg lucideChevronDown class="chevron" [class.girado]="abierto()" [strokeWidth]="2"></svg>
+  </button>
+
+  @if (abierto()) {
+    <div class="desplegable" role="menu" aria-label="Operaciones de caja">
+      <button type="button" role="menuitem" class="opcion" (click)="elegir('retiro')">
+        <svg lucideArrowLeftRight [strokeWidth]="2"></svg>
+        <span class="opcion-texto">
+          <span class="opcion-nombre">Retiro / Aporte</span>
+          <span class="opcion-detalle">Sacar o poner efectivo en la caja</span>
+        </span>
+      </button>
+      <button type="button" role="menuitem" class="opcion" (click)="elegir('talonario')">
+        <svg lucideTicket [strokeWidth]="2"></svg>
+        <span class="opcion-texto">
+          <span class="opcion-nombre">Reponer talonario</span>
+          <span class="opcion-detalle">Sumar entradas físicas al stock</span>
+        </span>
+      </button>
+    </div>
+  }
+</div>

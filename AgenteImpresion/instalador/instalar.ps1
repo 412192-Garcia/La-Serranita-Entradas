@@ -1,10 +1,12 @@
-# Instalador del agente de impresion de La Serranita.
+# Instalador y configurador del agente de impresion de La Serranita.
 #
-# Lo lanza instalar.bat (que ya pide permisos de administrador). Pregunta los datos, los prueba,
-# copia el agente a C:\AgenteImpresion y lo registra como tarea programada de Windows: arranca
-# solo al prender la PC (sin que nadie inicie sesion) y, si se cae, Windows lo vuelve a levantar.
-#
-# Volver a correrlo sirve para cambiar la configuracion o actualizar a una version nueva.
+# - instalar.bat (desde el zip): pregunta los datos, los prueba, copia el agente a
+#   C:\AgenteImpresion y lo registra como tarea programada de Windows (arranca solo al prender
+#   la PC, sin que nadie inicie sesion, y si se cae Windows lo vuelve a levantar). Correrlo con
+#   una version nueva = actualizar.
+# - configurar.bat (en C:\AgenteImpresion): lo mismo pero sin copiar nada. Ofrece los valores
+#   actuales (Enter los deja), guarda y reinicia el agente. Para cambiar el token, una IP, pasar
+#   una ticketera de red a USB, agregar o sacar una.
 
 $ErrorActionPreference = 'Stop'
 $nombreTarea = 'Agente de impresion La Serranita'
@@ -26,14 +28,20 @@ function LeerConfigExistente {
     $config = @{}
     if (Test-Path $archivoConfig) {
         foreach ($linea in Get-Content $archivoConfig -Encoding UTF8) {
-            if ($linea -match '^\s*([^#][^=]*)=(.*)$') { $config[$Matches[1].Trim()] = $Matches[2].Trim() }
+            # .properties escapa la barra invertida: se deshace para mostrar y reescribir el valor real.
+            if ($linea -match '^\s*([^#][^=]*)=(.*)$') { $config[$Matches[1].Trim()] = $Matches[2].Trim().Replace('\\', '\') }
         }
     }
     return $config
 }
 
+$soloConfigurar = (Test-Path (Join-Path $origen 'AgenteImpresion.exe')) -and -not (Test-Path (Join-Path $origen 'AgenteImpresion'))
 Write-Host ''
-Write-Host '=== Agente de impresion - La Serranita ===' -ForegroundColor Green
+if ($soloConfigurar) {
+    Write-Host '=== Configuracion del agente de impresion - La Serranita ===' -ForegroundColor Green
+} else {
+    Write-Host '=== Agente de impresion - La Serranita ===' -ForegroundColor Green
+}
 Write-Host 'Imprime las facturas de la boleteria en la ticketera. Enter deja el valor entre corchetes.'
 Write-Host ''
 
@@ -85,9 +93,40 @@ while ($true) {
         if ($impresoras | Where-Object { $_.Nombre -eq $nombre }) { Write-Host '  Ya hay una ticketera con ese nombre.' -ForegroundColor Yellow; continue }
         break
     }
-    $ip = Preguntar '  IP en la red del parque' $actual["impresora.$n.host"]
-    $puerto = Preguntar '  Puerto' $(if ($actual["impresora.$n.puerto"]) { $actual["impresora.$n.puerto"] } else { '9100' })
-    $impresoras += [pscustomobject]@{ Nombre = $nombre; Host = $ip; Puerto = $puerto }
+
+    # Como esta conectada: por red (IP) o instalada en Windows (USB, o compartida desde otra PC).
+    $tipoActual = if ($actual["impresora.$n.tipo"] -eq 'windows') { '2' } else { '1' }
+    Write-Host '  Conexion:  1) Red (tiene IP propia)   2) USB / instalada en Windows'
+    while ($true) {
+        $tipo = Preguntar '  Opcion' $tipoActual
+        if ($tipo -in @('1', '2')) { break }
+        Write-Host '  Elegi 1 o 2.' -ForegroundColor Yellow
+    }
+
+    if ($tipo -eq '1') {
+        $ip = Preguntar '  IP en la red del parque' $actual["impresora.$n.host"]
+        $puerto = Preguntar '  Puerto' $(if ($actual["impresora.$n.puerto"]) { $actual["impresora.$n.puerto"] } else { '9100' })
+        $impresoras += [pscustomobject]@{ Nombre = $nombre; Tipo = 'red'; Host = $ip; Puerto = $puerto; Windows = $null }
+    } else {
+        # Las impresoras que Windows tiene instaladas: se elige por numero para no tipear el nombre.
+        $instaladas = @(Get-Printer -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name | Sort-Object)
+        if ($instaladas.Count -eq 0) {
+            Write-Host '  Windows no tiene impresoras instaladas. Instala la ticketera (con su driver o con "Generic / Text Only") y volve a correr esto.' -ForegroundColor Red
+            exit 1
+        }
+        for ($i = 0; $i -lt $instaladas.Count; $i++) { Write-Host ("    {0}) {1}" -f ($i + 1), $instaladas[$i]) }
+        $porDefecto = $null
+        if ($actual["impresora.$n.windows"]) {
+            $pos = [array]::IndexOf($instaladas, $actual["impresora.$n.windows"])
+            if ($pos -ge 0) { $porDefecto = [string]($pos + 1) }
+        }
+        while ($true) {
+            $eleccion = Preguntar '  Numero de la impresora' $porDefecto
+            if ($eleccion -match '^\d+$' -and [int]$eleccion -ge 1 -and [int]$eleccion -le $instaladas.Count) { break }
+            Write-Host "  Elegi un numero entre 1 y $($instaladas.Count)." -ForegroundColor Yellow
+        }
+        $impresoras += [pscustomobject]@{ Nombre = $nombre; Tipo = 'windows'; Host = $null; Puerto = $null; Windows = $instaladas[[int]$eleccion - 1] }
+    }
 
     # Si ya habia una siguiente configurada, se ofrece "s" por defecto para no perderla.
     $hayOtra = [bool]$actual["impresora.$($n + 1).nombre"]
@@ -101,8 +140,20 @@ while ($true) {
 Write-Host ''
 Write-Host 'Probando conexiones...'
 
-# 1) Cada ticketera: conexion TCP al puerto RAW.
+# 1) Cada ticketera: las de red, conexion TCP al puerto RAW; las de Windows, que la impresora
+# exista y no este con error.
 foreach ($imp in $impresoras) {
+    if ($imp.Tipo -eq 'windows') {
+        $impWin = Get-Printer -Name $imp.Windows -ErrorAction SilentlyContinue
+        if (-not $impWin) {
+            Write-Host "  [!] Windows no encuentra la impresora '$($imp.Windows)'." -ForegroundColor Yellow
+        } elseif ("$($impWin.PrinterStatus)" -notin @('Normal', '0', 'Idle')) {
+            Write-Host "  [!] '$($imp.Nombre)' ($($imp.Windows)) esta en estado '$($impWin.PrinterStatus)'. Revisar que este prendida y conectada." -ForegroundColor Yellow
+        } else {
+            Write-Host "  [OK] '$($imp.Nombre)' instalada en Windows como '$($imp.Windows)'" -ForegroundColor Green
+        }
+        continue
+    }
     $tcp = New-Object System.Net.Sockets.TcpClient
     try {
         $intento = $tcp.BeginConnect($imp.Host, [int]$imp.Puerto, $null, $null)
@@ -138,7 +189,9 @@ if (Get-ScheduledTask -TaskName $nombreTarea -ErrorAction SilentlyContinue) {
 New-Item -ItemType Directory -Force $destino | Out-Null
 if ((Resolve-Path $origen).Path -ne (Resolve-Path $destino).Path) {
     Copy-Item -Path (Join-Path $origen 'AgenteImpresion\*') -Destination $destino -Recurse -Force
-    Copy-Item -Path (Join-Path $origen 'desinstalar.bat') -Destination $destino -Force -ErrorAction SilentlyContinue
+    foreach ($archivo in @('desinstalar.bat', 'configurar.bat', 'instalar.ps1')) {
+        Copy-Item -Path (Join-Path $origen $archivo) -Destination $destino -Force -ErrorAction SilentlyContinue
+    }
 }
 
 $lineas = @(
@@ -148,9 +201,16 @@ $lineas = @(
     "agente.nombre=$env:COMPUTERNAME"
 )
 for ($i = 0; $i -lt $impresoras.Count; $i++) {
-    $lineas += "impresora.$($i + 1).nombre=$($impresoras[$i].Nombre)"
-    $lineas += "impresora.$($i + 1).host=$($impresoras[$i].Host)"
-    $lineas += "impresora.$($i + 1).puerto=$($impresoras[$i].Puerto)"
+    $k = $i + 1
+    $lineas += "impresora.$k.nombre=$($impresoras[$i].Nombre)"
+    $lineas += "impresora.$k.tipo=$($impresoras[$i].Tipo)"
+    if ($impresoras[$i].Tipo -eq 'windows') {
+        # En .properties la barra invertida escapa: una impresora compartida (\\PC\Ticketera) la necesita doble.
+        $lineas += "impresora.$k.windows=$($impresoras[$i].Windows.Replace('\', '\\'))"
+    } else {
+        $lineas += "impresora.$k.host=$($impresoras[$i].Host)"
+        $lineas += "impresora.$k.puerto=$($impresoras[$i].Puerto)"
+    }
 }
 $contenido = ($lineas -join "`r`n") + "`r`n"
 # UTF-8 sin BOM: el agente lo lee como UTF-8 (nombres con tilde).
@@ -196,3 +256,4 @@ switch ($resultado) {
     default { Write-Host "Instalado, pero todavia no conecto. Revisar $log" -ForegroundColor Yellow }
 }
 Write-Host "Instalado en $destino. Arranca solo con Windows."
+Write-Host "Para cambiar algo mas adelante: $destino\configurar.bat"

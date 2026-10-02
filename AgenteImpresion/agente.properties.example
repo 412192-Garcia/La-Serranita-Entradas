@@ -10,14 +10,19 @@ agente.token=
 # Nombre de esta PC, sólo para los logs del servidor.
 agente.nombre=PC Entrada
 
-# Ticketeras que maneja este agente. El nombre es el que aparece en la tablet; host es la IP
-# de la impresora en la red del parque (conviene fijarla en la impresora o en el router para
-# que no cambie). Puerto 9100 = impresión directa (RAW), el estándar de las ticketeras de red.
+# Ticketeras que maneja este agente. El nombre es el que aparece en la tablet.
+#
+# tipo=red: ticketera con IP propia. host es su IP en la red del parque (conviene fijarla en la
+# impresora o en el router para que no cambie); puerto 9100 = impresión directa (RAW).
 impresora.1.nombre=Boletería
+impresora.1.tipo=red
 impresora.1.host=192.168.1.50
 impresora.1.puerto=9100
 
-# Para una segunda ticketera:
-# impresora.2.nombre=Boletería 2
-# impresora.2.host=192.168.1.51
-# impresora.2.puerto=9100
+# tipo=windows: ticketera USB (o compartida desde otra PC) instalada en Windows, con su driver o
+# con "Generic / Text Only". windows es el nombre exacto que muestra Windows en Impresoras. Una
+# compartida \\PC\Ticketera se escribe con cada barra doble: \\\\PC\\Ticketera (el instalador ya
+# lo hace solo).
+# impresora.2.nombre=Caja
+# impresora.2.tipo=windows
+# impresora.2.windows=80mm Thermal Printer

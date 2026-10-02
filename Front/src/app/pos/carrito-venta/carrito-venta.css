@@ -618,8 +618,7 @@
   cursor: not-allowed;
 }
 
-.input-email-factura,
-.select-impresora {
+.input-email-factura {
   width: 100%;
   box-sizing: border-box;
   padding: 10px 12px;
@@ -632,8 +631,7 @@
   color: var(--color-text);
 }
 
-.input-email-factura:focus,
-.select-impresora:focus {
+.input-email-factura:focus {
   border-color: var(--color-primary);
   box-shadow: 0 0 0 3px rgba(57, 169, 53, 0.15);
 }
@@ -654,8 +652,7 @@
 
 @media (pointer: coarse) {
   .btn-destino-factura,
-  .input-email-factura,
-  .select-impresora {
+  .input-email-factura {
     min-height: 44px;
   }
 }

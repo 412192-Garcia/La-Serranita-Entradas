@@ -12,17 +12,30 @@ import java.util.Properties;
 /** Lo que hay en agente.properties (ver agente.properties.example). */
 final class Configuracion {
 
-    record Destino(String host, int puerto) {
+    /** Dónde está físicamente una ticketera. */
+    sealed interface Destino permits Red, Windows {}
+
+    /** Ticketera de red: se le habla directo por TCP (puerto 9100, impresión RAW). */
+    record Red(String host, int puerto) implements Destino {
         @Override
         public String toString() {
             return host + ":" + puerto;
         }
     }
 
+    /** Ticketera instalada en Windows (USB, o compartida desde otra PC): el ticket va a la cola
+     * de impresión de Windows con ese nombre, como bytes crudos. */
+    record Windows(String impresora) implements Destino {
+        @Override
+        public String toString() {
+            return "Windows '" + impresora + "'";
+        }
+    }
+
     final String backendUrl;
     final String token;
     final String nombre;
-    /** Nombre de la impresora (el que ve la tablet) → dónde está en la red local. */
+    /** Nombre de la impresora (el que ve la tablet) → dónde está (red o Windows). */
     final Map<String, Destino> impresoras;
 
     private Configuracion(String backendUrl, String token, String nombre, Map<String, Destino> impresoras) {
@@ -49,12 +62,19 @@ final class Configuracion {
             if (nombreImpresora.contains(";") || nombreImpresora.contains(",")) {
                 throw new IllegalArgumentException("El nombre de impresora '" + nombreImpresora + "' no puede tener ';' ni ','");
             }
-            String host = obligatorio(p, "impresora." + i + ".host");
-            int puerto = Integer.parseInt(p.getProperty("impresora." + i + ".puerto", "9100").trim());
-            impresoras.put(nombreImpresora, new Destino(host, puerto));
+            // tipo=red (por defecto, así las configuraciones viejas siguen andando) o windows.
+            String tipo = p.getProperty("impresora." + i + ".tipo", "red").trim().toLowerCase();
+            Destino destino = switch (tipo) {
+                case "red" -> new Red(obligatorio(p, "impresora." + i + ".host"),
+                        Integer.parseInt(p.getProperty("impresora." + i + ".puerto", "9100").trim()));
+                case "windows" -> new Windows(obligatorio(p, "impresora." + i + ".windows"));
+                default -> throw new IllegalArgumentException(
+                        "impresora." + i + ".tipo tiene que ser 'red' o 'windows' (es '" + tipo + "')");
+            };
+            impresoras.put(nombreImpresora, destino);
         }
         if (impresoras.isEmpty()) {
-            throw new IllegalArgumentException("agente.properties no tiene ninguna impresora (impresora.1.nombre, impresora.1.host)");
+            throw new IllegalArgumentException("agente.properties no tiene ninguna impresora (impresora.1.nombre y su host o windows)");
         }
         return new Configuracion(backendUrl, token, nombre, impresoras);
     }

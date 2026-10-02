@@ -1,0 +1,116 @@
+.menu-caja {
+  position: relative;
+}
+
+/* Mismo pill que el resto de la fila de acciones (ver pos.css y selector-ticketera.css). */
+.btn-caja {
+  padding: 8px 14px;
+  border: 1.5px solid var(--color-border);
+  border-radius: 999px;
+  background-color: var(--color-card-bg);
+  color: var(--color-text-secondary);
+  font-size: 0.82rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-caja svg {
+  width: 15px;
+  height: 15px;
+}
+
+.btn-caja .chevron {
+  width: 14px;
+  height: 14px;
+  transition: transform 0.15s ease;
+}
+
+.btn-caja .chevron.girado {
+  transform: rotate(180deg);
+}
+
+.btn-caja:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary-dark);
+}
+
+.btn-caja:focus-visible,
+.opcion:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(57, 169, 53, 0.35);
+}
+
+.desplegable {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 50;
+  min-width: 250px;
+  max-width: calc(100vw - 32px);
+  padding: 6px;
+  background-color: var(--color-card-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.opcion {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.opcion:hover {
+  background-color: var(--color-primary-light);
+}
+
+.opcion svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  color: var(--color-primary);
+}
+
+.opcion-texto {
+  display: flex;
+  flex-direction: column;
+}
+
+.opcion-nombre {
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.opcion-detalle {
+  font-size: 0.76rem;
+  color: var(--color-text-muted);
+}
+
+@media (pointer: coarse) {
+  .btn-caja,
+  .opcion {
+    min-height: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-caja .chevron { transition: none; }
+}

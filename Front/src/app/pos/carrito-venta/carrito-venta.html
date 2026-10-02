@@ -339,19 +339,6 @@
             <p class="aviso-factura aviso-factura-error">El email no es válido.</p>
           }
         }
-        @if (impresoras().length > 1) {
-          <!-- Varias ticketeras: cada tablet recuerda la suya. -->
-          <select
-            class="select-impresora"
-            aria-label="Ticketera"
-            [ngModel]="impresoraEfectiva()"
-            (ngModelChange)="setImpresoraElegida($event)">
-            <option [ngValue]="null" disabled>Elegí la ticketera…</option>
-            @for (i of impresoras(); track i.nombre) {
-              <option [ngValue]="i.nombre">{{ i.nombre }}</option>
-            }
-          </select>
-        }
         @if (motivoImprimirNoDisponible(); as motivo) {
           <p class="aviso-factura">{{ motivo }}</p>
         }
