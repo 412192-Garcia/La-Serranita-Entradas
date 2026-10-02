@@ -10,6 +10,7 @@ import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -35,15 +36,14 @@ public interface FacturaRepository extends JpaRepository<Factura, Long> {
 
     /** Sólo esa columna: el envío del mail tarda y, mientras, la venta se puede cancelar. Guardar
      * la entidad leída antes del envío pisaría esa cancelación. */
-    /**
-     * Email nuevo para una factura ya emitida (se la mandan al cliente aunque se haya impreso).
-     * clearAutomatically: con open-in-view la request comparte el EntityManager, y sin limpiarlo el
-     * findById que hace después el envío del mail devolvería la factura cacheada con el email viejo.
-     */
-    @Modifying(clearAutomatically = true)
+    /** Se mandó a otro email (el que dio el cliente después): se guardan juntos, recién cuando salió. */
+    @Modifying
     @Transactional
-    @Query("UPDATE Factura f SET f.email = :email WHERE f.id = :id")
-    int cambiarEmail(@Param("id") Long id, @Param("email") String email);
+    @Query("UPDATE Factura f SET f.email = :email, f.mailEnviadoEn = :momento WHERE f.id = :id")
+    int marcarMailEnviadoA(@Param("id") Long id, @Param("email") String email, @Param("momento") LocalDateTime momento);
+
+    /** Las facturas B de varias compras de una vez (la ventana "Ventas y facturas"). */
+    List<Factura> findByCompraIdInAndTipoComprobante(Collection<Long> compraIds, Integer tipoComprobante);
 
     @Modifying
     @Transactional

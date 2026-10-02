@@ -62,6 +62,8 @@ public class EmailServiceImpl implements EmailService {
     private final FacturaRepository facturaRepository;
     private final ComprobanteFacturaService comprobanteFacturaService;
     private final FacturaPdfGenerator facturaPdfGenerator;
+    /** Las facturas salen de su propia casilla (facturas@); el resto, de la general (reservas@). */
+    private final CasillaFacturas casillaFacturas;
 
     @Value("${spring.mail.username}")
     private String remitente;
@@ -85,7 +87,7 @@ public class EmailServiceImpl implements EmailService {
     // Teléfono/mail de contacto del parque, mostrados en el mail para que el cliente pueda
     // consultar o pedir un cambio sin tener que responder al remitente (una casilla no-reply).
     // Con default porque son datos públicos del negocio, no un secreto — a diferencia de
-    // MAIL_USERNAME/MAIL_PASSWORD no hace falta configurarlos para que la app arranque.
+    // MAIL_RESERVAS_USERNAME/MAIL_RESERVAS_PASSWORD no hace falta configurarlos para que la app arranque.
     @Value("${app.contacto.telefono:+5493547642649}")
     private String contactoTelefono;
 
@@ -102,13 +104,15 @@ public class EmailServiceImpl implements EmailService {
                              @Lazy RechazoOperacionService rechazoService,
                              FacturaRepository facturaRepository,
                              ComprobanteFacturaService comprobanteFacturaService,
-                             FacturaPdfGenerator facturaPdfGenerator) {
+                             FacturaPdfGenerator facturaPdfGenerator,
+                             CasillaFacturas casillaFacturas) {
         this.mailSender = mailSender;
         this.compraRepository = compraRepository;
         this.rechazoService = rechazoService;
         this.facturaRepository = facturaRepository;
         this.comprobanteFacturaService = comprobanteFacturaService;
         this.facturaPdfGenerator = facturaPdfGenerator;
+        this.casillaFacturas = casillaFacturas;
     }
 
     @Async
@@ -204,9 +208,23 @@ public class EmailServiceImpl implements EmailService {
 
     @Override
     public void enviarFacturaOFallar(Long facturaId) {
+        enviarFactura(facturaId, null);
+    }
+
+    @Override
+    public void enviarFacturaA(Long facturaId, String destinatario) {
+        if (destinatario == null || destinatario.isBlank()) {
+            throw new IllegalArgumentException("Falta el email al que mandar la factura");
+        }
+        enviarFactura(facturaId, destinatario.trim());
+    }
+
+    /** @param destinatario null = el email que ya tiene la factura */
+    private void enviarFactura(Long facturaId, String destinatario) {
         Factura factura = facturaRepository.findById(facturaId)
                 .orElseThrow(() -> new IllegalArgumentException("Factura no encontrada ID: " + facturaId));
-        if (factura.getEmail() == null || factura.getEmail().isBlank()) {
+        String para = destinatario != null ? destinatario : factura.getEmail();
+        if (para == null || para.isBlank()) {
             throw new IllegalStateException("La factura no tiene un email al que mandarla");
         }
         if (Boolean.TRUE.equals(factura.getAnulacionPedida())) {
@@ -219,23 +237,27 @@ public class EmailServiceImpl implements EmailService {
         byte[] pdf = facturaPdfGenerator.generar(comprobante);
 
         try {
-            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessage message = casillaFacturas.sender().createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-            helper.setFrom(remitente, NOMBRE_REMITENTE);
-            helper.setTo(factura.getEmail());
+            helper.setFrom(casillaFacturas.direccion(), NOMBRE_REMITENTE);
+            helper.setTo(para);
             agregarCopia(helper);
             helper.setSubject("Tu factura " + comprobante.numeroFormateado() + " - La Serranita Parque Recreativo");
             helper.setText(construirHtmlFactura(comprobante), true);
             helper.addAttachment("Factura-B-" + comprobante.numeroFormateado() + ".pdf",
                     new ByteArrayResource(pdf), "application/pdf");
-            mailSender.send(message);
+            casillaFacturas.sender().send(message);
         } catch (jakarta.mail.MessagingException | java.io.UnsupportedEncodingException e) {
             throw new IllegalStateException("No se pudo armar el mail de la factura", e);
         }
 
         // Sólo esa columna: guardar la entidad leída antes del envío (que tarda) pisaría una
         // cancelación hecha mientras tanto.
-        facturaRepository.marcarMailEnviado(facturaId, LocalDateTime.now());
+        if (destinatario != null) {
+            facturaRepository.marcarMailEnviadoA(facturaId, destinatario, LocalDateTime.now());
+        } else {
+            facturaRepository.marcarMailEnviado(facturaId, LocalDateTime.now());
+        }
         log.info("Email de la factura ID {} enviado", facturaId);
     }
 

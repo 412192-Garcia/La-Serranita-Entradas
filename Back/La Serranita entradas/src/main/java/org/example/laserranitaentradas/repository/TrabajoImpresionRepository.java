@@ -27,6 +27,8 @@ public interface TrabajoImpresionRepository extends JpaRepository<TrabajoImpresi
 
     Optional<TrabajoImpresion> findFirstByFacturaIdOrderByIdDesc(Long facturaId);
 
+    List<TrabajoImpresion> findByFacturaIdIn(Collection<Long> facturaIds);
+
     /** Se marca ENVIADO antes de mandarlo, y sólo si todavía no tiene resultado. 0 = ya tenía. */
     @Modifying
     @Transactional

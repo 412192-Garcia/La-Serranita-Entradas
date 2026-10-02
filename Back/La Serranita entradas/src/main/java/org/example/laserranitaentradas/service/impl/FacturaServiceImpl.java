@@ -33,7 +33,10 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -232,6 +235,7 @@ public class FacturaServiceImpl implements FacturaService {
 
     @Override
     public void alCancelarVenta(Compra compra) {
+        bloquear(compra);
         facturaVigente(compra.getId()).ifPresent(this::anular);
     }
 
@@ -241,6 +245,7 @@ public class FacturaServiceImpl implements FacturaService {
             // Mismo total (ej. sólo se corrigió la forma de pago): la factura sigue siendo correcta.
             return;
         }
+        bloquear(compra);
         facturaVigente(compra.getId()).ifPresent(vieja -> {
             anular(vieja);
             if (compra.getMontoTotal() != null && compra.getMontoTotal().signum() > 0) {
@@ -617,8 +622,36 @@ public class FacturaServiceImpl implements FacturaService {
                 .map(this::toDto);
     }
 
+    @Override
+    public Map<Long, FacturaResponseDTO> obtenerPorCompras(Collection<Long> compraIds) {
+        if (compraIds.isEmpty()) return Map.of();
+        Map<Long, Factura> ultimas = new HashMap<>();
+        for (Factura f : facturaRepository.findByCompraIdInAndTipoComprobante(compraIds, WsfeService.CBTE_TIPO_FACTURA_B)) {
+            ultimas.merge(f.getCompra().getId(), f, (a, b) -> a.getId() > b.getId() ? a : b);
+        }
+        Map<Long, TrabajoImpresion> trabajos = impresionService.ultimosTrabajos(
+                ultimas.values().stream().map(Factura::getId).toList());
+        Map<Long, FacturaResponseDTO> resultado = new HashMap<>();
+        ultimas.forEach((compraId, f) -> resultado.put(compraId, toDto(f, Optional.ofNullable(trabajos.get(f.getId())))));
+        return resultado;
+    }
+
+    /**
+     * Bloquea la fila de la compra (SELECT ... FOR UPDATE, sin pisar los cambios en memoria) antes
+     * de mirar su factura vigente: así cancelar, editar y "Facturar" desde Ventas y facturas no
+     * pueden decidir a la vez sobre la misma venta (una factura de más, o una sin nota de crédito).
+     */
+    private void bloquear(Compra compra) {
+        if (compra.getId() != null && em.contains(compra)) {
+            em.lock(compra, LockModeType.PESSIMISTIC_WRITE);
+        }
+    }
+
     private FacturaResponseDTO toDto(Factura f) {
-        Optional<TrabajoImpresion> ultimo = impresionService.ultimoTrabajo(f.getId());
+        return toDto(f, impresionService.ultimoTrabajo(f.getId()));
+    }
+
+    private FacturaResponseDTO toDto(Factura f, Optional<TrabajoImpresion> ultimo) {
         return FacturaResponseDTO.builder()
                 .id(f.getId())
                 .compraId(f.getCompra().getId())

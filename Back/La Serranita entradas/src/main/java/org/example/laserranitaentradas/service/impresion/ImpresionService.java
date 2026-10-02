@@ -177,6 +177,16 @@ public class ImpresionService {
         return trabajoRepository.findFirstByFacturaIdOrderByIdDesc(facturaId);
     }
 
+    /** El último trabajo de cada factura, en una sola consulta. Facturas sin trabajo no aparecen. */
+    public Map<Long, TrabajoImpresion> ultimosTrabajos(Collection<Long> facturaIds) {
+        Map<Long, TrabajoImpresion> ultimos = new HashMap<>();
+        if (facturaIds.isEmpty()) return ultimos;
+        for (TrabajoImpresion t : trabajoRepository.findByFacturaIdIn(facturaIds)) {
+            ultimos.merge(t.getFactura().getId(), t, (a, b) -> a.getId() > b.getId() ? a : b);
+        }
+        return ultimos;
+    }
+
     public void registrarResultado(Long trabajoId, boolean ok, String error) {
         // Un IMPRESO no se pisa: puede llegar una confirmación repetida de un reenvío.
         trabajoRepository.registrarResultado(trabajoId,

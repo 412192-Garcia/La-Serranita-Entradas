@@ -50,8 +50,8 @@ fuera del control de versiones. Hay que crearlo con estas claves:
 ```
 MP_ACCESS_TOKEN=<access token de Mercado Pago>
 MP_NOTIFICATION_URL=<URL pública del webhook, opcional en local>
-MAIL_USERNAME=<casilla que envía los comprobantes>
-MAIL_PASSWORD=<contraseña de aplicación de esa casilla>
+MAIL_RESERVAS_USERNAME=<casilla que envía los comprobantes de compra (ej. reservas@)>
+MAIL_RESERVAS_PASSWORD=<contraseña de esa casilla>
 JWT_SECRET=<cadena larga y aleatoria para firmar los tokens>
 ```
 

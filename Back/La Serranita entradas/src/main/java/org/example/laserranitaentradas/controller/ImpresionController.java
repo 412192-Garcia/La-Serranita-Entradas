@@ -5,7 +5,10 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.example.laserranitaentradas.model.entity.EstadoFactura;
 import org.example.laserranitaentradas.model.entity.TrabajoImpresion;
-import org.example.laserranitaentradas.repository.FacturaRepository;
+import org.example.laserranitaentradas.config.UsuarioAutenticado;
+import org.example.laserranitaentradas.model.entity.Factura;
+import org.example.laserranitaentradas.service.factura.VentasFacturasService;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.example.laserranitaentradas.service.impresion.ImpresionService;
 import org.springframework.web.bind.annotation.*;
 
@@ -18,11 +21,11 @@ import java.util.Map;
 public class ImpresionController {
 
     private final ImpresionService impresionService;
-    private final FacturaRepository facturaRepository;
+    private final VentasFacturasService ventasFacturasService;
 
-    public ImpresionController(ImpresionService impresionService, FacturaRepository facturaRepository) {
+    public ImpresionController(ImpresionService impresionService, VentasFacturasService ventasFacturasService) {
         this.impresionService = impresionService;
-        this.facturaRepository = facturaRepository;
+        this.ventasFacturasService = ventasFacturasService;
     }
 
     @GetMapping("/impresoras")
@@ -34,11 +37,16 @@ public class ImpresionController {
     @PostMapping("/facturas/{facturaId}")
     @Operation(summary = "Imprimir (o reimprimir) el ticket de una factura emitida")
     public Map<String, Object> imprimir(@PathVariable @Parameter(description = "ID de la factura") Long facturaId,
-                                        @RequestParam(required = false) String impresora) {
-        var factura = facturaRepository.findById(facturaId)
-                .orElseThrow(() -> new IllegalArgumentException("Factura no encontrada ID: " + facturaId));
+                                        @RequestParam(required = false) String impresora,
+                                        @AuthenticationPrincipal UsuarioAutenticado operador) {
+        // Un boletero sólo imprime facturas de su caja.
+        Factura factura = ventasFacturasService.validarAccesoAFactura(facturaId, operador);
         if (factura.getEstado() != EstadoFactura.EMITIDA) {
             throw new IllegalStateException("La factura todavía no está emitida");
+        }
+        if (Boolean.TRUE.equals(factura.getAnulacionPedida())) {
+            // Ya tiene (o va a tener) nota de crédito: imprimirla sería darle al cliente una factura anulada.
+            throw new IllegalStateException("Esta factura se anuló (la venta se canceló o cambió)");
         }
         TrabajoImpresion t = impresionService.imprimirFactura(facturaId, impresora);
         return Map.of("trabajoId", t.getId(), "estado", t.getEstado(), "impresora", t.getImpresora());

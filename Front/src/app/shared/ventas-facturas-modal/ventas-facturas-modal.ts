@@ -201,7 +201,9 @@ export class VentasFacturasModal implements OnInit {
           this.ventas.set(ventas);
           this.programarRefresco();
         },
-        error: () => {},
+        // Un corte breve no tiene que dejar filas en "Emitiendo…" para siempre: se reintenta,
+        // dentro del mismo tope de refrescos.
+        error: () => this.programarRefresco(),
       });
   }
 

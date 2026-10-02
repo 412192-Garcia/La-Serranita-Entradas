@@ -46,13 +46,17 @@ class EmailServiceImplTest {
     @Mock private org.example.laserranitaentradas.repository.FacturaRepository facturaRepository;
     @Mock private org.example.laserranitaentradas.service.factura.ComprobanteFacturaService comprobanteFacturaService;
     @Mock private org.example.laserranitaentradas.service.factura.FacturaPdfGenerator facturaPdfGenerator;
+    @Mock private CasillaFacturas casillaFacturas;
 
     private EmailServiceImpl service;
 
     @BeforeEach
     void setUp() {
         service = new EmailServiceImpl(mailSender, compraRepository, rechazoService,
-                facturaRepository, comprobanteFacturaService, facturaPdfGenerator);
+                facturaRepository, comprobanteFacturaService, facturaPdfGenerator, casillaFacturas);
+        // lenient: sólo los tests de factura usan la casilla de facturas.
+        org.mockito.Mockito.lenient().when(casillaFacturas.sender()).thenReturn(mailSender);
+        org.mockito.Mockito.lenient().when(casillaFacturas.direccion()).thenReturn("facturas@laserranita.com");
         // @Value no se inyecta fuera de un contexto de Spring: sin esto, helper.setFrom(null)
         // explota con NPE antes de siquiera llegar al mailSender.send(...) que cada test stubea.
         ReflectionTestUtils.setField(service, "remitente", "no-reply@laserranita.com");
@@ -181,6 +185,39 @@ class EmailServiceImplTest {
         assertThat(captor.getValue().getSubject()).contains("0037-00000021");
         verify(facturaRepository).marcarMailEnviado(eq(5L), any());
         verify(rechazoService, never()).registrar(any(), any(), any(), any());
+    }
+
+    @Test
+    void enviarFacturaA_otroEmail_loMandaAEseYGuardaEmailYHoraJuntos() throws Exception {
+        when(facturaRepository.findById(5L)).thenReturn(Optional.of(facturaMail()));
+        when(comprobanteFacturaService.armar(5L)).thenReturn(comprobante());
+        when(facturaPdfGenerator.generar(any())).thenReturn("%PDF-1.4".getBytes());
+        when(mailSender.createMimeMessage()).thenReturn(new jakarta.mail.internet.MimeMessage((jakarta.mail.Session) null));
+
+        service.enviarFacturaA(5L, " otro@mail.com ");
+
+        org.mockito.ArgumentCaptor<jakarta.mail.internet.MimeMessage> captor =
+                org.mockito.ArgumentCaptor.forClass(jakarta.mail.internet.MimeMessage.class);
+        verify(mailSender).send(captor.capture());
+        assertThat(captor.getValue().getAllRecipients()[0].toString()).isEqualTo("otro@mail.com");
+        // Sale de la casilla de facturas, no de la general (reservas).
+        assertThat(captor.getValue().getFrom()[0].toString()).contains("facturas@laserranita.com");
+        verify(facturaRepository).marcarMailEnviadoA(eq(5L), eq("otro@mail.com"), any());
+        verify(facturaRepository, never()).marcarMailEnviado(any(), any());
+    }
+
+    @Test
+    void enviarFacturaA_siFallaElEnvio_noCambiaElEmailGuardado() {
+        when(facturaRepository.findById(5L)).thenReturn(Optional.of(facturaMail()));
+        when(comprobanteFacturaService.armar(5L)).thenReturn(comprobante());
+        when(facturaPdfGenerator.generar(any())).thenReturn("%PDF-1.4".getBytes());
+        when(mailSender.createMimeMessage()).thenReturn(new jakarta.mail.internet.MimeMessage((jakarta.mail.Session) null));
+        org.mockito.Mockito.doThrow(new org.springframework.mail.MailSendException("SMTP caído"))
+                .when(mailSender).send(any(jakarta.mail.internet.MimeMessage.class));
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.enviarFacturaA(5L, "otro@mail.com"))
+                .isInstanceOf(org.springframework.mail.MailSendException.class);
+        verify(facturaRepository, never()).marcarMailEnviadoA(any(), any(), any());
     }
 
     @Test

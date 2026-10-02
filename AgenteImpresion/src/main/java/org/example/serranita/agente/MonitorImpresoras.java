@@ -104,6 +104,15 @@ final class MonitorImpresoras {
             Process p = new ProcessBuilder("powershell", "-NoProfile", "-NonInteractive", "-EncodedCommand", codificado)
                     .redirectErrorStream(true)
                     .start();
+            // Plazo independiente de la lectura: si Get-Printer se cuelga con la salida abierta,
+            // readLine no vuelve nunca y el waitFor de abajo no llegaría a correr. Esta revisión
+            // comparte hilo con la impresión, así que un cuelgue frenaría todos los tickets. Al matar
+            // el proceso se cierra la salida y la lectura termina.
+            p.onExit().orTimeout(10, TimeUnit.SECONDS).exceptionally(e -> {
+                p.descendants().forEach(ProcessHandle::destroyForcibly);
+                p.destroyForcibly();
+                return p;
+            });
             try (BufferedReader r = new BufferedReader(new InputStreamReader(p.getInputStream(), StandardCharsets.UTF_8))) {
                 String linea;
                 while ((linea = r.readLine()) != null) {
@@ -116,7 +125,7 @@ final class MonitorImpresoras {
                     }
                 }
             }
-            if (!p.waitFor(10, TimeUnit.SECONDS)) p.destroyForcibly();
+            p.waitFor(2, TimeUnit.SECONDS);
             if (salida.isEmpty()) {
                 log.warning("Windows no devolvió ninguna impresora (Get-Printer)");
             }

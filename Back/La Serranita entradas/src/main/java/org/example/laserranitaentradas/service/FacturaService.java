@@ -44,5 +44,8 @@ public interface FacturaService {
 
     Optional<FacturaResponseDTO> obtenerPorCompra(Long compraId);
 
+    /** La factura B más reciente de cada compra, en dos consultas en vez de dos por compra. */
+    java.util.Map<Long, FacturaResponseDTO> obtenerPorCompras(java.util.Collection<Long> compraIds);
+
     boolean estaHabilitada();
 }

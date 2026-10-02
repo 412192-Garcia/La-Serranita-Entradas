@@ -17,4 +17,11 @@ public interface EmailService {
     /** Igual que enviarFactura pero en el momento y propagando el error: para el reenvío manual,
      * donde quien lo pidió está mirando la pantalla y tiene que saber si salió. */
     void enviarFacturaOFallar(Long facturaId);
+
+    /**
+     * Como enviarFacturaOFallar pero a otro email (el que da el cliente en la ventana "Ventas y
+     * facturas"). El email se le pasa directo al envío: recién cuando salió se guarda en la factura,
+     * junto con la hora, así dos envíos simultáneos no se cruzan los destinatarios.
+     */
+    void enviarFacturaA(Long facturaId, String destinatario);
 }

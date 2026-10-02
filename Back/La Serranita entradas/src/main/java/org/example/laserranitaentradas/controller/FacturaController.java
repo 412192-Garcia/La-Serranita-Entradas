@@ -39,10 +39,14 @@ public class FacturaController {
 
     @GetMapping("/compra/{compraId}")
     @Operation(summary = "Factura de una compra", description = "El POS consulta esto después de vender con \"Imprimir factura\" hasta que queda EMITIDA (o ERROR). 404 si la compra no se facturó.")
-    public ResponseEntity<FacturaResponseDTO> porCompra(@PathVariable @Parameter(description = "ID de la compra") Long compraId) {
+    public ResponseEntity<FacturaResponseDTO> porCompra(@PathVariable @Parameter(description = "ID de la compra") Long compraId,
+                                                        @AuthenticationPrincipal UsuarioAutenticado operador) {
         return facturaService.obtenerPorCompra(compraId)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+                .map(factura -> {
+                    ventasFacturasService.validarAccesoAFactura(factura.getId(), operador);
+                    return ResponseEntity.ok(factura);
+                })
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @GetMapping(value = "/{id}/pdf", produces = MediaType.APPLICATION_PDF_VALUE)

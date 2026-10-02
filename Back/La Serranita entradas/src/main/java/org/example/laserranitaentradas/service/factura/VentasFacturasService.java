@@ -17,6 +17,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -57,11 +58,16 @@ public class VentasFacturasService {
         Caja caja = cajaRepository.findById(cajaId)
                 .orElseThrow(() -> new IllegalArgumentException("Caja no encontrada ID: " + cajaId));
         validarAcceso(caja, operador);
-        return compraRepository.findAllByCajaId(cajaId).stream()
+        List<Compra> ventas = compraRepository.findAllByCajaIdConDetalles(cajaId).stream()
                 .filter(c -> FACTURABLES.contains(c.getEstado()))
                 .sorted(Comparator.comparing(Compra::getFechaValidacion, Comparator.nullsLast(Comparator.reverseOrder())))
+                .toList();
+        // Se consulta cada 2,5 s mientras algo se emite o imprime: facturas y trabajos de impresión
+        // de todo el turno en dos consultas, no dos por venta.
+        Map<Long, FacturaResponseDTO> facturas = facturaService.obtenerPorCompras(ventas.stream().map(Compra::getId).toList());
+        return ventas.stream()
                 .map(c -> new VentaFacturaDTO(c.getId(), c.getCodigoReserva(), c.getFechaValidacion(), c.getMontoTotal(),
-                        c.getFormaPago(), resumen(c), facturaService.obtenerPorCompra(c.getId()).orElse(null)))
+                        c.getFormaPago(), resumen(c), facturas.get(c.getId())))
                 .toList();
     }
 
@@ -71,7 +77,9 @@ public class VentasFacturasService {
      */
     @Transactional
     public FacturaResponseDTO facturar(Long compraId, FacturacionPosDTO pedido, UsuarioAutenticado operador) {
-        Compra compra = compraRepository.findById(compraId)
+        // Fila bloqueada hasta el commit: dos "Facturar" simultáneos (o uno con una cancelación o
+        // edición, que también la bloquean) no pueden pasar los dos el chequeo de "ya tiene factura".
+        Compra compra = compraRepository.findByIdBloqueando(compraId)
                 .orElseThrow(() -> new IllegalArgumentException("Venta no encontrada ID: " + compraId));
         if (compra.getCaja() == null) {
             throw new IllegalStateException("Sólo se facturan desde acá las ventas de una caja");
@@ -125,8 +133,7 @@ public class VentasFacturasService {
         if (!limpio.matches(EMAIL_VALIDO)) {
             throw new IllegalArgumentException("El email no es válido");
         }
-        facturaRepository.cambiarEmail(facturaId, limpio);
-        emailService.enviarFacturaOFallar(facturaId);
+        emailService.enviarFacturaA(facturaId, limpio);
     }
 
     private static void validarAcceso(Caja caja, UsuarioAutenticado operador) {

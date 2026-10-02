@@ -340,6 +340,44 @@ class FacturaServiceImplTest {
     }
 
     @Test
+    void cancelarVenta_bloqueaLaFilaDeLaCompraAntesDeMirarSuFactura() {
+        Compra compra = Compra.builder().id(1L).build();
+        when(em.contains(compra)).thenReturn(true);
+        when(facturaRepository.findFirstByCompraIdAndTipoComprobanteOrderByIdDesc(1L, 6)).thenReturn(Optional.empty());
+
+        service.alCancelarVenta(compra);
+
+        var orden = inOrder(em, facturaRepository);
+        orden.verify(em).lock(compra, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        orden.verify(facturaRepository).findFirstByCompraIdAndTipoComprobanteOrderByIdDesc(1L, 6);
+    }
+
+    @Test
+    void obtenerPorCompras_laMasNuevaDeCadaCompra_conSuUltimoTrabajo_enDosConsultas() {
+        Factura vieja = emitida();
+        vieja.setId(10L);
+        vieja.setCompra(Compra.builder().id(1L).build());
+        Factura nueva = emitida();
+        nueva.setId(11L);
+        nueva.setCompra(vieja.getCompra());
+        Factura otra = emitida();
+        otra.setId(20L);
+        otra.setCompra(Compra.builder().id(2L).build());
+        when(facturaRepository.findByCompraIdInAndTipoComprobante(List.of(1L, 2L), 6)).thenReturn(List.of(vieja, otra, nueva));
+        TrabajoImpresion trabajo = new TrabajoImpresion();
+        trabajo.setEstado(EstadoTrabajoImpresion.IMPRESO);
+        when(impresionService.ultimosTrabajos(any())).thenReturn(java.util.Map.of(11L, trabajo));
+
+        var r = service.obtenerPorCompras(List.of(1L, 2L));
+
+        assertThat(r.get(1L).getId()).isEqualTo(11L);
+        assertThat(r.get(1L).getImpresionEstado()).isEqualTo(EstadoTrabajoImpresion.IMPRESO);
+        assertThat(r.get(2L).getImpresionEstado()).isNull();
+        verify(facturaRepository, never()).findFirstByCompraIdAndTipoComprobanteOrderByIdDesc(any(), any());
+        verify(impresionService, never()).ultimoTrabajo(any());
+    }
+
+    @Test
     void cancelarVentaFacturada_emiteNotaDeCreditoPorElTotalAsociadaALaFactura() {
         Factura f = emitida();
         when(facturaRepository.findFirstByCompraIdAndTipoComprobanteOrderByIdDesc(1L, 6)).thenReturn(Optional.of(f));

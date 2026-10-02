@@ -22,6 +22,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -57,6 +58,7 @@ class VentasFacturasServiceTest {
         caja.setUsuario(usuario);
         when(cajaRepository.findById(3L)).thenReturn(Optional.of(caja));
         when(facturaService.obtenerPorCompra(any())).thenReturn(Optional.empty());
+        when(facturaService.obtenerPorCompras(any())).thenReturn(Map.of());
     }
 
     // ---------- ventasDeCaja ----------
@@ -72,9 +74,9 @@ class VentasFacturasServiceTest {
         detalle.setTipoEntrada(general);
         detalle.setCantidad(2);
         nueva.setDetalles(List.of(detalle));
-        when(compraRepository.findAllByCajaId(3L)).thenReturn(List.of(vieja, nueva, cancelada));
+        when(compraRepository.findAllByCajaIdConDetalles(3L)).thenReturn(List.of(vieja, nueva, cancelada));
         FacturaResponseDTO factura = FacturaResponseDTO.builder().id(50L).estado(EstadoFactura.EMITIDA).build();
-        when(facturaService.obtenerPorCompra(11L)).thenReturn(Optional.of(factura));
+        when(facturaService.obtenerPorCompras(List.of(11L, 10L))).thenReturn(Map.of(11L, factura));
 
         List<VentaFacturaDTO> ventas = service.ventasDeCaja(3L, boletero);
 
@@ -87,12 +89,12 @@ class VentasFacturasServiceTest {
     @Test
     void ventasDeCaja_deOtroBoletero_prohibido() {
         assertThatThrownBy(() -> service.ventasDeCaja(3L, otroBoletero)).isInstanceOf(ResponseStatusException.class);
-        verify(compraRepository, never()).findAllByCajaId(any());
+        verify(compraRepository, never()).findAllByCajaIdConDetalles(any());
     }
 
     @Test
     void ventasDeCaja_elAdminVeCualquiera() {
-        when(compraRepository.findAllByCajaId(3L)).thenReturn(List.of());
+        when(compraRepository.findAllByCajaIdConDetalles(3L)).thenReturn(List.of());
 
         assertThat(service.ventasDeCaja(3L, admin)).isEmpty();
     }
@@ -102,7 +104,7 @@ class VentasFacturasServiceTest {
     @Test
     void facturar_ventaSinFactura_laPideComoEnElPos() {
         Compra c = compra(10L, EstadoCompra.VENDIDO_EN_PUERTA, LocalDateTime.now());
-        when(compraRepository.findById(10L)).thenReturn(Optional.of(c));
+        when(compraRepository.findByIdBloqueando(10L)).thenReturn(Optional.of(c));
         Factura nueva = new Factura();
         nueva.setId(60L);
         FacturacionPosDTO pedido = pedido(DestinoFactura.IMPRIMIR, null);
@@ -117,7 +119,7 @@ class VentasFacturasServiceTest {
     @Test
     void facturar_siYaTieneFactura_noDuplica() {
         Compra c = compra(10L, EstadoCompra.VENDIDO_EN_PUERTA, LocalDateTime.now());
-        when(compraRepository.findById(10L)).thenReturn(Optional.of(c));
+        when(compraRepository.findByIdBloqueando(10L)).thenReturn(Optional.of(c));
         when(facturaService.obtenerPorCompra(10L))
                 .thenReturn(Optional.of(FacturaResponseDTO.builder().estado(EstadoFactura.ERROR).build()));
 
@@ -129,7 +131,7 @@ class VentasFacturasServiceTest {
     @Test
     void facturar_siLaAnteriorSeAnulo_sePuedeVolverAFacturar() {
         Compra c = compra(10L, EstadoCompra.USADO, LocalDateTime.now());
-        when(compraRepository.findById(10L)).thenReturn(Optional.of(c));
+        when(compraRepository.findByIdBloqueando(10L)).thenReturn(Optional.of(c));
         FacturaResponseDTO anulada = FacturaResponseDTO.builder().estado(EstadoFactura.ANULADA).build();
         FacturaResponseDTO nueva = FacturaResponseDTO.builder().estado(EstadoFactura.PENDIENTE).build();
         when(facturaService.obtenerPorCompra(10L)).thenReturn(Optional.of(anulada), Optional.of(nueva));
@@ -140,7 +142,7 @@ class VentasFacturasServiceTest {
 
     @Test
     void facturar_porMailSinEmail_error() {
-        when(compraRepository.findById(10L)).thenReturn(Optional.of(compra(10L, EstadoCompra.VENDIDO_EN_PUERTA, LocalDateTime.now())));
+        when(compraRepository.findByIdBloqueando(10L)).thenReturn(Optional.of(compra(10L, EstadoCompra.VENDIDO_EN_PUERTA, LocalDateTime.now())));
 
         assertThatThrownBy(() -> service.facturar(10L, pedido(DestinoFactura.MAIL, " "), boletero))
                 .isInstanceOf(IllegalArgumentException.class);
@@ -149,7 +151,7 @@ class VentasFacturasServiceTest {
 
     @Test
     void facturar_ventaCancelada_error() {
-        when(compraRepository.findById(10L)).thenReturn(Optional.of(compra(10L, EstadoCompra.CANCELADO, LocalDateTime.now())));
+        when(compraRepository.findByIdBloqueando(10L)).thenReturn(Optional.of(compra(10L, EstadoCompra.CANCELADO, LocalDateTime.now())));
 
         assertThatThrownBy(() -> service.facturar(10L, pedido(DestinoFactura.IMPRIMIR, null), boletero))
                 .isInstanceOf(IllegalStateException.class);
@@ -157,7 +159,7 @@ class VentasFacturasServiceTest {
 
     @Test
     void facturar_ventaDeOtraCaja_prohibido() {
-        when(compraRepository.findById(10L)).thenReturn(Optional.of(compra(10L, EstadoCompra.VENDIDO_EN_PUERTA, LocalDateTime.now())));
+        when(compraRepository.findByIdBloqueando(10L)).thenReturn(Optional.of(compra(10L, EstadoCompra.VENDIDO_EN_PUERTA, LocalDateTime.now())));
 
         assertThatThrownBy(() -> service.facturar(10L, pedido(DestinoFactura.IMPRIMIR, null), otroBoletero))
                 .isInstanceOf(ResponseStatusException.class);
@@ -165,7 +167,7 @@ class VentasFacturasServiceTest {
 
     @Test
     void facturar_siNoSePudoCrear_avisa() {
-        when(compraRepository.findById(10L)).thenReturn(Optional.of(compra(10L, EstadoCompra.VENDIDO_EN_PUERTA, LocalDateTime.now())));
+        when(compraRepository.findByIdBloqueando(10L)).thenReturn(Optional.of(compra(10L, EstadoCompra.VENDIDO_EN_PUERTA, LocalDateTime.now())));
         when(facturaService.solicitar(any(), any())).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.facturar(10L, pedido(DestinoFactura.IMPRIMIR, null), boletero))
@@ -180,8 +182,9 @@ class VentasFacturasServiceTest {
 
         service.enviarPorMail(50L, "  cliente@mail.com ", boletero);
 
-        verify(facturaRepository).cambiarEmail(50L, "cliente@mail.com");
-        verify(emailService).enviarFacturaOFallar(50L);
+        // El email va directo al envío; la factura no se toca antes (dos envíos no se cruzan).
+        verify(emailService).enviarFacturaA(50L, "cliente@mail.com");
+        verify(facturaRepository, never()).marcarMailEnviadoA(any(), any(), any());
     }
 
     @Test
@@ -190,7 +193,7 @@ class VentasFacturasServiceTest {
 
         assertThatThrownBy(() -> service.enviarPorMail(50L, "no-es-un-mail", boletero))
                 .isInstanceOf(IllegalArgumentException.class);
-        verify(emailService, never()).enviarFacturaOFallar(any());
+        verify(emailService, never()).enviarFacturaA(any(), any());
     }
 
     @Test
@@ -199,7 +202,7 @@ class VentasFacturasServiceTest {
 
         assertThatThrownBy(() -> service.enviarPorMail(50L, "cliente@mail.com", boletero))
                 .isInstanceOf(IllegalStateException.class);
-        verify(facturaRepository, never()).cambiarEmail(any(), any());
+        verify(emailService, never()).enviarFacturaA(any(), any());
     }
 
     @Test
@@ -216,7 +219,7 @@ class VentasFacturasServiceTest {
 
         assertThatThrownBy(() -> service.enviarPorMail(50L, "cliente@mail.com", otroBoletero))
                 .isInstanceOf(ResponseStatusException.class);
-        verify(emailService, never()).enviarFacturaOFallar(any());
+        verify(emailService, never()).enviarFacturaA(any(), any());
     }
 
     @Test

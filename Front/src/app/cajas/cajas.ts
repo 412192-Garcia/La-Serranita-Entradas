@@ -21,6 +21,7 @@ type CampoOrdenCajaCerrada = 'usuarioNombre' | 'fechaApertura' | 'montoEsperado'
 
 const CAJAS_CERRADAS_POR_PAGINA = 20;
 
+import { FacturaService } from '../services/factura.service';
 @Component({
   selector: 'app-configuracion-cajas',
   imports: [FormsModule, PesosPipe, DatePipe, CabeceraInterna, Spinner, CierreCajaModal, ResumenCierre, Modal, CajaOperaciones, ColumnaOrdenable],
@@ -30,6 +31,7 @@ const CAJAS_CERRADAS_POR_PAGINA = 20;
 export class ConfiguracionCajas implements OnInit {
   private cajaService = inject(CajaService);
   private notificacionService = inject(NotificacionService);
+  private facturaService = inject(FacturaService);
 
   /** El resumen de la caja cerrada que está desplegada (el tutorial lo usa para abrir "Corregir caja"). */
   private resumenCierre = viewChild(ResumenCierre);
@@ -293,6 +295,10 @@ export class ConfiguracionCajas implements OnInit {
   boleterosDisponibles = signal<string[]>([]);
 
   ngOnInit(): void {
+    // "Ventas y facturas" (en caja abierta y cerrada) sólo aparece con la facturación activa. Ese
+    // dato se refrescaba sólo desde el POS: un admin que entra directo acá con el almacenamiento
+    // vacío no veía el botón.
+    this.facturaService.actualizarEstadoServicio();
     // Arranca DESC (más reciente primero): crearOrdenable siempre empieza en ASC, y acá
     // queremos la misma vista que ya trae el backend por defecto.
     this.ordenCajas.direccionOrden.set('DESC');
