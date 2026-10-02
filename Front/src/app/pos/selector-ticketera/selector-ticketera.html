@@ -1,0 +1,43 @@
+@if (habilitada() && enLinea()) {
+  <div class="selector-ticketera">
+    <button
+      type="button"
+      class="btn-ticketera"
+      aria-haspopup="menu"
+      [attr.aria-expanded]="abierto()"
+      [title]="servicio.motivoNoDisponible() ?? 'Ticketera donde imprime esta tablet'"
+      (click)="abierto.set(!abierto())">
+      <span class="punto" [class]="'punto punto-' + estado()"></span>
+      <svg lucidePrinter [strokeWidth]="2"></svg>
+      {{ etiqueta() }}
+    </button>
+
+    @if (abierto()) {
+      <div class="menu-ticketera" role="menu" aria-label="Elegir ticketera">
+        @if (servicio.impresoras().length === 0) {
+          <p class="menu-vacio">
+            La PC de la entrada está apagada o sin conexión. Cuando se prenda, las ticketeras aparecen acá solas.
+          </p>
+        }
+        @for (i of servicio.impresoras(); track i.nombre) {
+          <button
+            type="button"
+            role="menuitemradio"
+            class="opcion-ticketera"
+            [attr.aria-checked]="servicio.efectiva()?.nombre === i.nombre"
+            (click)="elegir(i.nombre)">
+            <span class="punto" [class]="'punto ' + (i.disponible ? 'punto-ok' : 'punto-mal')"></span>
+            <span class="opcion-texto">
+              <span class="opcion-nombre">{{ i.nombre }}</span>
+              <span class="opcion-estado">{{ i.disponible ? 'Lista' : (i.detalle ?? 'Apagada o desconectada') }}</span>
+            </span>
+            @if (servicio.efectiva()?.nombre === i.nombre) {
+              <svg lucideCheck class="opcion-check" [strokeWidth]="2.5"></svg>
+            }
+          </button>
+        }
+        <p class="menu-pie">Queda guardada en esta tablet.</p>
+      </div>
+    }
+  </div>
+}

@@ -6,6 +6,7 @@
     [titulo]="consultaAnticipada() !== null ? 'Anticipadas' : 'Venta en Boletería'"
     [descripcion]="consultaAnticipada() !== null ? 'Buscá una reserva para validar el ingreso o cobrarla.' : 'Cobrá y registra la compra.'"
     [pasosTutorial]="pasosTutorial"
+    [tutorialCompacto]="true"
     (tutorialIniciado)="alIniciarTutorial()"
     (tutorialCerrado)="alCerrarTutorial()">
     @if (caja()) {
@@ -21,12 +22,16 @@
             Anticipadas
           </button>
         }
-        <!-- Contenedor sólo para el tutorial (display: contents, no afecta el layout): resalta estos
-             dos botones juntos sin incluir el de Anticipadas, que tiene su propio paso. -->
-        <span class="grupo-acciones-caja" data-tour="acciones-caja">
-          <button type="button" class="btn-secundario-caja" (click)="mostrarRetiro.set(true)">Retiro / Aporte</button>
-          <button type="button" class="btn-secundario-caja" (click)="mostrarIngresoEntradas.set(true)">Reponer talonario</button>
-        </span>
+        <!-- Retiro/Aporte y Reponer talonario agrupados en "Caja". Visible también sin conexión:
+             las dos operaciones pasan por la cola offline. -->
+        <app-menu-caja
+          data-tour="acciones-caja"
+          (retiro)="mostrarRetiro.set(true)"
+          (talonario)="mostrarIngresoEntradas.set(true)"
+          (ventas)="mostrarVentasFacturas.set(true)" />
+        <!-- Dónde imprime esta tablet y si está lista: se elige una vez y queda guardado. Sólo
+             aparece si la facturación está configurada. -->
+        <app-selector-ticketera />
       </div>
     }
   </app-cabecera-interna>
@@ -58,6 +63,10 @@
         (ingresoRegistrado)="onIngresoEntradasRegistrado($event)"
         (ingresoEncolado)="onIngresoEntradasEncolado($event)"
         (cerrar)="mostrarIngresoEntradas.set(false)" />
+    }
+
+    @if (mostrarVentasFacturas()) {
+      <app-ventas-facturas-modal [cajaId]="caja()!.id" (cerrar)="mostrarVentasFacturas.set(false)" />
     }
 
     @if (escaneoPendiente() !== null) {
@@ -92,6 +101,7 @@
         [pendiente]="venta.pendiente"
         [formaPagoSecundaria]="venta.formaPagoSecundaria"
         [montoFormaPagoSecundaria]="venta.montoFormaPagoSecundaria"
+        [facturacion]="venta.facturacion"
         (nuevaVenta)="nuevaVenta()" />
     } @else {
 

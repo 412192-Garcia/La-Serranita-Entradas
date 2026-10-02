@@ -4,7 +4,9 @@ import org.example.laserranitaentradas.model.entity.Compra;
 import org.example.laserranitaentradas.model.entity.EstadoCompra;
 import org.example.laserranitaentradas.model.entity.FormaPago;
 import org.springframework.data.jpa.repository.JpaRepository;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -87,6 +89,18 @@ public interface CompraRepository extends JpaRepository<Compra, Long>, JpaSpecif
 
     /** Todo lo cobrado durante ese turno de caja, para calcular el efectivo esperado al cerrar. */
     List<Compra> findAllByCajaId(Long cajaId);
+
+    /** Igual que findAllByCajaId pero con los detalles ya cargados (una consulta, no una por venta). */
+    @Query("SELECT DISTINCT c FROM Compra c LEFT JOIN FETCH c.detalles WHERE c.caja.id = :cajaId")
+    List<Compra> findAllByCajaIdConDetalles(@Param("cajaId") Long cajaId);
+
+    /**
+     * La compra con su fila bloqueada (SELECT ... FOR UPDATE) hasta el fin de la transacción: para
+     * mirar-y-después-crear su factura sin que otro pedido simultáneo haga lo mismo.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT c FROM Compra c WHERE c.id = :id")
+    Optional<Compra> findByIdBloqueando(@Param("id") Long id);
 
     /**
      * Anticipadas (compradas online, nunca pasan por caja — ver el comentario de Compra.caja)

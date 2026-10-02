@@ -70,3 +70,109 @@
   font-size: 0.9rem;
   color: var(--color-text-secondary);
 }
+
+/* ---------- Estado de la factura de la venta ---------- */
+.comprobante-factura {
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  border: 1.5px solid var(--color-border);
+  font-size: 0.85rem;
+  text-align: left;
+  color: var(--color-text-secondary);
+}
+
+.comprobante-factura svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.comprobante-factura strong {
+  color: var(--color-text);
+}
+
+.icono-factura-error {
+  color: var(--color-danger-dark);
+}
+
+.icono-factura-demorada {
+  color: var(--color-accent-dark);
+}
+
+.icono-girando {
+  animation: girar 1s linear infinite;
+}
+
+@keyframes girar {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .icono-girando { animation: none; }
+}
+
+.comprobante-impresion {
+  align-items: center;
+}
+
+.comprobante-impresion span {
+  flex: 1;
+}
+
+.btn-reimprimir {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-card-bg);
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-reimprimir:hover:not(:disabled) { border-color: var(--color-primary); }
+
+.btn-reimprimir:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.aviso-reimpresion {
+  margin: 6px 0 0;
+  font-size: 0.8rem;
+  color: var(--color-danger-dark);
+}
+
+.form-mail-factura {
+  width: 100%;
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.form-mail-factura input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 10px;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-card-bg);
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 0.85rem;
+}
+
+.form-mail-factura input:focus { outline: none; border-color: var(--color-primary); }
+
+@media (pointer: coarse) {
+  .btn-reimprimir, .form-mail-factura input { min-height: 44px; }
+}

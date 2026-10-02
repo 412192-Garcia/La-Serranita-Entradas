@@ -74,4 +74,11 @@ public class VentaPosRequestDTO {
     /** Monto que se cobró con formaPagoSecundaria. Obligatorio si se manda formaPagoSecundaria,
      * y tiene que ser menor al total (el resto es de `formaPago`). */
     BigDecimal montoFormaPagoSecundaria;
+
+    /**
+     * "Imprimir factura" / "Enviar por mail" que eligió el boletero. Null o MAIL con email vacío
+     * = no se factura (ver FacturaService#solicitar). Null también desde ventas que quedaron en
+     * la cola offline antes de que existiera la facturación.
+     */
+    FacturacionPosDTO facturacion;
 }

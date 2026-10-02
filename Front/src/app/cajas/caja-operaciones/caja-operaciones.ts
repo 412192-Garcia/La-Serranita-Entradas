@@ -33,6 +33,8 @@ const OPERACIONES_POR_PAGINA = 15;
  * mientras sigue trabajando. Se muestra igual que ResumenCierre: como contenido desplegado
  * debajo de la fila en la tabla de "Cajas abiertas ahora" (ver cajas.html), no como un modal aparte.
  */
+import { VentasFacturasModal } from '../../shared/ventas-facturas-modal/ventas-facturas-modal';
+import { FacturaService } from '../../services/factura.service';
 @Component({
   selector: 'app-caja-operaciones',
   imports: [
@@ -44,6 +46,7 @@ const OPERACIONES_POR_PAGINA = 15;
     AgregarArticulo,
     RetiroEfectivoModal,
     IngresoEntradasModal,
+    VentasFacturasModal,
     LucideShoppingCart,
     LucideArrowDownRight,
     LucideArrowUpRight,
@@ -122,6 +125,8 @@ export class CajaOperaciones implements OnInit {
   // ---------- Agregar un movimiento de caja (retiro/aporte o entradas físicas) ----------
   mostrarRetiro = signal(false);
   mostrarIngresoEntradas = signal(false);
+  mostrarVentasFacturas = signal(false);
+  readonly facturacionHabilitada = inject(FacturaService).habilitada;
 
   ngOnInit(): void {
     this.cargarOperaciones();
@@ -159,7 +164,7 @@ export class CajaOperaciones implements OnInit {
 
   cancelar(op: OperacionCaja): void {
     if (op.compraId === null) return;
-    if (!window.confirm(`¿Cancelar esta venta (${op.detalle})? Deja de contar para el cupo diario, la caja y los reportes.`)) return;
+    if (!window.confirm(`¿Cancelar esta venta (${op.detalle})? Deja de contar para el cupo diario, la caja y los reportes. Si estaba facturada, se emite una nota de crédito por el total.`)) return;
     this.cancelandoId.set(op.compraId);
     this.boleteriaService.cancelarVenta(op.compraId).subscribe({
       next: () => {
