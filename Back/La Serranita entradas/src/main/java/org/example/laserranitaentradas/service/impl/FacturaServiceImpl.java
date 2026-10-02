@@ -22,6 +22,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -52,6 +54,7 @@ public class FacturaServiceImpl implements FacturaService {
     private final AfipSdkClient afipClient;
     private final ApplicationEventPublisher eventPublisher;
     private final TransactionTemplate tx;
+    private final EntityManager em;
     private final ComprobanteFacturaService comprobanteFacturaService;
     private final FacturaPdfGenerator pdfGenerator;
     private final EmailService emailService;
@@ -72,6 +75,7 @@ public class FacturaServiceImpl implements FacturaService {
 
     public FacturaServiceImpl(FacturaRepository facturaRepository, WsfeService wsfe, AfipSdkClient afipClient,
                               ApplicationEventPublisher eventPublisher, PlatformTransactionManager transactionManager,
+                              EntityManager em,
                               ComprobanteFacturaService comprobanteFacturaService, FacturaPdfGenerator pdfGenerator,
                               EmailService emailService, ImpresionService impresionService) {
         this.facturaRepository = facturaRepository;
@@ -79,6 +83,7 @@ public class FacturaServiceImpl implements FacturaService {
         this.afipClient = afipClient;
         this.eventPublisher = eventPublisher;
         this.tx = new TransactionTemplate(transactionManager);
+        this.em = em;
         this.comprobanteFacturaService = comprobanteFacturaService;
         this.pdfGenerator = pdfGenerator;
         this.emailService = emailService;
@@ -209,7 +214,7 @@ public class FacturaServiceImpl implements FacturaService {
      * reserva el número también con la fila bloqueada, así que las dos cosas no se cruzan.
      */
     private void anular(Factura vigente) {
-        Factura f = facturaRepository.bloquear(vigente.getId()).orElse(vigente);
+        Factura f = bloquear(vigente.getId()).orElse(vigente);
         if (f.getEstado() == EstadoFactura.ANULADA || Boolean.TRUE.equals(f.getAnulacionPedida())) {
             return;
         }
@@ -233,6 +238,23 @@ public class FacturaServiceImpl implements FacturaService {
         f.setProximoIntento(null);
         facturaRepository.save(f);
         eventPublisher.publishEvent(new FacturaSolicitadaEvent(f.getId()));
+    }
+
+    /**
+     * La factura con su fila bloqueada hasta el fin de la transacción, y RELEÍDA de la base.
+     *
+     * Todo cambio de estado pasa por acá: así la cancelación de una venta y la emisión contra ARCA
+     * (que corren en hilos distintos) no se pisan. El refresh es la parte importante: un SELECT
+     * ... FOR UPDATE bloquea la fila, pero si la entidad ya estaba cargada en la sesión (la
+     * cancelación la busca antes, y con open-in-view la sesión dura todo el request) Hibernate
+     * devuelve esa instancia vieja sin pisarla con lo que acaba de leer, y se decidía con datos
+     * desactualizados.
+     */
+    private Optional<Factura> bloquear(Long id) {
+        return facturaRepository.findById(id).map(f -> {
+            em.refresh(f, LockModeType.PESSIMISTIC_WRITE);
+            return f;
+        });
     }
 
     private Factura notaDeCredito(Factura factura) {
@@ -316,13 +338,14 @@ public class FacturaServiceImpl implements FacturaService {
                 }
             }
 
+            resolverReservasDeOtras(pv, tipo, id);
             long numero = wsfe.ultimoAutorizado(pv, tipo) + 1;
             LocalDate fecha = LocalDate.now();
             // Se reserva el número ANTES de pedir el CAE, en su propia transacción y con la fila
             // bloqueada: si la respuesta se pierde, el próximo intento sabe qué número consultar.
             // Y si mientras se consultaba el último número la venta se canceló, acá se ve y no se
             // pide nada (antes se reservaba igual y se autorizaba la factura de una venta cancelada).
-            boolean reservado = Boolean.TRUE.equals(tx.execute(s -> facturaRepository.bloquear(id).map(f -> {
+            boolean reservado = Boolean.TRUE.equals(tx.execute(s -> bloquear(id).map(f -> {
                 if (f.getEstado() != EstadoFactura.PENDIENTE || Boolean.TRUE.equals(f.getAnulacionPedida())) {
                     return false;
                 }
@@ -368,6 +391,32 @@ public class FacturaServiceImpl implements FacturaService {
         }
     }
 
+    /**
+     * Antes de pedir un número, resuelve las otras facturas de este punto de venta que pidieron uno
+     * y no supieron la respuesta (timeout): o quedó autorizado y es suyo, o se libera. Si no, ésta
+     * podría reservar ese mismo número y, si las dos pierden la respuesta, una quedarse con la
+     * autorización de la otra (o la misma venta facturada dos veces).
+     */
+    private void resolverReservasDeOtras(int pv, int tipo, Long id) {
+        for (Long otraId : facturaRepository.reservasSinResolver(pv, tipo, id,
+                List.of(EstadoFactura.PENDIENTE, EstadoFactura.ERROR))) {
+            Factura otra = facturaRepository.findById(otraId).orElse(null);
+            if (otra == null || otra.getNumeroIntentado() == null) continue;
+            long numeroOtra = otra.getNumeroIntentado();
+            Optional<WsfeService.ComprobanteAutorizado> previo = wsfe.consultar(pv, tipo, numeroOtra);
+            boolean esDeOtraMas = previo.isPresent()
+                    && facturaRepository.existsByPuntoVentaAndTipoComprobanteAndNumeroAndIdNot(pv, tipo, numeroOtra, otraId);
+            if (previo.isPresent() && !esDeOtraMas && previo.get().total().compareTo(otra.getImporteTotal()) == 0) {
+                log.info("Factura ID {}: su número {} había quedado autorizado (resuelto antes de emitir la ID {})", otraId, numeroOtra, id);
+                marcarEmitida(otraId, numeroOtra, previo.get().cae(), previo.get().caeVencimiento(), previo.get().fecha());
+            } else if (Boolean.TRUE.equals(otra.getAnulacionPedida())) {
+                marcarAnulada(otraId);
+            } else {
+                liberarNumero(otraId);
+            }
+        }
+    }
+
     private record Emision(Factura factura, Long notaDeCreditoId) {}
 
     private void marcarEmitida(Long id, long numero, String cae, LocalDate caeVencimiento, LocalDate fecha) {
@@ -375,7 +424,7 @@ public class FacturaServiceImpl implements FacturaService {
         // transacción: si el backend se cae justo después, la nota de crédito ya quedó PENDIENTE y
         // el job la emite. Antes eran dos commits y en el medio podía quedar una venta cancelada
         // facturada sin su nota de crédito, sin nada que la reparara.
-        Emision emision = tx.execute(s -> facturaRepository.bloquear(id).map(f -> {
+        Emision emision = tx.execute(s -> bloquear(id).map(f -> {
             f.setEstado(EstadoFactura.EMITIDA);
             f.setNumero(numero);
             f.setNumeroIntentado(numero);
@@ -414,7 +463,7 @@ public class FacturaServiceImpl implements FacturaService {
     }
 
     private void marcarAnulada(Long id) {
-        tx.executeWithoutResult(s -> facturaRepository.bloquear(id).ifPresent(f -> {
+        tx.executeWithoutResult(s -> bloquear(id).ifPresent(f -> {
             if (f.getEstado() == EstadoFactura.EMITIDA) return;
             log.info("Factura ID {} anulada antes de autorizarse (la venta se canceló o cambió)", id);
             f.setEstado(EstadoFactura.ANULADA);
@@ -433,14 +482,17 @@ public class FacturaServiceImpl implements FacturaService {
     }
 
     private void liberarNumero(Long id) {
-        tx.executeWithoutResult(s -> facturaRepository.bloquear(id).ifPresent(f -> {
+        tx.executeWithoutResult(s -> bloquear(id).ifPresent(f -> {
             f.setNumeroIntentado(null);
             facturaRepository.save(f);
         }));
     }
 
     private void marcarError(Long id, String mensaje, boolean liberarNumero) {
-        tx.executeWithoutResult(s -> facturaRepository.bloquear(id).ifPresent(f -> {
+        tx.executeWithoutResult(s -> bloquear(id).ifPresent(f -> {
+            // Si mientras se emitía la venta se canceló (ANULADA), una falla que llega tarde no la
+            // puede volver a ERROR: un reintento manual después autorizaría una venta cancelada.
+            if (f.getEstado() != EstadoFactura.PENDIENTE) return;
             f.setIntentos(f.getIntentos() + 1);
             f.setUltimoError(recortar(mensaje));
             f.setProximoIntento(null);
@@ -457,7 +509,8 @@ public class FacturaServiceImpl implements FacturaService {
     }
 
     private void reprogramar(Long id, String mensaje) {
-        tx.executeWithoutResult(s -> facturaRepository.bloquear(id).ifPresent(f -> {
+        tx.executeWithoutResult(s -> bloquear(id).ifPresent(f -> {
+            if (f.getEstado() != EstadoFactura.PENDIENTE) return;
             int intentos = f.getIntentos() + 1;
             f.setIntentos(intentos);
             f.setUltimoError(recortar(mensaje));
@@ -480,7 +533,7 @@ public class FacturaServiceImpl implements FacturaService {
         // Sólo ERROR: una ANULADA es de una venta cancelada y reintentarla autorizaría una factura
         // sin su nota de crédito. Se chequea con la fila bloqueada, no antes.
         tx.executeWithoutResult(s -> {
-            Factura f = facturaRepository.bloquear(facturaId)
+            Factura f = bloquear(facturaId)
                     .orElseThrow(() -> new IllegalArgumentException("Factura no encontrada ID: " + facturaId));
             if (f.getEstado() != EstadoFactura.ERROR) {
                 throw new IllegalStateException("Sólo se pueden reintentar facturas en ERROR (esta está " + f.getEstado() + ")");

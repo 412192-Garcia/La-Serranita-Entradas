@@ -40,6 +40,7 @@ class FacturaServiceImplTest {
     @Mock private AfipSdkClient afipClient;
     @Mock private ApplicationEventPublisher eventPublisher;
     @Mock private PlatformTransactionManager transactionManager;
+    @Mock private jakarta.persistence.EntityManager em;
     @Mock private org.example.laserranitaentradas.service.factura.ComprobanteFacturaService comprobanteFacturaService;
     @Mock private org.example.laserranitaentradas.service.factura.FacturaPdfGenerator pdfGenerator;
     @Mock private org.example.laserranitaentradas.service.EmailService emailService;
@@ -49,13 +50,11 @@ class FacturaServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        service = new FacturaServiceImpl(facturaRepository, wsfe, afipClient, eventPublisher, transactionManager,
+        service = new FacturaServiceImpl(facturaRepository, wsfe, afipClient, eventPublisher, transactionManager, em,
                 comprobanteFacturaService, pdfGenerator, emailService, impresionService);
         ReflectionTestUtils.setField(service, "puntoVentaBoleteria", 5);
         when(afipClient.estaConfigurado()).thenReturn(true);
         when(afipClient.getCuit()).thenReturn("20409378472");
-        // bloquear() es findById con FOR UPDATE: en los tests devuelve lo mismo que findById.
-        when(facturaRepository.bloquear(anyLong())).thenAnswer(inv -> facturaRepository.findById(inv.getArgument(0)));
         when(facturaRepository.save(any(Factura.class))).thenAnswer(inv -> {
             Factura f = inv.getArgument(0);
             if (f.getId() == null) f.setId(99L);
@@ -556,6 +555,99 @@ class FacturaServiceImplTest {
         service.emitir(10L);
 
         assertThat(f.getEstado()).isEqualTo(EstadoFactura.ANULADA);
+    }
+
+    // ---------- Segunda pasada de la review ----------
+
+    @Test
+    void anular_releeLaFacturaBloqueadaAntesDeDecidir() {
+        Factura vieja = pendiente(); // como la había cargado la cancelación: sin número
+        Factura actual = pendiente();
+        actual.setNumeroIntentado(42L); // mientras tanto la emisión reservó el 42
+        when(facturaRepository.findFirstByCompraIdAndTipoComprobanteOrderByIdDesc(1L, 6)).thenReturn(Optional.of(vieja));
+        when(facturaRepository.findById(10L)).thenReturn(Optional.of(vieja));
+        doAnswer(inv -> {
+            vieja.setNumeroIntentado(actual.getNumeroIntentado());
+            return null;
+        }).when(em).refresh(vieja, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+
+        service.alCancelarVenta(Compra.builder().id(1L).build());
+
+        // Con el dato releído ve que hay un número en vuelo: no la anula, la marca para resolver.
+        assertThat(vieja.getEstado()).isEqualTo(EstadoFactura.PENDIENTE);
+        assertThat(vieja.getAnulacionPedida()).isTrue();
+    }
+
+    @Test
+    void antesDePedirNumero_resuelveLaReservaSinRespuestaDeOtraFactura() {
+        Factura a = pendiente();
+        a.setId(20L);
+        a.setNumeroIntentado(42L);
+        a.setProximoIntento(java.time.LocalDateTime.now().plusMinutes(5)); // esperando su reintento
+        Factura b = pendiente();
+        when(facturaRepository.findById(10L)).thenReturn(Optional.of(b));
+        when(facturaRepository.findById(20L)).thenReturn(Optional.of(a));
+        when(facturaRepository.reservasSinResolver(eq(5), eq(6), eq(10L), any())).thenReturn(List.of(20L));
+        when(wsfe.consultar(5, 6, 42L)).thenReturn(Optional.empty()); // el 42 de A no quedó autorizado
+        when(wsfe.ultimoAutorizado(5, 6)).thenReturn(41L);
+        when(wsfe.solicitarCae(any())).thenReturn(new WsfeService.ResultadoCae(true, "B", LocalDate.now(), List.of(), List.of()));
+
+        service.emitir(10L);
+
+        // A soltó el 42 antes de que B lo reservara: ya no puede adoptar la autorización de B.
+        assertThat(a.getNumeroIntentado()).isNull();
+        assertThat(b.getNumero()).isEqualTo(42L);
+    }
+
+    @Test
+    void reservaDeOtraQueSiQuedoAutorizada_seLaAsignaAElla() {
+        Factura a = pendiente();
+        a.setId(20L);
+        a.setNumeroIntentado(42L);
+        Factura b = pendiente();
+        when(facturaRepository.findById(10L)).thenReturn(Optional.of(b));
+        when(facturaRepository.findById(20L)).thenReturn(Optional.of(a));
+        when(facturaRepository.reservasSinResolver(eq(5), eq(6), eq(10L), any())).thenReturn(List.of(20L));
+        when(wsfe.consultar(5, 6, 42L)).thenReturn(Optional.of(
+                new WsfeService.ComprobanteAutorizado("A", LocalDate.now().plusDays(10), LocalDate.now(), new BigDecimal("2500.00"))));
+        when(wsfe.ultimoAutorizado(5, 6)).thenReturn(42L);
+        when(wsfe.solicitarCae(any())).thenReturn(new WsfeService.ResultadoCae(true, "B", LocalDate.now(), List.of(), List.of()));
+
+        service.emitir(10L);
+
+        assertThat(a.getEstado()).isEqualTo(EstadoFactura.EMITIDA);
+        assertThat(a.getCae()).isEqualTo("A");
+        assertThat(b.getNumero()).isEqualTo(43L);
+    }
+
+    @Test
+    void fallaQueLlegaDespuesDeUnaAnulacion_noLaVuelveAError() {
+        Factura f = pendiente();
+        when(facturaRepository.findById(10L)).thenReturn(Optional.of(f));
+        when(wsfe.ultimoAutorizado(5, 6)).thenAnswer(inv -> {
+            f.setEstado(EstadoFactura.ANULADA); // se canceló mientras se consultaba
+            throw new AfipException("credenciales", false);
+        });
+
+        service.emitir(10L);
+
+        assertThat(f.getEstado()).isEqualTo(EstadoFactura.ANULADA);
+    }
+
+    @Test
+    void reintentoTransitorioDespuesDeUnaAnulacion_noLaToca() {
+        Factura f = pendiente();
+        f.setIntentos(19);
+        when(facturaRepository.findById(10L)).thenReturn(Optional.of(f));
+        when(wsfe.ultimoAutorizado(5, 6)).thenAnswer(inv -> {
+            f.setEstado(EstadoFactura.ANULADA);
+            throw new AfipException("timeout", true);
+        });
+
+        service.emitir(10L);
+
+        assertThat(f.getEstado()).isEqualTo(EstadoFactura.ANULADA);
+        assertThat(f.getIntentos()).isEqualTo(19);
     }
 
     // ---------- helpers ----------

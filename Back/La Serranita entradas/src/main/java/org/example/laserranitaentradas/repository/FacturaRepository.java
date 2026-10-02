@@ -1,10 +1,8 @@
 package org.example.laserranitaentradas.repository;
 
-import jakarta.persistence.LockModeType;
 import org.example.laserranitaentradas.model.entity.EstadoFactura;
 import org.example.laserranitaentradas.model.entity.Factura;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -22,14 +20,14 @@ public interface FacturaRepository extends JpaRepository<Factura, Long> {
     Optional<Factura> findFirstByCompraIdAndTipoComprobanteOrderByIdDesc(Long compraId, Integer tipoComprobante);
 
     /**
-     * La factura con su fila bloqueada hasta el fin de la transacción (SELECT ... FOR UPDATE).
-     * Todo cambio de estado pasa por acá: así la cancelación de una venta y la emisión contra ARCA
-     * (que corren en hilos distintos) no se pisan. Sin esto, cancelar justo mientras se pedía el
-     * número podía terminar autorizando la factura de una venta cancelada.
+     * Otras facturas del mismo punto de venta y tipo que pidieron un número a ARCA y todavía no
+     * saben si quedó autorizado. Antes de que otra pida número hay que resolverlas: si no, las dos
+     * pueden terminar con el mismo número y una quedarse con la autorización de la otra.
      */
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT f FROM Factura f WHERE f.id = :id")
-    Optional<Factura> bloquear(@Param("id") Long id);
+    @Query("SELECT f.id FROM Factura f WHERE f.puntoVenta = :pv AND f.tipoComprobante = :tipo AND f.id <> :id " +
+            "AND f.numeroIntentado IS NOT NULL AND f.numero IS NULL AND f.estado IN :estados ORDER BY f.id")
+    List<Long> reservasSinResolver(@Param("pv") Integer puntoVenta, @Param("tipo") Integer tipoComprobante,
+                                   @Param("id") Long excepto, @Param("estados") List<EstadoFactura> estados);
 
     /** ¿Ese número ya lo tiene otra factura de acá? Para no adoptar una autorización ajena al
      * recuperar un pedido que quedó sin respuesta. */
