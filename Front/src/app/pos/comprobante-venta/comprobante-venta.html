@@ -83,6 +83,24 @@
           @if (errorReimpresion(); as error) {
             <p class="aviso-reimpresion">{{ error }}</p>
           }
+          @if (mailEnviadoA(); as email) {
+            <div class="comprobante-factura">
+              <svg lucideMail [strokeWidth]="2"></svg>
+              <span>Factura enviada a {{ email }}</span>
+            </div>
+          } @else if (ticketNoSalio(f)) {
+            <!-- Si el ticket no sale, el cliente no se va sin factura: se le manda por mail. -->
+            <form class="form-mail-factura" (ngSubmit)="mandarPorMail()">
+              <input type="email" name="email" placeholder="Mandar por mail: email@del-cliente.com" autocomplete="off"
+                [ngModel]="emailCliente()" (ngModelChange)="emailCliente.set($event)" />
+              <button type="submit" class="btn-reimprimir" [disabled]="!emailValido() || enviandoMail()">
+                {{ enviandoMail() ? 'Enviando…' : 'Mandar por mail' }}
+              </button>
+            </form>
+            @if (errorMail(); as error) {
+              <p class="aviso-reimpresion">{{ error }}</p>
+            }
+          }
         }
       } @else if (f.estado === 'ERROR') {
         <div class="comprobante-factura">

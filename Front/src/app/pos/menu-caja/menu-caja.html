@@ -26,6 +26,15 @@
           <span class="opcion-detalle">Sumar entradas físicas al stock</span>
         </span>
       </button>
+      @if (mostrarVentas()) {
+        <button type="button" role="menuitem" class="opcion" (click)="elegir('ventas')">
+          <svg lucideReceiptText [strokeWidth]="2"></svg>
+          <span class="opcion-texto">
+            <span class="opcion-nombre">Ventas y facturas</span>
+            <span class="opcion-detalle">Reimprimir, mandar por mail o facturar una venta</span>
+          </span>
+        </button>
+      }
     </div>
   }
 </div>

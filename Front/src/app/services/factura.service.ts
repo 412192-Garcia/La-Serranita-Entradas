@@ -2,7 +2,7 @@ import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
-import { Factura, ImpresoraConectada } from '../models/factura';
+import { Factura, FacturacionPos, ImpresoraConectada, VentaFactura } from '../models/factura';
 
 const CLAVE_HABILITADA = 'facturacion-habilitada';
 
@@ -52,6 +52,26 @@ export class FacturaService {
   /** 404 si la compra no se facturó. */
   porCompra(compraId: number): Observable<Factura> {
     return this.http.get<Factura>(`${this.url}/compra/${compraId}`);
+  }
+
+  /** Ventas cobradas de un turno con su factura (un boletero, sólo las de su caja). */
+  ventasDeCaja(cajaId: number): Observable<VentaFactura[]> {
+    return this.http.get<VentaFactura[]>(`${this.url}/caja/${cajaId}/ventas`);
+  }
+
+  /** Factura una venta que se cobró sin factura (ej. efectivo con el mail vacío). */
+  facturarCompra(compraId: number, pedido: FacturacionPos): Observable<Factura> {
+    return this.http.post<Factura>(`${this.url}/compra/${compraId}`, pedido);
+  }
+
+  /** Manda una factura ya emitida al email que dé el cliente. */
+  enviarPorMail(facturaId: number, email: string): Observable<void> {
+    return this.http.post<void>(`${this.url}/${facturaId}/enviar-mail`, { email });
+  }
+
+  /** El PDF de la factura (pasa por el interceptor del token, por eso no es un link directo). */
+  pdf(facturaId: number): Observable<Blob> {
+    return this.http.get(`${this.url}/${facturaId}/pdf`, { responseType: 'blob' });
   }
 
   private leerHabilitadaGuardada(): boolean {

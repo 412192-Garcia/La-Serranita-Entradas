@@ -1,0 +1,124 @@
+<app-modal (cerrar)="cerrar.emit()">
+  <div class="panel-ventas" role="dialog" aria-labelledby="titulo-ventas-facturas">
+    <div class="encabezado">
+      <h3 id="titulo-ventas-facturas">Ventas y facturas</h3>
+      <button type="button" class="btn-icono" title="Actualizar" aria-label="Actualizar" [disabled]="cargando()" (click)="cargar()">
+        <svg lucideRefreshCw [strokeWidth]="2"></svg>
+      </button>
+      <button type="button" class="btn-icono" title="Cerrar" aria-label="Cerrar" (click)="cerrar.emit()">
+        <svg lucideX [strokeWidth]="2"></svg>
+      </button>
+    </div>
+
+    <!-- Un solo aviso arriba en vez de repetirlo en cada venta: PC de la entrada apagada, ticketera
+         apagada, sin conexión... "Reimprimir" e "Imprimir factura" quedan bloqueados. -->
+    @if (impresoras.motivoNoDisponible(); as motivo) {
+      <p class="nota nota-ticketera">{{ motivo }}</p>
+    }
+
+    @if (cargando()) {
+      <p class="estado-lista"><svg lucideLoaderCircle class="icono-girando" [strokeWidth]="2"></svg> Cargando ventas…</p>
+    } @else if (errorCarga(); as error) {
+      <p class="estado-lista estado-error">{{ error }}</p>
+    } @else if (ventas().length === 0) {
+      <p class="estado-lista">Todavía no hay ventas cobradas en este turno.</p>
+    } @else {
+      <ul class="lista-ventas">
+        @for (v of ventas(); track v.compraId) {
+          <li class="venta">
+            <div class="venta-cabecera">
+              <span class="venta-hora">{{ v.fecha | date: (esDeHoy(v.fecha) ? 'HH:mm' : 'dd/MM HH:mm') }}</span>
+              <span class="venta-codigo">#{{ v.codigoReserva }}</span>
+              <span class="venta-monto">{{ v.montoTotal | pesos }}</span>
+            </div>
+            <div class="venta-detalle">{{ etiquetaFormaPago(v.formaPago) }} · {{ v.detalle || 'Sin detalle' }}</div>
+
+            <!-- Estado de la factura -->
+            <div class="venta-factura">
+              @if (v.factura; as f) {
+                @if (vigente(f)) {
+                  <svg lucideFileText [strokeWidth]="2"></svg>
+                  <span>
+                    <strong>Factura B {{ numeroComprobante(f) }}</strong>
+                    @if (f.impresionEstado === 'IMPRESO') { · impresa }
+                    @else if (f.impresionEstado === 'ERROR') { · <span class="texto-error">no se imprimió: {{ f.impresionError }}</span> }
+                    @else if (f.impresionEstado === 'PENDIENTE' || f.impresionEstado === 'ENVIADO') { · imprimiendo… }
+                    @if (f.mailEnviadoEn) { · enviada a {{ f.email }} }
+                  </span>
+                } @else if (f.estado === 'PENDIENTE') {
+                  <svg lucideLoaderCircle class="icono-girando" [strokeWidth]="2"></svg>
+                  <span>Emitiendo factura…</span>
+                } @else if (f.estado === 'ERROR') {
+                  <svg lucideCircleAlert class="icono-error" [strokeWidth]="2"></svg>
+                  <span>No se pudo emitir: se sigue intentando sola. Un administrador la puede revisar.</span>
+                } @else {
+                  <svg lucideCircleAlert class="icono-gris" [strokeWidth]="2"></svg>
+                  <span>Factura anulada (la venta cambió o se canceló)</span>
+                }
+              } @else if (v.montoTotal > 0) {
+                <svg lucideCircleAlert class="icono-gris" [strokeWidth]="2"></svg>
+                <span>Sin factura</span>
+              } @else {
+                <span>Venta sin cobro: no se factura</span>
+              }
+            </div>
+
+            <!-- Acciones -->
+            @if (vigente(v.factura)) {
+              <div class="venta-acciones">
+                <button type="button" class="btn-accion" [disabled]="enviando() !== null || !impresoras.lista()"
+                  [title]="impresoras.motivoNoDisponible() ?? 'Mandar el ticket a la ticketera'" (click)="reimprimir(v)">
+                  <svg lucidePrinter [strokeWidth]="2"></svg> Reimprimir
+                </button>
+                <button type="button" class="btn-accion" [class.activo]="abierta(v, 'mail')" [disabled]="enviando() !== null"
+                  (click)="abrir(v, 'mail')">
+                  <svg lucideMail [strokeWidth]="2"></svg> Mandar por mail
+                </button>
+                <button type="button" class="btn-accion" (click)="verPdf(v)">
+                  <svg lucideFileText [strokeWidth]="2"></svg> Ver PDF
+                </button>
+              </div>
+              @if (abierta(v, 'mail')) {
+                <form class="form-mail" (ngSubmit)="mandarPorMail(v)">
+                  <input type="email" name="email" placeholder="email@del-cliente.com" autocomplete="off"
+                    [ngModel]="email()" (ngModelChange)="email.set($event)" />
+                  <button type="submit" class="btn-confirmar" [disabled]="!emailValido() || enviando() !== null">
+                    {{ enviando() === v.compraId ? 'Enviando…' : 'Enviar' }}
+                  </button>
+                </form>
+              }
+            } @else if (facturable(v)) {
+              <div class="venta-acciones">
+                <button type="button" class="btn-accion" [class.activo]="abierta(v, 'facturar')" [disabled]="enviando() !== null"
+                  (click)="abrir(v, 'facturar')">
+                  <svg lucideFileText [strokeWidth]="2"></svg> Facturar
+                </button>
+              </div>
+              @if (abierta(v, 'facturar')) {
+                <div class="form-facturar">
+                  <button type="button" class="btn-confirmar" [disabled]="!impresoras.lista() || enviando() !== null"
+                    (click)="facturar(v, 'IMPRIMIR')">
+                    <svg lucidePrinter [strokeWidth]="2"></svg> Imprimir factura
+                  </button>
+                  <form class="form-mail" (ngSubmit)="facturar(v, 'MAIL')">
+                    <input type="email" name="email" placeholder="o mandala a email@del-cliente.com" autocomplete="off"
+                      [ngModel]="email()" (ngModelChange)="email.set($event)" />
+                    <button type="submit" class="btn-confirmar" [disabled]="!emailValido() || enviando() !== null || !enLinea()">
+                      <svg lucideMail [strokeWidth]="2"></svg> Enviar
+                    </button>
+                  </form>
+                </div>
+              }
+            }
+
+            @if (aviso(); as a) {
+              @if (a.compraId === v.compraId) {
+                <p class="aviso" [class.aviso-error]="a.error" role="status">{{ a.texto }}</p>
+              }
+            }
+          </li>
+        }
+      </ul>
+    }
+  </div>
+</app-modal>

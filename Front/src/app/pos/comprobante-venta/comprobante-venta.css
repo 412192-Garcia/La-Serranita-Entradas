@@ -152,6 +152,27 @@
   color: var(--color-danger-dark);
 }
 
+.form-mail-factura {
+  width: 100%;
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.form-mail-factura input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 10px;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-card-bg);
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 0.85rem;
+}
+
+.form-mail-factura input:focus { outline: none; border-color: var(--color-primary); }
+
 @media (pointer: coarse) {
-  .btn-reimprimir { min-height: 44px; }
+  .btn-reimprimir, .form-mail-factura input { min-height: 44px; }
 }

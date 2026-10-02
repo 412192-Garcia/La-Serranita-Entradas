@@ -53,6 +53,9 @@
     <button type="button" class="btn-secundario" [disabled]="formularioVentaAbierto()" (click)="iniciarAgregarVenta()">+ Agregar venta</button>
     <button type="button" class="btn-secundario" (click)="mostrarRetiro.set(true)">Retiro / Aporte</button>
     <button type="button" class="btn-secundario" (click)="mostrarIngresoEntradas.set(true)">Entradas físicas</button>
+    @if (facturacionHabilitada()) {
+      <button type="button" class="btn-secundario" (click)="mostrarVentasFacturas.set(true)">Ventas y facturas</button>
+    }
   </div>
 
   @if (agregandoVenta()) {
@@ -123,6 +126,9 @@
 
   @if (mostrarRetiro()) {
     <app-retiro-efectivo-modal [cajaId]="cajaId()" (retiroRegistrado)="onMovimientoRegistrado()" (cerrar)="mostrarRetiro.set(false)" />
+  }
+  @if (mostrarVentasFacturas()) {
+    <app-ventas-facturas-modal [cajaId]="cajaId()" (cerrar)="mostrarVentasFacturas.set(false)" />
   }
   @if (mostrarIngresoEntradas()) {
     <app-ingreso-entradas-modal

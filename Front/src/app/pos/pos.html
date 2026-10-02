@@ -27,7 +27,8 @@
         <app-menu-caja
           data-tour="acciones-caja"
           (retiro)="mostrarRetiro.set(true)"
-          (talonario)="mostrarIngresoEntradas.set(true)" />
+          (talonario)="mostrarIngresoEntradas.set(true)"
+          (ventas)="mostrarVentasFacturas.set(true)" />
         <!-- Dónde imprime esta tablet y si está lista: se elige una vez y queda guardado. Sólo
              aparece si la facturación está configurada. -->
         <app-selector-ticketera />
@@ -62,6 +63,10 @@
         (ingresoRegistrado)="onIngresoEntradasRegistrado($event)"
         (ingresoEncolado)="onIngresoEntradasEncolado($event)"
         (cerrar)="mostrarIngresoEntradas.set(false)" />
+    }
+
+    @if (mostrarVentasFacturas()) {
+      <app-ventas-facturas-modal [cajaId]="caja()!.id" (cerrar)="mostrarVentasFacturas.set(false)" />
     }
 
     @if (escaneoPendiente() !== null) {

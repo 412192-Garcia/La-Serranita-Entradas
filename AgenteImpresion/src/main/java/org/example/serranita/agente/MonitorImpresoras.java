@@ -66,7 +66,8 @@ final class MonitorImpresoras {
             socket.connect(new InetSocketAddress(red.host(), red.puerto()), 2_000);
             return new Estado(true, null);
         } catch (Exception e) {
-            return new Estado(false, "apagada o desconectada (no responde en " + red + ")");
+            // Sin la IP: lo lee el cajero en la tablet. La IP queda en el log del agente.
+            return new Estado(false, "apagada o desconectada");
         }
     }
 

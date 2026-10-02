@@ -35,6 +35,16 @@ public interface FacturaRepository extends JpaRepository<Factura, Long> {
 
     /** Sólo esa columna: el envío del mail tarda y, mientras, la venta se puede cancelar. Guardar
      * la entidad leída antes del envío pisaría esa cancelación. */
+    /**
+     * Email nuevo para una factura ya emitida (se la mandan al cliente aunque se haya impreso).
+     * clearAutomatically: con open-in-view la request comparte el EntityManager, y sin limpiarlo el
+     * findById que hace después el envío del mail devolvería la factura cacheada con el email viejo.
+     */
+    @Modifying(clearAutomatically = true)
+    @Transactional
+    @Query("UPDATE Factura f SET f.email = :email WHERE f.id = :id")
+    int cambiarEmail(@Param("id") Long id, @Param("email") String email);
+
     @Modifying
     @Transactional
     @Query("UPDATE Factura f SET f.mailEnviadoEn = :momento WHERE f.id = :id")

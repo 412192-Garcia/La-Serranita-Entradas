@@ -1,5 +1,6 @@
 import { Component, DestroyRef, OnInit, inject, input, output, signal } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Subscription, of, timer } from 'rxjs';
 import { catchError, switchMap, take, takeWhile } from 'rxjs/operators';
@@ -15,6 +16,7 @@ import {
   LucideCloudOff,
   LucideFileText,
   LucideLoaderCircle,
+  LucideMail,
   LucidePrinter,
 } from '@lucide/angular';
 import { PesosPipe } from '../../shared/pesos.pipe';
@@ -27,7 +29,7 @@ const MAX_CONSULTAS = 30;
 
 @Component({
   selector: 'app-comprobante-venta',
-  imports: [PesosPipe, NgTemplateOutlet, LucideCircleCheck, LucideCloudOff, LucideCircleAlert, LucideFileText, LucideLoaderCircle, LucidePrinter],
+  imports: [PesosPipe, NgTemplateOutlet, FormsModule, LucideMail, LucideCircleCheck, LucideCloudOff, LucideCircleAlert, LucideFileText, LucideLoaderCircle, LucidePrinter],
   templateUrl: './comprobante-venta.html',
   styleUrl: './comprobante-venta.css',
 })
@@ -55,6 +57,12 @@ export class ComprobanteVenta implements OnInit {
   facturaDemorada = signal(false);
   reimprimiendo = signal(false);
   errorReimpresion = signal<string | null>(null);
+
+  /** "Mandar por mail" cuando el ticket no salió (ticketera apagada, PC de la entrada caída). */
+  emailCliente = signal('');
+  enviandoMail = signal(false);
+  mailEnviadoA = signal<string | null>(null);
+  errorMail = signal<string | null>(null);
 
   nuevaVenta = output<void>();
 
@@ -92,6 +100,33 @@ export class ComprobanteVenta implements OnInit {
           if (this.sigueEnCurso(this.factura())) this.facturaDemorada.set(true);
         },
       });
+  }
+
+  /** El ticket no salió (y no está saliendo): se ofrece mandarla por mail ahí mismo. */
+  ticketNoSalio(f: Factura): boolean {
+    return f.impresionEstado === 'ERROR' || (this.facturaDemorada() && f.impresionEstado !== 'IMPRESO');
+  }
+
+  emailValido(): boolean {
+    return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(this.emailCliente().trim());
+  }
+
+  mandarPorMail(): void {
+    const f = this.factura();
+    if (!f || f.estado !== 'EMITIDA' || !this.emailValido()) return;
+    const email = this.emailCliente().trim();
+    this.enviandoMail.set(true);
+    this.errorMail.set(null);
+    this.facturaService.enviarPorMail(f.id, email).subscribe({
+      next: () => {
+        this.enviandoMail.set(false);
+        this.mailEnviadoA.set(email);
+      },
+      error: (err) => {
+        this.enviandoMail.set(false);
+        this.errorMail.set(typeof err?.error === 'string' && err.error ? err.error : 'No se pudo enviar el mail.');
+      },
+    });
   }
 
   reimprimir(): void {

@@ -31,9 +31,10 @@ import { LucideArrowLeft, LucideSearch } from '@lucide/angular';
 import { DetectorEscaneoDni, extraerDniDeEscaneo } from '../shared/escaner-dni.util';
 
 
+import { VentasFacturasModal } from '../shared/ventas-facturas-modal/ventas-facturas-modal';
 @Component({
   selector: 'app-pos',
-  imports: [SelectorTicketera, MenuCaja, 
+  imports: [SelectorTicketera, MenuCaja, VentasFacturasModal,
     CabeceraInterna,
     Spinner,
     Modal,
@@ -151,6 +152,7 @@ export class Pos implements OnInit, OnDestroy {
   caja = signal<Caja | null>(null);
 
   mostrarRetiro = signal(false);
+  mostrarVentasFacturas = signal(false);
   mostrarIngresoEntradas = signal(false);
 
   tiposEntrada = signal<TipoEntrada[]>([]);

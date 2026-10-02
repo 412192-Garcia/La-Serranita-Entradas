@@ -86,7 +86,8 @@ public class AgenteImpresion {
                 estados.forEach((nombre, e) -> {
                     MonitorImpresoras.Estado antes = ultimoEstado.get(nombre);
                     if (antes == null || antes.disponible() != e.disponible()) {
-                        log.info("Ticketera '" + nombre + "': " + (e.disponible() ? "lista" : e.detalle()));
+                        log.info("Ticketera '" + nombre + "' (" + config.impresoras.get(nombre) + "): "
+                                + (e.disponible() ? "lista" : e.detalle()));
                     }
                 });
             }
@@ -232,7 +233,7 @@ public class AgenteImpresion {
             log.warning("No se pudo imprimir el trabajo " + id + " en " + destino + ": " + e.getMessage());
             // Lo lee el cajero en la tablet: algo que entienda, no "Connection refused".
             String motivo = destino instanceof Configuracion.Red
-                    ? "la ticketera está apagada o desconectada (no responde en " + destino + ")"
+                    ? "la ticketera está apagada o desconectada"
                     : e.getMessage();
             confirmar(id, false, motivo);
         }

@@ -51,6 +51,19 @@ export interface Factura {
   impresionError: string | null;
 }
 
+/** Una venta de un turno con su factura, para la ventana "Ventas y facturas". */
+export interface VentaFactura {
+  compraId: number;
+  codigoReserva: string;
+  fecha: string | null;
+  montoTotal: number;
+  formaPago: string;
+  /** "2x General, 1x Souvenir". */
+  detalle: string;
+  /** Null = la venta no se facturó. */
+  factura: Factura | null;
+}
+
 /** "0037-00000019", como se imprime en el comprobante. */
 export function numeroComprobante(f: Pick<Factura, 'puntoVenta' | 'numero'>): string {
   return `${String(f.puntoVenta).padStart(4, '0')}-${String(f.numero ?? 0).padStart(8, '0')}`;
