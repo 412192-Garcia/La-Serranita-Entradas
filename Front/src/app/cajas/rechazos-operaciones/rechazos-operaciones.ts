@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { DatePipe } from '@angular/common';
 import { RechazoService, OperacionRechazada, TipoOperacionRechazada } from '../../services/rechazo.service';
 import { BoleteriaService } from '../../services/boleteria.service';
+import { FacturaService } from '../../services/factura.service';
 import { Spinner } from '../../shared/spinner/spinner';
 
 type Filtro = 'pendientes' | 'resueltas' | 'todas';
@@ -12,6 +13,7 @@ const ETIQUETAS_TIPO: Record<TipoOperacionRechazada, string> = {
   RETIRO_APORTE: 'Retiro/Aporte',
   INGRESO_ENTRADAS: 'Entradas',
   COMPROBANTE_EMAIL: 'Email de comprobante',
+  FACTURA_EMAIL: 'Email de factura',
 };
 
 /** Traducciones de las claves más comunes del payload crudo, para no mostrarle al admin
@@ -25,6 +27,7 @@ const ETIQUETAS_CAMPO: Record<string, string> = {
   items: 'Ítems',
   pagaCon: 'Paga con',
   compraId: 'Compra ID',
+  facturaId: 'Factura ID',
   codigoReserva: 'Reserva',
   email: 'Email',
   tipoEmail: 'Email de',
@@ -75,6 +78,7 @@ const SUGERENCIA_SIN_CAJA_GUARDADA =
 export class RechazosOperaciones implements OnInit {
   private rechazoService = inject(RechazoService);
   private boleteriaService = inject(BoleteriaService);
+  private facturaService = inject(FacturaService);
 
   cargando = signal(false);
   error = signal<string | null>(null);
@@ -167,6 +171,10 @@ export class RechazosOperaciones implements OnInit {
   }
 
   /** Compra ID guardado en el payload de un rechazo COMPROBANTE_EMAIL; null si no se pudo leer. */
+  private facturaIdDe(r: OperacionRechazada): number | null {
+    return this.campoNumericoDe(r, 'facturaId');
+  }
+
   private compraIdDe(r: OperacionRechazada): number | null {
     return this.campoNumericoDe(r, 'compraId');
   }
@@ -226,8 +234,15 @@ export class RechazosOperaciones implements OnInit {
    * acá mismo, sin tener que ir a buscar la compra en Boletería. Si el reenvío funciona, el
    * rechazo se marca resuelto solo — reenviar YA ES la resolución de este caso puntual. */
   reenviarMail(r: OperacionRechazada): void {
+    // Un FACTURA_EMAIL reenvía la factura (con su PDF); un COMPROBANTE_EMAIL, el comprobante de la compra.
+    const facturaId = r.tipoOperacion === 'FACTURA_EMAIL' ? this.facturaIdDe(r) : null;
     const compraId = this.compraIdDe(r);
-    if (compraId == null) return;
+    const envio = facturaId != null
+      ? this.facturaService.reenviarMail(facturaId)
+      : compraId != null && r.tipoOperacion === 'COMPROBANTE_EMAIL'
+        ? this.boleteriaService.reenviarMail(compraId)
+        : null;
+    if (envio == null) return;
 
     this.reenviandoId.set(r.id);
     this.errorReenvio.update((errores) => {
@@ -235,7 +250,7 @@ export class RechazosOperaciones implements OnInit {
       return resto;
     });
 
-    this.boleteriaService.reenviarMail(compraId).subscribe({
+    envio.subscribe({
       next: () => {
         this.reenviandoId.set(null);
         this.rechazoService.resolver(r.id, 'Reenviado desde Cajas').subscribe({

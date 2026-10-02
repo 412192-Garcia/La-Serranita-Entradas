@@ -23,15 +23,18 @@ import { CatalogoEntradas } from './catalogo-entradas/catalogo-entradas';
 import { AgregarArticulo } from './agregar-articulo/agregar-articulo';
 import { CarritoVenta, VentaPosConfirmada } from './carrito-venta/carrito-venta';
 import { ComprobanteVenta } from './comprobante-venta/comprobante-venta';
+import { SelectorTicketera } from './selector-ticketera/selector-ticketera';
+import { MenuCaja } from './menu-caja/menu-caja';
 import { AnticipadasPos } from './anticipadas-pos/anticipadas-pos';
 import { TourStep } from '../shared/tour/tour';
 import { LucideArrowLeft, LucideSearch } from '@lucide/angular';
 import { DetectorEscaneoDni, extraerDniDeEscaneo } from '../shared/escaner-dni.util';
 
 
+import { VentasFacturasModal } from '../shared/ventas-facturas-modal/ventas-facturas-modal';
 @Component({
   selector: 'app-pos',
-  imports: [
+  imports: [SelectorTicketera, MenuCaja, VentasFacturasModal,
     CabeceraInterna,
     Spinner,
     Modal,
@@ -69,7 +72,7 @@ export class Pos implements OnInit, OnDestroy {
     {
       selector: '[data-tour="acciones-caja"]',
       titulo: 'Tu caja',
-      texto: 'Desde acá hacés un Retiro/Aporte de efectivo o reponés el talonario. Este tutorial explica las dos partes del POS: primero la venta y después Anticipadas, para validar a quien ya compró o cobrar una reserva.',
+      texto: 'Desde el botón Caja hacés un Retiro/Aporte de efectivo o reponés el talonario (funciona también sin conexión). Este tutorial explica las dos partes del POS: primero la venta y después Anticipadas, para validar a quien ya compró o cobrar una reserva.',
       antes: () => this.consultaAnticipada.set(null),
     },
     {
@@ -149,6 +152,7 @@ export class Pos implements OnInit, OnDestroy {
   caja = signal<Caja | null>(null);
 
   mostrarRetiro = signal(false);
+  mostrarVentasFacturas = signal(false);
   mostrarIngresoEntradas = signal(false);
 
   tiposEntrada = signal<TipoEntrada[]>([]);

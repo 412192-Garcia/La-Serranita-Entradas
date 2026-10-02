@@ -3,7 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 
-export type TipoOperacionRechazada = 'VENTA' | 'RETIRO_APORTE' | 'INGRESO_ENTRADAS' | 'COMPROBANTE_EMAIL';
+export type TipoOperacionRechazada = 'VENTA' | 'RETIRO_APORTE' | 'INGRESO_ENTRADAS' | 'COMPROBANTE_EMAIL' | 'FACTURA_EMAIL';
 
 export interface OperacionRechazada {
   id: number;

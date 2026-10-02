@@ -169,9 +169,11 @@ const COLUMNAS: ColumnaDesglose[] = [
   { clave: 'MERCADO_PAGO_QR', etiqueta: 'QR' },
 ];
 
+import { VentasFacturasModal } from '../../shared/ventas-facturas-modal/ventas-facturas-modal';
+import { FacturaService } from '../../services/factura.service';
 @Component({
   selector: 'app-resumen-cierre',
-  imports: [PesosPipe, DatePipe, DecimalPipe, NgTemplateOutlet, FormsModule, MoneyInputDirective, Modal, ConteoCierre, LucideShoppingCart, LucideArrowDownRight, LucideArrowUpRight, LucideTicketPlus, LucideTicketMinus, LucideTicketCheck, LucideChevronDown],
+  imports: [PesosPipe, DatePipe, DecimalPipe, NgTemplateOutlet, FormsModule, MoneyInputDirective, Modal, ConteoCierre, VentasFacturasModal, LucideShoppingCart, LucideArrowDownRight, LucideArrowUpRight, LucideTicketPlus, LucideTicketMinus, LucideTicketCheck, LucideChevronDown],
   templateUrl: './resumen-cierre.html',
   styleUrl: './resumen-cierre.css',
 })
@@ -202,6 +204,9 @@ export class ResumenCierre {
 
   caja = input.required<Caja>();
   mostrarAcciones = input(true);
+
+  readonly facturacionHabilitada = inject(FacturaService).habilitada;
+  mostrarVentasFacturas = signal(false);
 
   cajaActualizada = output<Caja>();
   cajaDeshabilitada = output<Caja>();

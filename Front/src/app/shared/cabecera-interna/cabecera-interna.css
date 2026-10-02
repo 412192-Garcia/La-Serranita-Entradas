@@ -108,6 +108,15 @@
   height: 16px;
 }
 
+.btn-tutorial-compacto {
+  gap: 0;
+  padding: 9px;
+}
+
+.btn-tutorial-compacto .etiqueta-control {
+  display: none;
+}
+
 .btn-tutorial:hover { border-color: var(--color-primary); color: var(--color-primary-dark); }
 
 .btn-tutorial:focus-visible {

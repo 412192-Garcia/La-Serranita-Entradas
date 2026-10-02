@@ -1,0 +1,8 @@
+# Compilación y empaquetado (ver README.md)
+target/
+dist/
+
+# Configuración real (tiene el token) y archivos que genera el agente al correr
+agente.properties
+agente*.log*
+impresos.txt

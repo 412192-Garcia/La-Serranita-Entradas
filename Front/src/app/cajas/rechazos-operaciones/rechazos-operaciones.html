@@ -70,7 +70,7 @@
             </div>
           } @else {
             <div class="item-rechazo-acciones">
-              @if (r.tipoOperacion === 'COMPROBANTE_EMAIL') {
+              @if (r.tipoOperacion === 'COMPROBANTE_EMAIL' || r.tipoOperacion === 'FACTURA_EMAIL') {
                 <button
                   type="button"
                   class="btn-primario"

@@ -54,6 +54,7 @@ class CompraServiceImplTest {
     @Mock private CajaRepository cajaRepository;
     @Mock private PromocionRepository promocionRepository;
     @Mock private ArticuloVarioRepository articuloVarioRepository;
+    @Mock private FacturaService facturaService;
     @Mock private PagoService mercadoPagoEstrategia;
     @Mock private PagoService efectivoEstrategia;
     @Mock private PagoService reservaAdminEstrategia;
@@ -73,7 +74,7 @@ class CompraServiceImplTest {
         lenient().when(reservaAdminEstrategia.getEstadoInicial()).thenReturn(EstadoCompra.APROBADO);
         service = new CompraServiceImpl(compraRepository, tipoEntradaService, cuponService, diaAperturaService,
                 clienteService, usuarioService, calculoPrecioService, emailService, cajaService, cajaRepository, promocionRepository,
-                articuloVarioRepository, List.of(mercadoPagoEstrategia, efectivoEstrategia, reservaAdminEstrategia), em,
+                articuloVarioRepository, facturaService, List.of(mercadoPagoEstrategia, efectivoEstrategia, reservaAdminEstrategia), em,
                 // `self` sólo lo usa iniciarCompraConPago para cruzar el proxy de Spring; los
                 // tests llaman a create() directo, así que alcanza con el propio service.
                 autoReferencia);
@@ -513,6 +514,35 @@ class CompraServiceImplTest {
         assertThat(resultado.getFechaValidacion()).isNotNull();
         assertThat(resultado.getCliente()).isNotNull();
         assertThat(resultado.getMontoTotal()).isEqualByComparingTo("200");
+    }
+
+    @Test
+    void registrarVentaPos_pasaLaOpcionDeFacturaElegida() {
+        mockearVentaPosBasica();
+        var request = ventaPosBasica();
+        var facturacion = new org.example.laserranitaentradas.model.dto.FacturacionPosDTO();
+        facturacion.setDestino(org.example.laserranitaentradas.model.entity.DestinoFactura.IMPRIMIR);
+        request.setFacturacion(facturacion);
+
+        Compra resultado = service.registrarVentaPos(request, 9L);
+
+        verify(facturaService).solicitar(resultado, facturacion);
+    }
+
+    @Test
+    void registrarVentaPos_cobroDeReservaEnPuerta_tambienPasaLaOpcionDeFactura() {
+        mockearVentaPosBasica();
+        when(compraRepository.findById(50L)).thenReturn(Optional.of(reservaEfectivo(50L)));
+        var request = ventaPosBasica();
+        request.setCompraReservadaId(50L);
+        var facturacion = new org.example.laserranitaentradas.model.dto.FacturacionPosDTO();
+        facturacion.setDestino(org.example.laserranitaentradas.model.entity.DestinoFactura.MAIL);
+        facturacion.setEmail("cliente@mail.com");
+        request.setFacturacion(facturacion);
+
+        Compra resultado = service.registrarVentaPos(request, 9L);
+
+        verify(facturaService).solicitar(resultado, facturacion);
     }
 
     @Test

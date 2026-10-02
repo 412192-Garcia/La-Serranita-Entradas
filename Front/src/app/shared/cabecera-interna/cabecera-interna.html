@@ -28,7 +28,13 @@
       }
 
       @if (pasosTutorial.length > 0) {
-        <button type="button" class="btn-tutorial" (click)="iniciarTutorial()" aria-label="Ver tutorial de esta pantalla">
+        <button
+          type="button"
+          class="btn-tutorial"
+          [class.btn-tutorial-compacto]="tutorialCompacto"
+          (click)="iniciarTutorial()"
+          aria-label="Ver tutorial de esta pantalla"
+          title="Tutorial">
           <svg lucideCircleHelp [strokeWidth]="2"></svg>
           <span class="etiqueta-control">Tutorial</span>
         </button>

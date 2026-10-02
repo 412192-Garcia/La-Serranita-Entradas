@@ -1,0 +1,134 @@
+.selector-ticketera {
+  position: relative;
+}
+
+/* Mismo pill que Retiro/Aporte y Reponer talonario (ver pos.css), para que la fila quede pareja. */
+.btn-ticketera {
+  padding: 8px 14px;
+  border: 1.5px solid var(--color-border);
+  border-radius: 999px;
+  background-color: var(--color-card-bg);
+  color: var(--color-text-secondary);
+  font-size: 0.82rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.btn-ticketera svg {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+
+.btn-ticketera:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary-dark);
+}
+
+.btn-ticketera:focus-visible,
+.opcion-ticketera:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(57, 169, 53, 0.35);
+}
+
+/* Punto de estado: verde = lista; rojo = PC o ticketera apagada; ámbar = falta elegir. */
+.punto {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background-color: var(--color-border);
+}
+
+.punto-ok { background-color: var(--color-primary); }
+.punto-mal { background-color: var(--color-danger-dark); }
+.punto-elegir { background-color: var(--color-accent-dark); }
+
+.menu-ticketera {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 50;
+  min-width: 260px;
+  max-width: min(340px, calc(100vw - 32px));
+  padding: 6px;
+  background-color: var(--color-card-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.opcion-ticketera {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.opcion-ticketera:hover {
+  background-color: var(--color-primary-light);
+}
+
+.opcion-texto {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.opcion-nombre {
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.opcion-estado {
+  font-size: 0.76rem;
+  color: var(--color-text-muted);
+}
+
+.opcion-check {
+  width: 16px;
+  height: 16px;
+  color: var(--color-primary);
+  flex-shrink: 0;
+}
+
+.menu-vacio,
+.menu-pie {
+  margin: 0;
+  padding: 8px 10px;
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+}
+
+.menu-pie {
+  border-top: 1px solid var(--color-border);
+  margin-top: 4px;
+}
+
+@media (pointer: coarse) {
+  .btn-ticketera,
+  .opcion-ticketera {
+    min-height: 44px;
+  }
+}

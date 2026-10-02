@@ -535,8 +535,15 @@
 @if (mostrarAcciones() && !modoRevision() && caja().habilitada !== false) {
   <div class="acciones-resumen" data-tour="acciones-resumen">
     <button type="button" class="btn-corregir-cierre" (click)="toggleRevision()">Corregir caja</button>
+    @if (facturacionHabilitada()) {
+      <button type="button" class="btn-corregir-cierre" (click)="mostrarVentasFacturas.set(true)">Ventas y facturas</button>
+    }
     <button type="button" class="btn-borrar-caja" (click)="abrirModalDeshabilitar()">Borrar caja</button>
   </div>
+}
+
+@if (mostrarVentasFacturas()) {
+  <app-ventas-facturas-modal [cajaId]="caja().id" (cerrar)="mostrarVentasFacturas.set(false)" />
 }
 
 @if (mostrarModalDeshabilitar()) {

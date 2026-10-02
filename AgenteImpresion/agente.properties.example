@@ -1,0 +1,28 @@
+# Configuración del agente de impresión. Copiar como "agente.properties" en la misma carpeta
+# que el agente y completar.
+
+# Dirección del backend, terminando en /api (la misma que usa la app, sin barra final).
+backend.url=https://tu-dominio.com/api
+
+# Mismo valor que IMPRESION_AGENTE_TOKEN en el .env del servidor.
+agente.token=
+
+# Nombre de esta PC, sólo para los logs del servidor.
+agente.nombre=PC Entrada
+
+# Ticketeras que maneja este agente. El nombre es el que aparece en la tablet.
+#
+# tipo=red: ticketera con IP propia. host es su IP en la red del parque (conviene fijarla en la
+# impresora o en el router para que no cambie); puerto 9100 = impresión directa (RAW).
+impresora.1.nombre=Boletería
+impresora.1.tipo=red
+impresora.1.host=192.168.1.50
+impresora.1.puerto=9100
+
+# tipo=windows: ticketera USB (o compartida desde otra PC) instalada en Windows, con su driver o
+# con "Generic / Text Only". windows es el nombre exacto que muestra Windows en Impresoras. Una
+# compartida \\PC\Ticketera se escribe con cada barra doble: \\\\PC\\Ticketera (el instalador ya
+# lo hace solo).
+# impresora.2.nombre=Caja
+# impresora.2.tipo=windows
+# impresora.2.windows=80mm Thermal Printer
