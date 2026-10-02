@@ -65,7 +65,9 @@ Para **cambiar un dato o actualizar** a una versión nueva: volver a correr `ins
 ## Publicar una versión nueva
 
 El zip lo arma GitHub Actions (`.github/workflows/agente-impresion.yml`) en Windows: compila,
-empaqueta con su propio Java recortado (~37 MB, 14 MB comprimido) y lo sube al Release.
+empaqueta con su propio Java recortado (~37 MB, 14 MB comprimido) y lo sube al Release. El
+módulo `jdk.crypto.ec` no se puede sacar del paquete: sin él no conecta por HTTPS con
+certificados de curva elíptica, que son los que usa Caddy por defecto.
 
 ```bash
 git tag agente-v1.0.0

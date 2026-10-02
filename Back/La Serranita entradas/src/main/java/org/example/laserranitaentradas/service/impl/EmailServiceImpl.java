@@ -209,6 +209,12 @@ public class EmailServiceImpl implements EmailService {
         if (factura.getEmail() == null || factura.getEmail().isBlank()) {
             throw new IllegalStateException("La factura no tiene un email al que mandarla");
         }
+        if (Boolean.TRUE.equals(factura.getAnulacionPedida())) {
+            // La venta se canceló (o se corrigió el monto) antes de que saliera el mail: mandarle
+            // una factura que ya tiene nota de crédito sólo confundiría al cliente.
+            log.info("No se envía la factura ID {}: la venta se canceló o cambió", facturaId);
+            return;
+        }
         ComprobanteFactura comprobante = comprobanteFacturaService.armar(facturaId);
         byte[] pdf = facturaPdfGenerator.generar(comprobante);
 
@@ -227,8 +233,9 @@ public class EmailServiceImpl implements EmailService {
             throw new IllegalStateException("No se pudo armar el mail de la factura", e);
         }
 
-        factura.setMailEnviadoEn(LocalDateTime.now());
-        facturaRepository.save(factura);
+        // Sólo esa columna: guardar la entidad leída antes del envío (que tarda) pisaría una
+        // cancelación hecha mientras tanto.
+        facturaRepository.marcarMailEnviado(facturaId, LocalDateTime.now());
         log.info("Email de la factura ID {} enviado", facturaId);
     }
 

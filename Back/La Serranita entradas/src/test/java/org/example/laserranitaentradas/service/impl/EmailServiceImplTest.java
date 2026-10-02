@@ -179,8 +179,20 @@ class EmailServiceImplTest {
                 org.mockito.ArgumentCaptor.forClass(jakarta.mail.internet.MimeMessage.class);
         verify(mailSender).send(captor.capture());
         assertThat(captor.getValue().getSubject()).contains("0037-00000021");
-        assertThat(factura.getMailEnviadoEn()).isNotNull();
+        verify(facturaRepository).marcarMailEnviado(eq(5L), any());
         verify(rechazoService, never()).registrar(any(), any(), any(), any());
+    }
+
+    @Test
+    void enviarFactura_ventaCanceladaMientrasTanto_noLaManda() {
+        var factura = facturaMail();
+        factura.setAnulacionPedida(true);
+        when(facturaRepository.findById(5L)).thenReturn(Optional.of(factura));
+
+        service.enviarFactura(5L);
+
+        verify(mailSender, never()).send(any(jakarta.mail.internet.MimeMessage.class));
+        verify(facturaRepository, never()).marcarMailEnviado(any(), any());
     }
 
     @Test

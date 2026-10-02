@@ -131,14 +131,10 @@ public class ImpresionService {
     }
 
     public void registrarResultado(Long trabajoId, boolean ok, String error) {
-        tx.executeWithoutResult(s -> trabajoRepository.findById(trabajoId).ifPresent(t -> {
-            // Un IMPRESO no se pisa: puede llegar una confirmación repetida de un reenvío.
-            if (t.getEstado() == EstadoTrabajoImpresion.IMPRESO) return;
-            t.setEstado(ok ? EstadoTrabajoImpresion.IMPRESO : EstadoTrabajoImpresion.ERROR);
-            t.setError(ok ? null : recortar(error));
-            t.setFechaResultado(LocalDateTime.now());
-            trabajoRepository.save(t);
-        }));
+        // Un IMPRESO no se pisa: puede llegar una confirmación repetida de un reenvío.
+        trabajoRepository.registrarResultado(trabajoId,
+                ok ? EstadoTrabajoImpresion.IMPRESO : EstadoTrabajoImpresion.ERROR,
+                ok ? null : recortar(error), LocalDateTime.now(), EstadoTrabajoImpresion.IMPRESO);
         if (!ok) {
             log.warn("El agente no pudo imprimir el trabajo ID {}: {}", trabajoId, error);
         }
@@ -171,20 +167,19 @@ public class ImpresionService {
             return;
         }
 
+        // Se marca ENVIADO ANTES de mandarlo: el agente puede confirmar en milisegundos, y si el
+        // ENVIADO se escribiera después pisaría ese IMPRESO. 0 filas = ya tenía resultado.
+        if (trabajoRepository.marcarEnviado(trabajoId, impresora, LocalDateTime.now(),
+                EstadoTrabajoImpresion.ENVIADO, SIN_CONFIRMAR) == 0) {
+            return;
+        }
         // Formato del evento: "id;impresora;ticket en base64". Sin JSON a propósito: así el
         // agente no necesita ninguna librería. Los nombres de impresora no llevan ';' (se valida
         // al conectar).
         String datos = trabajoId + ";" + impresora + ";" + Base64.getEncoder().encodeToString(ticket);
-        if (!enviar(agente, "trabajo", datos)) return;
-
-        tx.executeWithoutResult(s -> trabajoRepository.findById(trabajoId).ifPresent(t -> {
-            if (t.getEstado() == EstadoTrabajoImpresion.PENDIENTE) {
-                t.setEstado(EstadoTrabajoImpresion.ENVIADO);
-            }
-            t.setImpresora(impresora);
-            t.setFechaEnvio(LocalDateTime.now());
-            trabajoRepository.save(t);
-        }));
+        if (!enviar(agente, "trabajo", datos)) {
+            trabajoRepository.volverAPendiente(trabajoId, EstadoTrabajoImpresion.PENDIENTE, EstadoTrabajoImpresion.ENVIADO);
+        }
     }
 
     private void reenviarSinConfirmar(AgenteConectado agente) {
@@ -237,15 +232,9 @@ public class ImpresionService {
                 log.info("Agente de impresión '{}' sin respuesta: desconectado", a.nombre());
             }
         }
-        LocalDateTime limite = LocalDateTime.now().minusMinutes(minutosVencimiento);
-        tx.executeWithoutResult(s -> {
-            for (TrabajoImpresion t : trabajoRepository.findByEstadoInAndFechaCreacionBefore(SIN_CONFIRMAR, limite)) {
-                t.setEstado(EstadoTrabajoImpresion.ERROR);
-                t.setError("No se pudo imprimir a tiempo (impresora desconectada). Reimprimilo si hace falta.");
-                t.setFechaResultado(LocalDateTime.now());
-                trabajoRepository.save(t);
-            }
-        });
+        trabajoRepository.vencer(LocalDateTime.now().minusMinutes(minutosVencimiento),
+                "No se pudo imprimir a tiempo (impresora desconectada). Reimprimilo si hace falta.",
+                LocalDateTime.now(), EstadoTrabajoImpresion.ERROR, SIN_CONFIRMAR);
     }
 
     private static String recortar(String texto) {

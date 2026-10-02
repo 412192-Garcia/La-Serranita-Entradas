@@ -292,8 +292,12 @@ export class CarritoVenta {
       (!this.tieneEntradas() || this.tieneObligatorio()) &&
       !this.faltaCompletarPagoDolares() &&
       !this.faltaCompletarPagoMixto() &&
-      !this.emailFacturaInvalido() &&
-      !(this.destinoFactura() === 'IMPRIMIR' && !this.imprimirFacturaDisponible()) &&
+      // Las validaciones de factura sólo cuentan si de verdad se va a facturar: con la
+      // facturación apagada o una venta de $0 el selector no se ve, y un email mal escrito que
+      // quedó cargado no puede trabar el cobro sin que el cajero vea por qué.
+      (!this.facturacionHabilitada() ||
+        this.sinCobro() ||
+        (!this.emailFacturaInvalido() && !(this.destinoFactura() === 'IMPRIMIR' && !this.imprimirFacturaDisponible()))) &&
       !this.cobrando()
   );
 

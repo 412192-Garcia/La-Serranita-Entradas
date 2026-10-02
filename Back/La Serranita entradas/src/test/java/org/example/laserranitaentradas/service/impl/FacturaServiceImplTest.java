@@ -54,6 +54,8 @@ class FacturaServiceImplTest {
         ReflectionTestUtils.setField(service, "puntoVentaBoleteria", 5);
         when(afipClient.estaConfigurado()).thenReturn(true);
         when(afipClient.getCuit()).thenReturn("20409378472");
+        // bloquear() es findById con FOR UPDATE: en los tests devuelve lo mismo que findById.
+        when(facturaRepository.bloquear(anyLong())).thenAnswer(inv -> facturaRepository.findById(inv.getArgument(0)));
         when(facturaRepository.save(any(Factura.class))).thenAnswer(inv -> {
             Factura f = inv.getArgument(0);
             if (f.getId() == null) f.setId(99L);
@@ -473,6 +475,87 @@ class FacturaServiceImplTest {
         Factura f = service.solicitar(compra("3000", entrada(), articulo()), pedido(DestinoFactura.IMPRIMIR, null)).orElseThrow();
 
         assertThat(f.getDetalle()).isEqualTo("1\tGeneral\n1\tSouvenir");
+    }
+
+    // ---------- Carreras señaladas en la review ----------
+
+    @Test
+    void cancelacionMientrasSeConsultabaElUltimoNumero_noPideCae() {
+        Factura f = pendiente();
+        when(facturaRepository.findById(10L)).thenReturn(Optional.of(f));
+        // La venta se cancela justo mientras se consulta el último número autorizado.
+        when(wsfe.ultimoAutorizado(5, 6)).thenAnswer(inv -> {
+            f.setEstado(EstadoFactura.ANULADA);
+            return 41L;
+        });
+
+        service.emitir(10L);
+
+        verify(wsfe, never()).solicitarCae(any());
+        assertThat(f.getNumeroIntentado()).isNull();
+        assertThat(f.getEstado()).isEqualTo(EstadoFactura.ANULADA);
+    }
+
+    @Test
+    void numeroRecuperadoQueYaEsDeOtraFactura_noSeAdoptaYSePideOtro() {
+        Factura f = pendiente();
+        f.setNumeroIntentado(42L);
+        when(facturaRepository.findById(10L)).thenReturn(Optional.of(f));
+        when(wsfe.consultar(5, 6, 42L)).thenReturn(Optional.of(
+                new WsfeService.ComprobanteAutorizado("AJENO", LocalDate.now().plusDays(10), LocalDate.now(), new BigDecimal("2500.00"))));
+        when(facturaRepository.existsByPuntoVentaAndTipoComprobanteAndNumeroAndIdNot(5, 6, 42L, 10L)).thenReturn(true);
+        when(wsfe.ultimoAutorizado(5, 6)).thenReturn(42L);
+        when(wsfe.solicitarCae(any())).thenReturn(new WsfeService.ResultadoCae(true, "PROPIO", LocalDate.now(), List.of(), List.of()));
+
+        service.emitir(10L);
+
+        assertThat(f.getNumero()).isEqualTo(43L);
+        assertThat(f.getCae()).isEqualTo("PROPIO");
+    }
+
+    @Test
+    void autorizadaConAnulacionPedida_guardaLaNotaDeCreditoEnLaMismaTransaccion() {
+        Factura f = pendiente();
+        f.setNumeroIntentado(42L);
+        f.setAnulacionPedida(true);
+        when(facturaRepository.findById(10L)).thenReturn(Optional.of(f));
+        when(wsfe.consultar(5, 6, 42L)).thenReturn(Optional.of(
+                new WsfeService.ComprobanteAutorizado("123", LocalDate.now().plusDays(10), LocalDate.now(), new BigDecimal("2500.00"))));
+        // La emisión de la NC falla (ARCA caída): igual tiene que quedar guardada PENDIENTE.
+        when(wsfe.ultimoAutorizado(5, 8)).thenThrow(new AfipException("caida", true));
+
+        service.emitir(10L);
+
+        Factura nc = capturarGuardadas().stream().filter(x -> x.getTipoComprobante() == 8).findFirst().orElseThrow();
+        assertThat(nc.getEstado()).isEqualTo(EstadoFactura.PENDIENTE);
+        assertThat(nc.getComprobanteAsociado()).isSameAs(f);
+        verify(transactionManager, atLeastOnce()).commit(any());
+    }
+
+    @Test
+    void reintentarUnaAnulada_seRechaza() {
+        Factura f = pendiente();
+        f.setEstado(EstadoFactura.ANULADA);
+        when(facturaRepository.findById(10L)).thenReturn(Optional.of(f));
+
+        assertThatThrownBy(() -> service.reintentar(10L)).isInstanceOf(IllegalStateException.class);
+        assertThat(f.getEstado()).isEqualTo(EstadoFactura.ANULADA);
+        verifyNoInteractions(wsfe);
+    }
+
+    @Test
+    void rechazadaConLaVentaYaCancelada_quedaAnuladaEnVezDeError() {
+        Factura f = pendiente();
+        when(facturaRepository.findById(10L)).thenReturn(Optional.of(f));
+        when(wsfe.ultimoAutorizado(5, 6)).thenReturn(41L);
+        when(wsfe.solicitarCae(any())).thenAnswer(inv -> {
+            f.setAnulacionPedida(true); // se canceló mientras ARCA procesaba
+            return new WsfeService.ResultadoCae(false, null, null, List.of("10048 - x"), List.of(10048));
+        });
+
+        service.emitir(10L);
+
+        assertThat(f.getEstado()).isEqualTo(EstadoFactura.ANULADA);
     }
 
     // ---------- helpers ----------

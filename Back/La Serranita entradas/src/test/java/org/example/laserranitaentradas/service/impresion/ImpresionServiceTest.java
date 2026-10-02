@@ -9,6 +9,7 @@ import org.example.laserranitaentradas.service.factura.ComprobanteFacturaService
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
@@ -21,6 +22,8 @@ import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -47,6 +50,8 @@ class ImpresionServiceTest {
         });
         when(trabajoRepository.findById(50L)).thenAnswer(inv -> Optional.ofNullable(guardado));
         when(trabajoRepository.findByEstadoInAndImpresoraInOrderByIdAsc(any(), any())).thenReturn(List.of());
+        when(trabajoRepository.marcarEnviado(eq(50L), anyString(), any(), any(), any())).thenReturn(1);
+        when(escPos.generar(any())).thenReturn(new byte[]{1, 2, 3});
     }
 
     @Test
@@ -55,21 +60,43 @@ class ImpresionServiceTest {
 
         assertThat(t.getEstado()).isEqualTo(EstadoTrabajoImpresion.PENDIENTE);
         assertThat(t.getImpresora()).isEqualTo(ImpresionService.CUALQUIERA);
-        verifyNoInteractions(escPos);
+        verify(trabajoRepository, never()).marcarEnviado(any(), any(), any(), any(), any());
     }
 
     @Test
     void conUnaSolaImpresoraConectada_laUsaAunqueLaTabletNoHayaElegido() {
         service.conectarAgente("PC Entrada", Set.of("Boletería"));
-        when(escPos.generar(any())).thenReturn(new byte[]{1, 2, 3});
 
-        TrabajoImpresion t = service.imprimirFactura(1L, null);
+        service.imprimirFactura(1L, null);
 
-        assertThat(t.getImpresora()).isEqualTo("Boletería");
-        assertThat(t.getEstado()).isEqualTo(EstadoTrabajoImpresion.ENVIADO);
+        assertThat(guardado.getImpresora()).isEqualTo("Boletería");
+        verify(trabajoRepository).marcarEnviado(eq(50L), eq("Boletería"), any(), eq(EstadoTrabajoImpresion.ENVIADO), any());
         assertThat(service.impresorasConectadas())
                 .extracting(ImpresionService.ImpresoraConectada::nombre)
                 .containsExactly("Boletería");
+    }
+
+    @Test
+    void seMarcaEnviadoAntesDeMandarlo_paraQueUnaConfirmacionRapidaNoSePise() {
+        service.conectarAgente("PC Entrada", Set.of("Boletería"));
+        InOrder orden = inOrder(escPos, trabajoRepository);
+
+        service.imprimirFactura(1L, "Boletería");
+
+        // Primero se arma el ticket y se marca ENVIADO (condicional); recién después sale.
+        orden.verify(escPos).generar(any());
+        orden.verify(trabajoRepository).marcarEnviado(eq(50L), eq("Boletería"), any(), any(), any());
+        verify(trabajoRepository, never()).volverAPendiente(any(), any(), any());
+    }
+
+    @Test
+    void siYaTeniaResultado_noSeVuelveAMandar() {
+        service.conectarAgente("PC Entrada", Set.of("Boletería"));
+        when(trabajoRepository.marcarEnviado(eq(50L), anyString(), any(), any(), any())).thenReturn(0);
+
+        service.imprimirFactura(1L, "Boletería");
+
+        verify(trabajoRepository, never()).volverAPendiente(any(), any(), any());
     }
 
     @Test
@@ -83,21 +110,19 @@ class ImpresionServiceTest {
     }
 
     @Test
-    void confirmacionRepetida_noPisaUnImpreso() {
-        guardado = TrabajoImpresion.builder().id(50L).estado(EstadoTrabajoImpresion.IMPRESO).impresora("Boletería").build();
+    void resultado_esUnUpdateQueNuncaPisaUnImpreso() {
+        service.registrarResultado(50L, false, "Sin papel");
 
-        service.registrarResultado(50L, false, "papel");
-
-        assertThat(guardado.getEstado()).isEqualTo(EstadoTrabajoImpresion.IMPRESO);
+        verify(trabajoRepository).registrarResultado(eq(50L), eq(EstadoTrabajoImpresion.ERROR), eq("Sin papel"), any(),
+                eq(EstadoTrabajoImpresion.IMPRESO));
+        verify(trabajoRepository, never()).save(any());
     }
 
     @Test
-    void resultadoConError_quedaEnErrorConElMotivo() {
-        guardado = TrabajoImpresion.builder().id(50L).estado(EstadoTrabajoImpresion.ENVIADO).impresora("Boletería").build();
+    void latido_venceLosViejosConUnUpdateCondicional() {
+        service.latido();
 
-        service.registrarResultado(50L, false, "Sin papel");
-
-        assertThat(guardado.getEstado()).isEqualTo(EstadoTrabajoImpresion.ERROR);
-        assertThat(guardado.getError()).isEqualTo("Sin papel");
+        verify(trabajoRepository).vencer(any(), anyString(), any(), eq(EstadoTrabajoImpresion.ERROR), any());
+        verify(trabajoRepository, never()).save(any());
     }
 }

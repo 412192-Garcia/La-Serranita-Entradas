@@ -40,12 +40,14 @@ jobs:
         run: '"Back/La Serranita entradas/mvnw" -B -f AgenteImpresion/pom.xml package'
 
       - name: Empaquetar con su propio Java (jpackage)
+        # jdk.crypto.ec es imprescindible: sin él el Java recortado no sabe hacer HTTPS con
+        # certificados de curva elíptica, que son los que saca Caddy por defecto.
         run: |
           mkdir -p AgenteImpresion/target/paquete
           cp AgenteImpresion/target/agente-impresion.jar AgenteImpresion/target/paquete/
           jpackage --type app-image --name AgenteImpresion \
             --input AgenteImpresion/target/paquete --main-jar agente-impresion.jar \
-            --add-modules java.base,java.logging \
+            --add-modules java.base,java.logging,jdk.crypto.ec \
             --dest salida/AgenteImpresion-windows
 
       - name: Armar el zip con el instalador

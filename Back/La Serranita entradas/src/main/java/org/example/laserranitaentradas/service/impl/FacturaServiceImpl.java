@@ -204,8 +204,15 @@ public class FacturaServiceImpl implements FacturaService {
      * autorizada, ARCA no permite borrarla: se emite una nota de crédito por el total. Y si está
      * en camino (pidió número y no se sabe si quedó autorizada) se marca, y lo resuelve la
      * emisión: nota de crédito si quedó autorizada, anulada si no.
+     *
+     * Corre dentro de la transacción de la cancelación/edición, con la fila bloqueada: la emisión
+     * reserva el número también con la fila bloqueada, así que las dos cosas no se cruzan.
      */
-    private void anular(Factura f) {
+    private void anular(Factura vigente) {
+        Factura f = facturaRepository.bloquear(vigente.getId()).orElse(vigente);
+        if (f.getEstado() == EstadoFactura.ANULADA || Boolean.TRUE.equals(f.getAnulacionPedida())) {
+            return;
+        }
         if (f.getEstado() != EstadoFactura.EMITIDA && f.getNumeroIntentado() == null) {
             f.setEstado(EstadoFactura.ANULADA);
             f.setProximoIntento(null);
@@ -277,41 +284,58 @@ public class FacturaServiceImpl implements FacturaService {
     }
 
     private void emitirBajoLock(Factura factura) {
+        Long id = factura.getId();
         int pv = factura.getPuntoVenta();
         int tipo = factura.getTipoComprobante();
         boolean anular = Boolean.TRUE.equals(factura.getAnulacionPedida());
         try {
             if (anular && factura.getNumeroIntentado() == null) {
-                marcarAnulada(factura.getId());
+                marcarAnulada(id);
                 return;
             }
             // Un intento anterior mandó el pedido con este número y nunca supo la respuesta
             // (timeout, corte): antes de pedir otro número hay que preguntar si ese quedó
             // autorizado. Si no se hace esto, un timeout = la misma venta facturada dos veces.
             if (factura.getNumeroIntentado() != null) {
-                Optional<WsfeService.ComprobanteAutorizado> previo = wsfe.consultar(pv, tipo, factura.getNumeroIntentado());
-                if (previo.isPresent() && previo.get().total().compareTo(factura.getImporteTotal()) == 0) {
-                    log.info("La factura ID {} ya había quedado autorizada en ARCA con el número {}", factura.getId(), factura.getNumeroIntentado());
-                    marcarEmitida(factura.getId(), factura.getNumeroIntentado(), previo.get().cae(),
-                            previo.get().caeVencimiento(), previo.get().fecha());
+                long intentado = factura.getNumeroIntentado();
+                Optional<WsfeService.ComprobanteAutorizado> previo = wsfe.consultar(pv, tipo, intentado);
+                // Mismo importe no alcanza para saber que es nuestro: mientras ésta esperaba su
+                // reintento, otra factura de acá pudo haber sacado ese mismo número por el mismo
+                // monto. Si otra ya lo tiene, no es de ésta.
+                boolean esDeOtra = previo.isPresent()
+                        && facturaRepository.existsByPuntoVentaAndTipoComprobanteAndNumeroAndIdNot(pv, tipo, intentado, id);
+                if (previo.isPresent() && !esDeOtra && previo.get().total().compareTo(factura.getImporteTotal()) == 0) {
+                    log.info("La factura ID {} ya había quedado autorizada en ARCA con el número {}", id, intentado);
+                    marcarEmitida(id, intentado, previo.get().cae(), previo.get().caeVencimiento(), previo.get().fecha());
                     return;
                 }
                 if (anular) {
                     // No había quedado autorizada y la venta ya se canceló: no se pide otro número.
-                    marcarAnulada(factura.getId());
+                    marcarAnulada(id);
                     return;
                 }
             }
 
             long numero = wsfe.ultimoAutorizado(pv, tipo) + 1;
             LocalDate fecha = LocalDate.now();
-            // Se guarda el número ANTES de pedir el CAE, en su propia transacción: si la
-            // respuesta se pierde, el próximo intento sabe qué número consultar.
-            tx.executeWithoutResult(s -> facturaRepository.findById(factura.getId()).ifPresent(f -> {
+            // Se reserva el número ANTES de pedir el CAE, en su propia transacción y con la fila
+            // bloqueada: si la respuesta se pierde, el próximo intento sabe qué número consultar.
+            // Y si mientras se consultaba el último número la venta se canceló, acá se ve y no se
+            // pide nada (antes se reservaba igual y se autorizaba la factura de una venta cancelada).
+            boolean reservado = Boolean.TRUE.equals(tx.execute(s -> facturaRepository.bloquear(id).map(f -> {
+                if (f.getEstado() != EstadoFactura.PENDIENTE || Boolean.TRUE.equals(f.getAnulacionPedida())) {
+                    return false;
+                }
                 f.setNumeroIntentado(numero);
                 f.setFechaEmision(fecha);
                 facturaRepository.save(f);
-            }));
+                return true;
+            }).orElse(false)));
+            if (!reservado) {
+                log.info("Factura ID {}: la venta se canceló o cambió mientras se emitía, no se pide CAE", id);
+                marcarAnulada(id);
+                return;
+            }
 
             WsfeService.ResultadoCae resultado = wsfe.solicitarCae(new WsfeService.SolicitudCae(
                     pv, tipo, factura.getConcepto(), numero, fecha, factura.getFechaServicio(),
@@ -319,33 +343,39 @@ public class FacturaServiceImpl implements FacturaService {
                     asociado(factura)));
 
             if (resultado.aprobado()) {
-                marcarEmitida(factura.getId(), numero, resultado.cae(), resultado.caeVencimiento(), fecha);
-                log.info("Comprobante ID {} (tipo {}) emitido: {}-{} CAE {}", factura.getId(), tipo, pv, numero, resultado.cae());
+                marcarEmitida(id, numero, resultado.cae(), resultado.caeVencimiento(), fecha);
+                log.info("Comprobante ID {} (tipo {}) emitido: {}-{} CAE {}", id, tipo, pv, numero, resultado.cae());
             } else if (resultado.codigos().contains(WsfeService.ERROR_NUMERO_NO_ES_EL_PROXIMO)) {
                 // Otro comprobante tomó ese número entre la consulta y el pedido (no debería
                 // pasar con un punto de venta propio, pero sí en homologación, donde el CUIT de
                 // prueba es compartido). No es un error de la factura: se reintenta con el
                 // número que siga.
-                liberarNumero(factura.getId());
-                reprogramar(factura.getId(), "ARCA: " + String.join(" | ", resultado.mensajes()));
+                liberarNumero(id);
+                reprogramar(id, "ARCA: " + String.join(" | ", resultado.mensajes()));
             } else {
                 // Rechazada: ARCA no usó el número, así que se libera para no consultarlo en vano.
-                marcarError(factura.getId(), "ARCA rechazó la factura: " + String.join(" | ", resultado.mensajes()), true);
+                marcarError(id, "ARCA rechazó la factura: " + String.join(" | ", resultado.mensajes()), true);
             }
         } catch (AfipException e) {
             if (e.esTransitorio()) {
-                reprogramar(factura.getId(), e.getMessage());
+                reprogramar(id, e.getMessage());
             } else {
-                marcarError(factura.getId(), e.getMessage(), false);
+                marcarError(id, e.getMessage(), false);
             }
         } catch (Exception e) {
-            log.error("Error inesperado emitiendo la factura ID {}", factura.getId(), e);
-            reprogramar(factura.getId(), "Error inesperado: " + e.getMessage());
+            log.error("Error inesperado emitiendo la factura ID {}", id, e);
+            reprogramar(id, "Error inesperado: " + e.getMessage());
         }
     }
 
+    private record Emision(Factura factura, Long notaDeCreditoId) {}
+
     private void marcarEmitida(Long id, long numero, String cae, LocalDate caeVencimiento, LocalDate fecha) {
-        Factura emitida = tx.execute(s -> facturaRepository.findById(id).map(f -> {
+        // Autorización y (si la venta ya se había cancelado) nota de crédito en la MISMA
+        // transacción: si el backend se cae justo después, la nota de crédito ya quedó PENDIENTE y
+        // el job la emite. Antes eran dos commits y en el medio podía quedar una venta cancelada
+        // facturada sin su nota de crédito, sin nada que la reparara.
+        Emision emision = tx.execute(s -> facturaRepository.bloquear(id).map(f -> {
             f.setEstado(EstadoFactura.EMITIDA);
             f.setNumero(numero);
             f.setNumeroIntentado(numero);
@@ -354,16 +384,20 @@ public class FacturaServiceImpl implements FacturaService {
             f.setFechaEmision(fecha);
             f.setUltimoError(null);
             f.setProximoIntento(null);
-            return facturaRepository.save(f);
+            Factura guardada = facturaRepository.save(f);
+            Long ncId = Boolean.TRUE.equals(guardada.getAnulacionPedida())
+                    ? facturaRepository.save(notaDeCredito(guardada)).getId()
+                    : null;
+            return new Emision(guardada, ncId);
         }).orElse(null));
-        if (emitida == null) return;
-        if (Boolean.TRUE.equals(emitida.getAnulacionPedida())) {
+        if (emision == null) return;
+        if (emision.notaDeCreditoId() != null) {
             // Quedó autorizada pero la venta ya se había cancelado: ni mail ni ticket, va directo
             // la nota de crédito.
-            Factura nc = tx.execute(s -> facturaRepository.save(notaDeCredito(facturaRepository.findById(id).orElseThrow())));
-            emitir(nc.getId());
+            emitir(emision.notaDeCreditoId());
             return;
         }
+        Factura emitida = emision.factura();
         // Ya commiteada como EMITIDA: el mail sale en segundo plano (si falla, queda como rechazo
         // para reenviar) y el ticket va a la cola del agente de impresión. En los dos casos la
         // factura sigue siendo válida aunque el envío falle.
@@ -380,8 +414,9 @@ public class FacturaServiceImpl implements FacturaService {
     }
 
     private void marcarAnulada(Long id) {
-        log.info("Factura ID {} anulada antes de autorizarse (la venta se canceló o cambió)", id);
-        tx.executeWithoutResult(s -> facturaRepository.findById(id).ifPresent(f -> {
+        tx.executeWithoutResult(s -> facturaRepository.bloquear(id).ifPresent(f -> {
+            if (f.getEstado() == EstadoFactura.EMITIDA) return;
+            log.info("Factura ID {} anulada antes de autorizarse (la venta se canceló o cambió)", id);
             f.setEstado(EstadoFactura.ANULADA);
             f.setNumeroIntentado(null);
             f.setProximoIntento(null);
@@ -398,28 +433,31 @@ public class FacturaServiceImpl implements FacturaService {
     }
 
     private void liberarNumero(Long id) {
-        tx.executeWithoutResult(s -> facturaRepository.findById(id).ifPresent(f -> {
+        tx.executeWithoutResult(s -> facturaRepository.bloquear(id).ifPresent(f -> {
             f.setNumeroIntentado(null);
             facturaRepository.save(f);
         }));
     }
 
     private void marcarError(Long id, String mensaje, boolean liberarNumero) {
-        log.warn("Factura ID {} en ERROR: {}", id, mensaje);
-        tx.executeWithoutResult(s -> facturaRepository.findById(id).ifPresent(f -> {
-            f.setEstado(EstadoFactura.ERROR);
+        tx.executeWithoutResult(s -> facturaRepository.bloquear(id).ifPresent(f -> {
             f.setIntentos(f.getIntentos() + 1);
             f.setUltimoError(recortar(mensaje));
             f.setProximoIntento(null);
             if (liberarNumero) {
                 f.setNumeroIntentado(null);
             }
+            // Rechazada (sin número usado) y con la venta ya cancelada: no hay nada que corregir,
+            // queda anulada en vez de esperar que un admin la reintente.
+            boolean anulada = Boolean.TRUE.equals(f.getAnulacionPedida()) && f.getNumeroIntentado() == null;
+            f.setEstado(anulada ? EstadoFactura.ANULADA : EstadoFactura.ERROR);
+            log.warn("Factura ID {} en {}: {}", id, f.getEstado(), mensaje);
             facturaRepository.save(f);
         }));
     }
 
     private void reprogramar(Long id, String mensaje) {
-        tx.executeWithoutResult(s -> facturaRepository.findById(id).ifPresent(f -> {
+        tx.executeWithoutResult(s -> facturaRepository.bloquear(id).ifPresent(f -> {
             int intentos = f.getIntentos() + 1;
             f.setIntentos(intentos);
             f.setUltimoError(recortar(mensaje));
@@ -439,17 +477,19 @@ public class FacturaServiceImpl implements FacturaService {
 
     @Override
     public FacturaResponseDTO reintentar(Long facturaId) {
-        Factura factura = facturaRepository.findById(facturaId)
-                .orElseThrow(() -> new IllegalArgumentException("Factura no encontrada ID: " + facturaId));
-        if (factura.getEstado() == EstadoFactura.EMITIDA) {
-            throw new IllegalStateException("La factura ya está emitida");
-        }
-        tx.executeWithoutResult(s -> facturaRepository.findById(facturaId).ifPresent(f -> {
+        // Sólo ERROR: una ANULADA es de una venta cancelada y reintentarla autorizaría una factura
+        // sin su nota de crédito. Se chequea con la fila bloqueada, no antes.
+        tx.executeWithoutResult(s -> {
+            Factura f = facturaRepository.bloquear(facturaId)
+                    .orElseThrow(() -> new IllegalArgumentException("Factura no encontrada ID: " + facturaId));
+            if (f.getEstado() != EstadoFactura.ERROR) {
+                throw new IllegalStateException("Sólo se pueden reintentar facturas en ERROR (esta está " + f.getEstado() + ")");
+            }
             f.setEstado(EstadoFactura.PENDIENTE);
             f.setIntentos(0);
             f.setProximoIntento(null);
             facturaRepository.save(f);
-        }));
+        });
         emitir(facturaId);
         return facturaRepository.findById(facturaId).map(this::toDto).orElseThrow();
     }
