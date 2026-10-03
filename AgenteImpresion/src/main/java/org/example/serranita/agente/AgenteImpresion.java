@@ -13,11 +13,11 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.*;
 import javax.print.DocFlavor;
-import javax.print.DocPrintJob;
 import javax.print.PrintService;
 import javax.print.PrintServiceLookup;
 import javax.print.SimpleDoc;
 import javax.print.attribute.HashPrintRequestAttributeSet;
+import javax.print.attribute.standard.JobName;
 
 /**
  * Agente de impresión de la PC de la entrada.
@@ -224,7 +224,7 @@ public class AgenteImpresion {
             if (destino instanceof Configuracion.Red red) {
                 imprimirPorRed(red, ticket);
             } else if (destino instanceof Configuracion.Windows windows) {
-                imprimirPorWindows(windows, ticket);
+                imprimirPorWindows(windows, ticket, id);
             }
             recordarImpreso(id);
             log.info("Trabajo " + id + " impreso en '" + nombreImpresora + "' (" + destino + ", " + ticket.length + " bytes)");
@@ -250,13 +250,24 @@ public class AgenteImpresion {
         }
     }
 
+    /** Cuánto se espera a que Windows le pase el ticket a la impresora antes de darlo por fallido. */
+    private static final int SEGUNDOS_COLA_WINDOWS = 15;
+
     /**
      * Ticketera instalada en Windows (USB o compartida): el ticket va a la cola de impresión de
      * Windows. Con el tipo AUTOSENSE de bytes, Java se los pasa al spooler tal cual (RAW), sin
      * convertirlos: los comandos ESC/POS (negrita, QR, corte) llegan intactos a la impresora,
      * igual que por red. Funciona con el driver de la marca o con "Generic / Text Only".
+     *
+     * Windows acepta el trabajo aunque la impresora esté desenchufada (lo deja esperando en la
+     * cola), así que no alcanza con que lo acepte: antes se mira que esté conectada, y después se
+     * espera a que el trabajo salga de la cola. Si no sale, se borra y se informa el error.
      */
-    private static void imprimirPorWindows(Configuracion.Windows windows, byte[] ticket) throws Exception {
+    private static void imprimirPorWindows(Configuracion.Windows windows, byte[] ticket, String id) throws Exception {
+        String[] estado = MonitorImpresoras.estadosWindows().get(windows.impresora().toLowerCase());
+        if (estado != null && "False".equalsIgnoreCase(estado[2])) {
+            throw new IOException("la ticketera está apagada o desconectada");
+        }
         PrintService servicio = null;
         for (PrintService s : PrintServiceLookup.lookupPrintServices(null, null)) {
             if (s.getName().equalsIgnoreCase(windows.impresora())) {
@@ -267,8 +278,23 @@ public class AgenteImpresion {
         if (servicio == null) {
             throw new IOException("Windows no tiene una impresora llamada '" + windows.impresora() + "'");
         }
-        DocPrintJob trabajo = servicio.createPrintJob();
-        trabajo.print(new SimpleDoc(ticket, DocFlavor.BYTE_ARRAY.AUTOSENSE, null), new HashPrintRequestAttributeSet());
+        // Nombre único para encontrarlo después en la cola de Windows.
+        String documento = "Serranita " + id;
+        HashPrintRequestAttributeSet atributos = new HashPrintRequestAttributeSet();
+        atributos.add(new JobName(documento, null));
+        servicio.createPrintJob().print(new SimpleDoc(ticket, DocFlavor.BYTE_ARRAY.AUTOSENSE, null), atributos);
+
+        boolean salio;
+        try {
+            salio = MonitorImpresoras.esperarQueSalgaDeLaCola(servicio.getName(), documento, SEGUNDOS_COLA_WINDOWS);
+        } catch (Exception e) {
+            // No se pudo mirar la cola: Windows lo aceptó, así que se da por impreso como antes.
+            log.warning("No se pudo verificar la cola de Windows del trabajo " + id + ": " + e.getMessage());
+            return;
+        }
+        if (!salio) {
+            throw new IOException("la ticketera no imprimió (apagada, desconectada o sin papel); se canceló el ticket");
+        }
     }
 
     private void confirmar(String id, boolean ok, String error) {
