@@ -5,9 +5,11 @@ import java.io.InputStreamReader;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -20,7 +22,9 @@ import java.util.logging.Logger;
  *
  * - Red: se abre y cierra una conexión al puerto RAW. Si atiende, está prendida y en la red.
  * - Windows (USB): se le pregunta a Windows el estado de la impresora. Java no sirve para esto:
- *   informa "aceptando trabajos" incluso con la impresora marcada Offline.
+ *   informa "aceptando trabajos" incluso con la impresora marcada Offline. Y con una USB tampoco
+ *   alcanza el estado de Windows: desenchufada sigue diciendo "Normal". Por eso además se mira si
+ *   el dispositivo USB detrás de su puerto (USB001...) está presente.
  */
 final class MonitorImpresoras {
 
@@ -78,6 +82,10 @@ final class MonitorImpresoras {
         }
         String estado = info[0];
         boolean fueraDeLinea = "True".equalsIgnoreCase(info[1]);
+        if ("False".equalsIgnoreCase(info[2])) {
+            // El puerto USB no tiene el dispositivo: cable desenchufado o impresora apagada.
+            return new Estado(false, "apagada o desconectada");
+        }
         if (fueraDeLinea) {
             return new Estado(false, "marcada \"Usar impresora sin conexión\" en Windows");
         }
@@ -88,44 +96,44 @@ final class MonitorImpresoras {
     }
 
     /**
-     * Nombre (en minúsculas) → [PrinterStatus, WorkOffline] de todas las impresoras de Windows, en
-     * una sola llamada a PowerShell. Vacío si falla (sin PowerShell, etc.): en ese caso todas las
-     * USB se informan como no disponibles, que es lo prudente.
+     * Nombre (en minúsculas) → [PrinterStatus, WorkOffline, Presente] de todas las impresoras de
+     * Windows, en una sola llamada a PowerShell. Presente es "True"/"False" para las de puerto USB
+     * (si el dispositivo está enchufado y prendido) y vacío para el resto. Vacío si falla (sin
+     * PowerShell, etc.): en ese caso todas las USB se informan como no disponibles, que es lo prudente.
      */
-    private static Map<String, String[]> estadosWindows() {
+    static Map<String, String[]> estadosWindows() {
         Map<String, String[]> salida = new HashMap<>();
         try {
-            // -EncodedCommand (UTF-16LE en base64) y no -Command: Java en Windows no escapa las
-            // comillas internas de un argumento, y con -Command el script le llegaba roto a
-            // PowerShell (no devolvía ninguna impresora).
+            // Cada puerto USBnnn se registra en DeviceClasses (interfaz de impresora USB) con su
+            // número y el dispositivo que lo usa; Get-PnpDevice dice si ese dispositivo está presente.
+            // Un mismo puerto puede tener entradas viejas de otros aparatos: alcanza con que uno esté.
             String script = "[Console]::OutputEncoding = [Text.Encoding]::UTF8; "
-                    + "Get-Printer | ForEach-Object { $_.Name + [char]9 + $_.PrinterStatus + [char]9 + $_.WorkOffline }";
-            String codificado = Base64.getEncoder().encodeToString(script.getBytes(StandardCharsets.UTF_16LE));
-            Process p = new ProcessBuilder("powershell", "-NoProfile", "-NonInteractive", "-EncodedCommand", codificado)
-                    .redirectErrorStream(true)
-                    .start();
-            // Plazo independiente de la lectura: si Get-Printer se cuelga con la salida abierta,
-            // readLine no vuelve nunca y el waitFor de abajo no llegaría a correr. Esta revisión
-            // comparte hilo con la impresión, así que un cuelgue frenaría todos los tickets. Al matar
-            // el proceso se cierra la salida y la lectura termina.
-            p.onExit().orTimeout(10, TimeUnit.SECONDS).exceptionally(e -> {
-                p.descendants().forEach(ProcessHandle::destroyForcibly);
-                p.destroyForcibly();
-                return p;
-            });
-            try (BufferedReader r = new BufferedReader(new InputStreamReader(p.getInputStream(), StandardCharsets.UTF_8))) {
-                String linea;
-                while ((linea = r.readLine()) != null) {
-                    // -1: WorkOffline suele venir vacío y la línea termina en tab; sin el -1, split
-                    // descarta ese campo vacío del final y la línea parecería incompleta.
-                    String[] partes = linea.split("\t", -1);
-                    if (partes.length >= 2) {
-                        salida.put(partes[0].trim().toLowerCase(),
-                                new String[]{partes[1].trim(), partes.length >= 3 ? partes[2].trim() : ""});
-                    }
+                    + "$puertos = @{}; "
+                    + "$clase = 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\DeviceClasses\\{28d78fad-5a12-11d1-ae5b-0000f803a8c2}'; "
+                    + "Get-ChildItem -LiteralPath $clase -ErrorAction SilentlyContinue | ForEach-Object { "
+                    + "  $inst = (Get-ItemProperty -LiteralPath $_.PSPath -ErrorAction SilentlyContinue).DeviceInstance; "
+                    + "  $dp = Get-ItemProperty -LiteralPath ($_.PSPath + '\\#\\Device Parameters') -ErrorAction SilentlyContinue; "
+                    + "  if ($inst -and $dp) { $puerto = [string]$dp.'Base Name' + ('{0:D3}' -f [int]$dp.'Port Number'); "
+                    + "    if (-not $puertos.ContainsKey($puerto)) { $puertos[$puerto] = @() }; $puertos[$puerto] += $inst } }; "
+                    + "$presentes = @{}; "
+                    + "$ids = @($puertos.Values | ForEach-Object { $_ }); "
+                    + "if ($ids.Count -gt 0) { Get-PnpDevice -InstanceId $ids -ErrorAction SilentlyContinue | "
+                    + "  ForEach-Object { $presentes[$_.InstanceId] = $_.Present } }; "
+                    + "Get-Printer | ForEach-Object { "
+                    + "  $presente = ''; "
+                    + "  if ($puertos.ContainsKey($_.PortName)) { "
+                    + "    $presente = [string][bool]($puertos[$_.PortName] | Where-Object { $presentes[$_] -eq $true }) }; "
+                    + "  $_.Name + [char]9 + $_.PrinterStatus + [char]9 + $_.WorkOffline + [char]9 + $presente }";
+            for (String linea : powershell(script, 10)) {
+                // -1: los campos del final suelen venir vacíos; sin el -1, split los descarta.
+                String[] partes = linea.split("\t", -1);
+                if (partes.length >= 2) {
+                    salida.put(partes[0].trim().toLowerCase(), new String[]{
+                            partes[1].trim(),
+                            partes.length >= 3 ? partes[2].trim() : "",
+                            partes.length >= 4 ? partes[3].trim() : ""});
                 }
             }
-            p.waitFor(2, TimeUnit.SECONDS);
             if (salida.isEmpty()) {
                 log.warning("Windows no devolvió ninguna impresora (Get-Printer)");
             }
@@ -133,5 +141,62 @@ final class MonitorImpresoras {
             log.warning("No se pudo consultar el estado de las impresoras de Windows: " + e.getMessage());
         }
         return salida;
+    }
+
+    /**
+     * Espera a que un trabajo salga de la cola de Windows (= se le pasó a la impresora). Si a los
+     * `segundos` sigue ahí, lo borra de la cola y devuelve false: Windows acepta el trabajo aunque la
+     * impresora esté desenchufada, y sin esto el agente lo daba por impreso y el ticket salía horas
+     * después, cuando alguien la volvía a enchufar.
+     *
+     * @throws Exception si no se pudo consultar la cola (en ese caso no se sabe qué pasó)
+     */
+    static boolean esperarQueSalgaDeLaCola(String impresora, String documento, int segundos) throws Exception {
+        String script = "$imp = '" + comillas(impresora) + "'; $doc = '" + comillas(documento) + "'; "
+                + "$fin = (Get-Date).AddSeconds(" + segundos + "); "
+                + "do { $t = @(Get-PrintJob -PrinterName $imp -ErrorAction Stop | Where-Object { $_.DocumentName -eq $doc }); "
+                + "  if ($t.Count -eq 0) { 'SALIO'; exit } ; Start-Sleep -Milliseconds 500 } while ((Get-Date) -lt $fin); "
+                + "$t | Remove-PrintJob -ErrorAction SilentlyContinue; 'TRABADO'";
+        List<String> salida = powershell(script, segundos + 10).stream().map(String::trim).toList();
+        if (salida.contains("SALIO")) return true;
+        if (salida.contains("TRABADO")) return false;
+        throw new IllegalStateException("respuesta inesperada de Windows: " + salida);
+    }
+
+    private static String comillas(String texto) {
+        return texto.replace("'", "''");
+    }
+
+    /**
+     * Corre un script de PowerShell y devuelve las líneas que escribió.
+     *
+     * -EncodedCommand (UTF-16LE en base64) y no -Command: Java en Windows no escapa las comillas
+     * internas de un argumento, y con -Command el script le llegaba roto a PowerShell.
+     */
+    private static List<String> powershell(String script, int segundos) throws Exception {
+        // Sin barras de progreso: con la salida redirigida, PowerShell las escribe en CLIXML
+        // mezcladas con lo que imprime el script (y cortaba las palabras que se leen acá).
+        String completo = "$ProgressPreference = 'SilentlyContinue'; " + script;
+        String codificado = Base64.getEncoder().encodeToString(completo.getBytes(StandardCharsets.UTF_16LE));
+        Process p = new ProcessBuilder("powershell", "-NoProfile", "-NonInteractive", "-EncodedCommand", codificado)
+                .redirectErrorStream(true)
+                .start();
+        // Plazo independiente de la lectura: si PowerShell se cuelga con la salida abierta, readLine
+        // no vuelve nunca. Esto comparte hilo con la impresión, así que un cuelgue frenaría todos los
+        // tickets. Al matar el proceso se cierra la salida y la lectura termina.
+        p.onExit().orTimeout(segundos, TimeUnit.SECONDS).exceptionally(e -> {
+            p.descendants().forEach(ProcessHandle::destroyForcibly);
+            p.destroyForcibly();
+            return p;
+        });
+        List<String> lineas = new ArrayList<>();
+        try (BufferedReader r = new BufferedReader(new InputStreamReader(p.getInputStream(), StandardCharsets.UTF_8))) {
+            String linea;
+            while ((linea = r.readLine()) != null) {
+                lineas.add(linea);
+            }
+        }
+        p.waitFor(2, TimeUnit.SECONDS);
+        return lineas;
     }
 }
