@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.example.laserranitaentradas.config.UsuarioAutenticado;
+import org.example.laserranitaentradas.model.dto.FacturaManualDTO;
 import org.example.laserranitaentradas.model.dto.FacturaResponseDTO;
 import org.example.laserranitaentradas.model.dto.FacturacionPosDTO;
 import org.example.laserranitaentradas.model.dto.VentaFacturaDTO;
@@ -83,6 +84,26 @@ public class FacturaController {
                                            @RequestBody Map<String, String> cuerpo,
                                            @AuthenticationPrincipal UsuarioAutenticado operador) {
         ventasFacturasService.enviarPorMail(id, cuerpo.get("email"), operador);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/manual")
+    @Operation(summary = "Factura manual (ADMIN)",
+            description = "Factura B sin venta, con los ítems e importes que se carguen. Destino IMPRIMIR, MAIL o NINGUNO (sólo PDF).")
+    public FacturaResponseDTO emitirManual(@RequestBody FacturaManualDTO pedido) {
+        return facturaService.emitirManual(pedido);
+    }
+
+    @GetMapping("/manuales")
+    @Operation(summary = "Últimas facturas manuales (ADMIN)")
+    public List<FacturaResponseDTO> manuales() {
+        return facturaService.manuales();
+    }
+
+    @PostMapping("/{id}/anular")
+    @Operation(summary = "Anular una factura manual (ADMIN)", description = "Emite la nota de crédito B por el total.")
+    public ResponseEntity<Void> anularManual(@PathVariable @Parameter(description = "ID de la factura") Long id) {
+        facturaService.anularManual(id);
         return ResponseEntity.ok().build();
     }
 

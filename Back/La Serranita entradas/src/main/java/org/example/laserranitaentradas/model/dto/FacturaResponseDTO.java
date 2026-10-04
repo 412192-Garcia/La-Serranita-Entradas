@@ -35,6 +35,8 @@ public class FacturaResponseDTO {
     /** Estado del último trabajo de impresión de esta factura; null si nunca se mandó a imprimir. */
     private EstadoTrabajoImpresion impresionEstado;
     private String impresionError;
+    /** Ítems facturados, "cantidad<TAB>descripción<TAB>subtotal" por línea (para listar las manuales). */
+    private String detalle;
     /** URL del QR de ARCA (RG 4892). Sólo cuando está EMITIDA. */
     private String qrUrl;
 }

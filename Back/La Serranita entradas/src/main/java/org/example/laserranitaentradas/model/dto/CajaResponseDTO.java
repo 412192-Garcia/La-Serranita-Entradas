@@ -101,4 +101,13 @@ public class CajaResponseDTO {
     /** true = se abrió con "vender sin control de caja" (sólo ADMIN vendiendo él mismo): sin
      * conteo de apertura ni de cierre, se cierra sola a fin de día. Null/false en una caja normal. */
     private Boolean controlOmitido;
+
+    /** Facturado ante ARCA por las ventas de esta caja: Facturas B emitidas menos las notas de
+     * crédito emitidas. Null mientras sigue ABIERTA. */
+    private BigDecimal totalFacturado;
+    /** Facturas B de esta caja que todavía no tienen CAE (pendientes o con error): no están en
+     * totalFacturado. Null mientras sigue ABIERTA. */
+    private Integer facturasSinEmitir;
+    /** Suma de esas facturas sin emitir. Null mientras sigue ABIERTA. */
+    private BigDecimal montoSinEmitir;
 }

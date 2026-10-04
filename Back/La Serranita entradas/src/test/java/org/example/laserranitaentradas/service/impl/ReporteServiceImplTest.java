@@ -57,6 +57,7 @@ class ReporteServiceImplTest {
     @Mock private RetiroCajaRepository retiroCajaRepository;
     @Mock private CajaService cajaService;
     @Mock private CalculoPrecioService calculoPrecioService;
+    @Mock private org.example.laserranitaentradas.repository.FacturaRepository facturaRepository;
 
     private ReporteServiceImpl service;
 
@@ -67,7 +68,7 @@ class ReporteServiceImplTest {
     @BeforeEach
     void setUp() {
         service = new ReporteServiceImpl(compraRepository, tipoEntradaRepository, cajaRepository, retiroCajaRepository,
-                cajaService, calculoPrecioService);
+                cajaService, calculoPrecioService, facturaRepository);
         lenient().when(tipoEntradaRepository.findAll()).thenReturn(List.of());
         lenient().when(cajaRepository.findAllByFechaCierreBetweenOrderByFechaCierreDesc(any(), any())).thenReturn(List.of());
         lenient().when(cajaRepository.findIdsDeshabilitadas()).thenReturn(List.of());

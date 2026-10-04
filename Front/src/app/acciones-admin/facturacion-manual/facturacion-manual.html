@@ -1,0 +1,214 @@
+<div class="seccion-facturacion">
+
+  <!-- ============ NUEVA FACTURA ============ -->
+  <div class="tarjeta tarjeta-formulario" data-tour="factura-manual">
+    <h2>Nueva factura manual</h2>
+    <p class="ayuda">
+      Factura B a Consumidor Final sin venta detrás, por el punto de venta de boletería. Elegí ítems del catálogo o
+      escribilos a mano; el precio se puede cambiar.
+    </p>
+
+    @if (!habilitada()) {
+      <p class="alerta">La facturación no está configurada en el servidor: no se pueden emitir facturas.</p>
+    }
+
+    <div class="renglones">
+      <div class="renglon renglon-encabezado" aria-hidden="true">
+        <span>Ítem</span><span>Cant.</span><span>Descripción</span><span>Precio unit.</span><span class="num">Subtotal</span><span></span>
+      </div>
+      @for (l of lineas(); track l.clave) {
+        <div class="renglon">
+          <select [ngModel]="l.origen" (ngModelChange)="elegirOrigen(l.clave, $event)" aria-label="Ítem del catálogo">
+            <option value="libre">Otro (a mano)</option>
+            @if (tipos().length) {
+              <optgroup label="Entradas">
+                @for (t of tipos(); track t.id) {
+                  <option [value]="'e:' + t.id">{{ t.nombre }}</option>
+                }
+              </optgroup>
+            }
+            @if (articulos().length) {
+              <optgroup label="Artículos">
+                @for (a of articulos(); track a.id) {
+                  <option [value]="'a:' + a.id">{{ a.nombre }}</option>
+                }
+              </optgroup>
+            }
+          </select>
+          <input type="number" min="1" max="9999" step="1" inputmode="numeric" aria-label="Cantidad"
+            [ngModel]="l.cantidad" (ngModelChange)="actualizar(l.clave, { cantidad: $event ?? 0 })" />
+          <input type="text" maxlength="80" placeholder="Ej: Entradas grupo colegio" aria-label="Descripción"
+            [ngModel]="l.descripcion" (ngModelChange)="actualizar(l.clave, { descripcion: $event })" />
+          <input type="number" min="0" step="0.01" inputmode="decimal" placeholder="0" aria-label="Precio unitario"
+            [ngModel]="l.precio" (ngModelChange)="actualizar(l.clave, { precio: $event })" />
+          <span class="num subtotal" data-label="Subtotal">{{ subtotal(l) | pesos }}</span>
+          <button type="button" class="btn-icono" title="Quitar renglón" aria-label="Quitar renglón"
+            [disabled]="lineas().length === 1" (click)="quitarLinea(l.clave)">
+            <svg lucideTrash2 [strokeWidth]="2"></svg>
+          </button>
+        </div>
+      }
+    </div>
+
+    <div class="pie-renglones">
+      <button type="button" class="btn-secundario btn-con-icono" (click)="agregarLinea()">
+        <svg lucidePlus [strokeWidth]="2"></svg> Agregar renglón
+      </button>
+      <div class="total">
+        <span>Total</span>
+        <strong>{{ total() | pesos }}</strong>
+      </div>
+    </div>
+
+    <div class="entrega">
+      <span class="entrega-titulo">Entrega</span>
+      <div class="opciones-entrega">
+        <label class="opcion-radio">
+          <input type="radio" name="destino" value="NINGUNO" [ngModel]="destino()" (ngModelChange)="destino.set($event); confirmando.set(false)" />
+          Sólo PDF
+        </label>
+        <label class="opcion-radio">
+          <input type="radio" name="destino" value="MAIL" [ngModel]="destino()" (ngModelChange)="destino.set($event); confirmando.set(false)" />
+          Por mail
+        </label>
+        <label class="opcion-radio">
+          <input type="radio" name="destino" value="IMPRIMIR" [ngModel]="destino()" (ngModelChange)="destino.set($event); confirmando.set(false)" />
+          Imprimir en la ticketera
+        </label>
+      </div>
+      @if (destino() === 'MAIL') {
+        <input type="email" class="campo-email" placeholder="email@del-cliente.com" autocomplete="off" aria-label="Email"
+          [ngModel]="email()" (ngModelChange)="email.set($event); confirmando.set(false)" />
+      }
+      @if (destino() === 'IMPRIMIR') {
+        @if (impresoras.motivoNoDisponible(); as motivo) {
+          <p class="nota">{{ motivo }}</p>
+        } @else {
+          <p class="nota nota-ok">Se imprime en "{{ impresoras.efectiva()?.nombre }}".</p>
+        }
+      }
+    </div>
+
+    @if (confirmando()) {
+      <div class="confirmacion" role="alert">
+        <p>
+          Vas a emitir una <strong>Factura B por {{ total() | pesos }}</strong> en ARCA. Es un comprobante fiscal:
+          si después hay un error, se anula con una nota de crédito.
+        </p>
+        <div class="acciones-confirmacion">
+          <button type="button" class="btn-secundario" [disabled]="emitiendo()" (click)="confirmando.set(false)">Revisar</button>
+          <button type="button" class="btn-primario" [disabled]="emitiendo()" (click)="emitir()">
+            {{ emitiendo() ? 'Emitiendo…' : 'Emitir factura' }}
+          </button>
+        </div>
+      </div>
+    } @else {
+      <div class="acciones-form">
+        <button type="button" class="btn-primario" [disabled]="!habilitada() || !formularioValido()" (click)="pedirConfirmacion()">
+          Facturar {{ total() > 0 ? (total() | pesos) : '' }}
+        </button>
+      </div>
+    }
+
+    @if (errorForm(); as error) {
+      <p class="alerta">{{ error }}</p>
+    }
+    @if (avisoForm(); as aviso) {
+      <p class="aviso-ok" role="status">{{ aviso }}</p>
+    }
+  </div>
+
+  <!-- ============ ÚLTIMAS FACTURAS MANUALES ============ -->
+  <div class="tarjeta">
+    <h2>Últimas facturas manuales</h2>
+
+    @if (cargandoLista()) {
+      <app-spinner />
+    } @else if (errorLista(); as error) {
+      <p class="alerta">{{ error }}</p>
+    } @else if (manuales().length === 0) {
+      <p class="ayuda">Todavía no se emitió ninguna factura manual.</p>
+    } @else {
+      <ul class="lista-manuales">
+        @for (f of manuales(); track f.id) {
+          <li class="manual">
+            <div class="manual-cabecera">
+              <span class="manual-numero">
+                @if (f.numero) { Factura B {{ numeroComprobante(f) }} } @else { Factura B (sin número todavía) }
+              </span>
+              <span class="manual-fecha">{{ f.fechaEmision | date: 'dd/MM/yyyy' }}</span>
+              <span class="manual-total">{{ f.importeTotal | pesos }}</span>
+            </div>
+            <div class="manual-detalle">{{ resumen(f) }}</div>
+
+            <div class="manual-estado">
+              @if (f.anulacionPedida || f.estado === 'ANULADA') {
+                <svg lucideCircleAlert class="icono-gris" [strokeWidth]="2"></svg>
+                <span>Anulada (con nota de crédito)</span>
+              } @else if (f.estado === 'EMITIDA') {
+                <svg lucideFileText [strokeWidth]="2"></svg>
+                <span>
+                  Emitida · CAE {{ f.cae }}
+                  @if (f.impresionEstado === 'IMPRESO') { · impresa }
+                  @else if (f.impresionEstado === 'ERROR') { · <span class="texto-error">no se imprimió: {{ f.impresionError }}</span> }
+                  @else if (f.impresionEstado === 'PENDIENTE' || f.impresionEstado === 'ENVIADO') { · imprimiendo… }
+                  @if (f.mailEnviadoEn) { · enviada a {{ f.email }} }
+                </span>
+              } @else if (f.estado === 'PENDIENTE') {
+                <svg lucideLoaderCircle class="icono-girando" [strokeWidth]="2"></svg>
+                <span>Emitiendo…</span>
+              } @else {
+                <svg lucideCircleAlert class="texto-error" [strokeWidth]="2"></svg>
+                <span class="texto-error">No se pudo emitir: {{ f.ultimoError }}</span>
+              }
+            </div>
+
+            @if (vigente(f)) {
+              <div class="manual-acciones">
+                <button type="button" class="btn-accion" (click)="verPdf(f)">
+                  <svg lucideFileText [strokeWidth]="2"></svg> Ver PDF
+                </button>
+                <button type="button" class="btn-accion" [class.activo]="accionAbierta(f, 'mail')" [disabled]="enviandoId() !== null"
+                  (click)="abrirAccion(f, 'mail')">
+                  <svg lucideMail [strokeWidth]="2"></svg> Mandar por mail
+                </button>
+                <button type="button" class="btn-accion" [disabled]="enviandoId() !== null || !impresoras.lista()"
+                  [title]="impresoras.motivoNoDisponible() ?? 'Mandar el ticket a la ticketera'" (click)="reimprimir(f)">
+                  <svg lucidePrinter [strokeWidth]="2"></svg> Imprimir
+                </button>
+                <button type="button" class="btn-accion btn-peligro" [class.activo]="accionAbierta(f, 'anular')" [disabled]="enviandoId() !== null"
+                  (click)="abrirAccion(f, 'anular')">
+                  Anular
+                </button>
+              </div>
+              @if (accionAbierta(f, 'mail')) {
+                <form class="form-fila" (ngSubmit)="mandarPorMail(f)">
+                  <input type="email" name="email" placeholder="email@del-cliente.com" autocomplete="off"
+                    [ngModel]="emailFila()" (ngModelChange)="emailFila.set($event)" />
+                  <button type="submit" class="btn-primario" [disabled]="!emailValido(emailFila()) || enviandoId() !== null">
+                    {{ enviandoId() === f.id ? 'Enviando…' : 'Enviar' }}
+                  </button>
+                </form>
+              }
+              @if (accionAbierta(f, 'anular')) {
+                <div class="form-fila confirmar-anular">
+                  <span>Se emite una nota de crédito B por {{ f.importeTotal | pesos }}. ¿Anular?</span>
+                  <button type="button" class="btn-secundario" (click)="accion.set(null)">No</button>
+                  <button type="button" class="btn-primario btn-peligro-lleno" [disabled]="enviandoId() !== null" (click)="anular(f)">
+                    {{ enviandoId() === f.id ? 'Anulando…' : 'Sí, anular' }}
+                  </button>
+                </div>
+              }
+            }
+
+            @if (avisoFila(); as a) {
+              @if (a.id === f.id) {
+                <p class="aviso-fila" [class.texto-error]="a.error" role="status">{{ a.texto }}</p>
+              }
+            }
+          </li>
+        }
+      </ul>
+    }
+  </div>
+</div>

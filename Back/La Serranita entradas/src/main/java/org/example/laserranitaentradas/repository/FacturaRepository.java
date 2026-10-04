@@ -20,6 +20,9 @@ public interface FacturaRepository extends JpaRepository<Factura, Long> {
     /** El último comprobante de ese tipo de la compra (6 = la factura vigente, la más nueva). */
     Optional<Factura> findFirstByCompraIdAndTipoComprobanteOrderByIdDesc(Long compraId, Integer tipoComprobante);
 
+    /** Las últimas facturas manuales (sin venta), de la más nueva a la más vieja. */
+    List<Factura> findTop50ByCompraIsNullAndTipoComprobanteOrderByIdDesc(Integer tipoComprobante);
+
     /**
      * Otras facturas del mismo punto de venta y tipo que pidieron un número a ARCA y todavía no
      * saben si quedó autorizado. Antes de que otra pida número hay que resolverlas: si no, las dos
@@ -41,6 +44,23 @@ public interface FacturaRepository extends JpaRepository<Factura, Long> {
     @Transactional
     @Query("UPDATE Factura f SET f.email = :email, f.mailEnviadoEn = :momento WHERE f.id = :id")
     int marcarMailEnviadoA(@Param("id") Long id, @Param("email") String email, @Param("momento") LocalDateTime momento);
+
+    /** Filas [tipoComprobante, estado, cantidad, suma de importeTotal] de los comprobantes de las
+     * ventas de una caja: el resumen del cierre las usa para "cuánto se facturó en esta caja". */
+    @Query("SELECT f.tipoComprobante, f.estado, COUNT(f), COALESCE(SUM(f.importeTotal), 0) FROM Factura f " +
+            "WHERE f.compra.caja.id = :cajaId GROUP BY f.tipoComprobante, f.estado")
+    List<Object[]> totalesPorCaja(@Param("cajaId") Long cajaId);
+
+    /** Filas [tipoComprobante, cantidad, suma de importeTotal] de los comprobantes con CAE cuya
+     * fecha de emisión cae en el rango: el KPI "Facturado" del reporte. */
+    @Query("SELECT f.tipoComprobante, COUNT(f), COALESCE(SUM(f.importeTotal), 0) FROM Factura f " +
+            "WHERE f.estado = :estado AND f.fechaEmision BETWEEN :desde AND :hasta GROUP BY f.tipoComprobante")
+    List<Object[]> totalesEmitidosEntre(@Param("estado") EstadoFactura estado,
+                                        @Param("desde") java.time.LocalDate desde, @Param("hasta") java.time.LocalDate hasta);
+
+    /** El número más alto autorizado de ese punto de venta y tipo (null si todavía no hay ninguno). */
+    @Query("SELECT MAX(f.numero) FROM Factura f WHERE f.puntoVenta = :pv AND f.tipoComprobante = :tipo AND f.numero IS NOT NULL")
+    Long ultimoNumeroEmitido(@Param("pv") Integer puntoVenta, @Param("tipo") Integer tipoComprobante);
 
     /** Las facturas B de varias compras de una vez (la ventana "Ventas y facturas"). */
     List<Factura> findByCompraIdInAndTipoComprobante(Collection<Long> compraIds, Integer tipoComprobante);

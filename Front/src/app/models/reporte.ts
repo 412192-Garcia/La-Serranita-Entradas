@@ -155,4 +155,9 @@ export interface ReporteResumen {
   anticipacionCompra: AnticipacionCompra[];
   /** Cupones aplicados en el rango, por valor de descuento, ordenados de más a menos usado. */
   usoCupones: UsoCupon[];
+  /** Facturado ante ARCA en el rango (por fecha de emisión): Facturas B con CAE − notas de
+   * crédito con CAE. No es lo mismo que recaudacionTotal: no toda venta se factura. */
+  totalFacturado: number;
+  cantidadFacturas: number;
+  cantidadNotasCredito: number;
 }

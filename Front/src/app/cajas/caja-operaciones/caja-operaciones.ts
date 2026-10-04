@@ -128,6 +128,13 @@ export class CajaOperaciones implements OnInit {
   mostrarVentasFacturas = signal(false);
   readonly facturacionHabilitada = inject(FacturaService).habilitada;
 
+  /** Mismo criterio que el resumen del cierre: con la facturación prendida, o si igual hay algo facturado. */
+  readonly mostrarFacturado = computed(() => {
+    const d = this.detalle();
+    if (!d) return false;
+    return this.facturacionHabilitada() || d.totalFacturado !== 0 || d.facturasSinEmitir > 0;
+  });
+
   ngOnInit(): void {
     this.cargarOperaciones();
   }

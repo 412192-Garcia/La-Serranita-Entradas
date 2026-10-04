@@ -49,6 +49,25 @@ export interface Factura {
   /** Último intento de imprimir el ticket; null si nunca se mandó a imprimir. */
   impresionEstado: EstadoImpresion | null;
   impresionError: string | null;
+  /** Ítems facturados: "cantidad<TAB>descripción<TAB>subtotal" por línea. */
+  detalle?: string | null;
+}
+
+/** Renglón de una factura manual (Acciones > Facturación manual). */
+export interface FacturaManualItem {
+  /** ENTRADA / ARTICULO si salió del catálogo, LIBRE si se escribió a mano (decide el concepto de ARCA). */
+  tipo: 'ENTRADA' | 'ARTICULO' | 'LIBRE';
+  cantidad: number;
+  descripcion: string;
+  subtotal: number;
+}
+
+/** NINGUNO = sólo queda el PDF para descargar. */
+export interface FacturaManualPedido {
+  items: FacturaManualItem[];
+  destino: DestinoFactura;
+  email: string | null;
+  impresora: string | null;
 }
 
 /** Una venta de un turno con su factura, para la ventana "Ventas y facturas". */

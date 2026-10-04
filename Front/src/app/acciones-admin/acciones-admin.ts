@@ -1,11 +1,12 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CrearReserva } from '../crear-reserva/crear-reserva';
 import { RechazosOperaciones } from '../cajas/rechazos-operaciones/rechazos-operaciones';
+import { FacturacionManual } from './facturacion-manual/facturacion-manual';
 import { CabeceraInterna } from '../shared/cabecera-interna/cabecera-interna';
 import { RechazoService } from '../services/rechazo.service';
 import { TourStep } from '../shared/tour/tour';
 
-type Tab = 'reserva' | 'rechazos';
+type Tab = 'reserva' | 'factura' | 'rechazos';
 
 /** Cada pestaña muestra un componente hijo distinto (el otro ni existe en el DOM), así que el
  * tutorial cambia de pasos según la pestaña activa — mismo criterio que Configuración. */
@@ -22,6 +23,13 @@ const PASOS_POR_TAB: Record<Tab, TourStep[]> = {
       texto: 'Acá se completa la reserva: primero las entradas, después los datos del cliente y por último confirmar. Se genera aprobada, sin cobro.',
     },
   ],
+  factura: [
+    {
+      selector: '[data-tour="factura-manual"]',
+      titulo: 'Factura manual',
+      texto: 'Factura B sin venta: elegí ítems del catálogo o escribilos a mano, ajustá precios y elegí si se descarga en PDF, se manda por mail o se imprime. Antes de emitir pide confirmación. Abajo quedan las últimas, con la opción de anularlas (nota de crédito).',
+    },
+  ],
   rechazos: [
     {
       selector: '[data-tour="rechazos-operaciones"]',
@@ -33,7 +41,7 @@ const PASOS_POR_TAB: Record<Tab, TourStep[]> = {
 
 @Component({
   selector: 'app-acciones-admin',
-  imports: [CabeceraInterna, CrearReserva, RechazosOperaciones],
+  imports: [CabeceraInterna, CrearReserva, FacturacionManual, RechazosOperaciones],
   templateUrl: './acciones-admin.html',
   styleUrl: './acciones-admin.css',
 })

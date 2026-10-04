@@ -3,20 +3,28 @@
 } @else if (error()) {
   <p class="alerta-error">{{ error() }}</p>
 } @else if (detalle(); as d) {
-  <div class="tarjeta-kpis-detalle tarjeta-kpis-detalle-3" data-tour="kpis-caja-abierta">
-    <div>
-      <h2>Vendido hasta ahora</h2>
-      <p class="kpi-numero">{{ totalVendido() | pesos }}</p>
-    </div>
+  <div class="tarjeta-kpis-detalle" [class.tarjeta-kpis-detalle-3]="mostrarFacturado()" data-tour="kpis-caja-abierta">
     <div>
       <h2>Entradas vendidas</h2>
-      <p class="kpi-numero kpi-numero-secundario">{{ d.totalEntradasPagas - d.entradasPagasAnticipadas - d.entradasPagasValidadas }}</p>
+      <p class="kpi-numero">{{ d.totalEntradasPagas }}</p>
+      <p class="kpi-subtexto">{{ d.totalEntradasPagas - d.entradasPagasValidadas }} en puerta · {{ d.entradasPagasValidadas }} anticipadas online</p>
     </div>
     <div>
-      <h2>Anticipadas</h2>
-      <p class="kpi-numero kpi-numero-secundario">{{ d.entradasPagasAnticipadas + d.entradasPagasValidadas }}</p>
-      <p class="kpi-subtexto">{{ d.entradasPagasValidadas }} online · {{ d.entradasPagasAnticipadas }} pagado en puerta</p>
+      <h2>Vendido hasta ahora</h2>
+      <p class="kpi-numero kpi-numero-secundario">{{ totalVendido() | pesos }}</p>
     </div>
+    @if (mostrarFacturado()) {
+      <div>
+        <h2>Facturado</h2>
+        <p class="kpi-numero kpi-numero-secundario">{{ d.totalFacturado | pesos }}</p>
+        @if (d.facturasSinEmitir > 0) {
+          <p class="kpi-subtexto">
+            + {{ d.montoSinEmitir | pesos }} sin emitir ({{ d.facturasSinEmitir }}
+            {{ d.facturasSinEmitir === 1 ? 'factura pendiente' : 'facturas pendientes' }})
+          </p>
+        }
+      </div>
+    }
   </div>
 
   @if (d.entradasFisicasRestantes !== null) {

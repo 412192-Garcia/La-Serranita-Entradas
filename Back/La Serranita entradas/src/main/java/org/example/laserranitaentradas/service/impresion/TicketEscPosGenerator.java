@@ -74,7 +74,8 @@ public class TicketEscPosGenerator {
         t.separador();
 
         t.izquierda();
-        t.fila("Fecha: " + c.fechaEmision().format(FECHA), "Reserva: #" + c.codigoReserva());
+        // Una factura manual no tiene reserva.
+        t.fila("Fecha: " + c.fechaEmision().format(FECHA), c.codigoReserva() != null ? "Reserva: #" + c.codigoReserva() : "");
         t.linea("Cliente: Consumidor Final");
         t.linea("Cond. IVA: Consumidor Final");
         t.linea("Cond. Venta: Contado");

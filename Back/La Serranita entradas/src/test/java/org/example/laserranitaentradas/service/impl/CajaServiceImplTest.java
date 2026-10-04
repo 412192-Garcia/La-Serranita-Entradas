@@ -22,6 +22,7 @@ import org.example.laserranitaentradas.repository.AjusteCajaRepository;
 import org.example.laserranitaentradas.repository.CajaRepository;
 import org.example.laserranitaentradas.repository.CierrePosnetRepository;
 import org.example.laserranitaentradas.repository.CompraRepository;
+import org.example.laserranitaentradas.repository.FacturaRepository;
 import org.example.laserranitaentradas.repository.IngresoEntradasRepository;
 import org.example.laserranitaentradas.repository.RetiroCajaRepository;
 import org.example.laserranitaentradas.service.TipoEntradaService;
@@ -70,6 +71,7 @@ class CajaServiceImplTest {
     @Mock private IngresoEntradasRepository ingresoEntradasRepository;
     @Mock private CompraRepository compraRepository;
     @Mock private AjusteCajaRepository ajusteCajaRepository;
+    @Mock private FacturaRepository facturaRepository;
     @Mock private TipoEntradaService tipoEntradaService;
     @Mock private UsuarioService usuarioService;
 
@@ -118,7 +120,7 @@ class CajaServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        service = new CajaServiceImpl(cajaRepository, retiroCajaRepository, cierrePosnetRepository, ingresoEntradasRepository, compraRepository, ajusteCajaRepository, tipoEntradaService, usuarioService);
+        service = new CajaServiceImpl(cajaRepository, retiroCajaRepository, cierrePosnetRepository, ingresoEntradasRepository, compraRepository, ajusteCajaRepository, facturaRepository, tipoEntradaService, usuarioService);
         lenient().when(ajusteCajaRepository.findAllByCajaIdOrderByFechaAsc(any())).thenReturn(List.of());
         lenient().when(tipoEntradaService.getAll()).thenReturn(List.of());
     }

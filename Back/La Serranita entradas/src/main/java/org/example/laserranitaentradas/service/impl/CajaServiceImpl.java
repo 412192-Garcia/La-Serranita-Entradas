@@ -23,6 +23,7 @@ import org.example.laserranitaentradas.model.entity.Compra;
 import org.example.laserranitaentradas.model.entity.CompraDetalle;
 import org.example.laserranitaentradas.model.entity.ConteoDenominacion;
 import org.example.laserranitaentradas.model.entity.EstadoCompra;
+import org.example.laserranitaentradas.model.entity.EstadoFactura;
 import org.example.laserranitaentradas.model.entity.FormaPago;
 import org.example.laserranitaentradas.model.entity.IngresoEntradas;
 import org.example.laserranitaentradas.model.entity.RetiroCaja;
@@ -36,11 +37,13 @@ import org.example.laserranitaentradas.repository.CajaRepository;
 import org.example.laserranitaentradas.repository.CajaSpecifications;
 import org.example.laserranitaentradas.repository.CierrePosnetRepository;
 import org.example.laserranitaentradas.repository.CompraRepository;
+import org.example.laserranitaentradas.repository.FacturaRepository;
 import org.example.laserranitaentradas.repository.IngresoEntradasRepository;
 import org.example.laserranitaentradas.repository.RetiroCajaRepository;
 import org.example.laserranitaentradas.service.CajaService;
 import org.example.laserranitaentradas.service.TipoEntradaService;
 import org.example.laserranitaentradas.service.UsuarioService;
+import org.example.laserranitaentradas.service.afip.WsfeService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -78,6 +81,7 @@ public class CajaServiceImpl implements CajaService {
     private final IngresoEntradasRepository ingresoEntradasRepository;
     private final CompraRepository compraRepository;
     private final AjusteCajaRepository ajusteCajaRepository;
+    private final FacturaRepository facturaRepository;
     private final TipoEntradaService tipoEntradaService;
     private final UsuarioService usuarioService;
 
@@ -87,6 +91,7 @@ public class CajaServiceImpl implements CajaService {
                             IngresoEntradasRepository ingresoEntradasRepository,
                             CompraRepository compraRepository,
                             AjusteCajaRepository ajusteCajaRepository,
+                            FacturaRepository facturaRepository,
                             TipoEntradaService tipoEntradaService,
                             UsuarioService usuarioService) {
         this.cajaRepository = cajaRepository;
@@ -95,6 +100,7 @@ public class CajaServiceImpl implements CajaService {
         this.ingresoEntradasRepository = ingresoEntradasRepository;
         this.compraRepository = compraRepository;
         this.ajusteCajaRepository = ajusteCajaRepository;
+        this.facturaRepository = facturaRepository;
         this.tipoEntradaService = tipoEntradaService;
         this.usuarioService = usuarioService;
     }
@@ -661,6 +667,8 @@ public class CajaServiceImpl implements CajaService {
                     - calcularEntradasEntregadas(compras, ajustes) - entradasAnticipadasEntregadas;
         }
 
+        ResumenFacturacion facturacion = resumenFacturacion(cajaId);
+
         return CajaDetalleAbiertaDTO.builder()
                 .operaciones(construirOperaciones(compras, retiros, ingresosEntradas, anticipadasValidadas))
                 .totalVentasEfectivo(sumVentasPorFormaPago(compras, FormaPago.EFECTIVO_BOLETERIA))
@@ -673,6 +681,9 @@ public class CajaServiceImpl implements CajaService {
                 .huboVentaDolares(huboVentaDolares(compras))
                 .entradasAnticipadasEntregadas(entradasAnticipadasEntregadas)
                 .entradasFisicasRestantes(entradasFisicasRestantes)
+                .totalFacturado(facturacion.totalFacturado())
+                .facturasSinEmitir(facturacion.facturasSinEmitir())
+                .montoSinEmitir(facturacion.montoSinEmitir())
                 .build();
     }
 
@@ -1245,6 +1256,35 @@ public class CajaServiceImpl implements CajaService {
                 .build();
     }
 
+    /** Facturado de una caja y lo que todavía espera CAE (ver resumenFacturacion). */
+    private record ResumenFacturacion(BigDecimal totalFacturado, int facturasSinEmitir, BigDecimal montoSinEmitir) {}
+
+    /**
+     * Facturado = Facturas B con CAE − notas de crédito con CAE (una venta cancelada o editada
+     * después de facturarse lleva su NC, que descuenta). Las B que todavía esperan CAE (o
+     * quedaron en error) van aparte: no están facturadas todavía.
+     */
+    private ResumenFacturacion resumenFacturacion(Long cajaId) {
+        BigDecimal totalFacturado = BigDecimal.ZERO;
+        int facturasSinEmitir = 0;
+        BigDecimal montoSinEmitir = BigDecimal.ZERO;
+        for (Object[] fila : facturaRepository.totalesPorCaja(cajaId)) {
+            int tipo = ((Number) fila[0]).intValue();
+            EstadoFactura estado = (EstadoFactura) fila[1];
+            int cantidad = ((Number) fila[2]).intValue();
+            BigDecimal suma = new BigDecimal(fila[3].toString());
+            if (estado == EstadoFactura.EMITIDA) {
+                if (tipo == WsfeService.CBTE_TIPO_FACTURA_B) totalFacturado = totalFacturado.add(suma);
+                else if (tipo == WsfeService.CBTE_TIPO_NOTA_CREDITO_B) totalFacturado = totalFacturado.subtract(suma);
+            } else if (tipo == WsfeService.CBTE_TIPO_FACTURA_B
+                    && (estado == EstadoFactura.PENDIENTE || estado == EstadoFactura.ERROR)) {
+                facturasSinEmitir += cantidad;
+                montoSinEmitir = montoSinEmitir.add(suma);
+            }
+        }
+        return new ResumenFacturacion(totalFacturado, facturasSinEmitir, montoSinEmitir);
+    }
+
     private CajaResponseDTO toDto(Caja caja) {
         // Mientras la caja sigue abierta, ningún total "esperado" se expone: si el boletero
         // pudiera verlos antes de cerrar, alcanzaría con anotar esos mismos números para que
@@ -1284,6 +1324,9 @@ public class CajaServiceImpl implements CajaService {
         List<EntradasPorTipoDTO> entradasVendidasPorTipo = null;
         BigDecimal dolaresEsperado = null;
         BigDecimal diferenciaDolares = null;
+        BigDecimal totalFacturado = null;
+        Integer facturasSinEmitir = null;
+        BigDecimal montoSinEmitir = null;
 
         // Booleano, no un monto: seguro de exponer aunque la caja siga ABIERTA (ver el
         // comentario en CajaResponseDTO.huboVentaDolares).
@@ -1371,6 +1414,11 @@ public class CajaServiceImpl implements CajaService {
                     diferenciaDolares = caja.getDolaresContado().subtract(dolaresEsperado);
                 }
             }
+
+            ResumenFacturacion facturacion = resumenFacturacion(caja.getId());
+            totalFacturado = facturacion.totalFacturado();
+            facturasSinEmitir = facturacion.facturasSinEmitir();
+            montoSinEmitir = facturacion.montoSinEmitir();
         }
 
         List<RetiroCajaResponseDTO> retiros = movimientos.stream()
@@ -1449,6 +1497,9 @@ public class CajaServiceImpl implements CajaService {
                 .diferenciaDolares(diferenciaDolares)
                 .habilitada(caja.estaHabilitada())
                 .controlOmitido(caja.getControlOmitido())
+                .totalFacturado(totalFacturado)
+                .facturasSinEmitir(facturasSinEmitir)
+                .montoSinEmitir(montoSinEmitir)
                 .build();
     }
 }

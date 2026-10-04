@@ -165,6 +165,13 @@ export interface Caja {
   /** true = se abrió con "vender sin control de caja" (sólo ADMIN vendiendo él mismo): sin
    * conteo de apertura ni de cierre, se cierra sola a fin de día. */
   controlOmitido: boolean | null;
+  /** Facturado ante ARCA por las ventas de esta caja: Facturas B emitidas − notas de crédito
+   * emitidas. Null mientras sigue ABIERTA. */
+  totalFacturado: number | null;
+  /** Facturas B de esta caja que todavía esperan CAE (pendientes o con error): no están en
+   * totalFacturado. Null mientras sigue ABIERTA. */
+  facturasSinEmitir: number | null;
+  montoSinEmitir: number | null;
 }
 
 export interface EntradasPorTipo {
@@ -250,6 +257,11 @@ export interface CajaDetalleAbierta {
   entradasAnticipadasEntregadas: number;
   /** Inicial + ingresos − retiros − ya cortadas vendiendo (incluidas las anticipadas validadas): cuántas le quedan al boletero en el talonario. Null si esta caja no tiene un inicial cargado. */
   entradasFisicasRestantes: number | null;
+  /** Facturado hasta ahora (Facturas B con CAE − notas de crédito con CAE). */
+  totalFacturado: number;
+  /** Facturas B que todavía esperan CAE (pendientes o con error), y cuánto suman. */
+  facturasSinEmitir: number;
+  montoSinEmitir: number;
 }
 
 /** Una caja ya cerrada, para el listado paginado de "Cajas cerradas" (ver obtenerCajasCerradas). */

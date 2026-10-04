@@ -67,7 +67,7 @@ public class ComprobanteFacturaService {
                 BigDecimal subtotal = partes.length == 3 && !partes[2].isBlank() ? new BigDecimal(partes[2]) : null;
                 items.add(new ComprobanteFactura.Item(Integer.parseInt(partes[0]), partes[1], subtotal));
             }
-        } else if (f.getCompra().getDetalles() != null) {
+        } else if (f.getCompra() != null && f.getCompra().getDetalles() != null) {
             for (CompraDetalle d : f.getCompra().getDetalles()) {
                 items.add(new ComprobanteFactura.Item(d.getCantidad(), descripcion(d)));
             }
@@ -81,7 +81,7 @@ public class ComprobanteFacturaService {
 
         return new ComprobanteFactura(
                 razonSocial, domicilio, afipClient.getCuit(), ingresosBrutos, inicioActividades,
-                f.getPuntoVenta(), f.getNumero(), f.getFechaEmision(), f.getCompra().getCodigoReserva(),
+                f.getPuntoVenta(), f.getNumero(), f.getFechaEmision(), f.getCompra() != null ? f.getCompra().getCodigoReserva() : null,
                 items, f.getImporteTotal(), f.getImporteIva(), f.getCae(), f.getCaeVencimiento(),
                 qrUrl(f), f.getTipoComprobante(), asociado);
     }
