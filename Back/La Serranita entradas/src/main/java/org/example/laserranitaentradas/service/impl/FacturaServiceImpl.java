@@ -228,7 +228,11 @@ public class FacturaServiceImpl implements FacturaService {
     private BigDecimal subtotal(CompraDetalle d, Compra compra) {
         try {
             if (d.getTipoEntrada() != null) {
-                return compra.getFormaPago() == null ? null
+                if (compra.getFormaPago() == null) return null;
+                // Con el precio de lista congelado al armar la compra (una reserva cobrada tras un
+                // aumento no puede mostrar un "descuento" que en realidad es el aumento).
+                return d.getPrecioUnitario() != null
+                        ? calculoPrecioService.calcularTotal(d.getTipoEntrada(), d.getCantidad(), compra.getFormaPago(), d.getPrecioUnitario())
                         : calculoPrecioService.calcularTotal(d.getTipoEntrada(), d.getCantidad(), compra.getFormaPago());
             }
             return d.getPrecioUnitario() == null ? null : d.getPrecioUnitario().multiply(BigDecimal.valueOf(d.getCantidad()));

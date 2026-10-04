@@ -58,7 +58,7 @@ export interface DetalleReserva {
   articuloVario: { id: number; nombre: string; precioSugerido: number | null; activo: boolean } | null;
   /** Sólo en líneas de artículo libre (sin catálogo): tipoEntrada y articuloVario vienen null. */
   descripcionLibre: string | null;
-  /** Precio cargado al vender, congelado en la compra — sólo para líneas de artículo (de catálogo o libres). Null en líneas de entrada (ésas derivan el precio de tipoEntrada). */
+  /** Líneas de artículo: precio cargado al vender, congelado en la compra. Líneas de entrada: precio de lista que tenía el tipo al armar la compra (null en compras anteriores a ese dato: ahí vale el actual de tipoEntrada). */
   precioUnitario: number | null;
 }
 
@@ -264,9 +264,16 @@ export class BoleteriaService {
     formaPago: FormaPagoPos,
     entradas: LineaVentaPos[],
     descuento?: DescuentoPos,
-    articulos?: LineaArticuloPos[]
+    articulos?: LineaArticuloPos[],
+    compraReservadaId?: number
   ): Observable<CotizacionResponse> {
-    return this.http.post<CotizacionResponse>(`${this.comprasUrl}/cotizar`, { formaPago, entradas, articulos, ...descuento });
+    return this.http.post<CotizacionResponse>(`${this.comprasUrl}/cotizar`, {
+      formaPago,
+      entradas,
+      articulos,
+      ...descuento,
+      ...(compraReservadaId ? { compraReservadaId } : {}),
+    });
   }
 
   /** Venta presencial: cobra y habilita el ingreso en un solo paso (queda USADO). */

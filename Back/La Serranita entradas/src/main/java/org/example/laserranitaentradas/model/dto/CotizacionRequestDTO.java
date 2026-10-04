@@ -16,4 +16,9 @@ public class CotizacionRequestDTO {
     BigDecimal descuentoManualMonto;
     /** Cupón online a aplicar sobre las entradas (opcional). */
     String cuponCodigo;
+    /**
+     * Reserva RESERVADO_EFECTIVO que se está cobrando en el POS (opcional): si viene, las
+     * entradas se cotizan al precio con el que se reservó y no al actual.
+     */
+    Long compraReservadaId;
 }

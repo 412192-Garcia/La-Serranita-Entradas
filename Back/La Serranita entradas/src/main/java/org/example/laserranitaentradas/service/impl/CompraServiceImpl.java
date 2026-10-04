@@ -712,6 +712,7 @@ public class CompraServiceImpl implements CompraService {
         return compraRepository.save(actualizada);
     }
 
+    @Transactional
     @Override
     public CotizacionResponseDTO cotizar(CotizacionRequestDTO cotizacionRequest) {
         FormaPago formaPago = cotizacionRequest.getFormaPago();
@@ -719,8 +720,17 @@ public class CompraServiceImpl implements CompraService {
             throw new IllegalArgumentException("Debe indicar una forma de pago");
         }
 
+        // Cotización de una reserva cargada en el POS: mismos precios congelados que usa el
+        // cobro (cobrarReservaComoVentaPos), para que el total mostrado sea el que se cobra.
+        Compra reserva = cotizacionRequest.getCompraReservadaId() == null ? null
+                : compraRepository.findById(cotizacionRequest.getCompraReservadaId())
+                        .filter(c -> c.getEstado() == EstadoCompra.RESERVADO_EFECTIVO)
+                        .orElse(null);
+        Map<Long, BigDecimal> preciosReservados = reserva == null ? Map.of() : preciosListaReservados(reserva);
+
         BigDecimal subtotal = BigDecimal.ZERO;
         BigDecimal ahorro = BigDecimal.ZERO;
+        BigDecimal listaEntradas = BigDecimal.ZERO;
         List<CuponDescuentoCalculator.Linea> lineasCupon = new ArrayList<>();
 
         if (cotizacionRequest.getEntradas() != null) {
@@ -730,11 +740,28 @@ public class CompraServiceImpl implements CompraService {
                 TipoEntrada tipoEntrada = tipoEntradaService.findById(d.getTipoEntradaId())
                         .orElseThrow(() -> new IllegalArgumentException("TipoEntrada no encontrada para id: " + d.getTipoEntradaId()));
 
-                BigDecimal totalLinea = calculoPrecioService.calcularTotal(tipoEntrada, d.getCantidad(), formaPago);
+                BigDecimal precioCongelado = preciosReservados.get(d.getTipoEntradaId());
+                BigDecimal totalLinea;
+                if (precioCongelado != null) {
+                    totalLinea = calculoPrecioService.calcularTotal(tipoEntrada, d.getCantidad(), formaPago, precioCongelado);
+                    ahorro = ahorro.add(calculoPrecioService.calcularAhorro(tipoEntrada, d.getCantidad(), formaPago, precioCongelado));
+                } else {
+                    totalLinea = calculoPrecioService.calcularTotal(tipoEntrada, d.getCantidad(), formaPago);
+                    ahorro = ahorro.add(calculoPrecioService.calcularAhorro(tipoEntrada, d.getCantidad(), formaPago));
+                }
+                BigDecimal precioLista = precioCongelado != null ? precioCongelado : tipoEntrada.getPrecio();
+                if (precioLista != null) {
+                    listaEntradas = listaEntradas.add(precioLista.multiply(BigDecimal.valueOf(d.getCantidad())));
+                }
                 subtotal = subtotal.add(totalLinea);
-                ahorro = ahorro.add(calculoPrecioService.calcularAhorro(tipoEntrada, d.getCantidad(), formaPago));
                 lineasCupon.add(new CuponDescuentoCalculator.Linea(d.getTipoEntradaId(), d.getCantidad(), totalLinea));
             }
+        }
+
+        // Mismo criterio que el cobro: lo mismo que reservó, en efectivo -> el monto de la reserva.
+        if (reserva != null && mantienePrecioReservado(reserva, formaPago, cotizacionRequest.getEntradas())) {
+            subtotal = reserva.getMontoTotal();
+            ahorro = listaEntradas.subtract(subtotal).max(BigDecimal.ZERO);
         }
 
         if (cotizacionRequest.getArticulos() != null) {
@@ -887,6 +914,17 @@ public class CompraServiceImpl implements CompraService {
      */
     private DetallesCalculados construirDetalles(List<DetalleCompraDTO> entradas, FormaPago formaPago,
                                                  LocalDate fechaVisita, Long excluirCompraId) {
+        return construirDetalles(entradas, formaPago, fechaVisita, excluirCompraId, null);
+    }
+
+    /**
+     * `preciosListaCongelados` (tipoEntradaId -> precio de lista): al cobrar una reserva, el
+     * precio que tenía cuando se reservó. Los tipos que no estén en el mapa (o todos, si es
+     * null) usan el precio actual. Cada línea guarda el precio de lista con el que se calculó.
+     */
+    private DetallesCalculados construirDetalles(List<DetalleCompraDTO> entradas, FormaPago formaPago,
+                                                 LocalDate fechaVisita, Long excluirCompraId,
+                                                 Map<Long, BigDecimal> preciosListaCongelados) {
         // Cupo diario por tipo: se suma lo ya vendido ese día (sin contar lo cancelado)
         // más lo que se está agregando ahora. Los regalos no tienen fecha todavía, así
         // que no hay contra qué día chequear el cupo.
@@ -915,9 +953,13 @@ public class CompraServiceImpl implements CompraService {
 
                 // RESERVA_ADMIN no cobra nada por acá: no tiene sentido pedirle un precio a
                 // calculoPrecioService (que sólo sabe de precio de lista/grupo para las formas de pago reales).
+                BigDecimal precioCongelado = preciosListaCongelados == null ? null : preciosListaCongelados.get(tipoId);
+                BigDecimal precioLista = precioCongelado != null ? precioCongelado : tipoEntrada.getPrecio();
                 BigDecimal totalLinea = BigDecimal.ZERO;
                 if (formaPago != FormaPago.RESERVA_ADMIN) {
-                    totalLinea = calculoPrecioService.calcularTotal(tipoEntrada, d.getCantidad(), formaPago);
+                    totalLinea = precioCongelado != null
+                            ? calculoPrecioService.calcularTotal(tipoEntrada, d.getCantidad(), formaPago, precioCongelado)
+                            : calculoPrecioService.calcularTotal(tipoEntrada, d.getCantidad(), formaPago);
                     montoTotal = montoTotal.add(totalLinea);
                 }
                 lineasEntrada.add(new CuponDescuentoCalculator.Linea(tipoId, d.getCantidad(), totalLinea));
@@ -925,6 +967,7 @@ public class CompraServiceImpl implements CompraService {
                 detalles.add(CompraDetalle.builder()
                         .tipoEntrada(tipoEntrada)
                         .cantidad(d.getCantidad())
+                        .precioUnitario(precioLista)
                         .build());
             }
         }
@@ -1192,8 +1235,12 @@ public class CompraServiceImpl implements CompraService {
 
         // Cupo del día contra la fecha de visita de la reserva, sin contar sus propias líneas
         // actuales (se están reemplazando, no sumando encima).
+        // El cliente paga lo que reservó, no lo que cueste hoy: las líneas se reprecian con el
+        // precio de lista que tenían al reservar (sigue cambiando por forma de pago: el
+        // escalón por grupo sólo existe en efectivo).
         DetallesCalculados calculoEntradas = construirDetalles(
-                request.getEntradas(), request.getFormaPago(), reserva.getFechaVisita(), reserva.getId());
+                request.getEntradas(), request.getFormaPago(), reserva.getFechaVisita(), reserva.getId(),
+                preciosListaReservados(reserva));
         DetallesCalculados calculoArticulos = construirLineasArticulos(request.getArticulos());
 
         List<CompraDetalle> todosLosDetalles = new ArrayList<>(calculoEntradas.detalles());
@@ -1203,7 +1250,15 @@ public class CompraServiceImpl implements CompraService {
         }
         validarPaseObligatorio(todosLosDetalles);
 
-        BigDecimal montoBruto = calculoEntradas.montoTotal().add(calculoArticulos.montoTotal());
+        // Si va a pagar lo mismo que reservó y en efectivo, se cobra exactamente el monto de la
+        // reserva (ya con el escalón por grupo y el cupón que tuviera), sin volver a evaluar
+        // escalones: son importes absolutos y pueden haber cambiado desde que reservó.
+        boolean mantienePrecioReservado = mantienePrecioReservado(reserva, request.getFormaPago(), request.getEntradas());
+        BigDecimal montoEntradas = mantienePrecioReservado ? reserva.getMontoTotal() : calculoEntradas.montoTotal();
+        BigDecimal descuentoPrevio = mantienePrecioReservado && reserva.getDescuentoAplicado() != null
+                ? reserva.getDescuentoAplicado() : BigDecimal.ZERO;
+
+        BigDecimal montoBruto = montoEntradas.add(calculoArticulos.montoTotal());
         BigDecimal descuento = calcularDescuentoPos(montoBruto, request.getPromocionId(),
                 request.getDescuentoManualPorcentaje(), request.getDescuentoManualMonto());
         BigDecimal montoFinal = montoBruto.subtract(descuento);
@@ -1224,7 +1279,7 @@ public class CompraServiceImpl implements CompraService {
             det.setCompra(reserva);
         }
         reserva.setMontoTotal(montoFinal);
-        reserva.setDescuentoAplicado(descuento);
+        reserva.setDescuentoAplicado(descuentoPrevio.add(descuento));
         reserva.setPromocion(promocionUsada);
         reserva.setFormaPago(request.getFormaPago());
         reserva.setFormaPagoSecundaria(request.getFormaPagoSecundaria());
@@ -1240,6 +1295,47 @@ public class CompraServiceImpl implements CompraService {
         }
 
         return compraRepository.save(reserva);
+    }
+
+    /**
+     * Precio de lista (tipoEntradaId -> precio) que tenía cada línea de entrada de la reserva
+     * cuando se reservó. Las líneas anteriores a ese dato no aparecen: usan el precio actual.
+     */
+    private Map<Long, BigDecimal> preciosListaReservados(Compra reserva) {
+        Map<Long, BigDecimal> precios = new HashMap<>();
+        if (reserva.getDetalles() == null) return precios;
+        for (CompraDetalle d : reserva.getDetalles()) {
+            if (d.getTipoEntrada() != null && d.getPrecioUnitario() != null) {
+                precios.put(d.getTipoEntrada().getId(), d.getPrecioUnitario());
+            }
+        }
+        return precios;
+    }
+
+    /**
+     * True si lo que se va a cobrar es exactamente lo reservado: pago en efectivo (la forma con
+     * la que se reservó) y las mismas entradas, misma cantidad por tipo. Ahí el monto es el de
+     * la reserva y no se recalcula. Una reserva con líneas de artículo propias no califica: su
+     * montoTotal las incluye y no se puede aislar la parte de entradas.
+     */
+    private boolean mantienePrecioReservado(Compra reserva, FormaPago formaPago, List<DetalleCompraDTO> entradas) {
+        if (formaPago != FormaPago.EFECTIVO_BOLETERIA || reserva.getFormaPago() != FormaPago.EFECTIVO_BOLETERIA
+                || reserva.getDetalles() == null || reserva.getMontoTotal() == null) {
+            return false;
+        }
+        Map<Long, Integer> reservadas = new HashMap<>();
+        for (CompraDetalle d : reserva.getDetalles()) {
+            if (d.getTipoEntrada() == null) return false;
+            reservadas.merge(d.getTipoEntrada().getId(), d.getCantidad(), Integer::sum);
+        }
+        Map<Long, Integer> pedidas = new HashMap<>();
+        if (entradas != null) {
+            for (DetalleCompraDTO d : entradas) {
+                if (d == null || d.getTipoEntradaId() == null || d.getCantidad() == null || d.getCantidad() <= 0) continue;
+                pedidas.merge(d.getTipoEntradaId(), d.getCantidad(), Integer::sum);
+            }
+        }
+        return !reservadas.isEmpty() && reservadas.equals(pedidas);
     }
 
     @Transactional

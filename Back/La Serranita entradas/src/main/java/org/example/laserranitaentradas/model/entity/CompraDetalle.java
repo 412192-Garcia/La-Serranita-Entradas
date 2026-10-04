@@ -49,9 +49,14 @@ public class CompraDetalle extends BaseEntity {
     private String descripcionLibre;
 
     /**
-     * Sólo para líneas de artículo (catálogo o libre): el precio unitario cargado al vender,
-     * congelado en la compra. Las líneas de entrada NUNCA lo usan — siguen derivando el
-     * precio en vivo de tipoEntrada.precio, sin cambios de comportamiento.
+     * Líneas de artículo (catálogo o libre): el precio unitario cargado al vender, congelado
+     * en la compra.
+     * Líneas de entrada: el precio de LISTA que tenía el tipo cuando se armó la compra. Sirve
+     * para que una reserva "a cobrar en boletería" se cobre al precio con el que se reservó
+     * aunque el tipo haya subido después (ver CompraServiceImpl#cobrarReservaComoVentaPos).
+     * Null en las compras anteriores a este campo: ahí se usa el precio actual del tipo, como
+     * siempre. Reportes y cierre de caja sólo lo usan como peso de reparto, nunca para
+     * recalcular lo cobrado (eso es montoTotal).
      */
     @Column(name = "precio_unitario")
     private BigDecimal precioUnitario;

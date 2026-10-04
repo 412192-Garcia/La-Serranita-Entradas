@@ -404,7 +404,8 @@ export class Pos implements OnInit, OnDestroy {
           fijas.push({
             tipoEntradaId: d.tipoEntrada.id,
             nombre: d.tipoEntrada.nombre,
-            precioUnitario: d.tipoEntrada.precio,
+            // El precio con el que se reservó; las reservas viejas sin ese dato usan el actual.
+            precioUnitario: d.precioUnitario ?? d.tipoEntrada.precio,
             cantidad: d.cantidad,
           });
         }

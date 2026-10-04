@@ -20,7 +20,12 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
 
     @Override
     public BigDecimal calcularTotal(TipoEntrada tipoEntrada, int cantidad, FormaPago formaPago) {
-        BigDecimal precioListaTotal = tipoEntrada.getPrecio().multiply(BigDecimal.valueOf(cantidad));
+        return calcularTotal(tipoEntrada, cantidad, formaPago, tipoEntrada.getPrecio());
+    }
+
+    @Override
+    public BigDecimal calcularTotal(TipoEntrada tipoEntrada, int cantidad, FormaPago formaPago, BigDecimal precioLista) {
+        BigDecimal precioListaTotal = precioLista.multiply(BigDecimal.valueOf(cantidad));
 
         if (formaPago == FormaPago.EFECTIVO_BOLETERIA) {
             Optional<DescuentoEfectivo> promo = descuentoEfectivoRepository
@@ -47,8 +52,13 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
 
     @Override
     public BigDecimal calcularAhorro(TipoEntrada tipoEntrada, int cantidad, FormaPago formaPago) {
-        BigDecimal totalLista = tipoEntrada.getPrecio().multiply(BigDecimal.valueOf(cantidad));
-        BigDecimal totalFinal = calcularTotal(tipoEntrada, cantidad, formaPago);
+        return calcularAhorro(tipoEntrada, cantidad, formaPago, tipoEntrada.getPrecio());
+    }
+
+    @Override
+    public BigDecimal calcularAhorro(TipoEntrada tipoEntrada, int cantidad, FormaPago formaPago, BigDecimal precioLista) {
+        BigDecimal totalLista = precioLista.multiply(BigDecimal.valueOf(cantidad));
+        BigDecimal totalFinal = calcularTotal(tipoEntrada, cantidad, formaPago, precioLista);
 
         return totalLista.subtract(totalFinal);
     }

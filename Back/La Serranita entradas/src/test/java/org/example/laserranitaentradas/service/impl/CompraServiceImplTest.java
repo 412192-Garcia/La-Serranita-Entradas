@@ -582,6 +582,157 @@ class CompraServiceImplTest {
         assertThat(resultado.getMontoTotal()).isEqualByComparingTo("260");
     }
 
+    // ---------- Reserva cobrada tras un aumento: el cliente paga lo que reservó ----------
+
+    private static final java.math.BigDecimal PRECIO_AL_RESERVAR = new java.math.BigDecimal("100");
+
+    private static java.math.BigDecimal igualA(String valor) {
+        return org.mockito.ArgumentMatchers.argThat(p -> p != null && p.compareTo(new java.math.BigDecimal(valor)) == 0);
+    }
+
+    /** Reserva de 2 General hecha cuando valía 100 y con escalón de grupo (total 180); el tipo hoy vale 150. */
+    private Compra reservaAntesDelAumento(Long id) {
+        org.example.laserranitaentradas.model.entity.TipoEntrada generalAumentado = org.example.laserranitaentradas.model.entity.TipoEntrada.builder()
+                .id(1L).nombre("General").tipo(org.example.laserranitaentradas.model.entity.Tipo.ENTRADA)
+                .obligatorio(true).precio(new java.math.BigDecimal("150")).build();
+        lenient().when(tipoEntradaService.findById(1L)).thenReturn(Optional.of(generalAumentado));
+        Compra reserva = reservaEfectivo(id);
+        reserva.setMontoTotal(new java.math.BigDecimal("180"));
+        reserva.getDetalles().get(0).setTipoEntrada(generalAumentado);
+        reserva.getDetalles().get(0).setPrecioUnitario(PRECIO_AL_RESERVAR);
+        when(compraRepository.findById(id)).thenReturn(Optional.of(reserva));
+        // Cálculo "de hoy" en efectivo (escalones cambiados): nunca debería ser lo que se cobra
+        // cuando la reserva se paga igual que como se reservó.
+        lenient().when(calculoPrecioService.calcularTotal(any(), org.mockito.ArgumentMatchers.eq(2),
+                        org.mockito.ArgumentMatchers.eq(FormaPago.EFECTIVO_BOLETERIA), igualA("100")))
+                .thenReturn(new java.math.BigDecimal("190"));
+        lenient().when(calculoPrecioService.calcularAhorro(any(), org.mockito.ArgumentMatchers.eq(2),
+                        org.mockito.ArgumentMatchers.eq(FormaPago.EFECTIVO_BOLETERIA), igualA("100")))
+                .thenReturn(new java.math.BigDecimal("10"));
+        return reserva;
+    }
+
+    @Test
+    void registrarVentaPos_reservaEnEfectivoSinCambios_cobraElMontoReservadoAunqueHayaSubidoElPrecio() {
+        mockearVentaPosBasica();
+        reservaAntesDelAumento(50L);
+        // Aunque hoy el cálculo da 190 (escalones cambiados), se cobra lo reservado: 180.
+
+        var request = ventaPosBasica();
+        request.setCompraReservadaId(50L);
+        request.setFormaPago(FormaPago.EFECTIVO_BOLETERIA);
+
+        Compra resultado = service.registrarVentaPos(request, 9L);
+
+        assertThat(resultado.getMontoTotal()).isEqualByComparingTo("180");
+        assertThat(resultado.getEstado()).isEqualTo(EstadoCompra.USADO);
+    }
+
+    @Test
+    void registrarVentaPos_reservaCobradaConTarjeta_usaElPrecioDeListaDeCuandoSeReservo() {
+        mockearVentaPosBasica();
+        reservaAntesDelAumento(50L);
+        // Sin escalón por grupo: 2 x 100 (el precio al reservar), no 2 x 150 (el de hoy).
+        when(calculoPrecioService.calcularTotal(any(), org.mockito.ArgumentMatchers.eq(2),
+                        org.mockito.ArgumentMatchers.eq(FormaPago.TARJETA), igualA("100")))
+                .thenReturn(new java.math.BigDecimal("200"));
+
+        var request = ventaPosBasica();
+        request.setCompraReservadaId(50L);
+        request.setFormaPago(FormaPago.TARJETA);
+
+        Compra resultado = service.registrarVentaPos(request, 9L);
+
+        assertThat(resultado.getMontoTotal()).isEqualByComparingTo("200");
+    }
+
+    @Test
+    void registrarVentaPos_reservaEnEfectivoConOtraCantidad_noReusaElMontoReservadoPeroSiElPrecioDeLista() {
+        mockearVentaPosBasica();
+        reservaAntesDelAumento(50L);
+        when(calculoPrecioService.calcularTotal(any(), org.mockito.ArgumentMatchers.eq(3),
+                        org.mockito.ArgumentMatchers.eq(FormaPago.EFECTIVO_BOLETERIA), igualA("100")))
+                .thenReturn(new java.math.BigDecimal("270"));
+
+        var request = ventaPosBasica();
+        request.getEntradas().get(0).setCantidad(3);
+        request.setCompraReservadaId(50L);
+        request.setFormaPago(FormaPago.EFECTIVO_BOLETERIA);
+
+        Compra resultado = service.registrarVentaPos(request, 9L);
+
+        assertThat(resultado.getMontoTotal()).isEqualByComparingTo("270");
+    }
+
+    @Test
+    void registrarVentaPos_reservaEnEfectivoSinCambios_conservaElDescuentoDelCuponYSumaElDelPos() {
+        mockearVentaPosBasica();
+        Compra reserva = reservaAntesDelAumento(50L);
+        reserva.setMontoTotal(new java.math.BigDecimal("160"));          // 180 - cupón de 20
+        reserva.setDescuentoAplicado(new java.math.BigDecimal("20"));
+        var request = ventaPosBasica();
+        request.setCompraReservadaId(50L);
+        request.setFormaPago(FormaPago.EFECTIVO_BOLETERIA);
+        request.setDescuentoManualMonto(new java.math.BigDecimal("10"));
+
+        Compra resultado = service.registrarVentaPos(request, 9L);
+
+        assertThat(resultado.getMontoTotal()).isEqualByComparingTo("150");
+        assertThat(resultado.getDescuentoAplicado()).isEqualByComparingTo("30");
+    }
+
+    @Test
+    void registrarVentaPos_laLineaCobradaGuardaElPrecioDeListaCongelado() {
+        mockearVentaPosBasica();
+        reservaAntesDelAumento(50L);
+        lenient().when(calculoPrecioService.calcularTotal(any(), org.mockito.ArgumentMatchers.eq(2),
+                        org.mockito.ArgumentMatchers.eq(FormaPago.TARJETA), igualA("100")))
+                .thenReturn(new java.math.BigDecimal("200"));
+        var request = ventaPosBasica();
+        request.setCompraReservadaId(50L);
+        request.setFormaPago(FormaPago.TARJETA);
+
+        Compra resultado = service.registrarVentaPos(request, 9L);
+
+        assertThat(resultado.getDetalles()).hasSize(1);
+        assertThat(resultado.getDetalles().get(0).getPrecioUnitario()).isEqualByComparingTo("100");
+    }
+
+    @Test
+    void cotizar_reservaEnEfectivoSinCambios_devuelveElMontoReservado() {
+        mockearVentaPosBasica();
+        reservaAntesDelAumento(50L);
+        var request = new org.example.laserranitaentradas.model.dto.CotizacionRequestDTO();
+        request.setFormaPago(FormaPago.EFECTIVO_BOLETERIA);
+        request.setEntradas(ventaPosBasica().getEntradas());
+        request.setCompraReservadaId(50L);
+
+        var cotizacion = service.cotizar(request);
+
+        assertThat(cotizacion.getSubtotal()).isEqualByComparingTo("180");
+        assertThat(cotizacion.getAhorro()).isEqualByComparingTo("20"); // lista congelada 200 - 180
+    }
+
+    @Test
+    void cotizar_reservaConTarjeta_usaElPrecioDeListaCongelado() {
+        mockearVentaPosBasica();
+        reservaAntesDelAumento(50L);
+        when(calculoPrecioService.calcularTotal(any(), org.mockito.ArgumentMatchers.eq(2),
+                        org.mockito.ArgumentMatchers.eq(FormaPago.TARJETA), igualA("100")))
+                .thenReturn(new java.math.BigDecimal("200"));
+        when(calculoPrecioService.calcularAhorro(any(), org.mockito.ArgumentMatchers.eq(2),
+                        org.mockito.ArgumentMatchers.eq(FormaPago.TARJETA), igualA("100")))
+                .thenReturn(java.math.BigDecimal.ZERO);
+        var request = new org.example.laserranitaentradas.model.dto.CotizacionRequestDTO();
+        request.setFormaPago(FormaPago.TARJETA);
+        request.setEntradas(ventaPosBasica().getEntradas());
+        request.setCompraReservadaId(50L);
+
+        var cotizacion = service.cotizar(request);
+
+        assertThat(cotizacion.getSubtotal()).isEqualByComparingTo("200");
+    }
+
     // ---------- Cola offline: reintentar no puede cobrar dos veces ----------
 
     @Test

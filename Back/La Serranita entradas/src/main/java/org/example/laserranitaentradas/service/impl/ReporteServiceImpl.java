@@ -337,8 +337,12 @@ public class ReporteServiceImpl implements ReporteService {
                 BigDecimal brutoCompra = BigDecimal.ZERO;
                 for (CompraDetalle detalle : detallesCompra) {
                     BigDecimal bruto = detalle.getTipoEntrada() != null
-                            ? calculoPrecioService.calcularTotal(
-                                    detalle.getTipoEntrada(), detalle.getCantidad(), compra.getFormaPago())
+                            ? (detalle.getPrecioUnitario() != null
+                                    ? calculoPrecioService.calcularTotal(
+                                            detalle.getTipoEntrada(), detalle.getCantidad(), compra.getFormaPago(),
+                                            detalle.getPrecioUnitario())
+                                    : calculoPrecioService.calcularTotal(
+                                            detalle.getTipoEntrada(), detalle.getCantidad(), compra.getFormaPago()))
                             : (detalle.getPrecioUnitario() != null
                                     ? detalle.getPrecioUnitario().multiply(BigDecimal.valueOf(detalle.getCantidad()))
                                     : BigDecimal.ZERO);
