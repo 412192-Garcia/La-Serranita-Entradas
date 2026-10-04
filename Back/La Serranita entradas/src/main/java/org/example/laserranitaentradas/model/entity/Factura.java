@@ -37,9 +37,10 @@ public class Factura extends BaseEntity {
     private Long id;
 
     /** Una compra puede tener varios comprobantes: la factura, su nota de crédito si se canceló,
-     * y una factura nueva si se editó el monto. */
+     * y una factura nueva si se editó el monto. Null en una factura manual (Acciones > Facturación
+     * manual) y en su nota de crédito: no hay venta detrás. */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "id_compra", nullable = false)
+    @JoinColumn(name = "id_compra")
     private Compra compra;
 
     /** Sólo en una nota de crédito: la factura que anula (va en CbtesAsoc del pedido a ARCA). */

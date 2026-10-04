@@ -2,7 +2,7 @@ import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
-import { Factura, FacturacionPos, ImpresoraConectada, VentaFactura } from '../models/factura';
+import { Factura, FacturaManualPedido, FacturacionPos, ImpresoraConectada, VentaFactura } from '../models/factura';
 
 const CLAVE_HABILITADA = 'facturacion-habilitada';
 
@@ -72,6 +72,21 @@ export class FacturaService {
   /** El PDF de la factura (pasa por el interceptor del token, por eso no es un link directo). */
   pdf(facturaId: number): Observable<Blob> {
     return this.http.get(`${this.url}/${facturaId}/pdf`, { responseType: 'blob' });
+  }
+
+  /** Factura B sin venta, con los ítems e importes que cargó el admin. */
+  emitirManual(pedido: FacturaManualPedido): Observable<Factura> {
+    return this.http.post<Factura>(`${this.url}/manual`, pedido);
+  }
+
+  /** Las últimas 50 facturas manuales. */
+  manuales(): Observable<Factura[]> {
+    return this.http.get<Factura[]>(`${this.url}/manuales`);
+  }
+
+  /** Anula una factura manual con su nota de crédito. */
+  anularManual(facturaId: number): Observable<void> {
+    return this.http.post<void>(`${this.url}/${facturaId}/anular`, null);
   }
 
   private leerHabilitadaGuardada(): boolean {

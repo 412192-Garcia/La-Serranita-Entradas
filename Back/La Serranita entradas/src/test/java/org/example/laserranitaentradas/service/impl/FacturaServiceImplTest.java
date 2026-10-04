@@ -296,6 +296,92 @@ class FacturaServiceImplTest {
         assertThat(f.getProximoIntento()).isNotNull();
     }
 
+    // ---------- factura manual ----------
+
+    private static org.example.laserranitaentradas.model.dto.FacturaManualDTO.Item item(String tipo, int cant, String desc, String subtotal) {
+        return new org.example.laserranitaentradas.model.dto.FacturaManualDTO.Item(tipo, cant, desc, new BigDecimal(subtotal));
+    }
+
+    private static org.example.laserranitaentradas.model.dto.FacturaManualDTO manual(DestinoFactura destino, String email,
+            org.example.laserranitaentradas.model.dto.FacturaManualDTO.Item... items) {
+        return new org.example.laserranitaentradas.model.dto.FacturaManualDTO(List.of(items), destino, email, null);
+    }
+
+    @Test
+    void manual_sinVenta_conLosItemsEImportesCargados() {
+        var r = service.emitirManual(manual(DestinoFactura.NINGUNO, null,
+                item("ENTRADA", 3, "General", "90000"), item("LIBRE", 1, "Uso del quincho\tgrupo", "21000")));
+
+        ArgumentCaptor<Factura> captor = ArgumentCaptor.forClass(Factura.class);
+        verify(facturaRepository).save(captor.capture());
+        Factura f = captor.getValue();
+        assertThat(f.getCompra()).isNull();
+        assertThat(f.getImporteTotal()).isEqualByComparingTo("111000");
+        assertThat(f.getImporteNeto()).isEqualByComparingTo("91735.54");
+        assertThat(f.getImporteIva()).isEqualByComparingTo("19264.46");
+        assertThat(f.getPuntoVenta()).isEqualTo(5);
+        assertThat(f.getConcepto()).isEqualTo(2); // entradas y texto libre = servicios
+        // El tab de la descripción no rompe el formato de las líneas.
+        assertThat(f.getDetalle()).isEqualTo("3\tGeneral\t90000.00\n1\tUso del quincho grupo\t21000.00");
+        assertThat(r.getCompraId()).isNull();
+        verify(eventPublisher).publishEvent(any(FacturaServiceImpl.FacturaSolicitadaEvent.class));
+    }
+
+    @Test
+    void manual_conArticulos_esConceptoProductosYServicios() {
+        service.emitirManual(manual(DestinoFactura.NINGUNO, null,
+                item("ENTRADA", 1, "General", "30000"), item("ARTICULO", 2, "Gorra", "10000")));
+
+        ArgumentCaptor<Factura> captor = ArgumentCaptor.forClass(Factura.class);
+        verify(facturaRepository).save(captor.capture());
+        assertThat(captor.getValue().getConcepto()).isEqualTo(3);
+    }
+
+    @Test
+    void manual_validaciones() {
+        assertThatThrownBy(() -> service.emitirManual(manual(DestinoFactura.NINGUNO, null)))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> service.emitirManual(manual(DestinoFactura.NINGUNO, null, item("LIBRE", 1, "  ", "100"))))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> service.emitirManual(manual(DestinoFactura.NINGUNO, null, item("LIBRE", 1, "Algo", "0"))))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> service.emitirManual(manual(DestinoFactura.NINGUNO, null, item("LIBRE", 0, "Algo", "10"))))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> service.emitirManual(manual(DestinoFactura.MAIL, "no-es-mail", item("LIBRE", 1, "Algo", "10"))))
+                .isInstanceOf(IllegalArgumentException.class);
+        verify(facturaRepository, never()).save(any());
+    }
+
+    @Test
+    void manual_sinFacturacionConfigurada_error() {
+        when(afipClient.estaConfigurado()).thenReturn(false);
+
+        assertThatThrownBy(() -> service.emitirManual(manual(DestinoFactura.NINGUNO, null, item("LIBRE", 1, "Algo", "10"))))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void anularManual_emiteNotaDeCredito() {
+        Factura f = emitida();
+        f.setCompra(null);
+        when(facturaRepository.findById(10L)).thenReturn(Optional.of(f));
+
+        service.anularManual(10L);
+
+        Factura nc = capturarGuardadas().stream().filter(x -> x.getTipoComprobante() == 8).findFirst().orElseThrow();
+        assertThat(nc.getComprobanteAsociado()).isSameAs(f);
+        assertThat(nc.getCompra()).isNull();
+        assertThat(nc.getDestino()).isEqualTo(DestinoFactura.NINGUNO);
+    }
+
+    @Test
+    void anularManual_deUnaVenta_rechazado() {
+        when(facturaRepository.findById(10L)).thenReturn(Optional.of(emitida()));
+
+        assertThatThrownBy(() -> service.anularManual(10L)).isInstanceOf(IllegalStateException.class);
+        verify(facturaRepository, never()).save(any());
+    }
+
     // ---------- numeración: en producción sale de la base ----------
 
     @Test

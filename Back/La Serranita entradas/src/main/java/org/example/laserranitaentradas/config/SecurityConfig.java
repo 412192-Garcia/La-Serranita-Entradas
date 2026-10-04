@@ -80,6 +80,9 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.PUT, "/api/interno/compras/*/editar-venta").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/interno/compras/caja/*/venta-pos").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/interno/facturas/*/reintentar").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.POST, "/api/interno/facturas/manual").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.GET, "/api/interno/facturas/manuales").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.POST, "/api/interno/facturas/*/anular").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/interno/facturas/*/reenviar-mail").hasRole("ADMIN")
                 // Devuelve plata real por la API de Mercado Pago: la UI ya lo muestra sólo al admin.
                 .requestMatchers(HttpMethod.POST, "/api/interno/compras/*/reembolsar").hasRole("ADMIN")

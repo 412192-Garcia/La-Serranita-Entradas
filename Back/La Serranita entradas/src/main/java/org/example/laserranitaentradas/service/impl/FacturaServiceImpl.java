@@ -1,5 +1,6 @@
 package org.example.laserranitaentradas.service.impl;
 
+import org.example.laserranitaentradas.model.dto.FacturaManualDTO;
 import org.example.laserranitaentradas.model.dto.FacturaResponseDTO;
 import org.example.laserranitaentradas.model.dto.FacturacionPosDTO;
 import org.example.laserranitaentradas.model.entity.Compra;
@@ -26,6 +27,7 @@ import org.springframework.stereotype.Service;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
@@ -668,6 +670,99 @@ public class FacturaServiceImpl implements FacturaService {
         return pdfGenerator.generar(comprobanteFacturaService.armar(facturaId));
     }
 
+    private static final int MAX_ITEMS_MANUAL = 30;
+    private static final int MAX_DESCRIPCION_MANUAL = 80;
+
+    @Override
+    @Transactional
+    public FacturaResponseDTO emitirManual(FacturaManualDTO pedido) {
+        if (!estaHabilitada()) {
+            throw new IllegalStateException("La facturación no está configurada");
+        }
+        if (pedido == null || pedido.items() == null || pedido.items().isEmpty()) {
+            throw new IllegalArgumentException("Cargá al menos un ítem");
+        }
+        if (pedido.items().size() > MAX_ITEMS_MANUAL) {
+            throw new IllegalArgumentException("Máximo " + MAX_ITEMS_MANUAL + " ítems por factura");
+        }
+        DestinoFactura destino = pedido.destino() == null ? DestinoFactura.NINGUNO : pedido.destino();
+        String email = pedido.email() == null ? null : pedido.email().trim();
+        if (destino == DestinoFactura.MAIL && (email == null || !email.matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$"))) {
+            throw new IllegalArgumentException("El email para enviar la factura no es válido");
+        }
+
+        StringBuilder detalle = new StringBuilder();
+        BigDecimal total = BigDecimal.ZERO;
+        boolean hayServicio = false;
+        boolean hayProducto = false;
+        for (FacturaManualDTO.Item item : pedido.items()) {
+            if (item == null || item.cantidad() == null || item.cantidad() < 1 || item.cantidad() > 9999) {
+                throw new IllegalArgumentException("Cada ítem necesita una cantidad entre 1 y 9999");
+            }
+            String descripcion = item.descripcion() == null ? "" : item.descripcion().replaceAll("[\\t\\r\\n]+", " ").trim();
+            if (descripcion.isEmpty()) {
+                throw new IllegalArgumentException("Cada ítem necesita una descripción");
+            }
+            if (descripcion.length() > MAX_DESCRIPCION_MANUAL) {
+                throw new IllegalArgumentException("La descripción \"" + descripcion.substring(0, 20) + "…\" es muy larga (máximo "
+                        + MAX_DESCRIPCION_MANUAL + " caracteres)");
+            }
+            if (item.subtotal() == null || item.subtotal().signum() <= 0) {
+                throw new IllegalArgumentException("El importe de \"" + descripcion + "\" tiene que ser mayor a cero");
+            }
+            BigDecimal subtotal = item.subtotal().setScale(2, RoundingMode.HALF_UP);
+            total = total.add(subtotal);
+            if ("ARTICULO".equalsIgnoreCase(item.tipo())) hayProducto = true;
+            else hayServicio = true;
+            if (detalle.length() > 0) detalle.append('\n');
+            detalle.append(item.cantidad()).append('\t').append(descripcion).append('\t').append(subtotal.toPlainString());
+        }
+        if (detalle.length() > 2000) {
+            throw new IllegalArgumentException("Demasiado texto en los ítems: acortá las descripciones o dividí la factura");
+        }
+
+        BigDecimal neto = total.divide(DIVISOR_IVA_21, 2, RoundingMode.HALF_UP);
+        Factura factura = facturaRepository.save(Factura.builder()
+                .destino(destino)
+                .email(destino == DestinoFactura.MAIL ? email : null)
+                .impresora(destino == DestinoFactura.IMPRIMIR ? pedido.impresora() : null)
+                .puntoVenta(puntoVentaBoleteria)
+                .tipoComprobante(WsfeService.CBTE_TIPO_FACTURA_B)
+                .concepto(hayServicio && hayProducto ? CONCEPTO_PRODUCTOS_Y_SERVICIOS
+                        : hayProducto ? CONCEPTO_PRODUCTOS : CONCEPTO_SERVICIOS)
+                .fechaServicio(LocalDate.now())
+                .importeTotal(total)
+                .importeNeto(neto)
+                .importeIva(total.subtract(neto))
+                .detalle(detalle.toString())
+                .build());
+        log.info("Factura manual ID {} pedida por {} ({} ítems)", factura.getId(), total, pedido.items().size());
+        eventPublisher.publishEvent(new FacturaSolicitadaEvent(factura.getId()));
+        return toDto(factura);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<FacturaResponseDTO> manuales() {
+        List<Factura> facturas = facturaRepository.findTop50ByCompraIsNullAndTipoComprobanteOrderByIdDesc(WsfeService.CBTE_TIPO_FACTURA_B);
+        Map<Long, TrabajoImpresion> trabajos = impresionService.ultimosTrabajos(facturas.stream().map(Factura::getId).toList());
+        return facturas.stream().map(f -> toDto(f, Optional.ofNullable(trabajos.get(f.getId())))).toList();
+    }
+
+    @Override
+    @Transactional
+    public void anularManual(Long facturaId) {
+        Factura f = facturaRepository.findById(facturaId)
+                .orElseThrow(() -> new IllegalArgumentException("Factura no encontrada ID: " + facturaId));
+        if (f.getCompra() != null || f.getTipoComprobante() != WsfeService.CBTE_TIPO_FACTURA_B) {
+            throw new IllegalStateException("Sólo se anulan desde acá las facturas manuales (las de una venta se anulan cancelando la venta)");
+        }
+        if (f.getEstado() == EstadoFactura.ANULADA || Boolean.TRUE.equals(f.getAnulacionPedida())) {
+            throw new IllegalStateException("Esta factura ya está anulada");
+        }
+        anular(f);
+    }
+
     @Override
     public Optional<FacturaResponseDTO> obtenerPorCompra(Long compraId) {
         return facturaRepository.findFirstByCompraIdAndTipoComprobanteOrderByIdDesc(compraId, WsfeService.CBTE_TIPO_FACTURA_B)
@@ -706,7 +801,7 @@ public class FacturaServiceImpl implements FacturaService {
     private FacturaResponseDTO toDto(Factura f, Optional<TrabajoImpresion> ultimo) {
         return FacturaResponseDTO.builder()
                 .id(f.getId())
-                .compraId(f.getCompra().getId())
+                .compraId(f.getCompra() != null ? f.getCompra().getId() : null)
                 .estado(f.getEstado())
                 .destino(f.getDestino())
                 .email(f.getEmail())
@@ -726,6 +821,7 @@ public class FacturaServiceImpl implements FacturaService {
                 .qrUrl(comprobanteFacturaService.qrUrl(f))
                 .impresionEstado(ultimo.map(TrabajoImpresion::getEstado).orElse(null))
                 .impresionError(ultimo.map(TrabajoImpresion::getError).orElse(null))
+                .detalle(f.getDetalle())
                 .build();
     }
 

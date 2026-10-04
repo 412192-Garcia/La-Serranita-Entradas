@@ -112,7 +112,8 @@ public class VentasFacturasService {
         Factura factura = facturaRepository.findById(facturaId)
                 .orElseThrow(() -> new IllegalArgumentException("Factura no encontrada ID: " + facturaId));
         if (operador.rol() == RolUsuario.ADMIN) return factura;
-        Caja caja = factura.getCompra().getCaja();
+        // Las manuales (sin venta) y las de compras online (sin caja): sólo un admin.
+        Caja caja = factura.getCompra() != null ? factura.getCompra().getCaja() : null;
         if (caja == null) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Sólo podés ver las facturas de tu propia caja");
         }

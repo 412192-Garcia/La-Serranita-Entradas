@@ -265,7 +265,7 @@ public class EmailServiceImpl implements EmailService {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("facturaId", facturaId);
         facturaRepository.findById(facturaId).ifPresent(f -> {
-            payload.put("compraId", f.getCompra().getId());
+            payload.put("compraId", f.getCompra() != null ? f.getCompra().getId() : null);
             payload.put("email", f.getEmail());
         });
         payload.put("detalleTecnico", causa.getMessage());

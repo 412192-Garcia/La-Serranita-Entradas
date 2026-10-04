@@ -44,6 +44,18 @@ public interface FacturaService {
 
     Optional<FacturaResponseDTO> obtenerPorCompra(Long compraId);
 
+    /**
+     * Factura B manual, sin venta (Acciones > Facturación manual): los ítems e importes que cargó el
+     * admin. Se emite cuando commitea la transacción, como cualquier otra.
+     */
+    FacturaResponseDTO emitirManual(org.example.laserranitaentradas.model.dto.FacturaManualDTO pedido);
+
+    /** Las últimas facturas manuales, con su estado (incluida la anulación). */
+    java.util.List<FacturaResponseDTO> manuales();
+
+    /** Anula una factura manual: nota de crédito B por el total (o anulada, si no llegó a ARCA). */
+    void anularManual(Long facturaId);
+
     /** La factura B más reciente de cada compra, en dos consultas en vez de dos por compra. */
     java.util.Map<Long, FacturaResponseDTO> obtenerPorCompras(java.util.Collection<Long> compraIds);
 
