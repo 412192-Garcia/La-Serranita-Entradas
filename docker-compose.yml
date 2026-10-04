@@ -86,6 +86,12 @@ services:
       IMPRESION_AGENTE_TOKEN: ${IMPRESION_AGENTE_TOKEN:-}
       IMPRESION_QR_MODO: ${IMPRESION_QR_MODO:-nativo}
       IMPRESION_QR_PUNTOS: ${IMPRESION_QR_PUNTOS:-6}
+    volumes:
+      # Certificado y clave de ARCA (carpeta afip/ al lado de este archivo, sólo lectura). Con
+      # AFIP_CERT=/run/afip/certificado.crt y AFIP_KEY=/run/afip/clave.key. Si la carpeta no
+      # existe, Docker la crea vacía y no pasa nada. El backend corre como el usuario "app" del
+      # contenedor: la clave tiene que ser legible por él (ver .env.example).
+      - ./afip:/run/afip:ro
     # Sin ports: acá a propósito — en producción no hace falta, Caddy llega por la red
     # interna, y publicarlo en el host lo deja accesible desde internet salteando el
     # HTTPS. Para acceso directo en desarrollo local, ver docker-compose.override.yml.example.

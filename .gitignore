@@ -14,3 +14,6 @@ caddy-extra/*.caddy
 # Artefactos de compilación que se colaron alguna vez desde la raíz
 *.class
 /com/
+
+# Certificado y clave de ARCA: nunca al repo.
+/afip/

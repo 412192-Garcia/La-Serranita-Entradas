@@ -296,6 +296,70 @@ class FacturaServiceImplTest {
         assertThat(f.getProximoIntento()).isNotNull();
     }
 
+    // ---------- numeración: en producción sale de la base ----------
+
+    @Test
+    void produccion_numeroDeLaBase_unSoloRequestPorFactura() {
+        when(afipClient.esProduccion()).thenReturn(true);
+        Factura f = pendiente();
+        when(facturaRepository.findById(10L)).thenReturn(Optional.of(f));
+        when(facturaRepository.ultimoNumeroEmitido(5, 6)).thenReturn(41L);
+        when(wsfe.solicitarCae(any())).thenReturn(new WsfeService.ResultadoCae(true, "1", LocalDate.now(), List.of(), List.of()));
+
+        service.emitir(10L);
+
+        assertThat(f.getNumero()).isEqualTo(42L);
+        verify(wsfe, never()).ultimoAutorizado(anyInt(), anyInt());
+    }
+
+    @Test
+    void produccion_primeraFactura_lePreguntaAArca() {
+        when(afipClient.esProduccion()).thenReturn(true);
+        Factura f = pendiente();
+        when(facturaRepository.findById(10L)).thenReturn(Optional.of(f));
+        when(facturaRepository.ultimoNumeroEmitido(5, 6)).thenReturn(null);
+        when(wsfe.ultimoAutorizado(5, 6)).thenReturn(41L);
+        when(wsfe.solicitarCae(any())).thenReturn(new WsfeService.ResultadoCae(true, "1", LocalDate.now(), List.of(), List.of()));
+
+        service.emitir(10L);
+
+        assertThat(f.getNumero()).isEqualTo(42L);
+    }
+
+    @Test
+    void produccion_baseDesfasada_reintentaEnseguidaConElNumeroDeArca() {
+        when(afipClient.esProduccion()).thenReturn(true);
+        Factura f = pendiente();
+        when(facturaRepository.findById(10L)).thenReturn(Optional.of(f));
+        when(facturaRepository.ultimoNumeroEmitido(5, 6)).thenReturn(30L);
+        when(wsfe.ultimoAutorizado(5, 6)).thenReturn(41L);
+        when(wsfe.solicitarCae(any()))
+                .thenReturn(new WsfeService.ResultadoCae(false, null, null, List.of("10016 - no es el proximo"), List.of(10016)))
+                .thenReturn(new WsfeService.ResultadoCae(true, "1", LocalDate.now(), List.of(), List.of()));
+
+        service.emitir(10L);
+
+        ArgumentCaptor<WsfeService.SolicitudCae> captor = ArgumentCaptor.forClass(WsfeService.SolicitudCae.class);
+        verify(wsfe, times(2)).solicitarCae(captor.capture());
+        assertThat(captor.getAllValues()).extracting(WsfeService.SolicitudCae::numero).containsExactly(31L, 42L);
+        assertThat(f.getEstado()).isEqualTo(EstadoFactura.EMITIDA);
+        assertThat(f.getNumero()).isEqualTo(42L);
+    }
+
+    @Test
+    void homologacion_siempreLePreguntaAArca_porqueElCuitEsCompartido() {
+        Factura f = pendiente();
+        when(facturaRepository.findById(10L)).thenReturn(Optional.of(f));
+        when(facturaRepository.ultimoNumeroEmitido(5, 6)).thenReturn(99L);
+        when(wsfe.ultimoAutorizado(5, 6)).thenReturn(41L);
+        when(wsfe.solicitarCae(any())).thenReturn(new WsfeService.ResultadoCae(true, "1", LocalDate.now(), List.of(), List.of()));
+
+        service.emitir(10L);
+
+        assertThat(f.getNumero()).isEqualTo(42L);
+        verify(facturaRepository, never()).ultimoNumeroEmitido(any(), any());
+    }
+
     @Test
     void emitir_yaEmitida_noHaceNada() {
         Factura f = pendiente();

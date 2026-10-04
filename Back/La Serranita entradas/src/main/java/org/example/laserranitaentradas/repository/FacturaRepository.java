@@ -42,6 +42,10 @@ public interface FacturaRepository extends JpaRepository<Factura, Long> {
     @Query("UPDATE Factura f SET f.email = :email, f.mailEnviadoEn = :momento WHERE f.id = :id")
     int marcarMailEnviadoA(@Param("id") Long id, @Param("email") String email, @Param("momento") LocalDateTime momento);
 
+    /** El número más alto autorizado de ese punto de venta y tipo (null si todavía no hay ninguno). */
+    @Query("SELECT MAX(f.numero) FROM Factura f WHERE f.puntoVenta = :pv AND f.tipoComprobante = :tipo AND f.numero IS NOT NULL")
+    Long ultimoNumeroEmitido(@Param("pv") Integer puntoVenta, @Param("tipo") Integer tipoComprobante);
+
     /** Las facturas B de varias compras de una vez (la ventana "Ventas y facturas"). */
     List<Factura> findByCompraIdInAndTipoComprobante(Collection<Long> compraIds, Integer tipoComprobante);
 

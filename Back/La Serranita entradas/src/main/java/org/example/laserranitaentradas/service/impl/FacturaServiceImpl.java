@@ -405,46 +405,63 @@ public class FacturaServiceImpl implements FacturaService {
             }
 
             resolverReservasDeOtras(pv, tipo, id);
-            long numero = wsfe.ultimoAutorizado(pv, tipo) + 1;
-            LocalDate fecha = LocalDate.now();
-            // Se reserva el número ANTES de pedir el CAE, en su propia transacción y con la fila
-            // bloqueada: si la respuesta se pierde, el próximo intento sabe qué número consultar.
-            // Y si mientras se consultaba el último número la venta se canceló, acá se ve y no se
-            // pide nada (antes se reservaba igual y se autorizaba la factura de una venta cancelada).
-            boolean reservado = Boolean.TRUE.equals(tx.execute(s -> bloquear(id).map(f -> {
-                if (f.getEstado() != EstadoFactura.PENDIENTE || Boolean.TRUE.equals(f.getAnulacionPedida())) {
-                    return false;
+            // Primer intento con el número que sale de la base (en producción); si ARCA lo rechaza
+            // por no ser el próximo, un segundo intento enseguida con el que informa ARCA.
+            boolean preguntarAArca = false;
+            for (int intento = 1; intento <= 2; intento++) {
+                Numero proximo = proximoNumero(pv, tipo, preguntarAArca);
+                long numero = proximo.valor();
+                LocalDate fecha = LocalDate.now();
+                // Se reserva el número ANTES de pedir el CAE, en su propia transacción y con la fila
+                // bloqueada: si la respuesta se pierde, el próximo intento sabe qué número consultar.
+                // Y si mientras se consultaba el último número la venta se canceló, acá se ve y no se
+                // pide nada (antes se reservaba igual y se autorizaba la factura de una venta cancelada).
+                boolean reservado = Boolean.TRUE.equals(tx.execute(st -> bloquear(id).map(f -> {
+                    if (f.getEstado() != EstadoFactura.PENDIENTE || Boolean.TRUE.equals(f.getAnulacionPedida())) {
+                        return false;
+                    }
+                    f.setNumeroIntentado(numero);
+                    f.setFechaEmision(fecha);
+                    facturaRepository.save(f);
+                    return true;
+                }).orElse(false)));
+                if (!reservado) {
+                    log.info("Factura ID {}: la venta se canceló o cambió mientras se emitía, no se pide CAE", id);
+                    marcarAnulada(id);
+                    return;
                 }
-                f.setNumeroIntentado(numero);
-                f.setFechaEmision(fecha);
-                facturaRepository.save(f);
-                return true;
-            }).orElse(false)));
-            if (!reservado) {
-                log.info("Factura ID {}: la venta se canceló o cambió mientras se emitía, no se pide CAE", id);
-                marcarAnulada(id);
-                return;
-            }
 
-            WsfeService.ResultadoCae resultado = wsfe.solicitarCae(new WsfeService.SolicitudCae(
-                    pv, tipo, factura.getConcepto(), numero, fecha, factura.getFechaServicio(),
-                    factura.getImporteTotal(), factura.getImporteNeto(), factura.getImporteIva(),
-                    asociado(factura)));
+                WsfeService.ResultadoCae resultado = wsfe.solicitarCae(new WsfeService.SolicitudCae(
+                        pv, tipo, factura.getConcepto(), numero, fecha, factura.getFechaServicio(),
+                        factura.getImporteTotal(), factura.getImporteNeto(), factura.getImporteIva(),
+                        asociado(factura)));
 
-            if (resultado.aprobado()) {
-                marcarEmitida(id, numero, resultado.cae(), resultado.caeVencimiento(), fecha);
-                log.info("Comprobante ID {} (tipo {}) emitido: {}-{} CAE {}", id, tipo, pv, numero, resultado.cae());
-            } else if (resultado.codigos().contains(WsfeService.ERROR_NUMERO_NO_ES_EL_PROXIMO)) {
-                // Otro comprobante tomó ese número entre la consulta y el pedido (no debería
-                // pasar con un punto de venta propio, pero sí en homologación, donde el CUIT de
-                // prueba es compartido). No es un error de la factura: se reintenta con el
-                // número que siga.
-                liberarNumero(id);
-                reprogramar(id, "ARCA: " + String.join(" | ", resultado.mensajes()));
-            } else {
+                if (resultado.aprobado()) {
+                    marcarEmitida(id, numero, resultado.cae(), resultado.caeVencimiento(), fecha);
+                    log.info("Comprobante ID {} (tipo {}) emitido: {}-{} CAE {}", id, tipo, pv, numero, resultado.cae());
+                    return;
+                }
+                if (resultado.codigos().contains(WsfeService.ERROR_NUMERO_NO_ES_EL_PROXIMO)) {
+                    liberarNumero(id);
+                    if (proximo.deLaBase()) {
+                        // La base quedó desfasada de ARCA (ej. se restauró un backup viejo): se le
+                        // pregunta a ARCA el último y se reintenta ya, sin esperar la cola.
+                        log.warn("Factura ID {}: ARCA rechazó el número {} sacado de la base; se pide el último a ARCA", id, numero);
+                        preguntarAArca = true;
+                        continue;
+                    }
+                    // Otro comprobante tomó ese número entre la consulta y el pedido (no debería
+                    // pasar con un punto de venta propio, pero sí en homologación, donde el CUIT de
+                    // prueba es compartido). No es un error de la factura: se reintenta con el
+                    // número que siga.
+                    reprogramar(id, "ARCA: " + String.join(" | ", resultado.mensajes()));
+                    return;
+                }
                 // Rechazada: ARCA no usó el número, así que se libera para no consultarlo en vano.
                 marcarError(id, "ARCA rechazó la factura: " + String.join(" | ", resultado.mensajes()), true);
+                return;
             }
+            reprogramar(id, "ARCA rechazó dos veces el número de comprobante");
         } catch (AfipException e) {
             if (e.esTransitorio()) {
                 reprogramar(id, e.getMessage());
@@ -545,6 +562,29 @@ public class FacturaServiceImpl implements FacturaService {
         Factura a = facturaRepository.findById(f.getComprobanteAsociado().getId())
                 .orElseThrow(() -> new IllegalStateException("No se encontró la factura asociada a la nota de crédito " + f.getId()));
         return new WsfeService.Asociado(a.getTipoComprobante(), a.getPuntoVenta(), a.getNumero(), a.getFechaEmision());
+    }
+
+    /** Número a pedir y de dónde salió (si vino de la base, un rechazo se corrige preguntando a ARCA). */
+    private record Numero(long valor, boolean deLaBase) {}
+
+    /**
+     * El próximo número del punto de venta. En producción sale de la base (el último emitido + 1):
+     * el punto de venta web services es exclusivo de este sistema (desde "Comprobantes en línea"
+     * no se puede usar), así que nadie más saca números ahí. Ahorra un request a AfipSDK por
+     * factura. Se le pregunta a ARCA si la base no tiene ninguno (la primera factura) o si ARCA
+     * rechazó el número de la base.
+     *
+     * En homologación se pregunta siempre: el CUIT de prueba de AfipSDK es compartido y otros
+     * sacan números en el mismo punto de venta, así que el de la base casi nunca sería el próximo.
+     */
+    private Numero proximoNumero(int pv, int tipo, boolean preguntarAArca) {
+        if (!preguntarAArca && afipClient.esProduccion()) {
+            Long ultimo = facturaRepository.ultimoNumeroEmitido(pv, tipo);
+            if (ultimo != null) {
+                return new Numero(ultimo + 1, true);
+            }
+        }
+        return new Numero(wsfe.ultimoAutorizado(pv, tipo) + 1, false);
     }
 
     private void liberarNumero(Long id) {
