@@ -6,20 +6,38 @@
 }
 
 @if (!modoRevision()) {
-<div class="tarjeta-kpis-detalle tarjeta-kpis-detalle-3" data-tour="resumen-kpis">
-  <div>
-    <h2>Total vendido</h2>
-    <p class="kpi-numero">{{ totalVendido() | pesos }}</p>
-  </div>
+<div class="tarjeta-kpis-detalle" [class.tarjeta-kpis-detalle-3]="mostrarFacturado()" data-tour="resumen-kpis">
   <div>
     <h2>Entradas vendidas</h2>
-    <p class="kpi-numero kpi-numero-secundario">{{ caja().totalEntradasPagas! - (caja().entradasPagasAnticipadas ?? 0) - (caja().entradasPagasValidadas ?? 0) }}</p>
+    <p class="kpi-numero">{{ caja().totalEntradasPagas }}</p>
+    <p class="kpi-subtexto">{{ caja().totalEntradasPagas! - (caja().entradasPagasValidadas ?? 0) }} en puerta · {{ caja().entradasPagasValidadas ?? 0 }} anticipadas online</p>
   </div>
   <div>
-    <h2>Anticipadas</h2>
-    <p class="kpi-numero kpi-numero-secundario">{{ (caja().entradasPagasAnticipadas ?? 0) + (caja().entradasPagasValidadas ?? 0) }}</p>
-    <p class="kpi-subtexto">{{ caja().entradasPagasValidadas ?? 0 }} online · {{ caja().entradasPagasAnticipadas ?? 0 }} pagado en puerta</p>
+    <h2>Total vendido</h2>
+    <p class="kpi-numero kpi-numero-secundario">{{ totalVendido() | pesos }}</p>
   </div>
+  @if (mostrarFacturado()) {
+    <div>
+      <h2>Facturado</h2>
+      <p class="kpi-numero kpi-numero-secundario">{{ caja().totalFacturado | pesos }}</p>
+      @if ((caja().facturasSinEmitir ?? 0) > 0) {
+        <p class="kpi-subtexto">
+          + {{ caja().montoSinEmitir | pesos }} sin emitir ({{ caja().facturasSinEmitir }}
+          {{ caja().facturasSinEmitir === 1 ? 'factura pendiente' : 'facturas pendientes' }})
+        </p>
+      }
+      @let difFacturado = diferenciaFacturadoPosnet();
+      <!-- "Mínimo" = lo cobrado con tarjeta y QR, que sí o sí tiene que estar facturado; el
+           detalle va en el title para no cargar el subtítulo. -->
+      @if (difFacturado < 0) {
+        <p class="kpi-subtexto" title="El mínimo es lo cobrado con tarjeta y QR">Faltan facturar {{ -difFacturado | pesos }} para el mínimo</p>
+      } @else if (difFacturado > 0) {
+        <p class="kpi-subtexto" title="El mínimo es lo cobrado con tarjeta y QR">{{ difFacturado | pesos }} por encima del mínimo</p>
+      } @else {
+        <p class="kpi-subtexto" title="El mínimo es lo cobrado con tarjeta y QR">Mínimo cubierto</p>
+      }
+    </div>
+  }
 </div>
 
 @if (caja().entradasVendidasPorTipo && caja().entradasVendidasPorTipo!.length > 0) {
@@ -30,6 +48,33 @@
   </div>
 }
 
+<!-- "Sin control": nadie contó nada al cerrar (contado = esperado por definición), así que
+     Contado y Diferencia no dicen nada; sólo queda lo vendido en cada forma de pago. -->
+@if (caja().controlOmitido) {
+<div class="tabla-simple tabla-detalle-formaspago">
+  <div class="fila-simple fila-simple-formaspago fila-sin-conteo fila-simple-header">
+    <span>Forma de pago</span><span>Vendido</span>
+  </div>
+  <div class="fila-simple fila-simple-formaspago fila-sin-conteo">
+    <span>Efectivo</span>
+    <span data-label="Vendido">{{ caja().totalVentasEfectivo | pesos }}</span>
+  </div>
+  <div class="fila-simple fila-simple-formaspago fila-sin-conteo">
+    <span>Tarjeta</span>
+    <span data-label="Vendido">{{ caja().totalVentasTarjeta | pesos }}</span>
+  </div>
+  <div class="fila-simple fila-simple-formaspago fila-sin-conteo">
+    <span>QR</span>
+    <span data-label="Vendido">{{ caja().totalVentasQr | pesos }}</span>
+  </div>
+  @if (caja().huboVentaDolares) {
+    <div class="fila-simple fila-simple-formaspago fila-sin-conteo">
+      <span>Dólares</span>
+      <span data-label="Vendido">U$S {{ caja().dolaresEsperado | number: '1.2-2' }}</span>
+    </div>
+  }
+</div>
+} @else {
 <div class="tabla-simple tabla-detalle-formaspago">
   <div class="fila-simple fila-simple-formaspago fila-simple-header">
     <span>Forma de pago</span><span>Esperado</span><span>Contado</span><span>Diferencia</span>
@@ -70,6 +115,7 @@
     </div>
   }
 </div>
+}
 
 @if (caja().conteoEfectivo.length > 0) {
   <button type="button" class="btn-desglose-detalle" (click)="mostrarBilletes.set(!mostrarBilletes())">

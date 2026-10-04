@@ -79,6 +79,12 @@
   grid-template-columns: repeat(3, 1fr);
 }
 
+/* Caja "sin control": no hubo conteo, así que la tabla por forma de pago queda sólo con lo
+   vendido (sin las columnas Contado / Diferencia). */
+.fila-simple-formaspago.fila-sin-conteo {
+  grid-template-columns: 1fr 1fr;
+}
+
 .kpi-numero {
   font-family: var(--font-heading);
   font-size: 1.8rem;

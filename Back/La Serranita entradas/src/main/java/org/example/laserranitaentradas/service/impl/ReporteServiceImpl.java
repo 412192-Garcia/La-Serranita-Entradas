@@ -34,6 +34,9 @@ import org.example.laserranitaentradas.repository.TipoEntradaRepository;
 import org.example.laserranitaentradas.service.CajaService;
 import org.example.laserranitaentradas.service.CalculoPrecioService;
 import org.example.laserranitaentradas.service.ReporteService;
+import org.example.laserranitaentradas.model.entity.EstadoFactura;
+import org.example.laserranitaentradas.repository.FacturaRepository;
+import org.example.laserranitaentradas.service.afip.WsfeService;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -110,16 +113,19 @@ public class ReporteServiceImpl implements ReporteService {
     private final RetiroCajaRepository retiroCajaRepository;
     private final CajaService cajaService;
     private final CalculoPrecioService calculoPrecioService;
+    private final FacturaRepository facturaRepository;
 
     public ReporteServiceImpl(CompraRepository compraRepository, TipoEntradaRepository tipoEntradaRepository,
                               CajaRepository cajaRepository, RetiroCajaRepository retiroCajaRepository,
-                              CajaService cajaService, CalculoPrecioService calculoPrecioService) {
+                              CajaService cajaService, CalculoPrecioService calculoPrecioService,
+                              FacturaRepository facturaRepository) {
         this.compraRepository = compraRepository;
         this.tipoEntradaRepository = tipoEntradaRepository;
         this.cajaRepository = cajaRepository;
         this.retiroCajaRepository = retiroCajaRepository;
         this.cajaService = cajaService;
         this.calculoPrecioService = calculoPrecioService;
+        this.facturaRepository = facturaRepository;
     }
 
     @Override
@@ -534,8 +540,12 @@ public class ReporteServiceImpl implements ReporteService {
             BigDecimal retirosCaja = retirosPorCaja.getOrDefault(caja.getId(), BigDecimal.ZERO);
             totalRetirosCajas = totalRetirosCajas.add(retirosCaja);
 
-            BigDecimal diferencia = caja.getDiferencia() != null ? caja.getDiferencia() : BigDecimal.ZERO;
-            BigDecimal diferenciaPosnet = difPosnetPorCaja.getOrDefault(caja.getId(), BigDecimal.ZERO);
+            // "Sin control": no hubo conteo, así que no hay diferencia que medir. Sin esto la de
+            // posnet daría como faltante todo lo cobrado con tarjeta/QR (nadie cargó un cierre).
+            boolean sinControl = Boolean.TRUE.equals(caja.getControlOmitido());
+            BigDecimal diferencia = sinControl || caja.getDiferencia() == null ? BigDecimal.ZERO : caja.getDiferencia();
+            BigDecimal diferenciaPosnet = sinControl ? BigDecimal.ZERO
+                    : difPosnetPorCaja.getOrDefault(caja.getId(), BigDecimal.ZERO);
             // Faltante/sobrante neteando efectivo + Tarjeta/QR: si la plata está en otra forma de
             // pago sigue estando, no falta como tal.
             BigDecimal neto = diferencia.add(diferenciaPosnet);
@@ -592,12 +602,30 @@ public class ReporteServiceImpl implements ReporteService {
                 .sorted((a, b) -> a.getNombre().compareToIgnoreCase(b.getNombre()))
                 .toList();
 
+        // Facturado: por fecha de emisión del comprobante (lo que ve ARCA), sin importar si la
+        // caja de la venta después se deshabilitó — el comprobante ya existe igual.
+        BigDecimal totalFacturado = BigDecimal.ZERO;
+        long cantidadFacturas = 0;
+        long cantidadNotasCredito = 0;
+        for (Object[] fila : facturaRepository.totalesEmitidosEntre(EstadoFactura.EMITIDA, desde, hasta)) {
+            int tipo = ((Number) fila[0]).intValue();
+            long cantidad = ((Number) fila[1]).longValue();
+            BigDecimal suma = new BigDecimal(fila[2].toString());
+            if (tipo == WsfeService.CBTE_TIPO_FACTURA_B) {
+                totalFacturado = totalFacturado.add(suma);
+                cantidadFacturas += cantidad;
+            } else if (tipo == WsfeService.CBTE_TIPO_NOTA_CREDITO_B) {
+                totalFacturado = totalFacturado.subtract(suma);
+                cantidadNotasCredito += cantidad;
+            }
+        }
+
         return new ReporteResumenDTO(desde, hasta, recaudacionTotal, cantidadCompras, personasIngresadas, afluenciaDiaria,
                 desglosePorTipo, recaudacionPorFormaPago, comprasPorEstado, desgloseExtras, ventasPorHora,
                 ventasPorOrigen, totalDescuentos, cantidadComprasConDescuento,
                 cajas, totalRetirosCajas, totalFaltantesCajas, totalSobrantesCajas,
                 ventasArticulosVarios, usoPromociones, ventasDolares, ingresosPorTipo, entradasVendidasBoleteria,
-                anticipacionCompra, usoCupones);
+                anticipacionCompra, usoCupones, totalFacturado, cantidadFacturas, cantidadNotasCredito);
     }
 
     /** true si `fecha` (puede ser null) cae dentro de [desde, hasta], ambos inclusive. */

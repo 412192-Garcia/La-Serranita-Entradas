@@ -3,6 +3,7 @@ import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Chart, ChartOptions, registerables } from 'chart.js';
 import { ReporteService } from '../services/reporte.service';
+import { FacturaService } from '../services/factura.service';
 import { AfluenciaDiaria, ComprasPorEstado, DiaSemana, RecaudacionPorFormaPago, ReporteResumen, VentasPorOrigen } from '../models/reporte';
 import { CabeceraInterna } from '../shared/cabecera-interna/cabecera-interna';
 import { FiltroRangoFechas } from '../shared/filtro-rango-fechas/filtro-rango-fechas';
@@ -123,6 +124,12 @@ type PeriodoAgrupacion = 'dia' | 'semana' | 'mes';
 })
 export class ConfiguracionReportes implements OnInit, OnDestroy {
   private reporteService = inject(ReporteService);
+  private readonly facturacionHabilitada = inject(FacturaService).habilitada;
+
+  /** El KPI "Facturado" va con la facturación prendida, o si en el rango igual hubo comprobantes. */
+  mostrarFacturado(r: ReporteResumen): boolean {
+    return this.facturacionHabilitada() || r.cantidadFacturas > 0 || r.cantidadNotasCredito > 0;
+  }
 
   /** Queries de señal (no `@ViewChild` de decorador): todos estos canvases viven dentro de
    * bloques `@if` (pestañas Resumen / Comparación) que Angular destruye y recrea al cambiar de
@@ -306,10 +313,12 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
   /** Desempeño acumulado por boletero, sobre las cajas cerradas del rango: turnos, efectivo vendido,
    * retiros y las diferencias de efectivo y de Tarjeta+QR por separado (juntarlas escondería un
    * faltante contra un sobrante). El efectivo vendido es lo esperado menos el fondo inicial, más
-   * lo retirado: lo que entró por ventas en efectivo. */
+   * lo retirado: lo que entró por ventas en efectivo. Las cajas "sin control" suman turnos y
+   * ventas pero no diferencias (no hubo conteo); turnosControlados = 0 → las diferencias van con guion. */
   rankingBoleteros(r: ReporteResumen): {
     nombre: string;
     turnos: number;
+    turnosControlados: number;
     efectivoVendido: number;
     retiros: number;
     diferencia: number;
@@ -317,17 +326,27 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
   }[] {
     const porBoletero = new Map<
       string,
-      { turnos: number; efectivoVendido: number; retiros: number; diferencia: number; diferenciaPosnet: number }
+      {
+        turnos: number;
+        turnosControlados: number;
+        efectivoVendido: number;
+        retiros: number;
+        diferencia: number;
+        diferenciaPosnet: number;
+      }
     >();
     for (const c of r.cajas) {
       const acumulado =
         porBoletero.get(c.usuarioNombre) ??
-        { turnos: 0, efectivoVendido: 0, retiros: 0, diferencia: 0, diferenciaPosnet: 0 };
+        { turnos: 0, turnosControlados: 0, efectivoVendido: 0, retiros: 0, diferencia: 0, diferenciaPosnet: 0 };
       acumulado.turnos += 1;
       acumulado.efectivoVendido += c.montoEsperado - c.montoInicial + c.totalRetiros;
       acumulado.retiros += c.totalRetiros;
-      acumulado.diferencia += c.diferencia;
-      acumulado.diferenciaPosnet += c.diferenciaPosnet ?? 0;
+      if (!c.controlOmitido) {
+        acumulado.turnosControlados += 1;
+        acumulado.diferencia += c.diferencia;
+        acumulado.diferenciaPosnet += c.diferenciaPosnet ?? 0;
+      }
       porBoletero.set(c.usuarioNombre, acumulado);
     }
     return [...porBoletero.entries()]

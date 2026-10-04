@@ -38,4 +38,11 @@ public class CajaDetalleAbiertaDTO {
      * en este momento. Null si esta caja no tiene cargado un inicial (cajas abiertas antes de
      * agregar ese campo). */
     private Integer entradasFisicasRestantes;
+
+    /** Facturado hasta ahora ante ARCA (Facturas B con CAE − notas de crédito con CAE). Mismo
+     * criterio que CajaResponseDTO.totalFacturado. */
+    private BigDecimal totalFacturado;
+    /** Facturas B que todavía esperan CAE (pendientes o con error), y cuánto suman. */
+    private Integer facturasSinEmitir;
+    private BigDecimal montoSinEmitir;
 }

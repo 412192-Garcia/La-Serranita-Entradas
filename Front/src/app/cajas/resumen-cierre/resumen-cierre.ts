@@ -208,6 +208,23 @@ export class ResumenCierre {
   readonly facturacionHabilitada = inject(FacturaService).habilitada;
   mostrarVentasFacturas = signal(false);
 
+  /** El KPI "Facturado" se muestra con la facturación prendida, o si esta caja igual tiene
+   * algo facturado (se apagó después): sin facturación nunca, sólo sería un $0 de ruido. */
+  readonly mostrarFacturado = computed(() => {
+    const c = this.caja();
+    if (c.totalFacturado === null || c.totalFacturado === undefined) return false;
+    return this.facturacionHabilitada() || c.totalFacturado !== 0 || (c.facturasSinEmitir ?? 0) > 0;
+  });
+
+  /** Facturado − lo cobrado con tarjeta y QR (con los ajustes ya aplicados): negativo = falta
+   * facturar eso para cubrir tarjeta + QR; positivo = se facturó de más (ej. ventas en efectivo
+   * facturadas). Lo que espera CAE cuenta como facturado: ya está pedido, sólo no volvió. */
+  readonly diferenciaFacturadoPosnet = computed(() => {
+    const c = this.caja();
+    const posnet = (c.totalVentasTarjeta ?? 0) + (c.totalVentasQr ?? 0);
+    return (c.totalFacturado ?? 0) + (c.montoSinEmitir ?? 0) - posnet;
+  });
+
   cajaActualizada = output<Caja>();
   cajaDeshabilitada = output<Caja>();
 

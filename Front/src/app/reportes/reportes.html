@@ -31,7 +31,7 @@
       <div>
         <h2>Recaudación total</h2>
         <p class="kpi-numero">{{ r.recaudacionTotal | pesos }}</p>
-        <p class="ayuda">{{ r.cantidadCompras }} compra{{ r.cantidadCompras === 1 ? '' : 's' }} facturada{{ r.cantidadCompras === 1 ? '' : 's' }}</p>
+        <p class="ayuda">{{ r.cantidadCompras }} compra{{ r.cantidadCompras === 1 ? '' : 's' }} cobrada{{ r.cantidadCompras === 1 ? '' : 's' }}</p>
       </div>
       <div>
         <h2>Recaudación anticipada</h2>
@@ -282,7 +282,7 @@
 
     <div class="tarjeta tarjeta-ancha" data-tour="ranking-boleteros">
       <h2>Ranking de boleteros</h2>
-      <p class="ayuda">Desempeño acumulado por boletero en las cajas cerradas del rango (por la fecha de cierre de la caja): turnos trabajados, efectivo vendido en puerta, retiros y las diferencias de efectivo y de posnet (tarjeta + QR).</p>
+      <p class="ayuda">Desempeño acumulado por boletero en las cajas cerradas del rango (por la fecha de cierre de la caja): turnos trabajados, efectivo vendido en puerta, retiros y las diferencias de efectivo y de posnet (tarjeta + QR). Las cajas sin control no suman a las diferencias.</p>
       @if (rankingBoleteros(r).length === 0) {
         <p class="ayuda">No se cerró ninguna caja en este rango.</p>
       } @else {
@@ -296,8 +296,9 @@
               <span data-label="Turnos">{{ b.turnos }}</span>
               <span data-label="Efectivo vendido">{{ b.efectivoVendido | pesos }}</span>
               <span data-label="Retiros">{{ b.retiros | pesos }}</span>
-              <span data-label="Dif. efectivo" [class]="claseDiferencia(b.diferencia)">{{ b.diferencia | pesos }}</span>
-              <span data-label="Dif. posnet" [class]="claseDiferencia(b.diferenciaPosnet)">{{ b.diferenciaPosnet | pesos }}</span>
+              <!-- Sólo turnos "sin control": no hubo ningún conteo contra el cual medir. -->
+              <span data-label="Dif. efectivo" [class]="b.turnosControlados === 0 ? '' : claseDiferencia(b.diferencia)">{{ b.turnosControlados === 0 ? '—' : (b.diferencia | pesos) }}</span>
+              <span data-label="Dif. posnet" [class]="b.turnosControlados === 0 ? '' : claseDiferencia(b.diferenciaPosnet)">{{ b.turnosControlados === 0 ? '—' : (b.diferenciaPosnet | pesos) }}</span>
             </div>
           }
         </div>
@@ -316,6 +317,20 @@
         }
       </p>
     </div>
+
+    @if (mostrarFacturado(r)) {
+      <div class="tarjeta">
+        <h2>Facturado</h2>
+        <p class="ayuda">Facturas B con CAE menos notas de crédito, por fecha de emisión.</p>
+        <p class="kpi-numero kpi-numero-secundario">{{ r.totalFacturado | pesos }}</p>
+        <p class="ayuda">
+          {{ r.cantidadFacturas | number }} factura{{ r.cantidadFacturas === 1 ? '' : 's' }} B
+          @if (r.cantidadNotasCredito > 0) {
+            · {{ r.cantidadNotasCredito | number }} nota{{ r.cantidadNotasCredito === 1 ? '' : 's' }} de crédito
+          }
+        </p>
+      </div>
+    }
   }
 
   </div>

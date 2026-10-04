@@ -62,4 +62,10 @@ public class ReporteResumenDTO {
 
     /** Cupones aplicados en el rango, agrupados por su valor de descuento. */
     private List<UsoCuponDTO> usoCupones;
+
+    /** Facturado ante ARCA en el rango (por fecha de emisión del comprobante): Facturas B con
+     * CAE − notas de crédito con CAE. No es lo mismo que recaudacionTotal: no toda venta se factura. */
+    private BigDecimal totalFacturado;
+    private long cantidadFacturas;
+    private long cantidadNotasCredito;
 }

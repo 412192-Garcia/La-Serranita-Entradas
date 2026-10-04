@@ -42,6 +42,19 @@ public interface FacturaRepository extends JpaRepository<Factura, Long> {
     @Query("UPDATE Factura f SET f.email = :email, f.mailEnviadoEn = :momento WHERE f.id = :id")
     int marcarMailEnviadoA(@Param("id") Long id, @Param("email") String email, @Param("momento") LocalDateTime momento);
 
+    /** Filas [tipoComprobante, estado, cantidad, suma de importeTotal] de los comprobantes de las
+     * ventas de una caja: el resumen del cierre las usa para "cuánto se facturó en esta caja". */
+    @Query("SELECT f.tipoComprobante, f.estado, COUNT(f), COALESCE(SUM(f.importeTotal), 0) FROM Factura f " +
+            "WHERE f.compra.caja.id = :cajaId GROUP BY f.tipoComprobante, f.estado")
+    List<Object[]> totalesPorCaja(@Param("cajaId") Long cajaId);
+
+    /** Filas [tipoComprobante, cantidad, suma de importeTotal] de los comprobantes con CAE cuya
+     * fecha de emisión cae en el rango: el KPI "Facturado" del reporte. */
+    @Query("SELECT f.tipoComprobante, COUNT(f), COALESCE(SUM(f.importeTotal), 0) FROM Factura f " +
+            "WHERE f.estado = :estado AND f.fechaEmision BETWEEN :desde AND :hasta GROUP BY f.tipoComprobante")
+    List<Object[]> totalesEmitidosEntre(@Param("estado") EstadoFactura estado,
+                                        @Param("desde") java.time.LocalDate desde, @Param("hasta") java.time.LocalDate hasta);
+
     /** El número más alto autorizado de ese punto de venta y tipo (null si todavía no hay ninguno). */
     @Query("SELECT MAX(f.numero) FROM Factura f WHERE f.puntoVenta = :pv AND f.tipoComprobante = :tipo AND f.numero IS NOT NULL")
     Long ultimoNumeroEmitido(@Param("pv") Integer puntoVenta, @Param("tipo") Integer tipoComprobante);
