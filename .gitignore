@@ -17,3 +17,6 @@ caddy-extra/*.caddy
 
 # Certificado y clave de ARCA: nunca al repo.
 /afip/
+
+# Backups de la base (docker compose: servicio backup): nunca al repo.
+/backups/

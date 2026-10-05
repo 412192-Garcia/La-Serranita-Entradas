@@ -37,6 +37,46 @@ services:
       timeout: 5s
       retries: 10
 
+  # Backup de la base: pg_dump una vez por semana (por defecto miércoles 4 AM, con el parque cerrado) a
+  # la carpeta backups/ del servidor, con la fecha en el nombre. Los de más de BACKUP_RETENCION_DIAS
+  # se borran solos. El script vive acá adentro a propósito: el servidor sólo tiene este archivo,
+  # el .env y afip/, no el repo. Restaurar: ver el comentario en .env.example.
+  backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGHOST: db
+      PGDATABASE: ${POSTGRES_DB:-serranita}
+      PGUSER: ${POSTGRES_USER:-serranita}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      TZ: America/Argentina/Buenos_Aires
+      # Formato cron: minuto hora día-del-mes mes día-de-la-semana (1 = lunes, 3 = miércoles).
+      BACKUP_CRON: ${BACKUP_CRON:-0 4 * * 3}
+      BACKUP_RETENCION_DIAS: ${BACKUP_RETENCION_DIAS:-56}
+    volumes:
+      - ./backups:/backups
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        cat > /usr/local/bin/backup.sh <<'SCRIPT'
+        #!/bin/sh
+        set -e
+        archivo="/backups/serranita-$$(date +%Y-%m-%d_%H%M).dump"
+        # Formato custom (-Fc): comprimido y se restaura con pg_restore. Primero a .tmp, así un
+        # backup cortado a la mitad nunca queda con el nombre de uno bueno.
+        pg_dump -Fc -f "$$archivo.tmp"
+        mv "$$archivo.tmp" "$$archivo"
+        find /backups -name 'serranita-*.dump' -mtime +"$$BACKUP_RETENCION_DIAS" -delete
+        echo "$$(date '+%Y-%m-%d %H:%M') backup OK: $$archivo ($$(du -h "$$archivo" | cut -f1))"
+        SCRIPT
+        chmod +x /usr/local/bin/backup.sh
+        echo "$$BACKUP_CRON /usr/local/bin/backup.sh >> /proc/1/fd/1 2>&1" > /etc/crontabs/root
+        echo "Backups programados: '$$BACKUP_CRON', se guardan $$BACKUP_RETENCION_DIAS días en ./backups"
+        exec crond -f -l 8
+
   backend:
     image: ghcr.io/412192-garcia/la-serranita-backend:latest
     build:
