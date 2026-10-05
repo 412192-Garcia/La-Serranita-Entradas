@@ -2,13 +2,16 @@ import { Component, effect, input, output, signal, untracked } from '@angular/co
 import { TipoEntrada } from '../../models/tipo-entrada';
 import { DescuentoEfectivo } from '../../services/configuracion.service';
 import { PesosPipe } from '../../shared/pesos.pipe';
+import { SeleccionarAlFocoDirective } from '../../shared/seleccionar-al-foco.directive';
 
 /** Números de un toque para las entradas obligatorias (pagas). Más que eso, se escribe a mano. */
 const NUMEROS_RAPIDOS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+/** Tope de lo que se puede escribir a mano en una cantidad (un grupo enorme, no un error de tipeo de 6 cifras). */
+const CANTIDAD_MAXIMA = 9999;
 
 @Component({
   selector: 'app-catalogo-entradas',
-  imports: [PesosPipe],
+  imports: [PesosPipe, SeleccionarAlFocoDirective],
   templateUrl: './catalogo-entradas.html',
   styleUrl: './catalogo-entradas.css',
 })
@@ -51,12 +54,33 @@ export class CatalogoEntradas {
   }
 
   private emitCantidad(id: number, cantidad: number): void {
-    const valor = Math.max(0, Math.floor(cantidad) || 0);
+    const valor = Math.min(CANTIDAD_MAXIMA, Math.max(0, Math.floor(cantidad) || 0));
     this.cantidadesChange.emit({ ...this.cantidades(), [id]: valor });
   }
 
   cambiarCantidad(id: number, delta: number): void {
     this.emitCantidad(id, this.getCantidad(id) + delta);
+  }
+
+  /** Cantidad escrita a mano: sólo dígitos. Con el campo vacío (mientras se borra para escribir)
+   * no se toca nada; recién al salir del campo vacío queda en 0. */
+  escribirCantidad(id: number, evento: Event): void {
+    const campo = evento.target as HTMLInputElement;
+    const digitos = campo.value.replace(/\D/g, '').slice(0, String(CANTIDAD_MAXIMA).length);
+    if (digitos !== campo.value) campo.value = digitos;
+    if (digitos === '') return;
+    this.emitCantidad(id, Number(digitos));
+  }
+
+  alSalirDelCampo(id: number, evento: Event): void {
+    const campo = evento.target as HTMLInputElement;
+    if (campo.value.trim() === '') {
+      this.emitCantidad(id, 0);
+      campo.value = '0';
+    } else {
+      // Por si quedó algo distinto de lo guardado (ej. pasó el tope): se muestra lo que vale.
+      campo.value = String(this.getCantidad(id));
+    }
   }
 
   mostrarCustom(id: number): boolean {
@@ -85,6 +109,8 @@ export class CatalogoEntradas {
     if (!estabaAbierto && this.getCantidad(id) < 11) {
       this.emitCantidad(id, 11);
     }
+    // Sin enfocar el número a propósito: en la tablet eso abre el teclado en pantalla aunque se
+    // vaya a usar el +/−. Se escribe tocando el número (ver appSeleccionarAlFoco en el template).
   }
 
   /** El panel manual se queda abierto pase lo que pase con el número — cerrarlo automáticamente
