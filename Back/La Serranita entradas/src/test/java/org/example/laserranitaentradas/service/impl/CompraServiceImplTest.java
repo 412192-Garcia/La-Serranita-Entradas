@@ -228,6 +228,8 @@ class CompraServiceImplTest {
         // Es con lo que después se reembolsa, sin buscar por external_reference.
         assertThat(compra.getMpPaymentIds()).isEqualTo("555");
         verify(emailService).enviarComprobanteCompra(1L);
+        // Pagada online: se pide su factura (por el punto de venta online, después del commit).
+        verify(facturaService).solicitarOnline(compra);
     }
 
     @Test
@@ -244,6 +246,7 @@ class CompraServiceImplTest {
 
         verify(emailService, never()).enviarComprobanteCompra(anyLong());
         verify(cuponService, never()).consumirUso(anyLong());
+        verify(facturaService, never()).solicitarOnline(any());
     }
 
     @Test

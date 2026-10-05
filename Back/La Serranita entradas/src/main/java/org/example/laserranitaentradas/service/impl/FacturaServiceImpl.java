@@ -6,8 +6,10 @@ import org.example.laserranitaentradas.model.dto.FacturacionPosDTO;
 import org.example.laserranitaentradas.model.entity.Compra;
 import org.example.laserranitaentradas.model.entity.CompraDetalle;
 import org.example.laserranitaentradas.model.entity.DestinoFactura;
+import org.example.laserranitaentradas.model.entity.EstadoCompra;
 import org.example.laserranitaentradas.model.entity.EstadoFactura;
 import org.example.laserranitaentradas.model.entity.Factura;
+import org.example.laserranitaentradas.model.entity.FormaPago;
 import org.example.laserranitaentradas.model.entity.TrabajoImpresion;
 import org.example.laserranitaentradas.repository.FacturaRepository;
 import org.example.laserranitaentradas.service.CalculoPrecioService;
@@ -29,6 +31,9 @@ import jakarta.persistence.LockModeType;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -61,6 +66,8 @@ public class FacturaServiceImpl implements FacturaService {
     private final AfipSdkClient afipClient;
     private final ApplicationEventPublisher eventPublisher;
     private final TransactionTemplate tx;
+    /** Siempre en una transacción propia (la factura de una compra online, ver solicitarOnline). */
+    private final TransactionTemplate txNueva;
     private final EntityManager em;
     private final ComprobanteFacturaService comprobanteFacturaService;
     private final FacturaPdfGenerator pdfGenerator;
@@ -81,6 +88,10 @@ public class FacturaServiceImpl implements FacturaService {
     @Value("${afip.punto-venta.boleteria:1}")
     private int puntoVentaBoleteria;
 
+    /** Punto de venta de las compras online (pagadas con Mercado Pago). Vacío = no se facturan. */
+    @Value("${afip.punto-venta.online:}")
+    private String puntoVentaOnline;
+
     public FacturaServiceImpl(FacturaRepository facturaRepository, WsfeService wsfe, AfipSdkClient afipClient,
                               ApplicationEventPublisher eventPublisher, PlatformTransactionManager transactionManager,
                               EntityManager em,
@@ -92,6 +103,8 @@ public class FacturaServiceImpl implements FacturaService {
         this.afipClient = afipClient;
         this.eventPublisher = eventPublisher;
         this.tx = new TransactionTemplate(transactionManager);
+        this.txNueva = new TransactionTemplate(transactionManager);
+        this.txNueva.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
         this.em = em;
         this.comprobanteFacturaService = comprobanteFacturaService;
         this.pdfGenerator = pdfGenerator;
@@ -147,6 +160,10 @@ public class FacturaServiceImpl implements FacturaService {
     /** Crea una factura B PENDIENTE por el total actual de la compra y la deja lista para emitir
      * cuando commitee la transacción en curso (la de la venta, o la de la cancelación/edición). */
     private Factura crearFactura(Compra compra, DestinoFactura destino, String email, String impresora) {
+        return crearFactura(compra, destino, email, impresora, puntoVentaBoleteria);
+    }
+
+    private Factura crearFactura(Compra compra, DestinoFactura destino, String email, String impresora, int puntoVenta) {
         BigDecimal total = compra.getMontoTotal().setScale(2, RoundingMode.HALF_UP);
         BigDecimal neto = total.divide(DIVISOR_IVA_21, 2, RoundingMode.HALF_UP);
         BigDecimal iva = total.subtract(neto);
@@ -156,7 +173,7 @@ public class FacturaServiceImpl implements FacturaService {
                 .destino(destino)
                 .email(email)
                 .impresora(impresora)
-                .puntoVenta(puntoVentaBoleteria)
+                .puntoVenta(puntoVenta)
                 .tipoComprobante(WsfeService.CBTE_TIPO_FACTURA_B)
                 .concepto(concepto(compra.getDetalles()))
                 .fechaServicio(compra.getFechaVisita() != null ? compra.getFechaVisita() : LocalDate.now())
@@ -765,6 +782,64 @@ public class FacturaServiceImpl implements FacturaService {
             throw new IllegalStateException("Esta factura ya está anulada");
         }
         anular(f);
+    }
+
+    @Override
+    public void solicitarOnline(Compra compra) {
+        if (puntoVentaOnline() == null || !estaHabilitada() || compra == null || compra.getId() == null) {
+            return;
+        }
+        Long compraId = compra.getId();
+        // Se pide recién cuando la aprobación del pago ya quedó guardada, y en una transacción
+        // propia: si se hiciera adentro de la misma, un error de la factura (aunque se atrape)
+        // la marcaría para deshacerse y se perdería la aprobación de alguien que ya pagó.
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    facturarOnline(compraId);
+                }
+            });
+        } else {
+            facturarOnline(compraId);
+        }
+    }
+
+    private void facturarOnline(Long compraId) {
+        try {
+            txNueva.executeWithoutResult(st -> {
+                Integer pv = puntoVentaOnline();
+                // Bloqueada: el webhook y la verificación directa pueden confirmar el mismo pago casi
+                // a la vez, y la segunda tiene que ver la factura de la primera, no crear otra.
+                Compra compra = em.find(Compra.class, compraId, LockModeType.PESSIMISTIC_WRITE);
+                if (pv == null || compra == null
+                        || compra.getFormaPago() != FormaPago.MERCADO_PAGO
+                        || (compra.getEstado() != EstadoCompra.APROBADO && compra.getEstado() != EstadoCompra.USADO)
+                        || compra.getMontoTotal() == null || compra.getMontoTotal().signum() <= 0
+                        || facturaVigente(compraId).isPresent()) {
+                    return;
+                }
+                String email = compra.getContactEmail() == null ? null : compra.getContactEmail().trim();
+                boolean conMail = email != null && email.matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
+                // Toda venta online se factura; sin un email válido queda emitida igual (sin mandar).
+                Factura f = crearFactura(compra, conMail ? DestinoFactura.MAIL : DestinoFactura.NINGUNO,
+                        conMail ? email : null, null, pv);
+                log.info("Factura online ID {} pedida para la compra {} (pto vta {})", f.getId(), compra.getCodigoReserva(), pv);
+            });
+        } catch (RuntimeException e) {
+            log.error("No se pudo pedir la factura de la compra online ID {}", compraId, e);
+        }
+    }
+
+    private Integer puntoVentaOnline() {
+        if (puntoVentaOnline == null || puntoVentaOnline.isBlank()) return null;
+        try {
+            int pv = Integer.parseInt(puntoVentaOnline.trim());
+            return pv > 0 ? pv : null;
+        } catch (NumberFormatException e) {
+            log.error("AFIP_PUNTO_VENTA_ONLINE no es un número: '{}'. Las compras online no se facturan", puntoVentaOnline);
+            return null;
+        }
     }
 
     @Override

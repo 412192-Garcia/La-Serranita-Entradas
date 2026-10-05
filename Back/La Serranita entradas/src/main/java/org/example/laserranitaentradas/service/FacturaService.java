@@ -45,6 +45,14 @@ public interface FacturaService {
     Optional<FacturaResponseDTO> obtenerPorCompra(Long compraId);
 
     /**
+     * Factura de una compra online recién pagada con Mercado Pago: por el punto de venta online y
+     * por mail al email de contacto. No hace nada si la facturación online no está configurada
+     * (sin AFIP_PUNTO_VENTA_ONLINE), si la compra no es un pago online o si ya tiene factura.
+     * Las reservas a pagar en puerta no pasan por acá: se facturan en el POS al cobrarlas.
+     */
+    void solicitarOnline(Compra compra);
+
+    /**
      * Factura B manual, sin venta (Acciones > Facturación manual): los ítems e importes que cargó el
      * admin. Se emite cuando commitea la transacción, como cualquier otra.
      */

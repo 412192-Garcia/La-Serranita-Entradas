@@ -1450,6 +1450,9 @@ public class CompraServiceImpl implements CompraService {
         if (compra.getFechaVisita() == null) {
             emailService.enviarAvisoRegalo(compraId);
         }
+        // Pagada online: se factura por el punto de venta online y va por mail. Se pide después
+        // del commit y nunca tira: un problema con la factura no puede deshacer la aprobación.
+        facturaService.solicitarOnline(compra);
         return true;
     }
 
@@ -1687,6 +1690,8 @@ public class CompraServiceImpl implements CompraService {
         }
 
         compra.setEstado(EstadoCompra.REEMBOLSADA);
+        // Si estaba facturada: nota de crédito por el total (o anulación si no llegó a ARCA).
+        facturaService.alCancelarVenta(compra);
         return compraRepository.save(compra);
     }
 

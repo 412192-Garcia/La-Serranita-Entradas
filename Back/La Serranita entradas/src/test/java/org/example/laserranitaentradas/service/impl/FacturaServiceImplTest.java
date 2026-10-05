@@ -296,6 +296,90 @@ class FacturaServiceImplTest {
         assertThat(f.getProximoIntento()).isNotNull();
     }
 
+    // ---------- compras online (Mercado Pago) ----------
+
+    private Compra compraOnline(EstadoCompra estado, String email) {
+        Compra c = compra("50000", entrada());
+        c.setFormaPago(FormaPago.MERCADO_PAGO);
+        c.setEstado(estado);
+        c.setContactEmail(email);
+        c.setCodigoReserva("261005-1");
+        when(em.find(Compra.class, 1L, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)).thenReturn(c);
+        return c;
+    }
+
+    @Test
+    void online_pagadaConMercadoPago_seFacturaPorElPuntoDeVentaOnlinePorMail() {
+        ReflectionTestUtils.setField(service, "puntoVentaOnline", "12");
+        Compra c = compraOnline(EstadoCompra.APROBADO, " cliente@mail.com ");
+
+        service.solicitarOnline(c);
+
+        ArgumentCaptor<Factura> captor = ArgumentCaptor.forClass(Factura.class);
+        verify(facturaRepository).save(captor.capture());
+        Factura f = captor.getValue();
+        assertThat(f.getPuntoVenta()).isEqualTo(12);
+        assertThat(f.getDestino()).isEqualTo(DestinoFactura.MAIL);
+        assertThat(f.getEmail()).isEqualTo("cliente@mail.com");
+        assertThat(f.getCompra()).isSameAs(c);
+        assertThat(f.getImporteTotal()).isEqualByComparingTo("50000");
+    }
+
+    @Test
+    void online_sinEmailValido_seFacturaIgualSinMandar() {
+        ReflectionTestUtils.setField(service, "puntoVentaOnline", "12");
+        Compra c = compraOnline(EstadoCompra.APROBADO, null);
+
+        service.solicitarOnline(c);
+
+        ArgumentCaptor<Factura> captor = ArgumentCaptor.forClass(Factura.class);
+        verify(facturaRepository).save(captor.capture());
+        assertThat(captor.getValue().getDestino()).isEqualTo(DestinoFactura.NINGUNO);
+    }
+
+    @Test
+    void online_sinPuntoDeVentaOnlineConfigurado_noFactura() {
+        Compra c = compraOnline(EstadoCompra.APROBADO, "cliente@mail.com");
+
+        service.solicitarOnline(c);
+
+        verify(facturaRepository, never()).save(any());
+    }
+
+    @Test
+    void online_noSeFacturanLasReservasAPagarEnPuertaNiLasQueNoEstanPagas() {
+        ReflectionTestUtils.setField(service, "puntoVentaOnline", "12");
+        Compra efectivo = compraOnline(EstadoCompra.RESERVADO_EFECTIVO, "cliente@mail.com");
+        efectivo.setFormaPago(FormaPago.EFECTIVO_BOLETERIA);
+        service.solicitarOnline(efectivo);
+
+        Compra sinPagar = compraOnline(EstadoCompra.PENDIENTE_PAGO, "cliente@mail.com");
+        service.solicitarOnline(sinPagar);
+
+        verify(facturaRepository, never()).save(any());
+    }
+
+    @Test
+    void online_siYaTieneFactura_noDuplica() {
+        ReflectionTestUtils.setField(service, "puntoVentaOnline", "12");
+        Compra c = compraOnline(EstadoCompra.APROBADO, "cliente@mail.com");
+        when(facturaRepository.findFirstByCompraIdAndTipoComprobanteOrderByIdDesc(1L, 6)).thenReturn(Optional.of(emitida()));
+
+        service.solicitarOnline(c);
+
+        verify(facturaRepository, never()).save(any());
+    }
+
+    @Test
+    void online_unErrorAlFacturarNoSePropaga() {
+        ReflectionTestUtils.setField(service, "puntoVentaOnline", "12");
+        Compra c = compraOnline(EstadoCompra.APROBADO, "cliente@mail.com");
+        when(facturaRepository.save(any(Factura.class))).thenThrow(new RuntimeException("base caída"));
+
+        // La aprobación del pago no se puede caer por la factura.
+        org.assertj.core.api.Assertions.assertThatCode(() -> service.solicitarOnline(c)).doesNotThrowAnyException();
+    }
+
     // ---------- factura manual ----------
 
     private static org.example.laserranitaentradas.model.dto.FacturaManualDTO.Item item(String tipo, int cant, String desc, String subtotal) {
