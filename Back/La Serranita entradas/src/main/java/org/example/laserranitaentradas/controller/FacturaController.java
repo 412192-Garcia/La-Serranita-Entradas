@@ -35,7 +35,13 @@ public class FacturaController {
     @GetMapping("/estado-servicio")
     @Operation(summary = "Si la facturación está configurada", description = "El POS lo usa para mostrar u ocultar las opciones de factura.")
     public Map<String, Boolean> estadoServicio() {
-        return Map.of("habilitada", facturaService.estaHabilitada());
+        return Map.of("habilitada", facturaService.estaHabilitada(), "online", facturaService.facturacionOnlineActiva());
+    }
+
+    @PostMapping("/compra/{compraId}/online")
+    @Operation(summary = "Facturar una compra online que quedó sin factura (ADMIN)")
+    public FacturaResponseDTO facturarOnline(@PathVariable @Parameter(description = "ID de la compra") Long compraId) {
+        return facturaService.facturarOnlineAhora(compraId);
     }
 
     @GetMapping("/compra/{compraId}")
@@ -101,9 +107,10 @@ public class FacturaController {
     }
 
     @PostMapping("/{id}/anular")
-    @Operation(summary = "Anular una factura manual (ADMIN)", description = "Emite la nota de crédito B por el total.")
-    public ResponseEntity<Void> anularManual(@PathVariable @Parameter(description = "ID de la factura") Long id) {
-        facturaService.anularManual(id);
+    @Operation(summary = "Anular una factura (ADMIN)",
+            description = "Emite la nota de crédito B por el total. Manual o de una venta: la venta queda igual, sin factura, y se puede volver a facturar.")
+    public ResponseEntity<Void> anularFactura(@PathVariable @Parameter(description = "ID de la factura") Long id) {
+        facturaService.anularFactura(id);
         return ResponseEntity.ok().build();
     }
 

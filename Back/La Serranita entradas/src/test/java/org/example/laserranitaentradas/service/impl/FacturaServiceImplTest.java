@@ -450,7 +450,7 @@ class FacturaServiceImplTest {
         f.setCompra(null);
         when(facturaRepository.findById(10L)).thenReturn(Optional.of(f));
 
-        service.anularManual(10L);
+        service.anularFactura(10L);
 
         Factura nc = capturarGuardadas().stream().filter(x -> x.getTipoComprobante() == 8).findFirst().orElseThrow();
         assertThat(nc.getComprobanteAsociado()).isSameAs(f);
@@ -459,11 +459,24 @@ class FacturaServiceImplTest {
     }
 
     @Test
-    void anularManual_deUnaVenta_rechazado() {
-        when(facturaRepository.findById(10L)).thenReturn(Optional.of(emitida()));
+    void anularFactura_deUnaVenta_notaDeCreditoYLaVentaQuedaIgual() {
+        Factura f = emitida();
+        when(facturaRepository.findById(10L)).thenReturn(Optional.of(f));
 
-        assertThatThrownBy(() -> service.anularManual(10L)).isInstanceOf(IllegalStateException.class);
-        verify(facturaRepository, never()).save(any());
+        service.anularFactura(10L);
+
+        Factura nc = capturarGuardadas().stream().filter(x -> x.getTipoComprobante() == 8).findFirst().orElseThrow();
+        assertThat(nc.getComprobanteAsociado()).isSameAs(f);
+        assertThat(f.getAnulacionPedida()).isTrue();
+    }
+
+    @Test
+    void anularFactura_yaAnulada_error() {
+        Factura f = emitida();
+        f.setAnulacionPedida(true);
+        when(facturaRepository.findById(10L)).thenReturn(Optional.of(f));
+
+        assertThatThrownBy(() -> service.anularFactura(10L)).isInstanceOf(IllegalStateException.class);
     }
 
     // ---------- numeración: en producción sale de la base ----------

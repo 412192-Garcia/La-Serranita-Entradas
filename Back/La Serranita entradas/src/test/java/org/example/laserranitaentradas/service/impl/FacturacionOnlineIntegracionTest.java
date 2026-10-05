@@ -103,4 +103,14 @@ class FacturacionOnlineIntegracionTest {
 
         assertThat(facturasDe(compra.getId())).hasSize(1);
     }
+
+    @Test
+    void facturarUnaCompraOnlineQueQuedoSinFactura_unaSolaVez() {
+        Compra sinFactura = compraPagada("ONLINE-5");
+
+        assertThat(facturaService.facturarOnlineAhora(sinFactura.getId()).getPuntoVenta()).isEqualTo(12);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> facturaService.facturarOnlineAhora(sinFactura.getId()))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("ya tiene factura");
+        assertThat(facturasDe(sinFactura.getId())).hasSize(1);
+    }
 }

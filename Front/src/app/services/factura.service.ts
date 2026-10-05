@@ -84,9 +84,24 @@ export class FacturaService {
     return this.http.get<Factura[]>(`${this.url}/manuales`);
   }
 
-  /** Anula una factura manual con su nota de crédito. */
-  anularManual(facturaId: number): Observable<void> {
+  /** Anula una factura (manual o de una venta) con su nota de crédito. La venta queda igual, sin factura. */
+  anularFactura(facturaId: number): Observable<void> {
     return this.http.post<void>(`${this.url}/${facturaId}/anular`, null);
+  }
+
+  /** Estado del servicio: facturación activa y si también se facturan las compras online. */
+  estadoServicio(): Observable<{ habilitada: boolean; online: boolean }> {
+    return this.http.get<{ habilitada: boolean; online: boolean }>(`${this.url}/estado-servicio`);
+  }
+
+  /** Factura una compra online paga que quedó sin factura. */
+  facturarOnline(compraId: number): Observable<Factura> {
+    return this.http.post<Factura>(`${this.url}/compra/${compraId}/online`, null);
+  }
+
+  /** Vuelve a intentar una factura que quedó en ERROR (ADMIN). */
+  reintentar(facturaId: number): Observable<Factura> {
+    return this.http.post<Factura>(`${this.url}/${facturaId}/reintentar`, null);
   }
 
   private leerHabilitadaGuardada(): boolean {

@@ -1,0 +1,123 @@
+<app-modal (cerrar)="cerrar.emit()">
+  <div class="panel-factura" role="dialog" aria-labelledby="titulo-factura-compra">
+    <div class="encabezado">
+      <h3 id="titulo-factura-compra">Factura — #{{ reserva().codigoReserva }}</h3>
+      <button type="button" class="btn-icono" title="Cerrar" aria-label="Cerrar" (click)="cerrar.emit()">
+        <svg lucideX [strokeWidth]="2"></svg>
+      </button>
+    </div>
+    <p class="subtitulo">
+      {{ reserva().montoTotal | pesos }} ·
+      {{ esOnline() ? 'Pagada online (punto de venta online)' : 'Venta de puerta (punto de venta de boletería)' }}
+    </p>
+
+    @if (cargando()) {
+      <p class="estado"><svg lucideLoaderCircle class="icono-girando" [strokeWidth]="2"></svg> Consultando…</p>
+    } @else if (error(); as e) {
+      <p class="estado texto-error">{{ e }}</p>
+    } @else {
+      @if (factura(); as f) {
+        <div class="estado-factura">
+          @if (vigente(f)) {
+            <svg lucideFileText [strokeWidth]="2"></svg>
+            <div>
+              <strong>Factura B {{ numeroComprobante(f) }}</strong>
+              <div>CAE {{ f.cae }} · {{ f.importeTotal | pesos }}</div>
+              <div class="secundario">
+                @if (f.mailEnviadoEn) { Enviada a {{ f.email }} }
+                @else if (f.destino === 'MAIL') { <span class="texto-error">El mail todavía no salió</span> }
+                @else if (f.destino === 'IMPRIMIR') { Entregada impresa }
+                @else { No se mandó por mail }
+              </div>
+            </div>
+          } @else if (anulada(f)) {
+            <svg lucideCircleAlert class="icono-gris" [strokeWidth]="2"></svg>
+            <div>
+              <strong>Factura B {{ f.numero ? numeroComprobante(f) : '' }} anulada</strong>
+              <div class="secundario">Tiene su nota de crédito. La compra quedó sin factura.</div>
+            </div>
+          } @else if (f.estado === 'PENDIENTE') {
+            <svg lucideLoaderCircle class="icono-girando" [strokeWidth]="2"></svg>
+            <div>Emitiendo factura…</div>
+          } @else {
+            <svg lucideCircleAlert class="texto-error" [strokeWidth]="2"></svg>
+            <div class="texto-error">No se pudo emitir: {{ f.ultimoError }}</div>
+          }
+        </div>
+      } @else {
+        <div class="estado-factura">
+          <svg lucideCircleAlert class="icono-gris" [strokeWidth]="2"></svg>
+          <div>
+            Sin factura.
+            @if (!facturable()) {
+              <span class="secundario">
+                @if (reserva().montoTotal <= 0) { Es sin cobro: no se factura. }
+                @else { Todavía no se cobró: se factura al cobrarla en el POS. }
+              </span>
+            }
+          </div>
+        </div>
+      }
+
+      <div class="acciones">
+        @if (vigente(factura())) {
+          <button type="button" class="btn-accion" (click)="verPdf()">
+            <svg lucideFileText [strokeWidth]="2"></svg> Ver PDF
+          </button>
+          <button type="button" class="btn-accion" [class.activo]="accion() === 'mail'" [disabled]="enviando()" (click)="abrir('mail')">
+            <svg lucideMail [strokeWidth]="2"></svg> Mandar por mail
+          </button>
+          <button type="button" class="btn-accion btn-peligro" [class.activo]="accion() === 'anular'" [disabled]="enviando()" (click)="abrir('anular')">
+            Anular factura
+          </button>
+        } @else if (factura()?.estado === 'ERROR') {
+          <button type="button" class="btn-accion" [disabled]="enviando()" (click)="reintentar()">
+            <svg lucideRefreshCw [strokeWidth]="2"></svg> {{ enviando() ? 'Reintentando…' : 'Reintentar' }}
+          </button>
+        }
+        @if (facturable()) {
+          <button type="button" class="btn-primario" [disabled]="enviando()" (click)="esOnline() ? facturar() : abrir('facturar')">
+            {{ enviando() ? 'Facturando…' : 'Facturar' }}
+          </button>
+        }
+      </div>
+
+      @if (accion() === 'mail') {
+        <form class="form-fila" (ngSubmit)="mandarPorMail()">
+          <input type="email" name="email" placeholder="email@del-cliente.com" autocomplete="off"
+            [ngModel]="email()" (ngModelChange)="email.set($event)" />
+          <button type="submit" class="btn-primario" [disabled]="!emailValido(email()) || enviando()">
+            {{ enviando() ? 'Enviando…' : 'Enviar' }}
+          </button>
+        </form>
+      }
+      @if (accion() === 'facturar') {
+        <form class="form-fila" (ngSubmit)="facturar()">
+          <input type="email" name="email" placeholder="email@del-cliente.com" autocomplete="off"
+            [ngModel]="email()" (ngModelChange)="email.set($event)" />
+          <button type="submit" class="btn-primario" [disabled]="!emailValido(email()) || enviando()">
+            {{ enviando() ? 'Facturando…' : 'Facturar y mandar' }}
+          </button>
+        </form>
+      }
+      @if (accion() === 'anular') {
+        <div class="confirmar">
+          <p>
+            Se emite una nota de crédito B por {{ factura()?.importeTotal | pesos }}. La venta queda como está, sin factura
+            (después se puede volver a facturar).
+          </p>
+          <div class="botones">
+            <button type="button" class="btn-secundario" (click)="accion.set(null)">No</button>
+            <button type="button" class="btn-primario btn-peligro-lleno" [disabled]="enviando()" (click)="anular()">
+              {{ enviando() ? 'Anulando…' : 'Sí, anular' }}
+            </button>
+          </div>
+        </div>
+      }
+
+      @if (aviso(); as a) {
+        <p class="aviso" [class.texto-error]="a.error" role="status">{{ a.texto }}</p>
+      }
+    }
+  </div>
+</app-modal>

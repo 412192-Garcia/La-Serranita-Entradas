@@ -58,7 +58,7 @@ const PASOS_TUTORIAL: TourStep[] = [
   {
     selector: '[data-tour="resultados"]',
     titulo: 'Validar o cobrar',
-    texto: 'Cada resultado tiene un botón para validar el ingreso o cobrar y validar (si te equivocás, tenés unos segundos para "Cancelar validación"), y un menú ⋮ para editar el contacto, reenviar el mail o reembolsar. Ese menú es sólo de esta pantalla: los boleteros validan y cobran desde el POS.',
+    texto: 'Cada resultado tiene un botón para validar el ingreso o cobrar y validar (si te equivocás, tenés unos segundos para "Cancelar validación"), y un menú ⋮ para editar el contacto, reenviar el mail, ver la factura o reembolsar. Ese menú es sólo de esta pantalla: los boleteros validan y cobran desde el POS.',
   },
 ];
 
@@ -67,6 +67,8 @@ const PASOS_TUTORIAL: TourStep[] = [
  * (cabecera, caja, filtros y el menú ⋮ con editar / reenviar mail / reembolsar); el buscador, el
  * listado y la fila los comparte con el panel de anticipadas del POS (ver `reservas/`).
  */
+import { FacturaCompraModal } from '../shared/factura-compra-modal/factura-compra-modal';
+import { FacturaService } from '../services/factura.service';
 @Component({
   selector: 'app-boleteria',
   imports: [
@@ -79,6 +81,7 @@ const PASOS_TUTORIAL: TourStep[] = [
     ListadoReservas,
     LucideEllipsisVertical,
     LucideChevronDown,
+    FacturaCompraModal,
   ],
   providers: [ReservasBusqueda],
   templateUrl: './boleteria.html',
@@ -118,6 +121,8 @@ export class Boleteria implements OnInit, OnDestroy {
   });
 
   ngOnInit(): void {
+    // La opción "Factura" del menú depende de esto: entrando directo acá (sin pasar por el POS) no se sabía.
+    this.facturaService.actualizarEstadoServicio();
     // Si se llega acá desde el escaneo de fondo del POS, ya viene con el DNI: precargamos el
     // buscador y disparamos la búsqueda en vez de la de "hoy" por defecto. Se limpia el query
     // param enseguida para que un refresh no repita la búsqueda ni el botón "atrás" quede
@@ -167,6 +172,17 @@ export class Boleteria implements OnInit, OnDestroy {
   private static readonly VENTANA_DESHACER_MENU_MS = 2_400_000;
 
   menuAbiertoId = signal<number | null>(null);
+
+  /** La factura de una compra (anticipada o de puerta): ver, mandar, anular o facturar. */
+  private facturaService = inject(FacturaService);
+  readonly facturacionHabilitada = this.facturaService.habilitada;
+  facturaDe = signal<Reserva | null>(null);
+
+  abrirFactura(reserva: Reserva, event: MouseEvent): void {
+    event.stopPropagation();
+    this.menuAbiertoId.set(null);
+    this.facturaDe.set(reserva);
+  }
 
   toggleMenu(reserva: Reserva, event: MouseEvent): void {
     event.stopPropagation();

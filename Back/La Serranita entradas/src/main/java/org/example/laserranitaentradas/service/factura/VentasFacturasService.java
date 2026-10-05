@@ -94,7 +94,8 @@ public class VentasFacturasService {
         if (pedido.getDestino() == DestinoFactura.MAIL && (pedido.getEmail() == null || pedido.getEmail().isBlank())) {
             throw new IllegalArgumentException("Cargá el email del cliente");
         }
-        if (facturaService.obtenerPorCompra(compraId).filter(f -> f.getEstado() != EstadoFactura.ANULADA).isPresent()) {
+        if (facturaService.obtenerPorCompra(compraId)
+                .filter(f -> f.getEstado() != EstadoFactura.ANULADA && !f.isAnulacionPedida()).isPresent()) {
             throw new IllegalStateException("Esta venta ya tiene factura");
         }
         Factura factura = facturaService.solicitar(compra, pedido)

@@ -52,6 +52,12 @@ public interface FacturaService {
      */
     void solicitarOnline(Compra compra);
 
+    /** Si las compras online se facturan (hay punto de venta online y la facturación está configurada). */
+    boolean facturacionOnlineActiva();
+
+    /** Factura ahora una compra online paga que quedó sin factura (ADMIN). */
+    FacturaResponseDTO facturarOnlineAhora(Long compraId);
+
     /**
      * Factura B manual, sin venta (Acciones > Facturación manual): los ítems e importes que cargó el
      * admin. Se emite cuando commitea la transacción, como cualquier otra.
@@ -61,8 +67,12 @@ public interface FacturaService {
     /** Las últimas facturas manuales, con su estado (incluida la anulación). */
     java.util.List<FacturaResponseDTO> manuales();
 
-    /** Anula una factura manual: nota de crédito B por el total (o anulada, si no llegó a ARCA). */
-    void anularManual(Long facturaId);
+    /**
+     * Anula una factura (ADMIN): nota de crédito B por el total, o anulada si no llegó a ARCA. Sirve
+     * para las manuales y para las de una venta: la venta queda como está, sin factura, y se puede
+     * volver a facturar.
+     */
+    void anularFactura(Long facturaId);
 
     /** La factura B más reciente de cada compra, en dos consultas en vez de dos por compra. */
     java.util.Map<Long, FacturaResponseDTO> obtenerPorCompras(java.util.Collection<Long> compraIds);

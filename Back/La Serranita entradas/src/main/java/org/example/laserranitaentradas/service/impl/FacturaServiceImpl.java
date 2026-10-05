@@ -772,11 +772,11 @@ public class FacturaServiceImpl implements FacturaService {
 
     @Override
     @Transactional
-    public void anularManual(Long facturaId) {
+    public void anularFactura(Long facturaId) {
         Factura f = facturaRepository.findById(facturaId)
                 .orElseThrow(() -> new IllegalArgumentException("Factura no encontrada ID: " + facturaId));
-        if (f.getCompra() != null || f.getTipoComprobante() != WsfeService.CBTE_TIPO_FACTURA_B) {
-            throw new IllegalStateException("Sólo se anulan desde acá las facturas manuales (las de una venta se anulan cancelando la venta)");
+        if (f.getTipoComprobante() != WsfeService.CBTE_TIPO_FACTURA_B) {
+            throw new IllegalStateException("Sólo se anulan facturas (una nota de crédito no se anula)");
         }
         if (f.getEstado() == EstadoFactura.ANULADA || Boolean.TRUE.equals(f.getAnulacionPedida())) {
             throw new IllegalStateException("Esta factura ya está anulada");
@@ -807,28 +807,51 @@ public class FacturaServiceImpl implements FacturaService {
 
     private void facturarOnline(Long compraId) {
         try {
-            txNueva.executeWithoutResult(st -> {
-                Integer pv = puntoVentaOnline();
-                // Bloqueada: el webhook y la verificación directa pueden confirmar el mismo pago casi
-                // a la vez, y la segunda tiene que ver la factura de la primera, no crear otra.
-                Compra compra = em.find(Compra.class, compraId, LockModeType.PESSIMISTIC_WRITE);
-                if (pv == null || compra == null
-                        || compra.getFormaPago() != FormaPago.MERCADO_PAGO
-                        || (compra.getEstado() != EstadoCompra.APROBADO && compra.getEstado() != EstadoCompra.USADO)
-                        || compra.getMontoTotal() == null || compra.getMontoTotal().signum() <= 0
-                        || facturaVigente(compraId).isPresent()) {
-                    return;
-                }
-                String email = compra.getContactEmail() == null ? null : compra.getContactEmail().trim();
-                boolean conMail = email != null && email.matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
-                // Toda venta online se factura; sin un email válido queda emitida igual (sin mandar).
-                Factura f = crearFactura(compra, conMail ? DestinoFactura.MAIL : DestinoFactura.NINGUNO,
-                        conMail ? email : null, null, pv);
-                log.info("Factura online ID {} pedida para la compra {} (pto vta {})", f.getId(), compra.getCodigoReserva(), pv);
-            });
+            txNueva.executeWithoutResult(st -> crearFacturaOnline(compraId, false));
         } catch (RuntimeException e) {
             log.error("No se pudo pedir la factura de la compra online ID {}", compraId, e);
         }
+    }
+
+    /**
+     * Crea la factura de una compra online paga. Con `estricto` (pedido de un admin) los motivos
+     * para no facturar son errores que se le muestran; si no (automático, al confirmarse el pago),
+     * simplemente no se factura.
+     */
+    private Factura crearFacturaOnline(Long compraId, boolean estricto) {
+        Integer pv = puntoVentaOnline();
+        // Bloqueada: el webhook y la verificación directa pueden confirmar el mismo pago casi a la
+        // vez, y la segunda tiene que ver la factura de la primera, no crear otra.
+        Compra compra = em.find(Compra.class, compraId, LockModeType.PESSIMISTIC_WRITE);
+        String motivo = null;
+        if (pv == null || !estaHabilitada()) motivo = "La facturación de compras online no está configurada";
+        else if (compra == null) motivo = "Compra no encontrada ID: " + compraId;
+        else if (compra.getFormaPago() != FormaPago.MERCADO_PAGO) motivo = "No es una compra pagada online (las de puerta se facturan en el POS)";
+        else if (compra.getEstado() != EstadoCompra.APROBADO && compra.getEstado() != EstadoCompra.USADO) motivo = "La compra no está paga (está " + compra.getEstado() + ")";
+        else if (compra.getMontoTotal() == null || compra.getMontoTotal().signum() <= 0) motivo = "La compra es de $0";
+        else if (facturaVigente(compraId).isPresent()) motivo = "Esta compra ya tiene factura";
+        if (motivo != null) {
+            if (estricto) throw new IllegalStateException(motivo);
+            return null;
+        }
+        String email = compra.getContactEmail() == null ? null : compra.getContactEmail().trim();
+        boolean conMail = email != null && email.matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
+        // Toda venta online se factura; sin un email válido queda emitida igual (sin mandar).
+        Factura f = crearFactura(compra, conMail ? DestinoFactura.MAIL : DestinoFactura.NINGUNO,
+                conMail ? email : null, null, pv);
+        log.info("Factura online ID {} pedida para la compra {} (pto vta {})", f.getId(), compra.getCodigoReserva(), pv);
+        return f;
+    }
+
+    @Override
+    public boolean facturacionOnlineActiva() {
+        return puntoVentaOnline() != null && estaHabilitada();
+    }
+
+    @Override
+    @Transactional
+    public FacturaResponseDTO facturarOnlineAhora(Long compraId) {
+        return toDto(crearFacturaOnline(compraId, true));
     }
 
     private Integer puntoVentaOnline() {
