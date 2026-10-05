@@ -39,6 +39,23 @@ public interface FacturaRepository extends JpaRepository<Factura, Long> {
 
     /** Sólo esa columna: el envío del mail tarda y, mientras, la venta se puede cancelar. Guardar
      * la entidad leída antes del envío pisaría esa cancelación. */
+    /**
+     * La factura de una compra online, si todavía no se emitió, pasa a mandarse sola por mail cuando
+     * ARCA la autorice (la confirmación ya salió sin ella). 0 = ya estaba emitida (o anulada): ahí el
+     * mail lo tiene que mandar quien llamó. Condicional para no cruzarse con la emisión.
+     */
+    @Modifying
+    @Transactional
+    @Query("UPDATE Factura f SET f.destino = org.example.laserranitaentradas.model.entity.DestinoFactura.MAIL, f.email = :email " +
+            "WHERE f.id = :id AND f.estado IN (org.example.laserranitaentradas.model.entity.EstadoFactura.PENDIENTE, " +
+            "org.example.laserranitaentradas.model.entity.EstadoFactura.ERROR)")
+    int pasarAMailSiNoEmitida(@Param("id") Long id, @Param("email") String email);
+
+    @Modifying
+    @Transactional
+    @Query("UPDATE Factura f SET f.destino = org.example.laserranitaentradas.model.entity.DestinoFactura.MAIL, f.email = :email WHERE f.id = :id")
+    int pasarAMail(@Param("id") Long id, @Param("email") String email);
+
     /** Se mandó a otro email (el que dio el cliente después): se guardan juntos, recién cuando salió. */
     @Modifying
     @Transactional

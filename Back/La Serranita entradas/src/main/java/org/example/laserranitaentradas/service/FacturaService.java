@@ -45,12 +45,20 @@ public interface FacturaService {
     Optional<FacturaResponseDTO> obtenerPorCompra(Long compraId);
 
     /**
-     * Factura de una compra online recién pagada con Mercado Pago: por el punto de venta online y
-     * por mail al email de contacto. No hace nada si la facturación online no está configurada
-     * (sin AFIP_PUNTO_VENTA_ONLINE), si la compra no es un pago online o si ya tiene factura.
-     * Las reservas a pagar en puerta no pasan por acá: se facturan en el POS al cobrarlas.
+     * Compra online recién pagada con Mercado Pago: después del commit se pide su factura (punto de
+     * venta online) y se manda UN solo mail, la confirmación de la compra con la factura adjunta.
+     * Si ARCA no la autoriza enseguida, la confirmación sale sola y la factura llega después en su
+     * propio mail.
+     *
+     * @return true si este flujo se encarga de mandar la confirmación de la compra (el que llama no
+     *         la tiene que mandar); false si la compra no se factura acá (facturación online apagada,
+     *         no es un pago online, $0): ahí la confirmación la manda el que llama, como siempre.
+     *         Las reservas a pagar en puerta no pasan por acá: se facturan en el POS al cobrarlas.
      */
-    void solicitarOnline(Compra compra);
+    boolean solicitarOnline(Compra compra);
+
+    /** El paso de solicitarOnline que corre en segundo plano: factura, y confirmación (con o sin ella). */
+    void procesarCompraOnlinePagada(Long compraId);
 
     /** Si las compras online se facturan (hay punto de venta online y la facturación está configurada). */
     boolean facturacionOnlineActiva();

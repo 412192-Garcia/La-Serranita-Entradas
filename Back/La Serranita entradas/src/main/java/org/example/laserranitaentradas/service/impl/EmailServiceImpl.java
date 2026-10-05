@@ -135,17 +135,7 @@ public class EmailServiceImpl implements EmailService {
             helper.setFrom(remitente, NOMBRE_REMITENTE);
             helper.setTo(compra.getContactEmail());
             agregarCopia(helper);
-            String asunto;
-            if (esRegalo) {
-                asunto = pendienteDePago
-                        ? "¡Regalo reservado! - La Serranita Parque Recreativo"
-                        : "¡Gracias por tu regalo! - La Serranita Parque Recreativo";
-            } else {
-                asunto = pendienteDePago
-                        ? "¡Reserva confirmada! Pagás en la entrada - La Serranita Parque Recreativo"
-                        : "¡Compra confirmada! - La Serranita Parque Recreativo";
-            }
-            helper.setSubject(asunto);
+            helper.setSubject(asuntoComprobante(compra));
 
             String htmlBody = construirHtmlEmail(compra);
             helper.setText(htmlBody, true);
@@ -162,6 +152,47 @@ public class EmailServiceImpl implements EmailService {
             log.error("Error al enviar el email de confirmación de la compra ID {}", compraId, e);
             registrarRechazoEnvio(compra, "comprobante de compra", e);
         }
+    }
+
+    @Transactional
+    @Override
+    public void enviarComprobanteCompraConFactura(Long compraId, Long facturaId) {
+        Compra compra = compraRepository.findById(compraId)
+                .orElseThrow(() -> new IllegalArgumentException("Compra no encontrada ID: " + compraId));
+        String para = compra.getContactEmail() == null ? null : compra.getContactEmail().trim();
+        if (para == null || para.isBlank()) {
+            throw new IllegalStateException("La compra no tiene email de contacto");
+        }
+        ComprobanteFactura comprobante = comprobanteFacturaService.armar(facturaId);
+        byte[] pdf = facturaPdfGenerator.generar(comprobante);
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setFrom(remitente, NOMBRE_REMITENTE);
+            helper.setTo(para);
+            agregarCopia(helper);
+            helper.setSubject(asuntoComprobante(compra));
+            helper.setText(construirHtmlEmail(compra, comprobante.numeroFormateado()), true);
+            helper.addAttachment("Factura-B-" + comprobante.numeroFormateado() + ".pdf",
+                    new ByteArrayResource(pdf), "application/pdf");
+            mailSender.send(message);
+        } catch (jakarta.mail.MessagingException | java.io.UnsupportedEncodingException e) {
+            throw new IllegalStateException("No se pudo armar el mail de la compra con la factura", e);
+        }
+        facturaRepository.marcarMailEnviadoA(facturaId, para, LocalDateTime.now());
+        log.info("Email de confirmación con la factura ID {} enviado para la compra ID {}", facturaId, compraId);
+    }
+
+    private static String asuntoComprobante(Compra compra) {
+        boolean pendienteDePago = compra.getEstado() == EstadoCompra.RESERVADO_EFECTIVO;
+        if (compra.getFechaVisita() == null) {
+            return pendienteDePago
+                    ? "¡Regalo reservado! - La Serranita Parque Recreativo"
+                    : "¡Gracias por tu regalo! - La Serranita Parque Recreativo";
+        }
+        return pendienteDePago
+                ? "¡Reserva confirmada! Pagás en la entrada - La Serranita Parque Recreativo"
+                : "¡Compra confirmada! - La Serranita Parque Recreativo";
     }
 
     @Async
@@ -517,6 +548,11 @@ public class EmailServiceImpl implements EmailService {
     // ---------- Comprobante de compra/reserva ----------
 
     private String construirHtmlEmail(Compra compra) {
+        return construirHtmlEmail(compra, null);
+    }
+
+    /** @param numeroFactura con factura adjunta (compra online), su número; si no, null */
+    private String construirHtmlEmail(Compra compra, String numeroFactura) {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
         String fechaVisitaStr = compra.getFechaVisita() != null ? compra.getFechaVisita().format(formatter) : "Fecha a confirmar";
 
@@ -594,11 +630,17 @@ public class EmailServiceImpl implements EmailService {
             %s
             %s
             %s
+            %s
             """.formatted(COLOR_TEXTO_SECUNDARIO, COLOR_TEXTO, nombreCliente,
                 construirTarjetaAyuda(),
                 tarjetaReserva,
                 tarjetaModalidad,
-                construirTarjetaDetalle(compra, etiquetaTotal, colorTotal, mostrarTotal));
+                construirTarjetaDetalle(compra, etiquetaTotal, colorTotal, mostrarTotal),
+                numeroFactura == null ? "" : """
+                    <p style="margin:16px 0 0; font-family:Arial,Helvetica,sans-serif; font-size:13.5px; color:%s; line-height:1.5;">
+                      Te adjuntamos la <strong style="color:%s;">Factura B %s</strong> de tu compra.
+                    </p>
+                    """.formatted(COLOR_TEXTO_SECUNDARIO, COLOR_TEXTO, numeroFactura));
 
         return envolverEnLayout(header, cuerpo, construirFooter());
     }

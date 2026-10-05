@@ -74,7 +74,7 @@ public class FacturaPdfGenerator {
             separador(doc);
 
             // Una factura manual no tiene reserva.
-            fila(doc, "Fecha: " + c.fechaEmision().format(FECHA), c.codigoReserva() != null ? "Reserva: #" + c.codigoReserva() : "", NORMAL);
+            fila(doc, "Fecha: " + c.fechaYHora(), c.referencia(), NORMAL);
             izquierda(doc, "Cliente: Consumidor Final", NORMAL);
             izquierda(doc, "Cond. IVA: Consumidor Final", NORMAL);
             izquierda(doc, "Cond. Venta: Contado", NORMAL);

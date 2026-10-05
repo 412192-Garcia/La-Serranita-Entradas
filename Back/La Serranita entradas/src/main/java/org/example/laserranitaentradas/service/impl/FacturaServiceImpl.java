@@ -39,6 +39,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -53,6 +54,13 @@ public class FacturaServiceImpl implements FacturaService {
     private static final Logger log = LoggerFactory.getLogger(FacturaServiceImpl.class);
 
     private static final BigDecimal DIVISOR_IVA_21 = new BigDecimal("1.21");
+
+    /**
+     * Zona de las fechas fiscales (la fecha que va a ARCA, la del servicio y la hora impresa).
+     * Explícita a propósito: el contenedor tiene TZ de Argentina, pero si faltara quedaría en UTC y
+     * entre las 21 y las 24 la factura saldría con el día siguiente.
+     */
+    public static final ZoneId ZONA_ARGENTINA = ZoneId.of("America/Argentina/Buenos_Aires");
     private static final int CONCEPTO_PRODUCTOS = 1;
     private static final int CONCEPTO_SERVICIOS = 2;
     private static final int CONCEPTO_PRODUCTOS_Y_SERVICIOS = 3;
@@ -176,7 +184,7 @@ public class FacturaServiceImpl implements FacturaService {
                 .puntoVenta(puntoVenta)
                 .tipoComprobante(WsfeService.CBTE_TIPO_FACTURA_B)
                 .concepto(concepto(compra.getDetalles()))
-                .fechaServicio(compra.getFechaVisita() != null ? compra.getFechaVisita() : LocalDate.now())
+                .fechaServicio(compra.getFechaVisita() != null ? compra.getFechaVisita() : LocalDate.now(ZONA_ARGENTINA))
                 .importeTotal(total)
                 .importeNeto(neto)
                 .importeIva(iva)
@@ -434,7 +442,7 @@ public class FacturaServiceImpl implements FacturaService {
             for (int intento = 1; intento <= 2; intento++) {
                 Numero proximo = proximoNumero(pv, tipo, preguntarAArca);
                 long numero = proximo.valor();
-                LocalDate fecha = LocalDate.now();
+                LocalDate fecha = LocalDate.now(ZONA_ARGENTINA);
                 // Se reserva el número ANTES de pedir el CAE, en su propia transacción y con la fila
                 // bloqueada: si la respuesta se pierde, el próximo intento sabe qué número consultar.
                 // Y si mientras se consultaba el último número la venta se canceló, acá se ve y no se
@@ -537,6 +545,7 @@ public class FacturaServiceImpl implements FacturaService {
             f.setCae(cae);
             f.setCaeVencimiento(caeVencimiento);
             f.setFechaEmision(fecha);
+            f.setEmitidaEn(LocalDateTime.now(ZONA_ARGENTINA).withNano(0));
             f.setUltimoError(null);
             f.setProximoIntento(null);
             Factura guardada = facturaRepository.save(f);
@@ -751,7 +760,7 @@ public class FacturaServiceImpl implements FacturaService {
                 .tipoComprobante(WsfeService.CBTE_TIPO_FACTURA_B)
                 .concepto(hayServicio && hayProducto ? CONCEPTO_PRODUCTOS_Y_SERVICIOS
                         : hayProducto ? CONCEPTO_PRODUCTOS : CONCEPTO_SERVICIOS)
-                .fechaServicio(LocalDate.now())
+                .fechaServicio(LocalDate.now(ZONA_ARGENTINA))
                 .importeTotal(total)
                 .importeNeto(neto)
                 .importeIva(total.subtract(neto))
@@ -785,32 +794,82 @@ public class FacturaServiceImpl implements FacturaService {
     }
 
     @Override
-    public void solicitarOnline(Compra compra) {
-        if (puntoVentaOnline() == null || !estaHabilitada() || compra == null || compra.getId() == null) {
-            return;
+    public boolean solicitarOnline(Compra compra) {
+        if (compra == null || compra.getId() == null || !facturacionOnlineActiva()
+                || compra.getFormaPago() != FormaPago.MERCADO_PAGO
+                || compra.getMontoTotal() == null || compra.getMontoTotal().signum() <= 0) {
+            return false;
         }
         Long compraId = compra.getId();
-        // Se pide recién cuando la aprobación del pago ya quedó guardada, y en una transacción
-        // propia: si se hiciera adentro de la misma, un error de la factura (aunque se atrape)
-        // la marcaría para deshacerse y se perdería la aprobación de alguien que ya pagó.
+        // Recién cuando la aprobación del pago ya quedó guardada, y en segundo plano (ver
+        // EmisionFacturasScheduler): adentro de la misma transacción, un error de la factura la
+        // desharía y se perdería la aprobación de alguien que ya pagó.
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
-                    facturarOnline(compraId);
+                    eventPublisher.publishEvent(new CompraOnlinePagadaEvent(compraId));
                 }
             });
         } else {
-            facturarOnline(compraId);
+            eventPublisher.publishEvent(new CompraOnlinePagadaEvent(compraId));
+        }
+        return true;
+    }
+
+    /**
+     * Pide la factura, espera a ARCA (normalmente 2-3 s) y manda la confirmación con la factura
+     * adjunta. Si ARCA tarda o falla, la confirmación sale sola y la factura queda para mandarse
+     * sola cuando se emita. Pase lo que pase, la confirmación sale (el finally).
+     */
+    @Override
+    public void procesarCompraOnlinePagada(Long compraId) {
+        boolean confirmacionEnviada = false;
+        try {
+            Factura factura = txNueva.execute(st -> crearFacturaOnline(compraId, false, true));
+            if (factura == null) return;
+            emitir(factura.getId());
+            Factura actual = facturaRepository.findById(factura.getId()).orElse(null);
+            String email = emailDeContacto(compraId);
+            if (actual != null && actual.getEstado() == EstadoFactura.EMITIDA && email != null) {
+                try {
+                    emailService.enviarComprobanteCompraConFactura(compraId, factura.getId());
+                    confirmacionEnviada = true;
+                    return;
+                } catch (RuntimeException e) {
+                    log.error("No se pudo mandar la confirmación con la factura de la compra ID {}: se mandan por separado", compraId, e);
+                }
+            }
+            emailService.enviarComprobanteCompra(compraId);
+            confirmacionEnviada = true;
+            if (email != null) mandarFacturaCuandoSeEmita(factura.getId(), email);
+        } catch (RuntimeException e) {
+            log.error("No se pudo facturar la compra online ID {}", compraId, e);
+        } finally {
+            if (!confirmacionEnviada) emailService.enviarComprobanteCompra(compraId);
         }
     }
 
-    private void facturarOnline(Long compraId) {
-        try {
-            txNueva.executeWithoutResult(st -> crearFacturaOnline(compraId, false));
-        } catch (RuntimeException e) {
-            log.error("No se pudo pedir la factura de la compra online ID {}", compraId, e);
+    /**
+     * La confirmación ya salió sin la factura: que la factura se mande sola al emitirse. Si justo se
+     * emitió (entre el chequeo y acá) el UPDATE condicional no la toca y se manda ya, así no se pierde
+     * ni sale dos veces (marcarEmitida decide con la fila bloqueada, igual que este UPDATE).
+     */
+    private void mandarFacturaCuandoSeEmita(Long facturaId, String email) {
+        if (facturaRepository.pasarAMailSiNoEmitida(facturaId, email) > 0) return;
+        Factura f = facturaRepository.findById(facturaId).orElse(null);
+        if (f == null || f.getEstado() != EstadoFactura.EMITIDA || Boolean.TRUE.equals(f.getAnulacionPedida())
+                || f.getMailEnviadoEn() != null) {
+            return;
         }
+        facturaRepository.pasarAMail(facturaId, email);
+        emailService.enviarFactura(facturaId);
+    }
+
+    private String emailDeContacto(Long compraId) {
+        Compra compra = em.find(Compra.class, compraId);
+        String email = compra == null || compra.getContactEmail() == null ? null : compra.getContactEmail().trim();
+        return email != null && email.matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$") ? email : null;
     }
 
     /**
@@ -819,6 +878,11 @@ public class FacturaServiceImpl implements FacturaService {
      * simplemente no se factura.
      */
     private Factura crearFacturaOnline(Long compraId, boolean estricto) {
+        return crearFacturaOnline(compraId, estricto, false);
+    }
+
+    /** @param conLaConfirmacion la factura viaja adjunta a la confirmación: se crea sin mail propio */
+    private Factura crearFacturaOnline(Long compraId, boolean estricto, boolean conLaConfirmacion) {
         Integer pv = puntoVentaOnline();
         // Bloqueada: el webhook y la verificación directa pueden confirmar el mismo pago casi a la
         // vez, y la segunda tiene que ver la factura de la primera, no crear otra.
@@ -837,8 +901,9 @@ public class FacturaServiceImpl implements FacturaService {
         String email = compra.getContactEmail() == null ? null : compra.getContactEmail().trim();
         boolean conMail = email != null && email.matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
         // Toda venta online se factura; sin un email válido queda emitida igual (sin mandar).
-        Factura f = crearFactura(compra, conMail ? DestinoFactura.MAIL : DestinoFactura.NINGUNO,
-                conMail ? email : null, null, pv);
+        boolean mailPropio = conMail && !conLaConfirmacion;
+        Factura f = crearFactura(compra, mailPropio ? DestinoFactura.MAIL : DestinoFactura.NINGUNO,
+                mailPropio ? email : null, null, pv);
         log.info("Factura online ID {} pedida para la compra {} (pto vta {})", f.getId(), compra.getCodigoReserva(), pv);
         return f;
     }
@@ -933,4 +998,7 @@ public class FacturaServiceImpl implements FacturaService {
     }
 
     public record FacturaSolicitadaEvent(Long facturaId) {}
+
+    /** Se aprobó el pago de una compra online: factura y confirmación en segundo plano. */
+    public record CompraOnlinePagadaEvent(Long compraId) {}
 }

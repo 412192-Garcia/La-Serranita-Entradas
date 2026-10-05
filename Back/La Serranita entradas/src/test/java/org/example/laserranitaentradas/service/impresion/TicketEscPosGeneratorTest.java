@@ -24,6 +24,32 @@ class TicketEscPosGeneratorTest {
     }
 
     @Test
+    void imprimeLaHoraDeEmision() {
+        ComprobanteFactura c = comprobante(null);
+        ComprobanteFactura conHora = new ComprobanteFactura(c.razonSocial(), c.domicilio(), c.cuit(), c.ingresosBrutos(),
+                c.inicioActividades(), 37, 21L, c.fechaEmision(), c.codigoReserva(), c.items(), c.total(), c.ivaContenido(),
+                c.cae(), c.caeVencimiento(), null, 6, null, java.time.LocalTime.of(9, 5));
+
+        String texto = new String(generator.generar(conHora), java.nio.charset.Charset.forName("CP850"));
+
+        assertThat(texto).contains("Fecha: 30/09/2026 09:05");
+    }
+
+    @Test
+    void ventaDePuerta_diceVentaYNoReserva() {
+        ComprobanteFactura c = comprobante(null);
+        ComprobanteFactura venta = new ComprobanteFactura(c.razonSocial(), c.domicilio(), c.cuit(), c.ingresosBrutos(),
+                c.inicioActividades(), 37, 21L, c.fechaEmision(), "261005-3", c.items(), c.total(), c.ivaContenido(),
+                c.cae(), c.caeVencimiento(), null, 6, null, null, "Venta");
+
+        String texto = new String(generator.generar(venta), java.nio.charset.Charset.forName("CP850"));
+        String reserva = new String(generator.generar(c), java.nio.charset.Charset.forName("CP850"));
+
+        assertThat(texto).contains("Venta: #261005-3").doesNotContain("Reserva:");
+        assertThat(reserva).contains("Reserva: #260930-6");
+    }
+
+    @Test
     void arrancaConResetYTerminaConCorte() {
         byte[] t = generator.generar(comprobante("https://www.afip.gob.ar/fe/qr/?p=x"));
 

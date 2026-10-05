@@ -5,6 +5,13 @@ import org.example.laserranitaentradas.model.entity.Compra;
 public interface EmailService {
     void enviarComprobanteCompra(Long compraId);
 
+    /**
+     * La confirmación de una compra online con su factura adjunta: un solo mail. En el momento y
+     * propagando el error (lo llama la facturación online, que si falla manda todo por separado).
+     * Al salir, la factura queda marcada como enviada a ese email.
+     */
+    void enviarComprobanteCompraConFactura(Long compraId, Long facturaId);
+
     /** Sólo envía algo si la compra es un regalo (tiene receptorEmail cargado). */
     void enviarAvisoRegalo(Long compraId);
 

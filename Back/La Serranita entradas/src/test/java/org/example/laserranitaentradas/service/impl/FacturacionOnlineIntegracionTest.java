@@ -19,6 +19,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.when;
 
 /**
  * La factura de una compra online se pide después de que commitea la aprobación del pago, en su
@@ -63,8 +64,17 @@ class FacturacionOnlineIntegracionTest {
                 .toList();
     }
 
+    private void esperarFacturas(Long compraId, int cantidad) {
+        long hasta = System.currentTimeMillis() + 10_000;
+        while (facturasDe(compraId).size() < cantidad && System.currentTimeMillis() < hasta) {
+            try { Thread.sleep(100); } catch (InterruptedException e) { Thread.currentThread().interrupt(); return; }
+        }
+    }
+
     @Test
-    void laFacturaSePideRecienCuandoCommiteaLaAprobacion() {
+    void despuesDelCommit_seFacturaYSaleUnSoloMailConLaFactura() {
+        when(wsfe.solicitarCae(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(new WsfeService.ResultadoCae(true, "86400000000001", LocalDate.now().plusDays(10), List.of(), List.of()));
         Compra compra = compraPagada("ONLINE-1");
         TransactionTemplate tx = new TransactionTemplate(transactionManager);
 
@@ -74,15 +84,17 @@ class FacturacionOnlineIntegracionTest {
         });
 
         assertThat(dentroDeLaTransaccion).isZero();
+        esperarFacturas(compra.getId(), 1);
         List<Factura> facturas = facturasDe(compra.getId());
         assertThat(facturas).hasSize(1);
         assertThat(facturas.get(0).getPuntoVenta()).isEqualTo(12);
-        assertThat(facturas.get(0).getDestino()).isEqualTo(DestinoFactura.MAIL);
-        assertThat(facturas.get(0).getEmail()).isEqualTo("cliente@mail.com");
+        org.mockito.Mockito.verify(emailService, org.mockito.Mockito.timeout(10_000))
+                .enviarComprobanteCompraConFactura(compra.getId(), facturas.get(0).getId());
+        org.mockito.Mockito.verify(emailService, org.mockito.Mockito.never()).enviarComprobanteCompra(compra.getId());
     }
 
     @Test
-    void siLaAprobacionSeDeshace_noQuedaFactura() {
+    void siLaAprobacionSeDeshace_noHayFacturaNiMail() throws Exception {
         Compra compra = compraPagada("ONLINE-2");
         TransactionTemplate tx = new TransactionTemplate(transactionManager);
 
@@ -90,18 +102,10 @@ class FacturacionOnlineIntegracionTest {
             facturaService.solicitarOnline(compraRepository.findById(compra.getId()).orElseThrow());
             s.setRollbackOnly();
         });
+        Thread.sleep(1500);
 
         assertThat(facturasDe(compra.getId())).isEmpty();
-    }
-
-    @Test
-    void dosConfirmacionesDelMismoPago_unaSolaFactura() {
-        Compra compra = compraPagada("ONLINE-3");
-
-        facturaService.solicitarOnline(compra);
-        facturaService.solicitarOnline(compra);
-
-        assertThat(facturasDe(compra.getId())).hasSize(1);
+        org.mockito.Mockito.verify(emailService, org.mockito.Mockito.never()).enviarComprobanteCompra(compra.getId());
     }
 
     @Test

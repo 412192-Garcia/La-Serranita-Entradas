@@ -1446,13 +1446,15 @@ public class CompraServiceImpl implements CompraService {
                         compraId, compra.getCupon().getCodigo());
             }
         }
-        emailService.enviarComprobanteCompra(compraId);
+        // Pagada online y con facturación online: la factura se pide después del commit y la
+        // confirmación sale con ella adjunta (un solo mail; si ARCA tarda, sale sola y la factura
+        // después). Sin facturación online, la confirmación sale ya, como siempre.
+        if (!facturaService.solicitarOnline(compra)) {
+            emailService.enviarComprobanteCompra(compraId);
+        }
         if (compra.getFechaVisita() == null) {
             emailService.enviarAvisoRegalo(compraId);
         }
-        // Pagada online: se factura por el punto de venta online y va por mail. Se pide después
-        // del commit y nunca tira: un problema con la factura no puede deshacer la aprobación.
-        facturaService.solicitarOnline(compra);
         return true;
     }
 

@@ -227,9 +227,25 @@ class CompraServiceImplTest {
         assertThat(compra.getEstado()).isEqualTo(EstadoCompra.APROBADO);
         // Es con lo que después se reembolsa, sin buscar por external_reference.
         assertThat(compra.getMpPaymentIds()).isEqualTo("555");
-        verify(emailService).enviarComprobanteCompra(1L);
-        // Pagada online: se pide su factura (por el punto de venta online, después del commit).
+        // Sin facturación online (el mock devuelve false), la confirmación sale ya, como siempre.
         verify(facturaService).solicitarOnline(compra);
+        verify(emailService).enviarComprobanteCompra(1L);
+    }
+
+    @Test
+    void confirmarAprobado_conFacturacionOnline_laConfirmacionSaleConLaFactura() {
+        Compra compra = new Compra();
+        compra.setId(1L);
+        compra.setEstado(EstadoCompra.PENDIENTE_PAGO);
+        compra.setFechaVisita(LocalDate.now().plusDays(5));
+        when(compraRepository.findById(1L)).thenReturn(Optional.of(compra));
+        when(compraRepository.aprobarSiSigueSinPagar(1L, "555")).thenReturn(1);
+        when(facturaService.solicitarOnline(compra)).thenReturn(true);
+
+        assertThat(service.confirmarAprobado(1L, List.of(555L))).isTrue();
+
+        // La manda la facturación online, con la factura adjunta (un solo mail).
+        verify(emailService, never()).enviarComprobanteCompra(anyLong());
     }
 
     @Test
