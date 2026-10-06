@@ -60,6 +60,25 @@ public interface FacturaService {
     /** El paso de solicitarOnline que corre en segundo plano: factura, y confirmación (con o sin ella). */
     void procesarCompraOnlinePagada(Long compraId);
 
+    /** Acciones > Control de facturas: problemas, vencimiento del certificado y control de numeración. */
+    org.example.laserranitaentradas.model.dto.ControlFacturacionDTO controlFacturacion();
+
+    /**
+     * Compara el último número de cada punto de venta en uso (facturas y notas de crédito) con el de
+     * ARCA. Sólo en producción: en homologación el CUIT de prueba es compartido y nunca coincide.
+     * Corre todas las noches y a pedido; el resultado queda para controlFacturacion.
+     */
+    java.util.List<org.example.laserranitaentradas.model.dto.ControlFacturacionDTO.Desfase> controlarNumeracion();
+
+    /** Ids de lo que tiene que prender el aviso de facturación (facturas con problema; -1 certificado por vencer; -2 numeración desfasada). */
+    java.util.List<Long> idsAlertasFacturacion();
+
+    /** Totales por punto de venta y tipo de comprobante en el período. */
+    java.util.List<org.example.laserranitaentradas.model.dto.ControlFacturacionDTO.Totales> totales(java.time.LocalDate desde, java.time.LocalDate hasta);
+
+    /** Comprobantes autorizados del período en CSV (separador ;, decimales con coma: Excel en español). */
+    String exportarCsv(java.time.LocalDate desde, java.time.LocalDate hasta);
+
     /** Si las compras online se facturan (hay punto de venta online y la facturación está configurada). */
     boolean facturacionOnlineActiva();
 

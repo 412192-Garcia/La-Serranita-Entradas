@@ -18,6 +18,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Map;
 
 /**
@@ -66,6 +67,8 @@ public class AfipSdkClient {
 
     /** Contenido PEM ya leído y validado al arrancar (null si no hay o no sirve). */
     private String certPem;
+    /** Vencimiento del certificado (notAfter), en hora de Argentina; null si no hay o no se pudo leer. */
+    private LocalDate certificadoVence;
     private String keyPem;
 
     private String token;
@@ -103,6 +106,13 @@ public class AfipSdkClient {
     void cargarCredenciales() {
         certPem = leerCredencial("AFIP_CERT", cert, "CERTIFICATE");
         keyPem = leerCredencial("AFIP_KEY", key, "PRIVATE KEY");
+        certificadoVence = vencimiento(certPem);
+        if (certificadoVence != null) {
+            long dias = java.time.temporal.ChronoUnit.DAYS.between(LocalDate.now(ZONA), certificadoVence);
+            if (dias < 0) log.error("El certificado de ARCA VENCIÓ el {}: hay que generar uno nuevo", certificadoVence);
+            else if (dias <= 30) log.warn("El certificado de ARCA vence en {} días ({}): renovarlo", dias, certificadoVence);
+            else log.info("Certificado de ARCA vigente hasta el {}", certificadoVence);
+        }
         if (accessToken == null || accessToken.isBlank()) return;
         if (esProduccion() && (certPem == null || keyPem == null)) {
             log.error("Facturación APAGADA: AFIP_ENVIRONMENT=prod necesita AFIP_CERT y AFIP_KEY válidos (ver el motivo arriba)");
@@ -110,6 +120,26 @@ public class AfipSdkClient {
             log.info("Facturación en producción: CUIT {}, certificado y clave cargados", cuit);
         } else if (certPem == null && keyPem == null) {
             log.info("Facturación en homologación con el CUIT de prueba de AfipSDK");
+        }
+    }
+
+    private static final java.time.ZoneId ZONA = java.time.ZoneId.of("America/Argentina/Buenos_Aires");
+
+    /** Vencimiento del certificado de ARCA cargado; vacío en homologación sin certificado. */
+    public java.util.Optional<LocalDate> vencimientoCertificado() {
+        return java.util.Optional.ofNullable(certificadoVence);
+    }
+
+    private static LocalDate vencimiento(String pem) {
+        if (pem == null) return null;
+        try {
+            java.security.cert.X509Certificate x509 = (java.security.cert.X509Certificate)
+                    java.security.cert.CertificateFactory.getInstance("X.509")
+                            .generateCertificate(new java.io.ByteArrayInputStream(pem.getBytes(java.nio.charset.StandardCharsets.US_ASCII)));
+            return x509.getNotAfter().toInstant().atZone(ZONA).toLocalDate();
+        } catch (Exception e) {
+            log.warn("No se pudo leer el vencimiento del certificado de ARCA: {}", e.getMessage());
+            return null;
         }
     }
 

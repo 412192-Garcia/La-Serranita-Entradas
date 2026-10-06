@@ -4,7 +4,7 @@ import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 
 /** Mismos valores que el enum TipoNotificacion del backend. */
-export type TipoNotificacion = 'CAJA_ATRASADA' | 'RECHAZO_OPERACION';
+export type TipoNotificacion = 'CAJA_ATRASADA' | 'RECHAZO_OPERACION' | 'FACTURACION';
 
 /** Qué tipos tienen algo pendiente de avisarle al usuario logueado ahora mismo. */
 export type ResumenNotificaciones = Partial<Record<TipoNotificacion, boolean>>;

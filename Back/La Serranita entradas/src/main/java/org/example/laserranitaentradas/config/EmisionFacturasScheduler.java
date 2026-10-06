@@ -45,6 +45,16 @@ public class EmisionFacturasScheduler {
         facturaService.procesarCompraOnlinePagada(evento.compraId());
     }
 
+    /** Control nocturno de numeración contra ARCA (sólo hace algo en producción). */
+    @Scheduled(cron = "${afip.control-numeracion.cron:0 30 3 * * *}", zone = "America/Argentina/Buenos_Aires")
+    public void controlarNumeracion() {
+        try {
+            facturaService.controlarNumeracion();
+        } catch (Exception e) {
+            log.warn("Falló el control de numeración contra ARCA", e);
+        }
+    }
+
     @Scheduled(fixedDelayString = "${afip.emision.intervalo-ms:60000}",
             initialDelayString = "${afip.emision.intervalo-ms:60000}")
     public void emitirPendientes() {

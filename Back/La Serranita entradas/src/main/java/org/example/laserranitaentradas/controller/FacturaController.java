@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.example.laserranitaentradas.config.UsuarioAutenticado;
+import org.example.laserranitaentradas.model.dto.ControlFacturacionDTO;
 import org.example.laserranitaentradas.model.dto.FacturaManualDTO;
 import org.example.laserranitaentradas.model.dto.FacturaResponseDTO;
 import org.example.laserranitaentradas.model.dto.FacturacionPosDTO;
@@ -91,6 +92,34 @@ public class FacturaController {
                                            @AuthenticationPrincipal UsuarioAutenticado operador) {
         ventasFacturasService.enviarPorMail(id, cuerpo.get("email"), operador);
         return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/control")
+    @Operation(summary = "Control de facturas (ADMIN)", description = "Facturas con problema, vencimiento del certificado y último control de numeración.")
+    public ControlFacturacionDTO control() {
+        return facturaService.controlFacturacion();
+    }
+
+    @PostMapping("/control/numeracion")
+    @Operation(summary = "Controlar la numeración contra ARCA ahora (ADMIN)", description = "Sólo en producción.")
+    public List<ControlFacturacionDTO.Desfase> controlarNumeracion() {
+        return facturaService.controlarNumeracion();
+    }
+
+    @GetMapping("/totales")
+    @Operation(summary = "Totales facturados por punto de venta y tipo en un período (ADMIN)")
+    public List<ControlFacturacionDTO.Totales> totales(@RequestParam java.time.LocalDate desde, @RequestParam java.time.LocalDate hasta) {
+        return facturaService.totales(desde, hasta);
+    }
+
+    @GetMapping(value = "/exportar", produces = "text/csv")
+    @Operation(summary = "Comprobantes autorizados de un período en CSV, para el contador (ADMIN)")
+    public ResponseEntity<byte[]> exportar(@RequestParam java.time.LocalDate desde, @RequestParam java.time.LocalDate hasta) {
+        byte[] csv = facturaService.exportarCsv(desde, hasta).getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"facturas-" + desde + "-al-" + hasta + ".csv\"")
+                .contentType(MediaType.parseMediaType("text/csv; charset=UTF-8"))
+                .body(csv);
     }
 
     @PostMapping("/manual")

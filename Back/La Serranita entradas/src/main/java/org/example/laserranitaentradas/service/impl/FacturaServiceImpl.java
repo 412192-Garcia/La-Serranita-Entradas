@@ -1,5 +1,6 @@
 package org.example.laserranitaentradas.service.impl;
 
+import org.example.laserranitaentradas.model.dto.ControlFacturacionDTO;
 import org.example.laserranitaentradas.model.dto.FacturaManualDTO;
 import org.example.laserranitaentradas.model.dto.FacturaResponseDTO;
 import org.example.laserranitaentradas.model.dto.FacturacionPosDTO;
@@ -995,6 +996,135 @@ public class FacturaServiceImpl implements FacturaService {
     private static String recortar(String texto) {
         if (texto == null) return null;
         return texto.length() > 1000 ? texto.substring(0, 1000) : texto;
+    }
+
+    // ---------- Control de facturas ----------
+
+    /** Una PENDIENTE creada hace más que esto ya no es "emitiéndose": está trabada en reintentos. */
+    private static final long MINUTOS_PARA_TRABADA = 10;
+    private static final int DIAS_AVISO_CERTIFICADO = 30;
+
+    private volatile LocalDateTime numeracionControladaEn;
+    private volatile List<ControlFacturacionDTO.Desfase> desfases = List.of();
+
+    @Override
+    @Transactional(readOnly = true)
+    public ControlFacturacionDTO controlFacturacion() {
+        List<Factura> conProblemas = facturaRepository.conProblemas(LocalDateTime.now(ZONA_ARGENTINA).minusMinutes(MINUTOS_PARA_TRABADA));
+        Map<Long, TrabajoImpresion> trabajos = impresionService.ultimosTrabajos(conProblemas.stream().map(Factura::getId).toList());
+        List<ControlFacturacionDTO.Problema> problemas = conProblemas.stream()
+                .map(f -> new ControlFacturacionDTO.Problema(toDto(f, Optional.ofNullable(trabajos.get(f.getId()))),
+                        f.getCompra() != null ? f.getCompra().getCodigoReserva() : null, f.getFechaCreacion()))
+                .toList();
+        LocalDate vence = afipClient.vencimientoCertificado().orElse(null);
+        Long dias = vence == null ? null : java.time.temporal.ChronoUnit.DAYS.between(LocalDate.now(ZONA_ARGENTINA), vence);
+        return new ControlFacturacionDTO(problemas, vence, dias, controlaNumeracion(), numeracionControladaEn, desfases);
+    }
+
+    private boolean controlaNumeracion() {
+        return afipClient.esProduccion() && estaHabilitada();
+    }
+
+    @Override
+    public List<ControlFacturacionDTO.Desfase> controlarNumeracion() {
+        if (!controlaNumeracion()) return List.of();
+        java.util.Set<Integer> puntos = new java.util.TreeSet<>(facturaRepository.puntosDeVentaUsados());
+        puntos.add(puntoVentaBoleteria);
+        Integer online = puntoVentaOnline();
+        if (online != null) puntos.add(online);
+        List<ControlFacturacionDTO.Desfase> encontrados = new ArrayList<>();
+        // Con la emisión frenada mientras tanto: una factura que se autoriza entre la consulta a la
+        // base y la de ARCA daría un desfase que no existe.
+        lockEmision.lock();
+        try {
+            for (int pv : puntos) {
+                for (int tipo : List.of(WsfeService.CBTE_TIPO_FACTURA_B, WsfeService.CBTE_TIPO_NOTA_CREDITO_B)) {
+                    long base = Optional.ofNullable(facturaRepository.ultimoNumeroEmitido(pv, tipo)).orElse(0L);
+                    Long reservado = facturaRepository.ultimoNumeroReservadoSinResolver(pv, tipo);
+                    long arca = wsfe.ultimoAutorizado(pv, tipo);
+                    // Un número pedido sin respuesta que ARCA sí autorizó no es desfase: lo resuelve la emisión.
+                    if (arca != base && (reservado == null || arca != reservado)) {
+                        log.warn("Numeración desfasada en pto vta {} tipo {}: base {} / ARCA {}", pv, tipo, base, arca);
+                        encontrados.add(new ControlFacturacionDTO.Desfase(pv, tipo, base, arca));
+                    }
+                }
+            }
+        } finally {
+            lockEmision.unlock();
+        }
+        desfases = List.copyOf(encontrados);
+        numeracionControladaEn = LocalDateTime.now(ZONA_ARGENTINA).withNano(0);
+        if (encontrados.isEmpty()) log.info("Control de numeración OK ({} puntos de venta)", puntos.size());
+        return desfases;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Long> idsAlertasFacturacion() {
+        if (!estaHabilitada()) return List.of();
+        List<Long> ids = new ArrayList<>(facturaRepository.conProblemas(LocalDateTime.now(ZONA_ARGENTINA).minusMinutes(MINUTOS_PARA_TRABADA))
+                .stream().map(Factura::getId).toList());
+        afipClient.vencimientoCertificado().ifPresent(vence -> {
+            if (java.time.temporal.ChronoUnit.DAYS.between(LocalDate.now(ZONA_ARGENTINA), vence) <= DIAS_AVISO_CERTIFICADO) ids.add(-1L);
+        });
+        if (!desfases.isEmpty()) ids.add(-2L);
+        return ids;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ControlFacturacionDTO.Totales> totales(LocalDate desde, LocalDate hasta) {
+        Map<String, ControlFacturacionDTO.Totales> porClave = new java.util.LinkedHashMap<>();
+        for (Factura f : facturaRepository.emitidasEntre(desde, hasta)) {
+            String clave = f.getPuntoVenta() + "-" + f.getTipoComprobante();
+            ControlFacturacionDTO.Totales t = porClave.get(clave);
+            porClave.put(clave, new ControlFacturacionDTO.Totales(f.getPuntoVenta(), f.getTipoComprobante(),
+                    (t == null ? 0 : t.cantidad()) + 1,
+                    (t == null ? BigDecimal.ZERO : t.total()).add(f.getImporteTotal()),
+                    (t == null ? BigDecimal.ZERO : t.neto()).add(f.getImporteNeto()),
+                    (t == null ? BigDecimal.ZERO : t.iva()).add(f.getImporteIva())));
+        }
+        return new ArrayList<>(porClave.values());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public String exportarCsv(LocalDate desde, LocalDate hasta) {
+        java.time.format.DateTimeFormatter fecha = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy");
+        java.time.format.DateTimeFormatter hora = java.time.format.DateTimeFormatter.ofPattern("HH:mm");
+        StringBuilder csv = new StringBuilder("\uFEFF"); // BOM: Excel lo abre como UTF-8 (tildes)
+        csv.append("Fecha;Hora;Comprobante;Punto de venta;Número;CAE;Vto. CAE;Total;Neto gravado;IVA 21%;Estado;Compra;Comprobante asociado\r\n");
+        for (Factura f : facturaRepository.emitidasEntre(desde, hasta)) {
+            boolean nc = f.getTipoComprobante() == WsfeService.CBTE_TIPO_NOTA_CREDITO_B;
+            String asociado = "";
+            if (f.getComprobanteAsociado() != null && f.getComprobanteAsociado().getNumero() != null) {
+                asociado = String.format("%04d-%08d", f.getComprobanteAsociado().getPuntoVenta(), f.getComprobanteAsociado().getNumero());
+            }
+            String estado = nc ? "Emitida" : (Boolean.TRUE.equals(f.getAnulacionPedida()) ? "Anulada con nota de crédito" : "Emitida");
+            csv.append(String.join(";",
+                    f.getFechaEmision().format(fecha),
+                    f.getEmitidaEn() != null ? f.getEmitidaEn().format(hora) : "",
+                    nc ? "Nota de Crédito B" : "Factura B",
+                    String.format("%04d", f.getPuntoVenta()),
+                    String.format("%08d", f.getNumero()),
+                    nullAVacio(f.getCae()),
+                    f.getCaeVencimiento() != null ? f.getCaeVencimiento().format(fecha) : "",
+                    importeCsv(f.getImporteTotal()),
+                    importeCsv(f.getImporteNeto()),
+                    importeCsv(f.getImporteIva()),
+                    estado,
+                    f.getCompra() != null ? nullAVacio(f.getCompra().getCodigoReserva()) : "Manual",
+                    asociado)).append("\r\n");
+        }
+        return csv.toString();
+    }
+
+    private static String importeCsv(BigDecimal importe) {
+        return importe == null ? "" : importe.setScale(2, RoundingMode.HALF_UP).toPlainString().replace('.', ',');
+    }
+
+    private static String nullAVacio(String texto) {
+        return texto == null ? "" : texto.replace(';', ',');
     }
 
     public record FacturaSolicitadaEvent(Long facturaId) {}

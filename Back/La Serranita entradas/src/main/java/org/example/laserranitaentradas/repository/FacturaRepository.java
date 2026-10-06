@@ -79,6 +79,25 @@ public interface FacturaRepository extends JpaRepository<Factura, Long> {
     @Query("SELECT MAX(f.numero) FROM Factura f WHERE f.puntoVenta = :pv AND f.tipoComprobante = :tipo AND f.numero IS NOT NULL")
     Long ultimoNumeroEmitido(@Param("pv") Integer puntoVenta, @Param("tipo") Integer tipoComprobante);
 
+    /** Facturas en ERROR, o PENDIENTES creadas antes de `limite` (trabadas): las que hay que mirar. */
+    @Query("SELECT f FROM Factura f LEFT JOIN FETCH f.compra WHERE f.estado = org.example.laserranitaentradas.model.entity.EstadoFactura.ERROR " +
+            "OR (f.estado = org.example.laserranitaentradas.model.entity.EstadoFactura.PENDIENTE AND f.fechaCreacion < :limite) ORDER BY f.id DESC")
+    List<Factura> conProblemas(@Param("limite") LocalDateTime limite);
+
+    /** Comprobantes autorizados (con número) emitidos en el período, para el listado del contador. */
+    @Query("SELECT f FROM Factura f LEFT JOIN FETCH f.compra LEFT JOIN FETCH f.comprobanteAsociado " +
+            "WHERE f.numero IS NOT NULL AND f.fechaEmision BETWEEN :desde AND :hasta " +
+            "ORDER BY f.fechaEmision, f.puntoVenta, f.tipoComprobante, f.numero")
+    List<Factura> emitidasEntre(@Param("desde") java.time.LocalDate desde, @Param("hasta") java.time.LocalDate hasta);
+
+    /** El número más alto reservado y todavía sin resolver (se pidió el CAE y no se supo la respuesta). */
+    @Query("SELECT MAX(f.numeroIntentado) FROM Factura f WHERE f.puntoVenta = :pv AND f.tipoComprobante = :tipo " +
+            "AND f.numero IS NULL AND f.numeroIntentado IS NOT NULL")
+    Long ultimoNumeroReservadoSinResolver(@Param("pv") Integer puntoVenta, @Param("tipo") Integer tipoComprobante);
+
+    @Query("SELECT DISTINCT f.puntoVenta FROM Factura f")
+    List<Integer> puntosDeVentaUsados();
+
     /** Las facturas B de varias compras de una vez (la ventana "Ventas y facturas"). */
     List<Factura> findByCompraIdInAndTipoComprobante(Collection<Long> compraIds, Integer tipoComprobante);
 

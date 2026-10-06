@@ -425,6 +425,110 @@ class FacturaServiceImplTest {
         verify(emailService).enviarComprobanteCompra(1L);
     }
 
+    // ---------- control de facturas ----------
+
+    @Test
+    void controlNumeracion_avisaSoloLosDesfasesReales() {
+        when(afipClient.esProduccion()).thenReturn(true);
+        when(facturaRepository.puntosDeVentaUsados()).thenReturn(List.of(5));
+        // Facturas: coincide.
+        when(facturaRepository.ultimoNumeroEmitido(5, 6)).thenReturn(10L);
+        when(wsfe.ultimoAutorizado(5, 6)).thenReturn(10L);
+        // Notas de crédito: ARCA tiene una más que la base, y no es una reservada sin resolver.
+        when(facturaRepository.ultimoNumeroEmitido(5, 8)).thenReturn(2L);
+        when(wsfe.ultimoAutorizado(5, 8)).thenReturn(3L);
+
+        var desfases = service.controlarNumeracion();
+
+        assertThat(desfases).containsExactly(new org.example.laserranitaentradas.model.dto.ControlFacturacionDTO.Desfase(5, 8, 2, 3));
+        assertThat(service.controlFacturacion().desfases()).hasSize(1);
+        assertThat(service.idsAlertasFacturacion()).contains(-2L);
+    }
+
+    @Test
+    void controlNumeracion_unNumeroReservadoQueArcaAutorizo_noEsDesfase() {
+        when(afipClient.esProduccion()).thenReturn(true);
+        when(facturaRepository.puntosDeVentaUsados()).thenReturn(List.of(5));
+        when(facturaRepository.ultimoNumeroEmitido(anyInt(), anyInt())).thenReturn(10L);
+        when(facturaRepository.ultimoNumeroReservadoSinResolver(anyInt(), anyInt())).thenReturn(11L);
+        when(wsfe.ultimoAutorizado(anyInt(), anyInt())).thenReturn(11L);
+
+        assertThat(service.controlarNumeracion()).isEmpty();
+    }
+
+    @Test
+    void controlNumeracion_enHomologacion_noConsultaArca() {
+        assertThat(service.controlarNumeracion()).isEmpty();
+        verify(wsfe, never()).ultimoAutorizado(anyInt(), anyInt());
+    }
+
+    @Test
+    void alertas_facturasConProblemaYCertificadoPorVencer() {
+        Factura error = pendiente();
+        error.setEstado(EstadoFactura.ERROR);
+        when(facturaRepository.conProblemas(any())).thenReturn(List.of(error));
+        when(afipClient.vencimientoCertificado()).thenReturn(Optional.of(LocalDate.now().plusDays(10)));
+
+        assertThat(service.idsAlertasFacturacion()).containsExactlyInAnyOrder(10L, -1L);
+        assertThat(service.controlFacturacion().diasParaVencer()).isBetween(9L, 11L);
+    }
+
+    @Test
+    void alertas_todoBien_sinAviso() {
+        when(afipClient.vencimientoCertificado()).thenReturn(Optional.of(LocalDate.now().plusYears(1)));
+
+        assertThat(service.idsAlertasFacturacion()).isEmpty();
+    }
+
+    @Test
+    void exportarCsv_paraExcelEnEspanol() {
+        Factura f = emitida();
+        f.setPuntoVenta(11);
+        f.setNumero(7L);
+        f.setImporteTotal(new BigDecimal("34300.00"));
+        f.setImporteNeto(new BigDecimal("28347.11"));
+        f.setImporteIva(new BigDecimal("5952.89"));
+        f.setEmitidaEn(java.time.LocalDateTime.of(2026, 10, 5, 14, 32));
+        f.setFechaEmision(LocalDate.of(2026, 10, 5));
+        f.setCompra(Compra.builder().id(1L).codigoReserva("261005-3").build());
+        Factura nc = emitida();
+        nc.setTipoComprobante(8);
+        nc.setPuntoVenta(11);
+        nc.setNumero(1L);
+        nc.setComprobanteAsociado(f);
+        nc.setFechaEmision(LocalDate.of(2026, 10, 5));
+        f.setAnulacionPedida(true);
+        when(facturaRepository.emitidasEntre(any(), any())).thenReturn(List.of(f, nc));
+
+        String csv = service.exportarCsv(LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 31));
+
+        assertThat(csv).startsWith("\uFEFFFecha;Hora;Comprobante");
+        assertThat(csv).contains("05/10/2026;14:32;Factura B;0011;00000007;123;");
+        assertThat(csv).contains(";34300,00;28347,11;5952,89;Anulada con nota de crédito;261005-3;");
+        assertThat(csv).contains("Nota de Crédito B;0011;00000001").contains(";0011-00000007\r\n");
+    }
+
+    @Test
+    void totales_porPuntoDeVentaYTipo() {
+        Factura a = emitida();
+        a.setPuntoVenta(11);
+        a.setImporteTotal(new BigDecimal("100"));
+        a.setImporteNeto(new BigDecimal("82.64"));
+        a.setImporteIva(new BigDecimal("17.36"));
+        Factura b = emitida();
+        b.setPuntoVenta(11);
+        b.setImporteTotal(new BigDecimal("200"));
+        b.setImporteNeto(new BigDecimal("165.29"));
+        b.setImporteIva(new BigDecimal("34.71"));
+        when(facturaRepository.emitidasEntre(any(), any())).thenReturn(List.of(a, b));
+
+        var totales = service.totales(LocalDate.now(), LocalDate.now());
+
+        assertThat(totales).hasSize(1);
+        assertThat(totales.get(0).cantidad()).isEqualTo(2);
+        assertThat(totales.get(0).total()).isEqualByComparingTo("300");
+    }
+
     // ---------- factura manual ----------
 
     private static org.example.laserranitaentradas.model.dto.FacturaManualDTO.Item item(String tipo, int cant, String desc, String subtotal) {

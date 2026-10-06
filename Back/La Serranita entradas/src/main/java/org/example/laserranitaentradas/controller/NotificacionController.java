@@ -4,6 +4,7 @@ import org.example.laserranitaentradas.config.UsuarioAutenticado;
 import org.example.laserranitaentradas.model.dto.MarcarVistasRequestDTO;
 import org.example.laserranitaentradas.model.entity.TipoNotificacion;
 import org.example.laserranitaentradas.service.CajaService;
+import org.example.laserranitaentradas.service.FacturaService;
 import org.example.laserranitaentradas.service.NotificacionService;
 import org.example.laserranitaentradas.service.RechazoOperacionService;
 import org.springframework.http.ResponseEntity;
@@ -27,12 +28,14 @@ public class NotificacionController {
     private final NotificacionService notificacionService;
     private final CajaService cajaService;
     private final RechazoOperacionService rechazoService;
+    private final FacturaService facturaService;
 
     public NotificacionController(NotificacionService notificacionService, CajaService cajaService,
-                                   RechazoOperacionService rechazoService) {
+                                   RechazoOperacionService rechazoService, FacturaService facturaService) {
         this.notificacionService = notificacionService;
         this.cajaService = cajaService;
         this.rechazoService = rechazoService;
+        this.facturaService = facturaService;
     }
 
     @GetMapping("/resumen")
@@ -43,6 +46,8 @@ public class NotificacionController {
                 notificacionService.hayPendientes(TipoNotificacion.CAJA_ATRASADA, cajaService.getIdsCajasAtrasadas(), operador.id()));
         resultado.put(TipoNotificacion.RECHAZO_OPERACION,
                 notificacionService.hayPendientes(TipoNotificacion.RECHAZO_OPERACION, rechazoService.getIdsPendientes(), operador.id()));
+        resultado.put(TipoNotificacion.FACTURACION,
+                notificacionService.hayPendientes(TipoNotificacion.FACTURACION, facturaService.idsAlertasFacturacion(), operador.id()));
         return ResponseEntity.ok(resultado);
     }
 

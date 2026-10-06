@@ -14,7 +14,11 @@ public enum TipoNotificacion {
     /** Operación del POS rechazada por el servidor (ver RechazoOperacionService.getIdsPendientes):
      * sigue prendida hasta que un admin la marca resuelta explícitamente (OperacionRechazada.
      * resuelto) — verla en la lista no alcanza. */
-    RECHAZO_OPERACION(false);
+    RECHAZO_OPERACION(false),
+    /** Facturación con algo para resolver (ver FacturaService.idsAlertasFacturacion): facturas en
+     * ERROR o trabadas, certificado de ARCA por vencer o numeración desfasada. Sigue prendida hasta
+     * que se resuelva. Como no se apaga al verse, nunca se guarda en notificaciones_vistas. */
+    FACTURACION(false);
 
     private final boolean desapareceAlVerse;
 
