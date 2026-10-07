@@ -10,6 +10,7 @@ import org.example.laserranitaentradas.monitoreo.AuditoriaService;
 import org.example.laserranitaentradas.monitoreo.EstadoSistemaService;
 import org.example.laserranitaentradas.monitoreo.IncidenteService;
 import org.example.laserranitaentradas.monitoreo.MetricasRequests;
+import org.example.laserranitaentradas.monitoreo.PedidoBackup;
 import org.springframework.data.domain.Page;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -29,13 +30,15 @@ public class SistemaController {
     private final AuditoriaService auditoriaService;
     private final IncidenteService incidenteService;
     private final MetricasRequests metricasRequests;
+    private final PedidoBackup pedidoBackup;
 
     public SistemaController(EstadoSistemaService estadoService, AuditoriaService auditoriaService, IncidenteService incidenteService,
-                             MetricasRequests metricasRequests) {
+                             MetricasRequests metricasRequests, PedidoBackup pedidoBackup) {
         this.estadoService = estadoService;
         this.auditoriaService = auditoriaService;
         this.incidenteService = incidenteService;
         this.metricasRequests = metricasRequests;
+        this.pedidoBackup = pedidoBackup;
     }
 
     @GetMapping("/estado")
@@ -69,6 +72,12 @@ public class SistemaController {
                                       @RequestParam(defaultValue = "0") int pagina,
                                       @RequestParam(defaultValue = "30") int tamanio) {
         return incidenteService.listar(filtro, area, pagina, tamanio);
+    }
+
+    @PostMapping("/backups/forzar")
+    @Operation(summary = "Pedir un backup de la base ahora", description = "Lo hace el contenedor backup en menos de un minuto (con la copia a Drive, si está configurada).")
+    public PedidoBackup.Estado forzarBackup(@AuthenticationPrincipal UsuarioAutenticado operador) {
+        return pedidoBackup.pedir(operador != null ? operador.username() : null);
     }
 
     @GetMapping("/rendimiento")
