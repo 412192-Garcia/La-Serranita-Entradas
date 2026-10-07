@@ -6,6 +6,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.context.event.EventListener;
+import org.example.laserranitaentradas.service.impl.FacturaServiceImpl;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
@@ -34,6 +36,23 @@ public class EmisionFacturasScheduler {
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void alSolicitarFactura(FacturaSolicitadaEvent evento) {
         facturaService.emitir(evento.facturaId());
+    }
+
+    /** Ya se publica después del commit (ver FacturaServiceImpl#solicitarOnline): listener común, en segundo plano. */
+    @Async
+    @EventListener
+    public void alPagarseCompraOnline(FacturaServiceImpl.CompraOnlinePagadaEvent evento) {
+        facturaService.procesarCompraOnlinePagada(evento.compraId());
+    }
+
+    /** Control nocturno de numeración contra ARCA (sólo hace algo en producción). */
+    @Scheduled(cron = "${afip.control-numeracion.cron:0 30 3 * * *}", zone = "America/Argentina/Buenos_Aires")
+    public void controlarNumeracion() {
+        try {
+            facturaService.controlarNumeracion();
+        } catch (Exception e) {
+            log.warn("Falló el control de numeración contra ARCA", e);
+        }
     }
 
     @Scheduled(fixedDelayString = "${afip.emision.intervalo-ms:60000}",

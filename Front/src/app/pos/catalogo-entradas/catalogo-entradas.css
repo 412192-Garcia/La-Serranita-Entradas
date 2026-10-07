@@ -112,6 +112,31 @@
   gap: 10px;
 }
 
+/* Cantidad editable (no un span): para grupos grandes se escribe el número directo. */
+.stepper-input {
+  width: 64px;
+  padding: 6px 4px;
+  text-align: center;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-heading);
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: var(--color-text);
+  background-color: var(--color-input-bg);
+  outline: none;
+  box-sizing: border-box;
+}
+
+.stepper-input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(57, 169, 53, 0.15);
+}
+
+@media (pointer: coarse) {
+  .stepper-input { min-height: 44px; }
+}
+
 .stepper-cantidad {
   min-width: 32px;
   text-align: center;

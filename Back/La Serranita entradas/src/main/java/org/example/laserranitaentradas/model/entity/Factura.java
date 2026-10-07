@@ -108,6 +108,11 @@ public class Factura extends BaseEntity {
     @Column(name = "fecha_emision")
     private LocalDate fechaEmision;
 
+    /** Momento en que ARCA la autorizó, en hora de Argentina: la hora que se imprime. Null en las
+     * facturas anteriores a este dato (se imprime sólo la fecha). */
+    @Column(name = "emitida_en")
+    private LocalDateTime emitidaEn;
+
     /** Día del servicio (FchServDesde/Hasta): la fecha de visita de la compra. */
     @Column(name = "fecha_servicio")
     private LocalDate fechaServicio;

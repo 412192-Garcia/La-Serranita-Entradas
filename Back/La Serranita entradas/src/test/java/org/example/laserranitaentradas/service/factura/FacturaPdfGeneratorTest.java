@@ -51,6 +51,21 @@ class FacturaPdfGeneratorTest {
     }
 
     @Test
+    void imprimeFechaYHoraDeEmision_ySinHoraEnLasViejas() throws Exception {
+        ComprobanteFactura viejo = comprobante(List.of(new ComprobanteFactura.Item(2, "General")));
+        ComprobanteFactura conHora = new ComprobanteFactura(viejo.razonSocial(), viejo.domicilio(), viejo.cuit(),
+                viejo.ingresosBrutos(), viejo.inicioActividades(), 37, 21L, viejo.fechaEmision(), viejo.codigoReserva(),
+                viejo.items(), viejo.total(), viejo.ivaContenido(), viejo.cae(), viejo.caeVencimiento(), viejo.qrUrl(), 6,
+                null, java.time.LocalTime.of(14, 32, 10));
+
+        String textoConHora = new com.lowagie.text.pdf.parser.PdfTextExtractor(new PdfReader(generator.generar(conHora))).getTextFromPage(1);
+        String textoViejo = new com.lowagie.text.pdf.parser.PdfTextExtractor(new PdfReader(generator.generar(viejo))).getTextFromPage(1);
+
+        assertThat(textoConHora).contains("Fecha: 30/09/2026 14:32");
+        assertThat(textoViejo).contains("Fecha: 30/09/2026").doesNotContain("Fecha: 30/09/2026 ");
+    }
+
+    @Test
     void notaDeCredito_llevaSuTituloYLaFacturaQueAnula() throws Exception {
         ComprobanteFactura f = comprobante(List.of(new ComprobanteFactura.Item(2, "General")));
         ComprobanteFactura nc = new ComprobanteFactura(f.razonSocial(), f.domicilio(), f.cuit(), f.ingresosBrutos(),

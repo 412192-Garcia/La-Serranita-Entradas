@@ -494,6 +494,14 @@ public class CajaServiceImpl implements CajaService {
         if (entradasFisicasRestantes == null || entradasFisicasRestantes < 0) {
             throw new IllegalArgumentException("Indicá cuántas entradas quedan en el talonario");
         }
+        BigDecimal contadoAntes = caja.getMontoContado();
+        BigDecimal diferenciaAntes = caja.getDiferencia();
+        Integer entradasAntes = caja.getEntradasFisicasRestantes();
+        org.example.laserranitaentradas.monitoreo.AuditoriaContexto.referencia("de " + caja.getUsuario().getNombre()
+                + " del " + caja.getFechaApertura().toLocalDate().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")));
+        if (ajustes != null && !ajustes.isEmpty()) {
+            org.example.laserranitaentradas.monitoreo.AuditoriaContexto.detalle(ajustes.size() + " ajuste(s) entre formas de pago");
+        }
 
         LocalDateTime ahora = LocalDateTime.now();
 
@@ -538,6 +546,9 @@ public class CajaServiceImpl implements CajaService {
         Caja guardada = cajaRepository.save(caja);
         cierrePosnetRepository.deleteAllByCajaId(caja.getId());
         guardarCierresPosnet(guardada, cierres, ahora);
+        org.example.laserranitaentradas.monitoreo.AuditoriaContexto.cambio("Efectivo contado", contadoAntes, guardada.getMontoContado());
+        org.example.laserranitaentradas.monitoreo.AuditoriaContexto.cambio("Diferencia", diferenciaAntes, guardada.getDiferencia());
+        org.example.laserranitaentradas.monitoreo.AuditoriaContexto.cambio("Entradas que quedan", entradasAntes, guardada.getEntradasFisicasRestantes());
 
         return toDto(guardada);
     }
@@ -1088,12 +1099,18 @@ public class CajaServiceImpl implements CajaService {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
+    /** Precio de lista de una línea de tipo de entrada: el congelado al armar la compra, o el
+     * actual del tipo en las compras anteriores a ese dato. */
+    private BigDecimal precioListaDe(CompraDetalle d) {
+        return d.getPrecioUnitario() != null ? d.getPrecioUnitario() : d.getTipoEntrada().getPrecio();
+    }
+
     private BigDecimal montoLineaNoEntrada(CompraDetalle d) {
         if (d.getTipoEntrada() != null) {
             if (d.getTipoEntrada().getTipo() != Tipo.EXTRA || d.getTipoEntrada().getPrecio() == null) {
                 return BigDecimal.ZERO;
             }
-            return d.getTipoEntrada().getPrecio().multiply(BigDecimal.valueOf(d.getCantidad()));
+            return precioListaDe(d).multiply(BigDecimal.valueOf(d.getCantidad()));
         }
         if (d.getPrecioUnitario() == null) return BigDecimal.ZERO;
         return d.getPrecioUnitario().multiply(BigDecimal.valueOf(d.getCantidad()));
@@ -1115,7 +1132,7 @@ public class CajaServiceImpl implements CajaService {
 
         BigDecimal montoEntradas = compra.getMontoTotal().subtract(montoArticulos(compra));
         BigDecimal sumaLista = lineas.stream()
-                .map(d -> d.getTipoEntrada().getPrecio().multiply(BigDecimal.valueOf(d.getCantidad())))
+                .map(d -> precioListaDe(d).multiply(BigDecimal.valueOf(d.getCantidad())))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         // Descuento de la compra, igual para todos sus segmentos: si fue una promo de %, ese %
@@ -1138,7 +1155,7 @@ public class CajaServiceImpl implements CajaService {
             if (i == lineas.size() - 1) {
                 monto = montoEntradas.subtract(acumulado);
             } else if (sumaLista.compareTo(BigDecimal.ZERO) > 0) {
-                BigDecimal lista = d.getTipoEntrada().getPrecio().multiply(BigDecimal.valueOf(d.getCantidad()));
+                BigDecimal lista = precioListaDe(d).multiply(BigDecimal.valueOf(d.getCantidad()));
                 monto = montoEntradas.multiply(lista).divide(sumaLista, 2, java.math.RoundingMode.HALF_UP);
                 acumulado = acumulado.add(monto);
             } else {

@@ -109,7 +109,7 @@ export class VentasFacturasModal implements OnInit {
 
   /** Se puede facturar: sin factura (o con una anulada) y por un monto mayor a cero. */
   facturable(v: VentaFactura): boolean {
-    return v.montoTotal > 0 && (v.factura === null || v.factura.estado === 'ANULADA');
+    return v.montoTotal > 0 && (v.factura === null || v.factura.estado === 'ANULADA' || v.factura.anulacionPedida);
   }
 
   abrir(v: VentaFactura, tipo: Accion['tipo']): void {

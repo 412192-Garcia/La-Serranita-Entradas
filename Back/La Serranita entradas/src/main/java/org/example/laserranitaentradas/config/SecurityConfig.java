@@ -5,6 +5,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.access.hierarchicalroles.RoleHierarchy;
+import org.springframework.security.access.hierarchicalroles.RoleHierarchyImpl;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -64,6 +66,15 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/compras/{id:\\d+}/verificar-pago").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/pagos/webhook").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/ping").permitAll()
+                // Para el monitor externo (UptimeRobot o similar) y el healthcheck de Docker: sólo
+                // dice si el backend y la base responden, sin ningún dato interno.
+                .requestMatchers(HttpMethod.GET, "/api/salud").permitAll()
+                // Actuator vive en su propio puerto (management.server.port), que sólo se alcanza
+                // desde la red interna de Docker (el agente de Grafana): ahí no hay JWT.
+                .requestMatchers(HttpMethod.GET, "/actuator/health", "/actuator/prometheus").permitAll()
+                // Errores de JavaScript del navegador (también de la tienda pública, sin login): el
+                // controller limita cuántos acepta por IP.
+                .requestMatchers(HttpMethod.POST, "/api/errores-cliente").permitAll()
                 // El agente de impresión no tiene JWT: se autentica con su propio token en el controller.
                 .requestMatchers("/api/impresion/agente/**").permitAll()
 
@@ -81,7 +92,10 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/interno/compras/caja/*/venta-pos").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/interno/facturas/*/reintentar").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/interno/facturas/manual").hasRole("ADMIN")
+                .requestMatchers("/api/interno/facturas/control/**", "/api/interno/facturas/control").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.GET, "/api/interno/facturas/totales", "/api/interno/facturas/exportar").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.GET, "/api/interno/facturas/manuales").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.POST, "/api/interno/facturas/compra/*/online").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/interno/facturas/*/anular").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/interno/facturas/*/reenviar-mail").hasRole("ADMIN")
                 // Devuelve plata real por la API de Mercado Pago: la UI ya lo muestra sólo al admin.
@@ -100,6 +114,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/interno/caja/abrir-sin-control").hasRole("ADMIN")
                 .requestMatchers("/api/interno/rechazos/**").hasRole("ADMIN")
                 .requestMatchers("/api/interno/notificaciones/**").hasRole("ADMIN")
+                // Monitoreo: sólo el que mantiene la app, no el admin del parque.
+                .requestMatchers("/api/interno/sistema/**").hasRole("SUPERADMIN")
 
                 // ---------- Boletería (BOLETERO o ADMIN) ----------
                 // Antes que la regla general de /api/usuarios/** (ADMIN-only, más abajo): cualquier
@@ -140,6 +156,18 @@ public class SecurityConfig {
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
+    }
+
+    /**
+     * SUPERADMIN puede todo lo de ADMIN, y ADMIN todo lo de BOLETERO: las reglas de arriba nombran el
+     * rol mínimo y Spring aplica la jerarquía solo (authorizeHttpRequests toma este bean).
+     */
+    @Bean
+    static RoleHierarchy roleHierarchy() {
+        return RoleHierarchyImpl.fromHierarchy("""
+                ROLE_SUPERADMIN > ROLE_ADMIN
+                ROLE_ADMIN > ROLE_BOLETERO
+                """);
     }
 
     @Bean

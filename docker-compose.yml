@@ -21,10 +21,20 @@
 # BOOTSTRAP_ADMIN_USERNAME/PASSWORD seteados en el .env, el backend crea el primer
 # ADMIN solo en el primer arranque (ver BootstrapAdminRunner).
 
+# Logs de cada contenedor: por defecto Docker los guarda sin límite y con el tiempo llenan el disco
+# del VPS. Así se guardan hasta 5 archivos de 10 MB por servicio (docker compose logs los sigue
+# mostrando igual).
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
 services:
   db:
     image: postgres:16-alpine
     restart: unless-stopped
+    logging: *logging
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-serranita}
       POSTGRES_USER: ${POSTGRES_USER:-serranita}
@@ -37,11 +47,83 @@ services:
       timeout: 5s
       retries: 10
 
+  # Backup de la base: pg_dump una vez por semana (por defecto miércoles 4 AM, con el parque cerrado) a
+  # la carpeta backups/ del servidor, con la fecha en el nombre. Los de más de BACKUP_RETENCION_DIAS
+  # se borran solos. El script vive acá adentro a propósito: el servidor sólo tiene este archivo,
+  # el .env y afip/, no el repo. Restaurar: ver el comentario en .env.example.
+  # Con BACKUP_DRIVE_REMOTO, cada backup se sube además a Google Drive (rclone, con la config de
+  # ./rclone/rclone.conf) y en Drive también se borran los de más de BACKUP_RETENCION_DIAS. El
+  # resultado queda en backups/.drive-estado, que lee la tarjeta de Backups de Sistema > Estado.
+  backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    logging: *logging
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGHOST: db
+      PGDATABASE: ${POSTGRES_DB:-serranita}
+      PGUSER: ${POSTGRES_USER:-serranita}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      TZ: America/Argentina/Buenos_Aires
+      # Formato cron: minuto hora día-del-mes mes día-de-la-semana (1 = lunes, 3 = miércoles).
+      BACKUP_CRON: ${BACKUP_CRON:-0 4 * * 3}
+      BACKUP_RETENCION_DIAS: ${BACKUP_RETENCION_DIAS:-56}
+      # Remoto de rclone + carpeta, ej. "gdrive:serranita-backups". Vacío = sin copia en Drive.
+      BACKUP_DRIVE_REMOTO: ${BACKUP_DRIVE_REMOTO:-}
+    volumes:
+      - ./backups:/backups
+      # Lectura y escritura: rclone renueva solo el token de Google y lo guarda acá.
+      - ./rclone:/config/rclone
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        cat > /usr/local/bin/backup.sh <<'SCRIPT'
+        #!/bin/sh
+        set -e
+        archivo="/backups/serranita-$$(date +%Y-%m-%d_%H%M).dump"
+        # Formato custom (-Fc): comprimido y se restaura con pg_restore. Primero a .tmp, así un
+        # backup cortado a la mitad nunca queda con el nombre de uno bueno.
+        pg_dump -Fc -f "$$archivo.tmp"
+        mv "$$archivo.tmp" "$$archivo"
+        find /backups -name 'serranita-*.dump' -mtime +"$$BACKUP_RETENCION_DIAS" -delete
+        echo "$$(date '+%Y-%m-%d %H:%M') backup OK: $$archivo ($$(du -h "$$archivo" | cut -f1))"
+        # Copia fuera del servidor. Un fallo acá no borra ni invalida el backup local: queda anotado
+        # en .drive-estado (OK|ERROR fecha detalle) y la tarjeta de Backups lo muestra en rojo.
+        if [ -n "$$BACKUP_DRIVE_REMOTO" ]; then
+          ahora="$$(date '+%Y-%m-%dT%H:%M:%S')"
+          if rclone --config /config/rclone/rclone.conf copy "$$archivo" "$$BACKUP_DRIVE_REMOTO" 2>/tmp/rclone.err; then
+            rclone --config /config/rclone/rclone.conf delete "$$BACKUP_DRIVE_REMOTO" --min-age "$${BACKUP_RETENCION_DIAS}d" --include 'serranita-*.dump' 2>/dev/null || true
+            echo "OK $$ahora $$(basename "$$archivo")" > /backups/.drive-estado
+            echo "$$(date '+%Y-%m-%d %H:%M') copia en Google Drive OK: $$BACKUP_DRIVE_REMOTO"
+          else
+            echo "ERROR $$ahora $$(tail -c 300 /tmp/rclone.err | tr '\n' ' ')" > /backups/.drive-estado
+            echo "$$(date '+%Y-%m-%d %H:%M') FALLÓ la copia en Google Drive:" && cat /tmp/rclone.err
+          fi
+        fi
+        SCRIPT
+        chmod +x /usr/local/bin/backup.sh
+        # rclone viene de los paquetes de Alpine; sólo hace falta si se copia a Drive.
+        if [ -n "$$BACKUP_DRIVE_REMOTO" ]; then apk add --no-cache rclone >/dev/null || echo "No se pudo instalar rclone: sin copia en Google Drive"; fi
+        echo "$$BACKUP_CRON /usr/local/bin/backup.sh >> /proc/1/fd/1 2>&1" > /etc/crontabs/root
+        echo "Backups programados: '$$BACKUP_CRON', se guardan $$BACKUP_RETENCION_DIAS días en ./backups"
+        exec crond -f -l 8
+
   backend:
     image: ghcr.io/412192-garcia/la-serranita-backend:latest
     build:
       context: ./Back/La Serranita entradas
     restart: unless-stopped
+    logging: *logging
+    # "docker compose ps" muestra (healthy)/(unhealthy): prueba el backend y la base (ver
+    # SaludController). start_period: lo que tarda en arrancar Spring sin contar como falla.
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/api/salud >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
     depends_on:
       db:
         condition: service_healthy
@@ -73,12 +155,27 @@ services:
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:4200}
       BOOTSTRAP_ADMIN_USERNAME: ${BOOTSTRAP_ADMIN_USERNAME:-}
       BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-}
+      BOOTSTRAP_SUPERADMIN_USERNAME: ${BOOTSTRAP_SUPERADMIN_USERNAME:-}
+      BOOTSTRAP_SUPERADMIN_PASSWORD: ${BOOTSTRAP_SUPERADMIN_PASSWORD:-}
+      # Sólo para que la tarjeta de Backups sepa si tiene que haber copia en Drive.
+      BACKUP_DRIVE_REMOTO: ${BACKUP_DRIVE_REMOTO:-}
+      # "ecs" = logs en JSON, para mandarlos a Grafana (servicio alloy). Vacío = texto común.
+      LOG_FORMATO: ${LOG_FORMATO:-}
+      ALERTAS_MAIL: ${ALERTAS_MAIL:-}
+      ALERTAS_LATIDO_URL: ${ALERTAS_LATIDO_URL:-}
+      ALERTAS_RECORDATORIO_HORAS: ${ALERTAS_RECORDATORIO_HORAS:-24}
+      ALERTAS_AVISAR_ARRANQUE: ${ALERTAS_AVISAR_ARRANQUE:-true}
+      MONITOREO_REQUEST_LENTA_MS: ${MONITOREO_REQUEST_LENTA_MS:-3000}
+      MONITOREO_LENTAS_POR_HORA: ${MONITOREO_LENTAS_POR_HORA:-20}
+      MONITOREO_MINUTOS_TERMINAL_SIN_LATIDO: ${MONITOREO_MINUTOS_TERMINAL_SIN_LATIDO:-10}
+      MONITOREO_MINUTOS_COLA_TRABADA: ${MONITOREO_MINUTOS_COLA_TRABADA:-15}
       AFIPSDK_ACCESS_TOKEN: ${AFIPSDK_ACCESS_TOKEN:-}
       AFIP_ENVIRONMENT: ${AFIP_ENVIRONMENT:-dev}
       AFIP_CUIT: ${AFIP_CUIT:-20409378472}
       AFIP_CERT: ${AFIP_CERT:-}
       AFIP_KEY: ${AFIP_KEY:-}
       AFIP_PUNTO_VENTA_BOLETERIA: ${AFIP_PUNTO_VENTA_BOLETERIA:-1}
+      AFIP_PUNTO_VENTA_ONLINE: ${AFIP_PUNTO_VENTA_ONLINE:-}
       AFIP_EMISOR_RAZON_SOCIAL: ${AFIP_EMISOR_RAZON_SOCIAL:-PARQUE RECREATIVO LA SERRANITA S.A.S.}
       AFIP_EMISOR_DOMICILIO: ${AFIP_EMISOR_DOMICILIO:-RUTA 5 KM43,5}
       AFIP_EMISOR_INGRESOS_BRUTOS: ${AFIP_EMISOR_INGRESOS_BRUTOS:-287116730}
@@ -92,6 +189,9 @@ services:
       # existe, Docker la crea vacía y no pasa nada. El backend corre como el usuario "app" del
       # contenedor: la clave tiene que ser legible por él (ver .env.example).
       - ./afip:/run/afip:ro
+      # Sólo para mirar (Sistema > Estado: fecha del último backup y espacio en disco). Los escribe
+      # el servicio "backup".
+      - ./backups:/backups:ro
     # Sin ports: acá a propósito — en producción no hace falta, Caddy llega por la red
     # interna, y publicarlo en el host lo deja accesible desde internet salteando el
     # HTTPS. Para acceso directo en desarrollo local, ver docker-compose.override.yml.example.
@@ -101,6 +201,7 @@ services:
     build:
       context: ./Front
     restart: unless-stopped
+    logging: *logging
     depends_on:
       - backend
     # Ídem backend: sin ports: acá. docker-compose.override.yml.example lo publica sólo
@@ -115,6 +216,7 @@ services:
       context: .
       dockerfile: Dockerfile.caddy
     restart: unless-stopped
+    logging: *logging
     depends_on:
       - frontend
     environment:
@@ -134,7 +236,37 @@ services:
       # Carpeta vacía acá; en el VPS puede tener archivos .caddy sueltos que no se versionan.
       - ./caddy-extra:/etc/caddy/extra:ro
 
+  # Agente de Grafana Cloud: logs de todos los contenedores + métricas del backend y del servidor
+  # (ver observabilidad/config.alloy). Opcional: sólo arranca con el perfil "observabilidad":
+  #   COMPOSE_PROFILES=observabilidad en el .env (y las variables GRAFANA_*), o
+  #   docker compose --profile observabilidad up -d
+  alloy:
+    image: grafana/alloy:v1.20.1
+    profiles: ["observabilidad"]
+    restart: unless-stopped
+    logging: *logging
+    depends_on:
+      - backend
+    command: ["run", "/etc/alloy/config.alloy", "--storage.path=/var/lib/alloy/data"]
+    environment:
+      GRAFANA_LOKI_URL: ${GRAFANA_LOKI_URL:-}
+      GRAFANA_LOKI_USUARIO: ${GRAFANA_LOKI_USUARIO:-}
+      GRAFANA_PROM_URL: ${GRAFANA_PROM_URL:-}
+      GRAFANA_PROM_USUARIO: ${GRAFANA_PROM_USUARIO:-}
+      GRAFANA_CLOUD_TOKEN: ${GRAFANA_CLOUD_TOKEN:-}
+    volumes:
+      - ./observabilidad/config.alloy:/etc/alloy/config.alloy:ro
+      - alloy_data:/var/lib/alloy/data
+      # Para leer los logs de los demás contenedores (sólo lectura).
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Métricas del servidor (CPU, memoria, disco, red).
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/host/root:ro
+      - /run/udev:/run/udev:ro
+
 volumes:
   db_data:
   caddy_data:
   caddy_config:
+  alloy_data:

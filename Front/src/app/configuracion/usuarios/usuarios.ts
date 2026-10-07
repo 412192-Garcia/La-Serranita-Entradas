@@ -1,7 +1,7 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { UsuarioService, Usuario } from '../../services/usuario.service';
-import { SesionService, Rol } from '../../services/sesion.service';
+import { SesionService, Rol, nombreRol } from '../../services/sesion.service';
 import { compararTexto, compararBooleano } from '../../shared/orden.util';
 import { Spinner } from '../../shared/spinner/spinner';
 import { crearOrdenable, EstadoOrden } from '../../shared/ordenable';
@@ -19,6 +19,9 @@ type CampoOrdenUsuario = 'username' | 'nombre' | 'rol' | 'estado';
 export class ConfiguracionUsuarios implements OnInit {
   private usuarioService = inject(UsuarioService);
   private sesion = inject(SesionService);
+  /** Sólo otro SUPERADMIN puede dar ese rol (el backend lo rechaza igual); al admin del parque ni le aparece. */
+  readonly puedeAsignarSuperadmin = this.sesion.esSuperadmin;
+  readonly nombreRol = nombreRol;
 
   usuarios = signal<Usuario[]>([]);
   cargando = signal(false);

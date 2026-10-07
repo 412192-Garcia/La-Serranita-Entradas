@@ -131,6 +131,9 @@
           <button type="button" [disabled]="reenviandoId() === reserva.id" (click)="reenviarMail(reserva, $event)">
             {{ reenviandoId() === reserva.id ? 'Enviando…' : 'Reenviar mail' }}
           </button>
+          @if (facturacionHabilitada()) {
+            <button type="button" (click)="abrirFactura(reserva, $event)">Factura</button>
+          }
           @if (puedeReembolsar(reserva)) {
             <button
               type="button"
@@ -144,6 +147,10 @@
       }
     </div>
   </ng-template>
+
+  @if (facturaDe(); as reserva) {
+    <app-factura-compra-modal [reserva]="reserva" (cerrar)="facturaDe.set(null)" />
+  }
 
   @if (editando(); as reserva) {
     <app-modal (cerrar)="cancelarEdicion()">

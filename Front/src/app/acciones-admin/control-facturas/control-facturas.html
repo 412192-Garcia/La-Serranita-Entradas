@@ -1,0 +1,173 @@
+<div class="seccion-facturacion">
+
+  <!-- ============ ESTADO ============ -->
+  <div class="tarjeta" data-tour="control-facturas">
+    <div class="titulo-con-accion">
+      <h2>Estado de la facturación</h2>
+      <button type="button" class="btn-secundario btn-con-icono" [disabled]="cargando()" (click)="cargar()">
+        <svg lucideRefreshCw [strokeWidth]="2"></svg> Actualizar
+      </button>
+    </div>
+
+    @if (cargando() && !control()) {
+      <app-spinner />
+    } @else if (error(); as e) {
+      <p class="alerta">{{ e }}</p>
+    } @else if (control(); as c) {
+      <div class="indicadores">
+        <!-- Certificado -->
+        <div class="indicador" [class.indicador-mal]="certificadoEnRiesgo(c)">
+          <span class="indicador-titulo"><svg lucideShieldCheck [strokeWidth]="2"></svg> Certificado de ARCA</span>
+          @if (c.certificadoVence) {
+            @if (c.diasParaVencer !== null && c.diasParaVencer < 0) {
+              <strong class="texto-error">Venció el {{ c.certificadoVence | date: 'dd/MM/yyyy' }}</strong>
+              <span class="secundario">La facturación se corta: hay que generar uno nuevo.</span>
+            } @else {
+              <strong [class.texto-error]="certificadoEnRiesgo(c)">Vence el {{ c.certificadoVence | date: 'dd/MM/yyyy' }}</strong>
+              <span class="secundario">
+                En {{ c.diasParaVencer }} días.
+                @if (certificadoEnRiesgo(c)) { Renovarlo ya: generar un pedido nuevo y que lo firme ARCA. }
+              </span>
+            }
+          } @else {
+            <strong>Sin certificado</strong>
+            <span class="secundario">Homologación (pruebas) con el CUIT de prueba.</span>
+          }
+        </div>
+
+        <!-- Numeración -->
+        <div class="indicador" [class.indicador-mal]="c.desfases.length > 0">
+          <span class="indicador-titulo"><svg lucideFileText [strokeWidth]="2"></svg> Numeración contra ARCA</span>
+          @if (!c.numeracionControlada) {
+            <strong>No se controla</strong>
+            <span class="secundario">Sólo en producción (en pruebas el CUIT es compartido).</span>
+          } @else if (c.desfases.length > 0) {
+            <strong class="texto-error">No coincide</strong>
+            @for (d of c.desfases; track d.puntoVenta + '-' + d.tipoComprobante) {
+              <span class="secundario">
+                Pto vta {{ d.puntoVenta }} · {{ tipoTexto(d.tipoComprobante) }}: base {{ d.ultimoBase }}, ARCA {{ d.ultimoArca }}
+              </span>
+            }
+          } @else if (c.numeracionControladaEn) {
+            <strong><svg lucideCircleCheck class="icono-ok" [strokeWidth]="2"></svg> Coincide</strong>
+            <span class="secundario">Último control: {{ c.numeracionControladaEn | date: 'dd/MM/yyyy HH:mm' }}</span>
+          } @else {
+            <strong>Todavía sin controlar</strong>
+            <span class="secundario">Se controla solo todas las noches (3:30).</span>
+          }
+          @if (c.numeracionControlada) {
+            <button type="button" class="btn-accion" [disabled]="controlando()" (click)="controlarAhora()">
+              {{ controlando() ? 'Controlando…' : 'Controlar ahora' }}
+            </button>
+          }
+        </div>
+
+        <!-- Problemas -->
+        <div class="indicador" [class.indicador-mal]="c.problemas.length > 0">
+          <span class="indicador-titulo"><svg lucideCircleAlert [strokeWidth]="2"></svg> Facturas con problema</span>
+          @if (c.problemas.length > 0) {
+            <strong class="texto-error">{{ c.problemas.length }}</strong>
+            <span class="secundario">Detalle abajo.</span>
+          } @else {
+            <strong><svg lucideCircleCheck class="icono-ok" [strokeWidth]="2"></svg> Ninguna</strong>
+            <span class="secundario">Todas emitidas o emitiéndose.</span>
+          }
+        </div>
+      </div>
+
+      @if (aviso(); as a) {
+        <p class="aviso-ok" [class.alerta]="a.error" role="status">{{ a.texto }}</p>
+      }
+
+      @if (c.problemas.length > 0) {
+        <div class="titulo-con-accion problemas-titulo">
+          <h3>Facturas con problema</h3>
+          @if (hayEnError()) {
+            <button type="button" class="btn-secundario" [disabled]="reintentandoTodas()" (click)="reintentarTodas()">
+              {{ reintentandoTodas() ? 'Reintentando…' : 'Reintentar todas' }}
+            </button>
+          }
+        </div>
+        <ul class="lista-manuales">
+          @for (p of c.problemas; track p.factura.id) {
+            <li class="manual">
+              <div class="manual-cabecera">
+                <span class="manual-numero">{{ tipoTexto(p.factura.tipoComprobante) }} · {{ p.codigoCompra ? '#' + p.codigoCompra : 'Manual' }}</span>
+                <span class="manual-fecha">{{ p.creada | date: 'dd/MM/yyyy HH:mm' }}</span>
+                <span class="manual-total">{{ p.factura.importeTotal | pesos }}</span>
+              </div>
+              <div class="manual-estado">
+                <svg lucideCircleAlert class="texto-error" [strokeWidth]="2"></svg>
+                @if (p.factura.estado === 'ERROR') {
+                  <span class="texto-error">No se pudo emitir: {{ p.factura.ultimoError }}</span>
+                } @else {
+                  <span>Trabada en reintentos ({{ p.factura.intentos }} intentos){{ p.factura.ultimoError ? ': ' + p.factura.ultimoError : '' }}. Se sigue intentando sola.</span>
+                }
+              </div>
+              @if (p.factura.estado === 'ERROR') {
+                <div class="manual-acciones">
+                  <button type="button" class="btn-accion" [disabled]="reintentandoId() !== null || reintentandoTodas()" (click)="reintentar(p.factura.id)">
+                    <svg lucideRefreshCw [strokeWidth]="2"></svg> {{ reintentandoId() === p.factura.id ? 'Reintentando…' : 'Reintentar' }}
+                  </button>
+                </div>
+              }
+            </li>
+          }
+        </ul>
+      }
+    }
+  </div>
+
+  <!-- ============ LISTADO PARA EL CONTADOR ============ -->
+  <div class="tarjeta">
+    <h2>Listado para el contador</h2>
+    <p class="ayuda">
+      Facturas y notas de crédito autorizadas en el período, por punto de venta. El CSV tiene un renglón por comprobante
+      (fecha, número, CAE, total, neto e IVA) y se abre con Excel.
+    </p>
+
+    <div class="periodo">
+      <label>Desde <input type="date" [ngModel]="desde()" (ngModelChange)="desde.set($event)" /></label>
+      <label>Hasta <input type="date" [ngModel]="hasta()" (ngModelChange)="hasta.set($event)" /></label>
+      <button type="button" class="btn-secundario" [disabled]="!periodoValido() || cargandoTotales()" (click)="verTotales()">
+        {{ cargandoTotales() ? 'Calculando…' : 'Ver totales' }}
+      </button>
+      <button type="button" class="btn-primario btn-con-icono" [disabled]="!periodoValido() || descargando()" (click)="descargarCsv()">
+        <svg lucideDownload [strokeWidth]="2"></svg> {{ descargando() ? 'Generando…' : 'Descargar CSV' }}
+      </button>
+    </div>
+    @if (!periodoValido()) {
+      <p class="alerta">"Desde" tiene que ser anterior o igual a "Hasta".</p>
+    }
+    @if (errorListado(); as e) {
+      <p class="alerta">{{ e }}</p>
+    }
+
+    @if (totales(); as t) {
+      @if (t.length === 0) {
+        <p class="ayuda">No hay comprobantes autorizados en el período.</p>
+      } @else {
+        <div class="tabla-totales" role="table" aria-label="Totales del período">
+          <div class="fila-totales encabezado-totales" role="row">
+            <span role="columnheader">Pto vta</span><span role="columnheader">Comprobante</span><span role="columnheader" class="num">Cant.</span>
+            <span role="columnheader" class="num">Total</span><span role="columnheader" class="num">Neto</span><span role="columnheader" class="num">IVA 21%</span>
+          </div>
+          @for (x of t; track x.puntoVenta + '-' + x.tipoComprobante) {
+            <div class="fila-totales" role="row">
+              <span data-label="Pto vta">{{ x.puntoVenta }}</span>
+              <span data-label="Comprobante">{{ tipoTexto(x.tipoComprobante) }}</span>
+              <span class="num" data-label="Cant.">{{ x.cantidad }}</span>
+              <span class="num" data-label="Total">{{ x.total | pesos }}</span>
+              <span class="num" data-label="Neto">{{ x.neto | pesos }}</span>
+              <span class="num" data-label="IVA 21%">{{ x.iva | pesos }}</span>
+            </div>
+          }
+          <div class="fila-totales fila-neto" role="row">
+            <span>Facturado neto de notas de crédito</span>
+            <span class="num">{{ netoPeriodo() | pesos }}</span>
+          </div>
+        </div>
+      }
+    }
+  </div>
+</div>

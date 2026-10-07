@@ -269,7 +269,7 @@ export class FacturacionManual implements OnInit {
   }
 
   anular(f: Factura): void {
-    this.pedir(f, this.facturaService.anularManual(f.id), 'Anulada: se emite la nota de crédito.');
+    this.pedir(f, this.facturaService.anularFactura(f.id), 'Anulada: se emite la nota de crédito.');
   }
 
   /** La pestaña se abre ya, con el clic: si se abre cuando llega el PDF, el navegador la bloquea. */

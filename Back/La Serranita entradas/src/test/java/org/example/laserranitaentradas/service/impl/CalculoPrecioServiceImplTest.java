@@ -102,6 +102,28 @@ class CalculoPrecioServiceImplTest {
     }
 
     @Test
+    void conPrecioDeListaDado_noUsaElPrecioActualDelTipo() {
+        // El tipo hoy vale 34300, pero la reserva se hizo cuando valía 30000.
+        BigDecimal total = service.calcularTotal(paseGeneral, 4, FormaPago.TARJETA, new BigDecimal("30000"));
+        BigDecimal ahorro = service.calcularAhorro(paseGeneral, 4, FormaPago.TARJETA, new BigDecimal("30000"));
+
+        assertThat(total).isEqualByComparingTo("120000"); // 4 * 30000, no 4 * 34300
+        assertThat(ahorro).isEqualByComparingTo("0");
+    }
+
+    @Test
+    void conPrecioDeListaDado_elEscalonDeEfectivoSigueSiendoUnImporteAbsoluto() {
+        when(descuentoEfectivoRepository.findByTipoEntradaAndCantidadPases(paseGeneral, 3))
+                .thenReturn(Optional.of(escalon(3, "95700.00")));
+
+        BigDecimal total = service.calcularTotal(paseGeneral, 3, FormaPago.EFECTIVO_BOLETERIA, new BigDecimal("30000"));
+        BigDecimal ahorro = service.calcularAhorro(paseGeneral, 3, FormaPago.EFECTIVO_BOLETERIA, new BigDecimal("30000"));
+
+        assertThat(total).isEqualByComparingTo("95700.00");
+        assertThat(ahorro).isEqualByComparingTo("-5700.00"); // lista 90000 < escalón: el escalón ya no conviene
+    }
+
+    @Test
     void efectivo_porEncimaDelEscalonMaximo_extrapolaElPrecioPorPersonaDelUltimoEscalon() {
         // Escalón máximo: 10 pases por 307000 -> 30700 por persona. Para 11, no vuelve a
         // precio de lista: sigue pagando 30700 por persona (era el bug original).

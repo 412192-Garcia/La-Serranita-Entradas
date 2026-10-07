@@ -75,7 +75,14 @@ public class TipoEntradaController {
             @ApiResponse(responseCode = "404", description = "Tipo de entrada no encontrado")
     })
     public ResponseEntity<TipoEntrada> actualizarTipoEntrada(@PathVariable @Parameter(description = "ID del tipo de entrada") Long id, @RequestBody TipoEntrada tipoEntrada) {
-        if (tipoEntradaService.findById(id).isPresent()) {
+        java.util.Optional<TipoEntrada> anterior = tipoEntradaService.findById(id);
+        if (anterior.isPresent()) {
+            TipoEntrada antes = anterior.get();
+            org.example.laserranitaentradas.monitoreo.AuditoriaContexto.referencia("\"" + antes.getNombre() + "\"");
+            org.example.laserranitaentradas.monitoreo.AuditoriaContexto.cambio("Nombre", antes.getNombre(), tipoEntrada.getNombre());
+            org.example.laserranitaentradas.monitoreo.AuditoriaContexto.cambio("Precio", antes.getPrecio(), tipoEntrada.getPrecio());
+            org.example.laserranitaentradas.monitoreo.AuditoriaContexto.cambio("Activo", antes.getActivo(), tipoEntrada.getActivo());
+            org.example.laserranitaentradas.monitoreo.AuditoriaContexto.cambio("Máximo por día", antes.getMaximoPorDia(), tipoEntrada.getMaximoPorDia());
             tipoEntrada.setId(id);
             TipoEntrada tipoEntradaActualizado = tipoEntradaService.update(tipoEntrada);
             return ResponseEntity.ok(tipoEntradaActualizado);

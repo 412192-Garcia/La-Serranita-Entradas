@@ -1,0 +1,73 @@
+<div class="tarjeta" data-tour="errores-sistema">
+  <h2>Errores del sistema</h2>
+  <p class="ayuda">
+    Errores del servidor, también los de procesos en segundo plano (emisión de facturas, mails, pagos), y los de
+    JavaScript de los navegadores (área Navegador, con la pantalla donde pasó). Los repetidos se agrupan. Si alguien te
+    pasa un código de error (ej. E3F2A1), aparece en el detalle; con ese mismo código se encuentra en el log del servidor.
+  </p>
+
+  <div class="chips">
+    <button type="button" class="chip" [class.activo]="filtro() === 'pendientes'" (click)="elegirFiltro('pendientes')">Sin revisar</button>
+    <button type="button" class="chip" [class.activo]="filtro() === 'resueltos'" (click)="elegirFiltro('resueltos')">Resueltos</button>
+    <button type="button" class="chip" [class.activo]="filtro() === 'todos'" (click)="elegirFiltro('todos')">Todos</button>
+    <span class="separador" aria-hidden="true"></span>
+    @for (a of areas; track a.valor) {
+      <button type="button" class="chip" [class.activo]="area() === a.valor" (click)="elegirArea(a.valor)">{{ a.etiqueta }}</button>
+    }
+  </div>
+
+  @if (cargando() && !pagina()) {
+    <app-spinner />
+  } @else if (error(); as e) {
+    <p class="alerta">{{ e }}</p>
+  } @else if (pagina(); as p) {
+    @if (p.content.length === 0) {
+      <p class="ayuda vacio"><svg lucideCircleCheck class="icono-ok" [strokeWidth]="2"></svg>
+        {{ filtro() === 'pendientes' ? 'Ningún error sin revisar.' : 'No hay errores con esos filtros.' }}</p>
+    } @else {
+      <ul class="lista-manuales">
+        @for (i of p.content; track i.id) {
+          <li class="manual" [class.incidente-pendiente]="!i.resuelto">
+            <div class="manual-cabecera">
+              <span class="etiqueta-area">{{ etiquetaArea(i.area) }}</span>
+              <span class="manual-fecha">
+                {{ i.ultimaVez | date: 'dd/MM HH:mm' }}
+                @if (i.cantidad > 1) { · {{ i.cantidad }} veces desde {{ i.primeraVez | date: 'dd/MM HH:mm' }} }
+              </span>
+            </div>
+            <button type="button" class="incidente-mensaje" [attr.aria-expanded]="abiertoId() === i.id" (click)="alternar(i)">
+              <svg lucideCircleAlert [class.texto-error]="!i.resuelto" [strokeWidth]="2"></svg>
+              <span>{{ i.mensaje || '(sin mensaje)' }}</span>
+            </button>
+            <div class="manual-detalle">
+              @if (i.codigo) { Código {{ i.codigo }} · }
+              @if (i.usuario) { {{ i.usuario }} · }
+              @if (i.request) { {{ i.request }} }
+              @if (i.resuelto) { · resuelto por {{ i.resueltoPor || '—' }} el {{ i.resueltoEn | date: 'dd/MM HH:mm' }} }
+            </div>
+            @if (abiertoId() === i.id) {
+              <div class="incidente-detalle">
+                <p class="secundario">Origen: {{ i.origen }}</p>
+                @if (i.detalle) { <pre>{{ i.detalle }}</pre> }
+              </div>
+            }
+            @if (!i.resuelto) {
+              <div class="manual-acciones">
+                <button type="button" class="btn-accion" [disabled]="resolviendoId() !== null" (click)="resolver(i)">
+                  <svg lucideCircleCheck [strokeWidth]="2"></svg> {{ resolviendoId() === i.id ? 'Marcando…' : 'Marcar resuelto' }}
+                </button>
+              </div>
+            }
+          </li>
+        }
+      </ul>
+      @if (p.totalPages > 1) {
+        <div class="paginacion">
+          <button type="button" class="btn-secundario" [disabled]="numeroPagina() === 0 || cargando()" (click)="cargar(numeroPagina() - 1)">Anterior</button>
+          <span>Página {{ numeroPagina() + 1 }} de {{ p.totalPages }}</span>
+          <button type="button" class="btn-secundario" [disabled]="numeroPagina() + 1 >= p.totalPages || cargando()" (click)="cargar(numeroPagina() + 1)">Siguiente</button>
+        </div>
+      }
+    }
+  }
+</div>

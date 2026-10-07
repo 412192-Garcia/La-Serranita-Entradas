@@ -5,16 +5,18 @@
 
 -- -----------------------------------------------------------------------------
 -- 1. USUARIOS (Empleados del Parque: Administradores y Boleteros)
--- Contraseñas de prueba (hash bcrypt real): admin/admin123, boletero.marta y
--- boletero.juan comparten boletero123.
+-- Contraseñas de prueba (hash bcrypt real): admin/admin123 (SUPERADMIN: además ve Sistema),
+-- admin.parque/admin123 (ADMIN común, como el del parque), boletero.marta y boletero.juan
+-- comparten boletero123.
 -- -----------------------------------------------------------------------------
 INSERT INTO usuarios (
     username, password, nombre, apellido, rol, activo,
     fecha_creacion, fecha_modificacion, usuario_creacion, usuario_modificacion
 ) VALUES
-      ('admin', '$2a$10$3M7rO0WklkesAeyyf00aSeK08yXSQSwT.21ZXAIoo2PUsNCUxWHT.', 'Carlos', 'González', 'ADMIN', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'SYSTEM', 'SYSTEM'),
+      ('admin', '$2a$10$3M7rO0WklkesAeyyf00aSeK08yXSQSwT.21ZXAIoo2PUsNCUxWHT.', 'Carlos', 'González', 'SUPERADMIN', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'SYSTEM', 'SYSTEM'),
       ('boletero.marta', '$2a$10$swVxIUB0PgsETN9ZpeccCOBIWETtSwOOczoTP7zCSFgRrZWT01h1y', 'Marta', 'Rodríguez', 'BOLETERO', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'admin', 'admin'),
-      ('boletero.juan', '$2a$10$9BZeHMV5216iLDRCNNT5feeoakYM9ZWWDannrEx6/ywX32vIZeYfW', 'Juan', 'Pérez', 'BOLETERO', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'admin', 'admin');
+      ('boletero.juan', '$2a$10$9BZeHMV5216iLDRCNNT5feeoakYM9ZWWDannrEx6/ywX32vIZeYfW', 'Juan', 'Pérez', 'BOLETERO', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'admin', 'admin'),
+      ('admin.parque', '$2a$10$3M7rO0WklkesAeyyf00aSeK08yXSQSwT.21ZXAIoo2PUsNCUxWHT.', 'Laura', 'Gómez', 'ADMIN', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'SYSTEM', 'SYSTEM');
 
 -- -----------------------------------------------------------------------------
 -- 2. TIPOS DE ENTRADA Y EXTRAS

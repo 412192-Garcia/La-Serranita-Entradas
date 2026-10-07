@@ -2,6 +2,8 @@ package org.example.laserranitaentradas.service.factura;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.example.laserranitaentradas.model.entity.CompraDetalle;
+import org.example.laserranitaentradas.model.entity.EstadoCompra;
+import org.example.laserranitaentradas.model.entity.Compra;
 import org.example.laserranitaentradas.model.entity.EstadoFactura;
 import org.example.laserranitaentradas.model.entity.Factura;
 import org.example.laserranitaentradas.repository.FacturaRepository;
@@ -83,7 +85,18 @@ public class ComprobanteFacturaService {
                 razonSocial, domicilio, afipClient.getCuit(), ingresosBrutos, inicioActividades,
                 f.getPuntoVenta(), f.getNumero(), f.getFechaEmision(), f.getCompra() != null ? f.getCompra().getCodigoReserva() : null,
                 items, f.getImporteTotal(), f.getImporteIva(), f.getCae(), f.getCaeVencimiento(),
-                qrUrl(f), f.getTipoComprobante(), asociado);
+                qrUrl(f), f.getTipoComprobante(), asociado,
+                f.getEmitidaEn() != null ? f.getEmitidaEn().toLocalTime() : null,
+                f.getCompra() != null && esVentaDePuerta(f.getCompra()) ? "Venta" : "Reserva");
+    }
+
+    /**
+     * Venta hecha directo en la boletería (nunca fue una reserva): queda VENDIDO_EN_PUERTA y no
+     * tiene titular. Lo del titular cubre también la nota de crédito de una venta de puerta ya
+     * cancelada (deja de estar VENDIDO_EN_PUERTA). Una reserva cobrada en puerta tiene titular.
+     */
+    private static boolean esVentaDePuerta(Compra c) {
+        return c.getEstado() == EstadoCompra.VENDIDO_EN_PUERTA || (c.getCliente() == null && c.getCaja() != null);
     }
 
     private static String descripcion(CompraDetalle d) {

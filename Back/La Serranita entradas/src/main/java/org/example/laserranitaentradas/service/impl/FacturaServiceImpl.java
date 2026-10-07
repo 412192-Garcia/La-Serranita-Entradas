@@ -1,13 +1,16 @@
 package org.example.laserranitaentradas.service.impl;
 
+import org.example.laserranitaentradas.model.dto.ControlFacturacionDTO;
 import org.example.laserranitaentradas.model.dto.FacturaManualDTO;
 import org.example.laserranitaentradas.model.dto.FacturaResponseDTO;
 import org.example.laserranitaentradas.model.dto.FacturacionPosDTO;
 import org.example.laserranitaentradas.model.entity.Compra;
 import org.example.laserranitaentradas.model.entity.CompraDetalle;
 import org.example.laserranitaentradas.model.entity.DestinoFactura;
+import org.example.laserranitaentradas.model.entity.EstadoCompra;
 import org.example.laserranitaentradas.model.entity.EstadoFactura;
 import org.example.laserranitaentradas.model.entity.Factura;
+import org.example.laserranitaentradas.model.entity.FormaPago;
 import org.example.laserranitaentradas.model.entity.TrabajoImpresion;
 import org.example.laserranitaentradas.repository.FacturaRepository;
 import org.example.laserranitaentradas.service.CalculoPrecioService;
@@ -29,11 +32,15 @@ import jakarta.persistence.LockModeType;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -48,6 +55,13 @@ public class FacturaServiceImpl implements FacturaService {
     private static final Logger log = LoggerFactory.getLogger(FacturaServiceImpl.class);
 
     private static final BigDecimal DIVISOR_IVA_21 = new BigDecimal("1.21");
+
+    /**
+     * Zona de las fechas fiscales (la fecha que va a ARCA, la del servicio y la hora impresa).
+     * Explícita a propósito: el contenedor tiene TZ de Argentina, pero si faltara quedaría en UTC y
+     * entre las 21 y las 24 la factura saldría con el día siguiente.
+     */
+    public static final ZoneId ZONA_ARGENTINA = ZoneId.of("America/Argentina/Buenos_Aires");
     private static final int CONCEPTO_PRODUCTOS = 1;
     private static final int CONCEPTO_SERVICIOS = 2;
     private static final int CONCEPTO_PRODUCTOS_Y_SERVICIOS = 3;
@@ -61,6 +75,8 @@ public class FacturaServiceImpl implements FacturaService {
     private final AfipSdkClient afipClient;
     private final ApplicationEventPublisher eventPublisher;
     private final TransactionTemplate tx;
+    /** Siempre en una transacción propia (la factura de una compra online, ver solicitarOnline). */
+    private final TransactionTemplate txNueva;
     private final EntityManager em;
     private final ComprobanteFacturaService comprobanteFacturaService;
     private final FacturaPdfGenerator pdfGenerator;
@@ -81,6 +97,10 @@ public class FacturaServiceImpl implements FacturaService {
     @Value("${afip.punto-venta.boleteria:1}")
     private int puntoVentaBoleteria;
 
+    /** Punto de venta de las compras online (pagadas con Mercado Pago). Vacío = no se facturan. */
+    @Value("${afip.punto-venta.online:}")
+    private String puntoVentaOnline;
+
     public FacturaServiceImpl(FacturaRepository facturaRepository, WsfeService wsfe, AfipSdkClient afipClient,
                               ApplicationEventPublisher eventPublisher, PlatformTransactionManager transactionManager,
                               EntityManager em,
@@ -92,6 +112,8 @@ public class FacturaServiceImpl implements FacturaService {
         this.afipClient = afipClient;
         this.eventPublisher = eventPublisher;
         this.tx = new TransactionTemplate(transactionManager);
+        this.txNueva = new TransactionTemplate(transactionManager);
+        this.txNueva.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
         this.em = em;
         this.comprobanteFacturaService = comprobanteFacturaService;
         this.pdfGenerator = pdfGenerator;
@@ -147,6 +169,10 @@ public class FacturaServiceImpl implements FacturaService {
     /** Crea una factura B PENDIENTE por el total actual de la compra y la deja lista para emitir
      * cuando commitee la transacción en curso (la de la venta, o la de la cancelación/edición). */
     private Factura crearFactura(Compra compra, DestinoFactura destino, String email, String impresora) {
+        return crearFactura(compra, destino, email, impresora, puntoVentaBoleteria);
+    }
+
+    private Factura crearFactura(Compra compra, DestinoFactura destino, String email, String impresora, int puntoVenta) {
         BigDecimal total = compra.getMontoTotal().setScale(2, RoundingMode.HALF_UP);
         BigDecimal neto = total.divide(DIVISOR_IVA_21, 2, RoundingMode.HALF_UP);
         BigDecimal iva = total.subtract(neto);
@@ -156,10 +182,10 @@ public class FacturaServiceImpl implements FacturaService {
                 .destino(destino)
                 .email(email)
                 .impresora(impresora)
-                .puntoVenta(puntoVentaBoleteria)
+                .puntoVenta(puntoVenta)
                 .tipoComprobante(WsfeService.CBTE_TIPO_FACTURA_B)
                 .concepto(concepto(compra.getDetalles()))
-                .fechaServicio(compra.getFechaVisita() != null ? compra.getFechaVisita() : LocalDate.now())
+                .fechaServicio(compra.getFechaVisita() != null ? compra.getFechaVisita() : LocalDate.now(ZONA_ARGENTINA))
                 .importeTotal(total)
                 .importeNeto(neto)
                 .importeIva(iva)
@@ -228,7 +254,11 @@ public class FacturaServiceImpl implements FacturaService {
     private BigDecimal subtotal(CompraDetalle d, Compra compra) {
         try {
             if (d.getTipoEntrada() != null) {
-                return compra.getFormaPago() == null ? null
+                if (compra.getFormaPago() == null) return null;
+                // Con el precio de lista congelado al armar la compra (una reserva cobrada tras un
+                // aumento no puede mostrar un "descuento" que en realidad es el aumento).
+                return d.getPrecioUnitario() != null
+                        ? calculoPrecioService.calcularTotal(d.getTipoEntrada(), d.getCantidad(), compra.getFormaPago(), d.getPrecioUnitario())
                         : calculoPrecioService.calcularTotal(d.getTipoEntrada(), d.getCantidad(), compra.getFormaPago());
             }
             return d.getPrecioUnitario() == null ? null : d.getPrecioUnitario().multiply(BigDecimal.valueOf(d.getCantidad()));
@@ -413,7 +443,7 @@ public class FacturaServiceImpl implements FacturaService {
             for (int intento = 1; intento <= 2; intento++) {
                 Numero proximo = proximoNumero(pv, tipo, preguntarAArca);
                 long numero = proximo.valor();
-                LocalDate fecha = LocalDate.now();
+                LocalDate fecha = LocalDate.now(ZONA_ARGENTINA);
                 // Se reserva el número ANTES de pedir el CAE, en su propia transacción y con la fila
                 // bloqueada: si la respuesta se pierde, el próximo intento sabe qué número consultar.
                 // Y si mientras se consultaba el último número la venta se canceló, acá se ve y no se
@@ -516,6 +546,7 @@ public class FacturaServiceImpl implements FacturaService {
             f.setCae(cae);
             f.setCaeVencimiento(caeVencimiento);
             f.setFechaEmision(fecha);
+            f.setEmitidaEn(LocalDateTime.now(ZONA_ARGENTINA).withNano(0));
             f.setUltimoError(null);
             f.setProximoIntento(null);
             Factura guardada = facturaRepository.save(f);
@@ -730,7 +761,7 @@ public class FacturaServiceImpl implements FacturaService {
                 .tipoComprobante(WsfeService.CBTE_TIPO_FACTURA_B)
                 .concepto(hayServicio && hayProducto ? CONCEPTO_PRODUCTOS_Y_SERVICIOS
                         : hayProducto ? CONCEPTO_PRODUCTOS : CONCEPTO_SERVICIOS)
-                .fechaServicio(LocalDate.now())
+                .fechaServicio(LocalDate.now(ZONA_ARGENTINA))
                 .importeTotal(total)
                 .importeNeto(neto)
                 .importeIva(total.subtract(neto))
@@ -751,16 +782,157 @@ public class FacturaServiceImpl implements FacturaService {
 
     @Override
     @Transactional
-    public void anularManual(Long facturaId) {
+    public void anularFactura(Long facturaId) {
         Factura f = facturaRepository.findById(facturaId)
                 .orElseThrow(() -> new IllegalArgumentException("Factura no encontrada ID: " + facturaId));
-        if (f.getCompra() != null || f.getTipoComprobante() != WsfeService.CBTE_TIPO_FACTURA_B) {
-            throw new IllegalStateException("Sólo se anulan desde acá las facturas manuales (las de una venta se anulan cancelando la venta)");
+        if (f.getTipoComprobante() != WsfeService.CBTE_TIPO_FACTURA_B) {
+            throw new IllegalStateException("Sólo se anulan facturas (una nota de crédito no se anula)");
         }
         if (f.getEstado() == EstadoFactura.ANULADA || Boolean.TRUE.equals(f.getAnulacionPedida())) {
             throw new IllegalStateException("Esta factura ya está anulada");
         }
+        org.example.laserranitaentradas.monitoreo.AuditoriaContexto.referencia(f.getNumero() != null
+                ? String.format("B %04d-%08d", f.getPuntoVenta(), f.getNumero()) : "(sin número)");
+        org.example.laserranitaentradas.monitoreo.AuditoriaContexto.detalle("Total: $" + f.getImporteTotal().stripTrailingZeros().toPlainString()
+                + (f.getCompra() != null ? " · compra #" + f.getCompra().getCodigoReserva() : " · manual"));
         anular(f);
+    }
+
+    @Override
+    public boolean solicitarOnline(Compra compra) {
+        if (compra == null || compra.getId() == null || !facturacionOnlineActiva()
+                || compra.getFormaPago() != FormaPago.MERCADO_PAGO
+                || compra.getMontoTotal() == null || compra.getMontoTotal().signum() <= 0) {
+            return false;
+        }
+        Long compraId = compra.getId();
+        // Recién cuando la aprobación del pago ya quedó guardada, y en segundo plano (ver
+        // EmisionFacturasScheduler): adentro de la misma transacción, un error de la factura la
+        // desharía y se perdería la aprobación de alguien que ya pagó.
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    eventPublisher.publishEvent(new CompraOnlinePagadaEvent(compraId));
+                }
+            });
+        } else {
+            eventPublisher.publishEvent(new CompraOnlinePagadaEvent(compraId));
+        }
+        return true;
+    }
+
+    /**
+     * Pide la factura, espera a ARCA (normalmente 2-3 s) y manda la confirmación con la factura
+     * adjunta. Si ARCA tarda o falla, la confirmación sale sola y la factura queda para mandarse
+     * sola cuando se emita. Pase lo que pase, la confirmación sale (el finally).
+     */
+    @Override
+    public void procesarCompraOnlinePagada(Long compraId) {
+        boolean confirmacionEnviada = false;
+        try {
+            Factura factura = txNueva.execute(st -> crearFacturaOnline(compraId, false, true));
+            if (factura == null) return;
+            emitir(factura.getId());
+            Factura actual = facturaRepository.findById(factura.getId()).orElse(null);
+            String email = emailDeContacto(compraId);
+            if (actual != null && actual.getEstado() == EstadoFactura.EMITIDA && email != null) {
+                try {
+                    emailService.enviarComprobanteCompraConFactura(compraId, factura.getId());
+                    confirmacionEnviada = true;
+                    return;
+                } catch (RuntimeException e) {
+                    log.error("No se pudo mandar la confirmación con la factura de la compra ID {}: se mandan por separado", compraId, e);
+                }
+            }
+            emailService.enviarComprobanteCompra(compraId);
+            confirmacionEnviada = true;
+            if (email != null) mandarFacturaCuandoSeEmita(factura.getId(), email);
+        } catch (RuntimeException e) {
+            log.error("No se pudo facturar la compra online ID {}", compraId, e);
+        } finally {
+            if (!confirmacionEnviada) emailService.enviarComprobanteCompra(compraId);
+        }
+    }
+
+    /**
+     * La confirmación ya salió sin la factura: que la factura se mande sola al emitirse. Si justo se
+     * emitió (entre el chequeo y acá) el UPDATE condicional no la toca y se manda ya, así no se pierde
+     * ni sale dos veces (marcarEmitida decide con la fila bloqueada, igual que este UPDATE).
+     */
+    private void mandarFacturaCuandoSeEmita(Long facturaId, String email) {
+        if (facturaRepository.pasarAMailSiNoEmitida(facturaId, email) > 0) return;
+        Factura f = facturaRepository.findById(facturaId).orElse(null);
+        if (f == null || f.getEstado() != EstadoFactura.EMITIDA || Boolean.TRUE.equals(f.getAnulacionPedida())
+                || f.getMailEnviadoEn() != null) {
+            return;
+        }
+        facturaRepository.pasarAMail(facturaId, email);
+        emailService.enviarFactura(facturaId);
+    }
+
+    private String emailDeContacto(Long compraId) {
+        Compra compra = em.find(Compra.class, compraId);
+        String email = compra == null || compra.getContactEmail() == null ? null : compra.getContactEmail().trim();
+        return email != null && email.matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$") ? email : null;
+    }
+
+    /**
+     * Crea la factura de una compra online paga. Con `estricto` (pedido de un admin) los motivos
+     * para no facturar son errores que se le muestran; si no (automático, al confirmarse el pago),
+     * simplemente no se factura.
+     */
+    private Factura crearFacturaOnline(Long compraId, boolean estricto) {
+        return crearFacturaOnline(compraId, estricto, false);
+    }
+
+    /** @param conLaConfirmacion la factura viaja adjunta a la confirmación: se crea sin mail propio */
+    private Factura crearFacturaOnline(Long compraId, boolean estricto, boolean conLaConfirmacion) {
+        Integer pv = puntoVentaOnline();
+        // Bloqueada: el webhook y la verificación directa pueden confirmar el mismo pago casi a la
+        // vez, y la segunda tiene que ver la factura de la primera, no crear otra.
+        Compra compra = em.find(Compra.class, compraId, LockModeType.PESSIMISTIC_WRITE);
+        String motivo = null;
+        if (pv == null || !estaHabilitada()) motivo = "La facturación de compras online no está configurada";
+        else if (compra == null) motivo = "Compra no encontrada ID: " + compraId;
+        else if (compra.getFormaPago() != FormaPago.MERCADO_PAGO) motivo = "No es una compra pagada online (las de puerta se facturan en el POS)";
+        else if (compra.getEstado() != EstadoCompra.APROBADO && compra.getEstado() != EstadoCompra.USADO) motivo = "La compra no está paga (está " + compra.getEstado() + ")";
+        else if (compra.getMontoTotal() == null || compra.getMontoTotal().signum() <= 0) motivo = "La compra es de $0";
+        else if (facturaVigente(compraId).isPresent()) motivo = "Esta compra ya tiene factura";
+        if (motivo != null) {
+            if (estricto) throw new IllegalStateException(motivo);
+            return null;
+        }
+        String email = compra.getContactEmail() == null ? null : compra.getContactEmail().trim();
+        boolean conMail = email != null && email.matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
+        // Toda venta online se factura; sin un email válido queda emitida igual (sin mandar).
+        boolean mailPropio = conMail && !conLaConfirmacion;
+        Factura f = crearFactura(compra, mailPropio ? DestinoFactura.MAIL : DestinoFactura.NINGUNO,
+                mailPropio ? email : null, null, pv);
+        log.info("Factura online ID {} pedida para la compra {} (pto vta {})", f.getId(), compra.getCodigoReserva(), pv);
+        return f;
+    }
+
+    @Override
+    public boolean facturacionOnlineActiva() {
+        return puntoVentaOnline() != null && estaHabilitada();
+    }
+
+    @Override
+    @Transactional
+    public FacturaResponseDTO facturarOnlineAhora(Long compraId) {
+        return toDto(crearFacturaOnline(compraId, true));
+    }
+
+    private Integer puntoVentaOnline() {
+        if (puntoVentaOnline == null || puntoVentaOnline.isBlank()) return null;
+        try {
+            int pv = Integer.parseInt(puntoVentaOnline.trim());
+            return pv > 0 ? pv : null;
+        } catch (NumberFormatException e) {
+            log.error("AFIP_PUNTO_VENTA_ONLINE no es un número: '{}'. Las compras online no se facturan", puntoVentaOnline);
+            return null;
+        }
     }
 
     @Override
@@ -830,5 +1002,137 @@ public class FacturaServiceImpl implements FacturaService {
         return texto.length() > 1000 ? texto.substring(0, 1000) : texto;
     }
 
+    // ---------- Control de facturas ----------
+
+    /** Una PENDIENTE creada hace más que esto ya no es "emitiéndose": está trabada en reintentos. */
+    private static final long MINUTOS_PARA_TRABADA = 10;
+    private static final int DIAS_AVISO_CERTIFICADO = 30;
+
+    private volatile LocalDateTime numeracionControladaEn;
+    private volatile List<ControlFacturacionDTO.Desfase> desfases = List.of();
+
+    @Override
+    @Transactional(readOnly = true)
+    public ControlFacturacionDTO controlFacturacion() {
+        List<Factura> conProblemas = facturaRepository.conProblemas(LocalDateTime.now(ZONA_ARGENTINA).minusMinutes(MINUTOS_PARA_TRABADA));
+        Map<Long, TrabajoImpresion> trabajos = impresionService.ultimosTrabajos(conProblemas.stream().map(Factura::getId).toList());
+        List<ControlFacturacionDTO.Problema> problemas = conProblemas.stream()
+                .map(f -> new ControlFacturacionDTO.Problema(toDto(f, Optional.ofNullable(trabajos.get(f.getId()))),
+                        f.getCompra() != null ? f.getCompra().getCodigoReserva() : null, f.getFechaCreacion()))
+                .toList();
+        LocalDate vence = afipClient.vencimientoCertificado().orElse(null);
+        Long dias = vence == null ? null : java.time.temporal.ChronoUnit.DAYS.between(LocalDate.now(ZONA_ARGENTINA), vence);
+        return new ControlFacturacionDTO(problemas, vence, dias, controlaNumeracion(), numeracionControladaEn, desfases);
+    }
+
+    private boolean controlaNumeracion() {
+        return afipClient.esProduccion() && estaHabilitada();
+    }
+
+    @Override
+    public List<ControlFacturacionDTO.Desfase> controlarNumeracion() {
+        if (!controlaNumeracion()) return List.of();
+        java.util.Set<Integer> puntos = new java.util.TreeSet<>(facturaRepository.puntosDeVentaUsados());
+        puntos.add(puntoVentaBoleteria);
+        Integer online = puntoVentaOnline();
+        if (online != null) puntos.add(online);
+        List<ControlFacturacionDTO.Desfase> encontrados = new ArrayList<>();
+        // Con la emisión frenada mientras tanto: una factura que se autoriza entre la consulta a la
+        // base y la de ARCA daría un desfase que no existe.
+        lockEmision.lock();
+        try {
+            for (int pv : puntos) {
+                for (int tipo : List.of(WsfeService.CBTE_TIPO_FACTURA_B, WsfeService.CBTE_TIPO_NOTA_CREDITO_B)) {
+                    long base = Optional.ofNullable(facturaRepository.ultimoNumeroEmitido(pv, tipo)).orElse(0L);
+                    Long reservado = facturaRepository.ultimoNumeroReservadoSinResolver(pv, tipo);
+                    long arca = wsfe.ultimoAutorizado(pv, tipo);
+                    // Un número pedido sin respuesta que ARCA sí autorizó no es desfase: lo resuelve la emisión.
+                    if (arca != base && (reservado == null || arca != reservado)) {
+                        log.warn("Numeración desfasada en pto vta {} tipo {}: base {} / ARCA {}", pv, tipo, base, arca);
+                        encontrados.add(new ControlFacturacionDTO.Desfase(pv, tipo, base, arca));
+                    }
+                }
+            }
+        } finally {
+            lockEmision.unlock();
+        }
+        desfases = List.copyOf(encontrados);
+        numeracionControladaEn = LocalDateTime.now(ZONA_ARGENTINA).withNano(0);
+        if (encontrados.isEmpty()) log.info("Control de numeración OK ({} puntos de venta)", puntos.size());
+        return desfases;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Long> idsAlertasFacturacion() {
+        if (!estaHabilitada()) return List.of();
+        List<Long> ids = new ArrayList<>(facturaRepository.conProblemas(LocalDateTime.now(ZONA_ARGENTINA).minusMinutes(MINUTOS_PARA_TRABADA))
+                .stream().map(Factura::getId).toList());
+        afipClient.vencimientoCertificado().ifPresent(vence -> {
+            if (java.time.temporal.ChronoUnit.DAYS.between(LocalDate.now(ZONA_ARGENTINA), vence) <= DIAS_AVISO_CERTIFICADO) ids.add(-1L);
+        });
+        if (!desfases.isEmpty()) ids.add(-2L);
+        return ids;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ControlFacturacionDTO.Totales> totales(LocalDate desde, LocalDate hasta) {
+        Map<String, ControlFacturacionDTO.Totales> porClave = new java.util.LinkedHashMap<>();
+        for (Factura f : facturaRepository.emitidasEntre(desde, hasta)) {
+            String clave = f.getPuntoVenta() + "-" + f.getTipoComprobante();
+            ControlFacturacionDTO.Totales t = porClave.get(clave);
+            porClave.put(clave, new ControlFacturacionDTO.Totales(f.getPuntoVenta(), f.getTipoComprobante(),
+                    (t == null ? 0 : t.cantidad()) + 1,
+                    (t == null ? BigDecimal.ZERO : t.total()).add(f.getImporteTotal()),
+                    (t == null ? BigDecimal.ZERO : t.neto()).add(f.getImporteNeto()),
+                    (t == null ? BigDecimal.ZERO : t.iva()).add(f.getImporteIva())));
+        }
+        return new ArrayList<>(porClave.values());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public String exportarCsv(LocalDate desde, LocalDate hasta) {
+        java.time.format.DateTimeFormatter fecha = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy");
+        java.time.format.DateTimeFormatter hora = java.time.format.DateTimeFormatter.ofPattern("HH:mm");
+        StringBuilder csv = new StringBuilder("\uFEFF"); // BOM: Excel lo abre como UTF-8 (tildes)
+        csv.append("Fecha;Hora;Comprobante;Punto de venta;Número;CAE;Vto. CAE;Total;Neto gravado;IVA 21%;Estado;Compra;Comprobante asociado\r\n");
+        for (Factura f : facturaRepository.emitidasEntre(desde, hasta)) {
+            boolean nc = f.getTipoComprobante() == WsfeService.CBTE_TIPO_NOTA_CREDITO_B;
+            String asociado = "";
+            if (f.getComprobanteAsociado() != null && f.getComprobanteAsociado().getNumero() != null) {
+                asociado = String.format("%04d-%08d", f.getComprobanteAsociado().getPuntoVenta(), f.getComprobanteAsociado().getNumero());
+            }
+            String estado = nc ? "Emitida" : (Boolean.TRUE.equals(f.getAnulacionPedida()) ? "Anulada con nota de crédito" : "Emitida");
+            csv.append(String.join(";",
+                    f.getFechaEmision().format(fecha),
+                    f.getEmitidaEn() != null ? f.getEmitidaEn().format(hora) : "",
+                    nc ? "Nota de Crédito B" : "Factura B",
+                    String.format("%04d", f.getPuntoVenta()),
+                    String.format("%08d", f.getNumero()),
+                    nullAVacio(f.getCae()),
+                    f.getCaeVencimiento() != null ? f.getCaeVencimiento().format(fecha) : "",
+                    importeCsv(f.getImporteTotal()),
+                    importeCsv(f.getImporteNeto()),
+                    importeCsv(f.getImporteIva()),
+                    estado,
+                    f.getCompra() != null ? nullAVacio(f.getCompra().getCodigoReserva()) : "Manual",
+                    asociado)).append("\r\n");
+        }
+        return csv.toString();
+    }
+
+    private static String importeCsv(BigDecimal importe) {
+        return importe == null ? "" : importe.setScale(2, RoundingMode.HALF_UP).toPlainString().replace('.', ',');
+    }
+
+    private static String nullAVacio(String texto) {
+        return texto == null ? "" : texto.replace(';', ',');
+    }
+
     public record FacturaSolicitadaEvent(Long facturaId) {}
+
+    /** Se aprobó el pago de una compra online: factura y confirmación en segundo plano. */
+    public record CompraOnlinePagadaEvent(Long compraId) {}
 }

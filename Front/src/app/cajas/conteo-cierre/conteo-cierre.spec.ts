@@ -16,6 +16,10 @@ function cajaBase(over: Partial<Caja> = {}): Caja {
     operaciones: [], ajustes: [], totalEntradasPagas: 0, entradasVendidasPorTipo: [],
     huboVentaDolares: false, dolaresEsperado: null, dolaresContado: null, diferenciaDolares: null,
     habilitada: true,
+    // Campos sumados a Caja después de escribir este spec: valores neutros (sin anticipadas, con
+    // control de caja, facturación apagada) que no cambian lo que se prueba acá.
+    entradasAnticipadasEntregadas: 0, entradasPagasAnticipadas: 0, entradasPagasValidadas: 0,
+    controlOmitido: false, totalFacturado: null, facturasSinEmitir: null, montoSinEmitir: null,
     ...over,
   };
 }

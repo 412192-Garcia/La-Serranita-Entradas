@@ -2,7 +2,7 @@ import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
-import { Factura, FacturaManualPedido, FacturacionPos, ImpresoraConectada, VentaFactura } from '../models/factura';
+import { ControlFacturacion, DesfaseNumeracion, Factura, FacturaManualPedido, FacturacionPos, TotalesFacturacion, ImpresoraConectada, VentaFactura } from '../models/factura';
 
 const CLAVE_HABILITADA = 'facturacion-habilitada';
 
@@ -84,9 +84,44 @@ export class FacturaService {
     return this.http.get<Factura[]>(`${this.url}/manuales`);
   }
 
-  /** Anula una factura manual con su nota de crédito. */
-  anularManual(facturaId: number): Observable<void> {
+  /** Anula una factura (manual o de una venta) con su nota de crédito. La venta queda igual, sin factura. */
+  anularFactura(facturaId: number): Observable<void> {
     return this.http.post<void>(`${this.url}/${facturaId}/anular`, null);
+  }
+
+  /** Estado del servicio: facturación activa y si también se facturan las compras online. */
+  estadoServicio(): Observable<{ habilitada: boolean; online: boolean }> {
+    return this.http.get<{ habilitada: boolean; online: boolean }>(`${this.url}/estado-servicio`);
+  }
+
+  /** Factura una compra online paga que quedó sin factura. */
+  facturarOnline(compraId: number): Observable<Factura> {
+    return this.http.post<Factura>(`${this.url}/compra/${compraId}/online`, null);
+  }
+
+  /** Vuelve a intentar una factura que quedó en ERROR (ADMIN). */
+  reintentar(facturaId: number): Observable<Factura> {
+    return this.http.post<Factura>(`${this.url}/${facturaId}/reintentar`, null);
+  }
+
+  /** Facturas con problema, vencimiento del certificado y último control de numeración (ADMIN). */
+  control(): Observable<ControlFacturacion> {
+    return this.http.get<ControlFacturacion>(`${this.url}/control`);
+  }
+
+  /** Controla ahora la numeración contra ARCA (sólo en producción). */
+  controlarNumeracion(): Observable<DesfaseNumeracion[]> {
+    return this.http.post<DesfaseNumeracion[]>(`${this.url}/control/numeracion`, null);
+  }
+
+  /** Totales por punto de venta y tipo de comprobante (fechas "AAAA-MM-DD"). */
+  totales(desde: string, hasta: string): Observable<TotalesFacturacion[]> {
+    return this.http.get<TotalesFacturacion[]>(`${this.url}/totales?desde=${desde}&hasta=${hasta}`);
+  }
+
+  /** CSV de los comprobantes del período, para el contador. */
+  exportar(desde: string, hasta: string): Observable<Blob> {
+    return this.http.get(`${this.url}/exportar?desde=${desde}&hasta=${hasta}`, { responseType: 'blob' });
   }
 
   private leerHabilitadaGuardada(): boolean {

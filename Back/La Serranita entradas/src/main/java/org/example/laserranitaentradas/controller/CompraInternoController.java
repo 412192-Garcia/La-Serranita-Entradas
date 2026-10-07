@@ -38,7 +38,7 @@ public class CompraInternoController {
             @PathVariable @Parameter(description = "ID de la compra") Long id,
             @AuthenticationPrincipal UsuarioAutenticado operador) {
         // Quién cobró sale del token, no del cuerpo del request.
-        boolean permitirSinCaja = operador.rol() == RolUsuario.ADMIN;
+        boolean permitirSinCaja = operador.rol().esAdmin();
         Compra compra = compraService.confirmarPagoEfectivo(id, operador.id(), permitirSinCaja);
         return ResponseEntity.ok(CompraController.entityToDto(compra));
     }

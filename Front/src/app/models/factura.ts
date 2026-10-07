@@ -53,6 +53,34 @@ export interface Factura {
   detalle?: string | null;
 }
 
+/** Acciones > Control de facturas. */
+export interface ControlFacturacion {
+  problemas: { factura: Factura; codigoCompra: string | null; creada: string | null }[];
+  certificadoVence: string | null;
+  /** Negativo = ya venció. */
+  diasParaVencer: number | null;
+  /** Sólo en producción. */
+  numeracionControlada: boolean;
+  numeracionControladaEn: string | null;
+  desfases: DesfaseNumeracion[];
+}
+
+export interface DesfaseNumeracion {
+  puntoVenta: number;
+  tipoComprobante: number;
+  ultimoBase: number;
+  ultimoArca: number;
+}
+
+export interface TotalesFacturacion {
+  puntoVenta: number;
+  tipoComprobante: number;
+  cantidad: number;
+  total: number;
+  neto: number;
+  iva: number;
+}
+
 /** Renglón de una factura manual (Acciones > Facturación manual). */
 export interface FacturaManualItem {
   /** ENTRADA / ARTICULO si salió del catálogo, LIBRE si se escribió a mano (decide el concepto de ARCA). */

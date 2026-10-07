@@ -277,7 +277,8 @@ public class CompraController {
             t.setPrecio(d.getTipoEntrada().getPrecio());
             t.setTipo(d.getTipoEntrada().getTipo());
             dto.setTipoEntrada(t);
-            dto.setPrecioUnitario(d.getTipoEntrada().getPrecio());
+            // El congelado al reservar/vender; las compras anteriores a ese dato usan el actual.
+            dto.setPrecioUnitario(d.getPrecioUnitario() != null ? d.getPrecioUnitario() : d.getTipoEntrada().getPrecio());
         }
         if (d.getArticuloVario() != null) {
             dto.setArticuloVario(org.example.laserranitaentradas.model.dto.ArticuloVarioResponseDTO.builder()

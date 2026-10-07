@@ -94,7 +94,8 @@ public class VentasFacturasService {
         if (pedido.getDestino() == DestinoFactura.MAIL && (pedido.getEmail() == null || pedido.getEmail().isBlank())) {
             throw new IllegalArgumentException("Cargá el email del cliente");
         }
-        if (facturaService.obtenerPorCompra(compraId).filter(f -> f.getEstado() != EstadoFactura.ANULADA).isPresent()) {
+        if (facturaService.obtenerPorCompra(compraId)
+                .filter(f -> f.getEstado() != EstadoFactura.ANULADA && !f.isAnulacionPedida()).isPresent()) {
             throw new IllegalStateException("Esta venta ya tiene factura");
         }
         Factura factura = facturaService.solicitar(compra, pedido)
@@ -111,7 +112,7 @@ public class VentasFacturasService {
     public Factura validarAccesoAFactura(Long facturaId, UsuarioAutenticado operador) {
         Factura factura = facturaRepository.findById(facturaId)
                 .orElseThrow(() -> new IllegalArgumentException("Factura no encontrada ID: " + facturaId));
-        if (operador.rol() == RolUsuario.ADMIN) return factura;
+        if (operador.rol().esAdmin()) return factura;
         // Las manuales (sin venta) y las de compras online (sin caja): sólo un admin.
         Caja caja = factura.getCompra() != null ? factura.getCompra().getCaja() : null;
         if (caja == null) {
@@ -138,7 +139,7 @@ public class VentasFacturasService {
     }
 
     private static void validarAcceso(Caja caja, UsuarioAutenticado operador) {
-        if (operador.rol() == RolUsuario.ADMIN) return;
+        if (operador.rol().esAdmin()) return;
         if (caja.getUsuario() == null || !Objects.equals(caja.getUsuario().getId(), operador.id())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Sólo podés ver las ventas de tu propia caja");
         }

@@ -153,6 +153,11 @@ class FacturaServiceImplTest {
         assertThat(f.getEstado()).isEqualTo(EstadoFactura.EMITIDA);
         assertThat(f.getNumero()).isEqualTo(42L);
         assertThat(f.getCae()).isEqualTo("86383799071902");
+        // Fecha y hora fiscales en hora de Argentina, sin depender de la zona del servidor.
+        java.time.ZoneId arg = java.time.ZoneId.of("America/Argentina/Buenos_Aires");
+        assertThat(f.getFechaEmision()).isEqualTo(LocalDate.now(arg));
+        assertThat(f.getEmitidaEn()).isNotNull();
+        assertThat(java.time.Duration.between(f.getEmitidaEn(), java.time.LocalDateTime.now(arg)).abs().getSeconds()).isLessThan(60);
     }
 
     @Test
@@ -296,6 +301,234 @@ class FacturaServiceImplTest {
         assertThat(f.getProximoIntento()).isNotNull();
     }
 
+    // ---------- compras online (Mercado Pago): factura + confirmación en un solo mail ----------
+
+    private Compra compraOnline(EstadoCompra estado, String email) {
+        Compra c = compra("50000", entrada());
+        c.setFormaPago(FormaPago.MERCADO_PAGO);
+        c.setEstado(estado);
+        c.setContactEmail(email);
+        c.setCodigoReserva("261005-1");
+        when(em.find(Compra.class, 1L, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)).thenReturn(c);
+        when(em.find(Compra.class, 1L)).thenReturn(c);
+        return c;
+    }
+
+    /** La factura que se guarda queda disponible para la emisión (findById), como en la base. */
+    private void guardarYEncontrar() {
+        java.util.concurrent.atomic.AtomicReference<Factura> guardada = new java.util.concurrent.atomic.AtomicReference<>();
+        when(facturaRepository.save(any(Factura.class))).thenAnswer(inv -> {
+            Factura f = inv.getArgument(0);
+            if (f.getId() == null) f.setId(99L);
+            if (f.getTipoComprobante() == 6) guardada.set(f);
+            return f;
+        });
+        when(facturaRepository.findById(99L)).thenAnswer(inv -> Optional.ofNullable(guardada.get()));
+        when(wsfe.ultimoAutorizado(12, 6)).thenReturn(4L);
+    }
+
+    @Test
+    void online_pagoConMercadoPago_seEncargaDeLaConfirmacionYPideLaFacturaEnSegundoPlano() {
+        ReflectionTestUtils.setField(service, "puntoVentaOnline", "12");
+        Compra c = compraOnline(EstadoCompra.APROBADO, "cliente@mail.com");
+
+        assertThat(service.solicitarOnline(c)).isTrue();
+
+        verify(eventPublisher).publishEvent(new FacturaServiceImpl.CompraOnlinePagadaEvent(1L));
+        verify(facturaRepository, never()).save(any());
+    }
+
+    @Test
+    void online_sinPuntoDeVentaOnline_oPagoEnPuerta_laConfirmacionLaMandaElQueLlama() {
+        Compra c = compraOnline(EstadoCompra.APROBADO, "cliente@mail.com");
+        assertThat(service.solicitarOnline(c)).isFalse();
+
+        ReflectionTestUtils.setField(service, "puntoVentaOnline", "12");
+        c.setFormaPago(FormaPago.EFECTIVO_BOLETERIA);
+        assertThat(service.solicitarOnline(c)).isFalse();
+        verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    @Test
+    void online_arcaAutoriza_unSoloMailConLaFacturaAdjunta() {
+        ReflectionTestUtils.setField(service, "puntoVentaOnline", "12");
+        compraOnline(EstadoCompra.APROBADO, "cliente@mail.com");
+        guardarYEncontrar();
+        when(wsfe.solicitarCae(any())).thenReturn(new WsfeService.ResultadoCae(true, "1", LocalDate.now(), List.of(), List.of()));
+
+        service.procesarCompraOnlinePagada(1L);
+
+        ArgumentCaptor<Factura> captor = ArgumentCaptor.forClass(Factura.class);
+        verify(facturaRepository, atLeastOnce()).save(captor.capture());
+        Factura f = captor.getAllValues().get(0);
+        assertThat(f.getPuntoVenta()).isEqualTo(12);
+        // Sin mail propio: viaja adjunta a la confirmación.
+        assertThat(f.getDestino()).isEqualTo(DestinoFactura.NINGUNO);
+        verify(emailService).enviarComprobanteCompraConFactura(1L, 99L);
+        verify(emailService, never()).enviarComprobanteCompra(anyLong());
+        verify(emailService, never()).enviarFactura(anyLong());
+    }
+
+    @Test
+    void online_arcaFalla_laConfirmacionSaleSolaYLaFacturaDespuesPorMail() {
+        ReflectionTestUtils.setField(service, "puntoVentaOnline", "12");
+        compraOnline(EstadoCompra.APROBADO, "cliente@mail.com");
+        guardarYEncontrar();
+        when(wsfe.solicitarCae(any())).thenThrow(new AfipException("ARCA no responde", true));
+        when(facturaRepository.pasarAMailSiNoEmitida(99L, "cliente@mail.com")).thenReturn(1);
+
+        service.procesarCompraOnlinePagada(1L);
+
+        verify(emailService).enviarComprobanteCompra(1L);
+        verify(emailService, never()).enviarComprobanteCompraConFactura(anyLong(), anyLong());
+        // Queda para mandarse sola cuando ARCA la autorice.
+        verify(facturaRepository).pasarAMailSiNoEmitida(99L, "cliente@mail.com");
+        verify(emailService, never()).enviarFactura(anyLong());
+    }
+
+    @Test
+    void online_siFallaElMailConFactura_seMandanPorSeparado() {
+        ReflectionTestUtils.setField(service, "puntoVentaOnline", "12");
+        compraOnline(EstadoCompra.APROBADO, "cliente@mail.com");
+        guardarYEncontrar();
+        when(wsfe.solicitarCae(any())).thenReturn(new WsfeService.ResultadoCae(true, "1", LocalDate.now(), List.of(), List.of()));
+        doThrow(new RuntimeException("SMTP")).when(emailService).enviarComprobanteCompraConFactura(1L, 99L);
+        when(facturaRepository.pasarAMailSiNoEmitida(99L, "cliente@mail.com")).thenReturn(0); // ya está emitida
+
+        service.procesarCompraOnlinePagada(1L);
+
+        verify(emailService).enviarComprobanteCompra(1L);
+        verify(facturaRepository).pasarAMail(99L, "cliente@mail.com");
+        verify(emailService).enviarFactura(99L);
+    }
+
+    @Test
+    void online_unErrorAlFacturar_igualSaleLaConfirmacion() {
+        ReflectionTestUtils.setField(service, "puntoVentaOnline", "12");
+        compraOnline(EstadoCompra.APROBADO, "cliente@mail.com");
+        when(facturaRepository.save(any(Factura.class))).thenThrow(new RuntimeException("base caída"));
+
+        org.assertj.core.api.Assertions.assertThatCode(() -> service.procesarCompraOnlinePagada(1L)).doesNotThrowAnyException();
+
+        verify(emailService).enviarComprobanteCompra(1L);
+    }
+
+    @Test
+    void online_siYaTieneFactura_noDuplica() {
+        ReflectionTestUtils.setField(service, "puntoVentaOnline", "12");
+        compraOnline(EstadoCompra.APROBADO, "cliente@mail.com");
+        when(facturaRepository.findFirstByCompraIdAndTipoComprobanteOrderByIdDesc(1L, 6)).thenReturn(Optional.of(emitida()));
+
+        service.procesarCompraOnlinePagada(1L);
+
+        verify(facturaRepository, never()).save(any());
+        verify(emailService).enviarComprobanteCompra(1L);
+    }
+
+    // ---------- control de facturas ----------
+
+    @Test
+    void controlNumeracion_avisaSoloLosDesfasesReales() {
+        when(afipClient.esProduccion()).thenReturn(true);
+        when(facturaRepository.puntosDeVentaUsados()).thenReturn(List.of(5));
+        // Facturas: coincide.
+        when(facturaRepository.ultimoNumeroEmitido(5, 6)).thenReturn(10L);
+        when(wsfe.ultimoAutorizado(5, 6)).thenReturn(10L);
+        // Notas de crédito: ARCA tiene una más que la base, y no es una reservada sin resolver.
+        when(facturaRepository.ultimoNumeroEmitido(5, 8)).thenReturn(2L);
+        when(wsfe.ultimoAutorizado(5, 8)).thenReturn(3L);
+
+        var desfases = service.controlarNumeracion();
+
+        assertThat(desfases).containsExactly(new org.example.laserranitaentradas.model.dto.ControlFacturacionDTO.Desfase(5, 8, 2, 3));
+        assertThat(service.controlFacturacion().desfases()).hasSize(1);
+        assertThat(service.idsAlertasFacturacion()).contains(-2L);
+    }
+
+    @Test
+    void controlNumeracion_unNumeroReservadoQueArcaAutorizo_noEsDesfase() {
+        when(afipClient.esProduccion()).thenReturn(true);
+        when(facturaRepository.puntosDeVentaUsados()).thenReturn(List.of(5));
+        when(facturaRepository.ultimoNumeroEmitido(anyInt(), anyInt())).thenReturn(10L);
+        when(facturaRepository.ultimoNumeroReservadoSinResolver(anyInt(), anyInt())).thenReturn(11L);
+        when(wsfe.ultimoAutorizado(anyInt(), anyInt())).thenReturn(11L);
+
+        assertThat(service.controlarNumeracion()).isEmpty();
+    }
+
+    @Test
+    void controlNumeracion_enHomologacion_noConsultaArca() {
+        assertThat(service.controlarNumeracion()).isEmpty();
+        verify(wsfe, never()).ultimoAutorizado(anyInt(), anyInt());
+    }
+
+    @Test
+    void alertas_facturasConProblemaYCertificadoPorVencer() {
+        Factura error = pendiente();
+        error.setEstado(EstadoFactura.ERROR);
+        when(facturaRepository.conProblemas(any())).thenReturn(List.of(error));
+        when(afipClient.vencimientoCertificado()).thenReturn(Optional.of(LocalDate.now().plusDays(10)));
+
+        assertThat(service.idsAlertasFacturacion()).containsExactlyInAnyOrder(10L, -1L);
+        assertThat(service.controlFacturacion().diasParaVencer()).isBetween(9L, 11L);
+    }
+
+    @Test
+    void alertas_todoBien_sinAviso() {
+        when(afipClient.vencimientoCertificado()).thenReturn(Optional.of(LocalDate.now().plusYears(1)));
+
+        assertThat(service.idsAlertasFacturacion()).isEmpty();
+    }
+
+    @Test
+    void exportarCsv_paraExcelEnEspanol() {
+        Factura f = emitida();
+        f.setPuntoVenta(11);
+        f.setNumero(7L);
+        f.setImporteTotal(new BigDecimal("34300.00"));
+        f.setImporteNeto(new BigDecimal("28347.11"));
+        f.setImporteIva(new BigDecimal("5952.89"));
+        f.setEmitidaEn(java.time.LocalDateTime.of(2026, 10, 5, 14, 32));
+        f.setFechaEmision(LocalDate.of(2026, 10, 5));
+        f.setCompra(Compra.builder().id(1L).codigoReserva("261005-3").build());
+        Factura nc = emitida();
+        nc.setTipoComprobante(8);
+        nc.setPuntoVenta(11);
+        nc.setNumero(1L);
+        nc.setComprobanteAsociado(f);
+        nc.setFechaEmision(LocalDate.of(2026, 10, 5));
+        f.setAnulacionPedida(true);
+        when(facturaRepository.emitidasEntre(any(), any())).thenReturn(List.of(f, nc));
+
+        String csv = service.exportarCsv(LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 31));
+
+        assertThat(csv).startsWith("\uFEFFFecha;Hora;Comprobante");
+        assertThat(csv).contains("05/10/2026;14:32;Factura B;0011;00000007;123;");
+        assertThat(csv).contains(";34300,00;28347,11;5952,89;Anulada con nota de crédito;261005-3;");
+        assertThat(csv).contains("Nota de Crédito B;0011;00000001").contains(";0011-00000007\r\n");
+    }
+
+    @Test
+    void totales_porPuntoDeVentaYTipo() {
+        Factura a = emitida();
+        a.setPuntoVenta(11);
+        a.setImporteTotal(new BigDecimal("100"));
+        a.setImporteNeto(new BigDecimal("82.64"));
+        a.setImporteIva(new BigDecimal("17.36"));
+        Factura b = emitida();
+        b.setPuntoVenta(11);
+        b.setImporteTotal(new BigDecimal("200"));
+        b.setImporteNeto(new BigDecimal("165.29"));
+        b.setImporteIva(new BigDecimal("34.71"));
+        when(facturaRepository.emitidasEntre(any(), any())).thenReturn(List.of(a, b));
+
+        var totales = service.totales(LocalDate.now(), LocalDate.now());
+
+        assertThat(totales).hasSize(1);
+        assertThat(totales.get(0).cantidad()).isEqualTo(2);
+        assertThat(totales.get(0).total()).isEqualByComparingTo("300");
+    }
+
     // ---------- factura manual ----------
 
     private static org.example.laserranitaentradas.model.dto.FacturaManualDTO.Item item(String tipo, int cant, String desc, String subtotal) {
@@ -366,7 +599,7 @@ class FacturaServiceImplTest {
         f.setCompra(null);
         when(facturaRepository.findById(10L)).thenReturn(Optional.of(f));
 
-        service.anularManual(10L);
+        service.anularFactura(10L);
 
         Factura nc = capturarGuardadas().stream().filter(x -> x.getTipoComprobante() == 8).findFirst().orElseThrow();
         assertThat(nc.getComprobanteAsociado()).isSameAs(f);
@@ -375,11 +608,24 @@ class FacturaServiceImplTest {
     }
 
     @Test
-    void anularManual_deUnaVenta_rechazado() {
-        when(facturaRepository.findById(10L)).thenReturn(Optional.of(emitida()));
+    void anularFactura_deUnaVenta_notaDeCreditoYLaVentaQuedaIgual() {
+        Factura f = emitida();
+        when(facturaRepository.findById(10L)).thenReturn(Optional.of(f));
 
-        assertThatThrownBy(() -> service.anularManual(10L)).isInstanceOf(IllegalStateException.class);
-        verify(facturaRepository, never()).save(any());
+        service.anularFactura(10L);
+
+        Factura nc = capturarGuardadas().stream().filter(x -> x.getTipoComprobante() == 8).findFirst().orElseThrow();
+        assertThat(nc.getComprobanteAsociado()).isSameAs(f);
+        assertThat(f.getAnulacionPedida()).isTrue();
+    }
+
+    @Test
+    void anularFactura_yaAnulada_error() {
+        Factura f = emitida();
+        f.setAnulacionPedida(true);
+        when(facturaRepository.findById(10L)).thenReturn(Optional.of(f));
+
+        assertThatThrownBy(() -> service.anularFactura(10L)).isInstanceOf(IllegalStateException.class);
     }
 
     // ---------- numeración: en producción sale de la base ----------

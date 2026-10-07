@@ -32,6 +32,9 @@
         <select [ngModel]="rolForm()" (ngModelChange)="rolForm.set($event)">
           <option value="BOLETERO">Boletero</option>
           <option value="ADMIN">Administrador</option>
+          @if (puedeAsignarSuperadmin()) {
+            <option value="SUPERADMIN">Soporte (ve Sistema)</option>
+          }
         </select>
       </label>
     </div>
@@ -85,7 +88,7 @@
           <div class="fila-simple fila-simple-usuarios">
             <span>{{ u.username }}</span>
             <span data-label="Nombre">{{ u.nombre }} {{ u.apellido }}</span>
-            <span data-label="Rol">{{ u.rol === 'ADMIN' ? 'Administrador' : 'Boletero' }}</span>
+            <span data-label="Rol">{{ nombreRol(u.rol) }}</span>
             <span class="badge" [class.badge-activo]="u.activo" [class.badge-inactivo]="!u.activo">
               {{ u.activo ? 'Activo' : 'Inactivo' }}
             </span>

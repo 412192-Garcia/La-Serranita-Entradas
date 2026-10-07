@@ -53,7 +53,8 @@ class EmailServiceImplTest {
     @BeforeEach
     void setUp() {
         service = new EmailServiceImpl(mailSender, compraRepository, rechazoService,
-                facturaRepository, comprobanteFacturaService, facturaPdfGenerator, casillaFacturas);
+                facturaRepository, comprobanteFacturaService, facturaPdfGenerator, casillaFacturas,
+                new org.example.laserranitaentradas.monitoreo.EstadoMails());
         // lenient: sólo los tests de factura usan la casilla de facturas.
         org.mockito.Mockito.lenient().when(casillaFacturas.sender()).thenReturn(mailSender);
         org.mockito.Mockito.lenient().when(casillaFacturas.direccion()).thenReturn("facturas@laserranita.com");
@@ -107,6 +108,34 @@ class EmailServiceImplTest {
         service.enviarComprobanteCompra(42L);
 
         verifyNoInteractions(rechazoService);
+    }
+
+    @Test
+    void comprobanteConFactura_unSoloMailConElPdfAdjuntoYLaFacturaQuedaEnviada() throws Exception {
+        Compra compra = Compra.builder()
+                .id(42L)
+                .codigoReserva("260820-1")
+                .contactEmail("cliente@mail.com")
+                .montoTotal(BigDecimal.TEN)
+                .estado(EstadoCompra.APROBADO)
+                .fechaVisita(LocalDate.now())
+                .build();
+        when(compraRepository.findById(42L)).thenReturn(Optional.of(compra));
+        when(comprobanteFacturaService.armar(5L)).thenReturn(comprobante());
+        when(facturaPdfGenerator.generar(any())).thenReturn("%PDF-1.4".getBytes());
+        when(mailSender.createMimeMessage()).thenReturn(new MimeMessage((Session) null));
+
+        service.enviarComprobanteCompraConFactura(42L, 5L);
+
+        org.mockito.ArgumentCaptor<MimeMessage> captor = org.mockito.ArgumentCaptor.forClass(MimeMessage.class);
+        verify(mailSender, org.mockito.Mockito.times(1)).send(captor.capture());
+        MimeMessage m = captor.getValue();
+        m.saveChanges();
+        assertThat(m.getSubject()).contains("Compra confirmada");
+        java.io.ByteArrayOutputStream crudo = new java.io.ByteArrayOutputStream();
+        m.writeTo(crudo);
+        assertThat(crudo.toString()).contains("Factura-B-0037-00000021.pdf");
+        verify(facturaRepository).marcarMailEnviadoA(eq(5L), eq("cliente@mail.com"), any());
     }
 
     @Test

@@ -10,8 +10,10 @@ interface EnlaceCabecera {
   texto: string;
   ruta: string;
   soloAdmin?: boolean;
-  /** Si este destino tiene un aviso asociado (ver resumenNotificaciones), qué tipo es. */
-  tipoNotificacion?: TipoNotificacion;
+  soloSuperadmin?: boolean;
+  /** Si este destino tiene avisos asociados (ver resumenNotificaciones), de qué tipos: con que uno
+   * esté prendido, se muestra el puntito. */
+  tiposNotificacion?: TipoNotificacion[];
 }
 
 /** Todos los destinos del módulo interno: cada uno se resalta como activo cuando corresponde
@@ -21,10 +23,11 @@ const TODOS_LOS_ENLACES: EnlaceCabecera[] = [
   { texto: 'Control de accesos', ruta: '/boleteria', soloAdmin: true },
   { texto: 'Vender entradas', ruta: '/pos' },
   { texto: 'Hoy', ruta: '/hoy', soloAdmin: true },
-  { texto: 'Cajas', ruta: '/cajas', soloAdmin: true, tipoNotificacion: 'CAJA_ATRASADA' },
+  { texto: 'Cajas', ruta: '/cajas', soloAdmin: true, tiposNotificacion: ['CAJA_ATRASADA'] },
   { texto: 'Reportes', ruta: '/reportes', soloAdmin: true },
   { texto: 'Configuración', ruta: '/configuracion', soloAdmin: true },
-  { texto: 'Acciones', ruta: '/acciones', soloAdmin: true, tipoNotificacion: 'RECHAZO_OPERACION' },
+  { texto: 'Acciones', ruta: '/acciones', soloAdmin: true, tiposNotificacion: ['RECHAZO_OPERACION', 'FACTURACION'] },
+  { texto: 'Sistema', ruta: '/sistema', soloSuperadmin: true, tiposNotificacion: ['SISTEMA'] },
   { texto: 'Mi cuenta', ruta: '/mi-cuenta' },
 ];
 
@@ -80,8 +83,9 @@ export class CabeceraInterna implements OnInit {
   private readonly rutaActual = this.router.url;
 
   readonly enlacesVisibles = computed(() => {
-    const esAdmin = this.sesion.rol() === 'ADMIN';
-    return TODOS_LOS_ENLACES.filter((e) => esAdmin || !e.soloAdmin);
+    const esAdmin = this.sesion.esAdmin();
+    const esSuperadmin = this.sesion.esSuperadmin();
+    return TODOS_LOS_ENLACES.filter((e) => (esAdmin || !e.soloAdmin) && (esSuperadmin || !e.soloSuperadmin));
   });
 
   /** Qué tipos de aviso están prendidos ahora mismo (ver ngOnInit). Sólo se consulta para ADMIN
@@ -91,7 +95,7 @@ export class CabeceraInterna implements OnInit {
   menuAbierto = signal(false);
 
   ngOnInit(): void {
-    if (this.sesion.rol() === 'ADMIN') {
+    if (this.sesion.esAdmin()) {
       this.notificacionService.obtenerResumen().subscribe({
         next: (r) => this.resumenNotificaciones.set(r),
         error: (err) => console.error('Error al consultar notificaciones pendientes:', err),
@@ -106,8 +110,9 @@ export class CabeceraInterna implements OnInit {
   /** El aviso de este enlace está prendido y no es la pantalla en la que ya está parado el
    * usuario (si está ahí, ya la está viendo — no hace falta el puntito). */
   avisoSinVer(enlace: EnlaceCabecera): boolean {
-    if (!enlace.tipoNotificacion) return false;
-    return !!this.resumenNotificaciones()[enlace.tipoNotificacion] && !this.esRutaActual(enlace.ruta);
+    if (!enlace.tiposNotificacion?.length) return false;
+    const resumen = this.resumenNotificaciones();
+    return enlace.tiposNotificacion.some((t) => !!resumen[t]) && !this.esRutaActual(enlace.ruta);
   }
 
   /** Para el puntito del botón hamburguesa: si cualquier enlace visible tiene un aviso sin ver. */

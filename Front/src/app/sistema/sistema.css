@@ -1,0 +1,19 @@
+/* Misma página y pestañas que Acciones de admin. */
+@import '../acciones-admin/acciones-admin.css';
+
+/* Con cuatro pestañas no entran en un celular: se deslizan de costado, cada una en una sola línea,
+   en vez de cortar la última y partir "Historial de acciones" en tres renglones. */
+@media (max-width: 600px) {
+  .tabs {
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .tabs::-webkit-scrollbar { display: none; }
+
+  .tab {
+    flex-shrink: 0;
+    padding: 10px 12px;
+    white-space: nowrap;
+  }
+}

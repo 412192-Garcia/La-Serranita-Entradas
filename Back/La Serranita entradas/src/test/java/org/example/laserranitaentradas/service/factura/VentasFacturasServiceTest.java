@@ -141,6 +141,18 @@ class VentasFacturasServiceTest {
     }
 
     @Test
+    void facturar_siLaAnteriorTieneNotaDeCredito_sePuedeVolverAFacturar() {
+        Compra c = compra(10L, EstadoCompra.VENDIDO_EN_PUERTA, LocalDateTime.now());
+        when(compraRepository.findByIdBloqueando(10L)).thenReturn(Optional.of(c));
+        FacturaResponseDTO conNc = FacturaResponseDTO.builder().estado(EstadoFactura.EMITIDA).anulacionPedida(true).build();
+        FacturaResponseDTO nueva = FacturaResponseDTO.builder().estado(EstadoFactura.PENDIENTE).build();
+        when(facturaService.obtenerPorCompra(10L)).thenReturn(Optional.of(conNc), Optional.of(nueva));
+        when(facturaService.solicitar(any(), any())).thenReturn(Optional.of(new Factura()));
+
+        assertThat(service.facturar(10L, pedido(DestinoFactura.MAIL, "cliente@mail.com"), admin)).isSameAs(nueva);
+    }
+
+    @Test
     void facturar_porMailSinEmail_error() {
         when(compraRepository.findByIdBloqueando(10L)).thenReturn(Optional.of(compra(10L, EstadoCompra.VENDIDO_EN_PUERTA, LocalDateTime.now())));
 

@@ -30,7 +30,16 @@
         <div class="stepper-custom">
           <div class="stepper">
             <button type="button" class="btn-cant" (click)="decrementarCustom(t.id)" aria-label="Restar uno">−</button>
-            <span class="stepper-cantidad">{{ getCantidad(t.id) }}</span>
+            <!-- Editable: para 150 se escribe el número en vez de tocar + 140 veces. -->
+            <input
+              type="text"
+              inputmode="numeric"
+              class="stepper-input"
+              [attr.aria-label]="'Cantidad de ' + t.nombre"
+              appSeleccionarAlFoco
+              [value]="getCantidad(t.id)"
+              (input)="escribirCantidad(t.id, $event)"
+              (blur)="alSalirDelCampo(t.id, $event)" />
             <button type="button" class="btn-cant" (click)="incrementarCustom(t.id)" aria-label="Sumar uno">+</button>
           </div>
           <button
@@ -53,7 +62,15 @@
       </div>
       <div class="stepper">
         <button type="button" class="btn-cant" (click)="cambiarCantidad(t.id, -1)" aria-label="Quitar uno">−</button>
-        <span class="stepper-cantidad">{{ getCantidad(t.id) }}</span>
+        <input
+          type="text"
+          inputmode="numeric"
+          class="stepper-input"
+          [attr.aria-label]="'Cantidad de ' + t.nombre"
+          appSeleccionarAlFoco
+          [value]="getCantidad(t.id)"
+          (input)="escribirCantidad(t.id, $event)"
+          (blur)="alSalirDelCampo(t.id, $event)" />
         <button type="button" class="btn-cant" (click)="cambiarCantidad(t.id, 1)" aria-label="Agregar uno">+</button>
       </div>
     </div>

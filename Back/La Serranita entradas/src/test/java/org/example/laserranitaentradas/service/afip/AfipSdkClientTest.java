@@ -68,6 +68,35 @@ class AfipSdkClientTest {
         assertThat(cliente("tok", "prod", archivo("a", KEY), archivo("b", CERT)).estaConfigurado()).isFalse();
     }
 
+    /** Autofirmado, sólo para tests: vence el 3/10/2036 00:30 UTC = 2/10/2036 21:30 en Argentina. */
+    private static final String CERT_REAL = "-----BEGIN CERTIFICATE-----\n" +
+            "MIICFjCCAX+gAwIBAgIUDUeAmLZTCs472u+WIrTii8/+CkMwDQYJKoZIhvcNAQEL\n" +
+            "BQAwHTEbMBkGA1UEAwwScHJ1ZWJhLXZlbmNpbWllbnRvMB4XDTI2MTAwNjAwMzA1\n" +
+            "NVoXDTM2MTAwMzAwMzA1NVowHTEbMBkGA1UEAwwScHJ1ZWJhLXZlbmNpbWllbnRv\n" +
+            "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQC3MXhDKcFZFSNmb0iLCGZV8QL0\n" +
+            "agblq8ciPAkrZE7WxvzEdh8Th/0POKLnp1IDLmeGf+sJFjiOachYT8ZToOI/suoS\n" +
+            "qF+8kd/CE0/wjkJJkwV65m4fE01JM3QtCT18aqCsUw6SvB5MsukKZU1W+oO4FvYj\n" +
+            "LlDylK1f3fN53FKf6wIDAQABo1MwUTAdBgNVHQ4EFgQUinqiOhT2m9WltgcpllC0\n" +
+            "eEstunwwHwYDVR0jBBgwFoAUinqiOhT2m9WltgcpllC0eEstunwwDwYDVR0TAQH/\n" +
+            "BAUwAwEB/zANBgkqhkiG9w0BAQsFAAOBgQBZfRcJNfJ383CszXyz9xMQndYQg2GZ\n" +
+            "ts27W6weLynBkO6AijRGgjBPFFAOV/QAses7aYEPHFeg3qUF49mbDpeiQme7jRd6\n" +
+            "S2/TPdGMH6cqYHjzphBrSTVO7xIIEV/a6Z2KXWLC9y7R8m8TIcve70W8r3NF7OIw\n" +
+            "iGdM7F2qagdzSA==\n" +
+            "-----END CERTIFICATE-----\n";
+
+    @Test
+    void vencimientoDelCertificado_enHoraDeArgentina() {
+        AfipSdkClient c = cliente("tok", "prod", CERT_REAL, KEY);
+
+        // En UTC ya es el 3; en Argentina todavía es el 2: vale el de acá.
+        assertThat(c.vencimientoCertificado()).contains(java.time.LocalDate.of(2036, 10, 2));
+    }
+
+    @Test
+    void sinCertificado_sinVencimiento() {
+        assertThat(cliente("tok", "dev", "", "").vencimientoCertificado()).isEmpty();
+    }
+
     @Test
     void contenidoEnUnaSolaLineaYEntreComillas_seRearma() {
         String unaLinea = "\"" + KEY.replace("\n", "\\n") + "\"";

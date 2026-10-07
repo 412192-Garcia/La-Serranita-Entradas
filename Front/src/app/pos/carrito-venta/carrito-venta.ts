@@ -14,7 +14,7 @@ import { FORMAS_PAGO } from '../../models/forma-pago';
 import { MoneyInputDirective } from '../../shared/money-input/money-input.directive';
 import { ConectividadService } from '../../services/conectividad.service';
 import { DescuentoEfectivo } from '../../services/configuracion.service';
-import { cotizarLocalmente } from '../../shared/calculo-precio.util';
+import { cotizarLocalmente, ReservaParaCotizar } from '../../shared/calculo-precio.util';
 import { aFechaISO, aFechaHoraISO } from '../../shared/fecha.util';
 import { PesosPipe } from '../../shared/pesos.pipe';
 import { LucideMail, LucidePrinter, LucideTrash2 } from '@lucide/angular';
@@ -121,6 +121,7 @@ export class CarritoVenta {
     entradas: LineaVentaPos[];
     articulos: LineaArticuloPos[];
     descuento: DescuentoPos;
+    reservaId: number | undefined;
   }>();
 
   cobrando = signal(false);
@@ -175,10 +176,36 @@ export class CarritoVenta {
     return this.entradasFijas().map((e) => ({ tipoEntradaId: e.tipoEntradaId, cantidad: e.cantidad }));
   }
 
+  /**
+   * Precios de la reserva cargada (si hay una): el cliente paga lo que reservó, no lo que cueste
+   * hoy. Es lo que el backend usa al cobrar, así que el carrito tiene que mostrar lo mismo.
+   */
+  private reservaParaCotizar = computed<ReservaParaCotizar | null>(() => {
+    const reserva = this.compraReservada();
+    if (!reserva) return null;
+    const preciosLista: Record<number, number> = {};
+    const cantidades: Record<number, number> = {};
+    let reusarMonto = true;
+    for (const d of reserva.detalles ?? []) {
+      if (!d.tipoEntrada) {
+        reusarMonto = false; // línea de artículo propia: el total de la reserva la incluye
+        continue;
+      }
+      cantidades[d.tipoEntrada.id] = (cantidades[d.tipoEntrada.id] ?? 0) + d.cantidad;
+      if (d.precioUnitario != null) preciosLista[d.tipoEntrada.id] = d.precioUnitario;
+    }
+    return { montoTotal: reserva.montoTotal, preciosLista, cantidades, reusarMonto };
+  });
+
+  /** Precio de lista unitario a mostrar y cotizar para un tipo: el de la reserva si hay una cargada. */
+  precioLista(tipo: TipoEntrada): number {
+    return this.reservaParaCotizar()?.preciosLista[tipo.id] ?? tipo.precio;
+  }
+
   /** Precio de lista, sin promociones: sirve de fallback mientras llega la cotización. */
   private subtotalLista = computed(
     () =>
-      this.lineas().reduce((acc, l) => acc + l.tipo.precio * l.cantidad, 0) +
+      this.lineas().reduce((acc, l) => acc + this.precioLista(l.tipo) * l.cantidad, 0) +
       this.articulosCarrito().reduce((acc, a) => acc + a.precioUnitario * a.cantidad, 0) +
       this.entradasFijas().reduce((acc, e) => acc + e.precioUnitario * e.cantidad, 0)
   );
@@ -327,18 +354,18 @@ export class CarritoVenta {
         this.cotizacion.set(null);
         return;
       }
-      this.pedidoCotizacion.next({ formaPago, entradas, articulos, descuento });
+      this.pedidoCotizacion.next({ formaPago, entradas, articulos, descuento, reservaId: this.compraReservada()?.id });
     });
 
     this.pedidoCotizacion
       .pipe(
-        switchMap(({ formaPago, entradas, articulos, descuento }) => {
+        switchMap(({ formaPago, entradas, articulos, descuento, reservaId }) => {
           // Sin señal ni siquiera se intenta: el cálculo local da el mismo número y evita
           // que el boletero vea el total "colgado" esperando un timeout en cada tecla.
           const local = () => this.cotizarSinConexion(formaPago, entradas, articulos, descuento);
           if (!this.conectividad.enLinea()) return of(local());
           return this.boleteriaService
-            .cotizar(formaPago, entradas, descuento, articulos)
+            .cotizar(formaPago, entradas, descuento, articulos, reservaId)
             .pipe(catchError(() => of(local())));
         }),
         takeUntilDestroyed()
@@ -360,7 +387,8 @@ export class CarritoVenta {
       this.tiposEntrada(),
       this.descuentosEfectivo(),
       this.promociones(),
-      this.entradasFijas()
+      this.entradasFijas(),
+      this.reservaParaCotizar()
     );
   }
 

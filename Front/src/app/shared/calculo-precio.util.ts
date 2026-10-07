@@ -6,6 +6,21 @@ import { Promocion } from '../models/promocion';
 import { FormaPagoPos } from '../models/compra';
 
 /**
+ * Lo que hace falta saber de una reserva "a cobrar en caja" cargada en el POS para cotizarla
+ * como el backend: el cliente paga lo que reservó, no lo que cueste hoy.
+ */
+export interface ReservaParaCotizar {
+  /** Total acordado al reservar (ya con el escalón por grupo y el cupón que tuviera). */
+  montoTotal: number;
+  /** Precio de lista de cada tipo cuando se reservó. Los tipos que no estén usan el actual. */
+  preciosLista: Record<number, number>;
+  /** Cantidad por tipo de TODAS las entradas de la reserva (incluidos los extras). */
+  cantidades: Record<number, number>;
+  /** False si la reserva tiene líneas de artículo propias: su total las incluye y no se puede reusar. */
+  reusarMonto: boolean;
+}
+
+/**
  * Cotización del carrito calculada en el navegador, para poder seguir vendiendo sin conexión.
  *
  * Es un port 1:1 de lo que hace el backend (CalculoPrecioServiceImpl.calcularTotal +
@@ -23,7 +38,8 @@ export function cotizarLocalmente(
   tiposEntrada: TipoEntrada[],
   descuentosEfectivo: DescuentoEfectivo[],
   promociones: Promocion[],
-  entradasFijas: LineaEntradaFija[] = []
+  entradasFijas: LineaEntradaFija[] = [],
+  reserva: ReservaParaCotizar | null = null
 ): CotizacionResponse {
   let totalLista = 0;
   let totalConPromo = 0;
@@ -31,8 +47,9 @@ export function cotizarLocalmente(
   for (const linea of entradas) {
     const tipo = tiposEntrada.find((t) => t.id === linea.tipoEntradaId);
     if (!tipo) continue;
-    totalLista += tipo.precio * linea.cantidad;
-    totalConPromo += totalPorTipo(tipo, linea.cantidad, formaPago, descuentosEfectivo);
+    const precioLista = reserva?.preciosLista[tipo.id] ?? tipo.precio;
+    totalLista += precioLista * linea.cantidad;
+    totalConPromo += totalPorTipo(tipo, precioLista, linea.cantidad, formaPago, descuentosEfectivo);
   }
 
   // Las líneas fijas de una reserva (extras, tipos fuera del catálogo) van a precio de lista:
@@ -41,6 +58,17 @@ export function cotizarLocalmente(
     const monto = fija.precioUnitario * fija.cantidad;
     totalLista += monto;
     totalConPromo += monto;
+  }
+
+  // Mismo criterio que el backend (CompraServiceImpl#mantienePrecioReservado): si va a pagar lo
+  // mismo que reservó y en efectivo, se cobra el monto de la reserva sin recalcular nada.
+  if (
+    reserva?.reusarMonto &&
+    formaPago === 'EFECTIVO_BOLETERIA' &&
+    mismasCantidades(entradas, reserva.cantidades)
+  ) {
+    totalConPromo = reserva.montoTotal;
+    totalLista = Math.max(totalLista, totalConPromo);
   }
 
   // Los artículos varios no tienen precio de grupo: van siempre a precio unitario × cantidad.
@@ -63,11 +91,12 @@ export function cotizarLocalmente(
  */
 function totalPorTipo(
   tipo: TipoEntrada,
+  precioListaUnitario: number,
   cantidad: number,
   formaPago: FormaPagoPos,
   descuentosEfectivo: DescuentoEfectivo[]
 ): number {
-  const precioLista = tipo.precio * cantidad;
+  const precioLista = precioListaUnitario * cantidad;
   if (formaPago !== 'EFECTIVO_BOLETERIA') return precioLista;
 
   const escalonesDelTipo = descuentosEfectivo.filter((d) => d.tipoEntradaId === tipo.id);
@@ -83,6 +112,21 @@ function totalPorTipo(
   }
 
   return precioLista;
+}
+
+/** True si las líneas pedidas son exactamente las de la reserva: mismos tipos, misma cantidad. */
+function mismasCantidades(entradas: LineaVentaPos[], reservadas: Record<number, number>): boolean {
+  const pedidas: Record<number, number> = {};
+  for (const e of entradas) {
+    if (e.cantidad > 0) pedidas[e.tipoEntradaId] = (pedidas[e.tipoEntradaId] ?? 0) + e.cantidad;
+  }
+  const idsPedidas = Object.keys(pedidas);
+  const idsReservadas = Object.keys(reservadas);
+  return (
+    idsReservadas.length > 0 &&
+    idsPedidas.length === idsReservadas.length &&
+    idsReservadas.every((id) => pedidas[Number(id)] === reservadas[Number(id)])
+  );
 }
 
 /** Promo con nombre o descuento manual (%/$), excluyentes entre sí, topeado al monto bruto. */

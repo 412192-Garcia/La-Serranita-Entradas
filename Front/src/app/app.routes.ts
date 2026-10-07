@@ -62,4 +62,10 @@ export const routes: Routes = [
     loadComponent: () => import('./cajas/cajas').then((m) => m.ConfiguracionCajas),
     canActivate: [rolGuard(['ADMIN'])],
   },
+  {
+    path: 'sistema',
+    loadComponent: () => import('./sistema/sistema').then((m) => m.Sistema),
+    // Monitoreo: sólo soporte de la app, no el admin del parque (igual que en el backend).
+    canActivate: [rolGuard(['SUPERADMIN'])],
+  },
 ];

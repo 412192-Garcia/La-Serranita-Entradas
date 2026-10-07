@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.example.laserranitaentradas.config.UsuarioAutenticado;
+import org.example.laserranitaentradas.model.dto.ControlFacturacionDTO;
 import org.example.laserranitaentradas.model.dto.FacturaManualDTO;
 import org.example.laserranitaentradas.model.dto.FacturaResponseDTO;
 import org.example.laserranitaentradas.model.dto.FacturacionPosDTO;
@@ -35,7 +36,13 @@ public class FacturaController {
     @GetMapping("/estado-servicio")
     @Operation(summary = "Si la facturación está configurada", description = "El POS lo usa para mostrar u ocultar las opciones de factura.")
     public Map<String, Boolean> estadoServicio() {
-        return Map.of("habilitada", facturaService.estaHabilitada());
+        return Map.of("habilitada", facturaService.estaHabilitada(), "online", facturaService.facturacionOnlineActiva());
+    }
+
+    @PostMapping("/compra/{compraId}/online")
+    @Operation(summary = "Facturar una compra online que quedó sin factura (ADMIN)")
+    public FacturaResponseDTO facturarOnline(@PathVariable @Parameter(description = "ID de la compra") Long compraId) {
+        return facturaService.facturarOnlineAhora(compraId);
     }
 
     @GetMapping("/compra/{compraId}")
@@ -87,6 +94,34 @@ public class FacturaController {
         return ResponseEntity.ok().build();
     }
 
+    @GetMapping("/control")
+    @Operation(summary = "Control de facturas (ADMIN)", description = "Facturas con problema, vencimiento del certificado y último control de numeración.")
+    public ControlFacturacionDTO control() {
+        return facturaService.controlFacturacion();
+    }
+
+    @PostMapping("/control/numeracion")
+    @Operation(summary = "Controlar la numeración contra ARCA ahora (ADMIN)", description = "Sólo en producción.")
+    public List<ControlFacturacionDTO.Desfase> controlarNumeracion() {
+        return facturaService.controlarNumeracion();
+    }
+
+    @GetMapping("/totales")
+    @Operation(summary = "Totales facturados por punto de venta y tipo en un período (ADMIN)")
+    public List<ControlFacturacionDTO.Totales> totales(@RequestParam java.time.LocalDate desde, @RequestParam java.time.LocalDate hasta) {
+        return facturaService.totales(desde, hasta);
+    }
+
+    @GetMapping(value = "/exportar", produces = "text/csv")
+    @Operation(summary = "Comprobantes autorizados de un período en CSV, para el contador (ADMIN)")
+    public ResponseEntity<byte[]> exportar(@RequestParam java.time.LocalDate desde, @RequestParam java.time.LocalDate hasta) {
+        byte[] csv = facturaService.exportarCsv(desde, hasta).getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"facturas-" + desde + "-al-" + hasta + ".csv\"")
+                .contentType(MediaType.parseMediaType("text/csv; charset=UTF-8"))
+                .body(csv);
+    }
+
     @PostMapping("/manual")
     @Operation(summary = "Factura manual (ADMIN)",
             description = "Factura B sin venta, con los ítems e importes que se carguen. Destino IMPRIMIR, MAIL o NINGUNO (sólo PDF).")
@@ -101,9 +136,10 @@ public class FacturaController {
     }
 
     @PostMapping("/{id}/anular")
-    @Operation(summary = "Anular una factura manual (ADMIN)", description = "Emite la nota de crédito B por el total.")
-    public ResponseEntity<Void> anularManual(@PathVariable @Parameter(description = "ID de la factura") Long id) {
-        facturaService.anularManual(id);
+    @Operation(summary = "Anular una factura (ADMIN)",
+            description = "Emite la nota de crédito B por el total. Manual o de una venta: la venta queda igual, sin factura, y se puede volver a facturar.")
+    public ResponseEntity<Void> anularFactura(@PathVariable @Parameter(description = "ID de la factura") Long id) {
+        facturaService.anularFactura(id);
         return ResponseEntity.ok().build();
     }
 

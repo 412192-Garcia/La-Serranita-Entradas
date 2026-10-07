@@ -18,6 +18,12 @@ export class SeleccionarAlFocoDirective {
   constructor(private el: ElementRef<HTMLInputElement>) {}
 
   seleccionarTodo(): void {
-    this.el.nativeElement.select();
+    const campo = this.el.nativeElement;
+    campo.select();
+    // En un click o toque real, el navegador ubica el cursor DESPUÉS del foco (al soltar), y eso
+    // deshace la selección de arriba: se vuelve a seleccionar apenas termina el toque.
+    setTimeout(() => {
+      if (document.activeElement === campo) campo.select();
+    });
   }
 }

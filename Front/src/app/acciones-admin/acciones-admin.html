@@ -2,7 +2,7 @@
 
   <app-cabecera-interna
     titulo="Acciones de admin"
-    descripcion="Herramientas puntuales del administrador: generar una reserva manual, emitir una factura manual o resolver operaciones rechazadas."
+    descripcion="Herramientas puntuales del administrador: generar una reserva manual, facturar, controlar la facturación o resolver operaciones rechazadas."
     [pasosTutorial]="pasosTutorial()" />
 
   <nav class="tabs">
@@ -11,6 +11,12 @@
     </button>
     <button type="button" class="tab" [class.activo]="tab() === 'factura'" (click)="tab.set('factura')">
       Facturación manual
+    </button>
+    <button type="button" class="tab" [class.activo]="tab() === 'control'" (click)="tab.set('control')">
+      Control de facturas
+      @if (hayAvisoFacturacion()) {
+        <span class="punto-notificacion-tab" aria-label="Hay algo para revisar en la facturación"></span>
+      }
     </button>
     <button type="button" class="tab" [class.activo]="tab() === 'rechazos'" (click)="tab.set('rechazos')">
       Operaciones rechazadas
@@ -24,6 +30,8 @@
     <app-crear-reserva />
   } @else if (tab() === 'factura') {
     <app-facturacion-manual />
+  } @else if (tab() === 'control') {
+    <app-control-facturas />
   } @else {
     <app-rechazos-operaciones />
   }

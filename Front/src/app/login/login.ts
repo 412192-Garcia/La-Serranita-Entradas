@@ -2,7 +2,7 @@ import { Component, ElementRef, ViewChild, inject, signal } from '@angular/core'
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { LucideEye, LucideEyeOff, LucideUser, LucideX } from '@lucide/angular';
-import { CuentaReciente, SesionService } from '../services/sesion.service';
+import { CuentaReciente, SesionService, nombreRol } from '../services/sesion.service';
 
 @Component({
   selector: 'app-login',
@@ -17,6 +17,7 @@ export class Login {
   @ViewChild('inputPassword') private inputPassword?: ElementRef<HTMLInputElement>;
 
   readonly cuentasRecientes = this.sesion.cuentasRecientes;
+  readonly nombreRol = nombreRol;
 
   username = signal('');
   password = signal('');
@@ -54,7 +55,7 @@ export class Login {
         this.ingresando.set(false);
         // El admin arranca en el dashboard de hoy; el boletero, directo a vender (Control de
         // Accesos es del admin: el boletero valida y cobra anticipadas desde el POS).
-        this.router.navigateByUrl(this.sesion.rol() === 'ADMIN' ? '/hoy' : '/pos');
+        this.router.navigateByUrl(this.sesion.esAdmin() ? '/hoy' : '/pos');
       },
       error: (err) => {
         console.error('Error al iniciar sesión:', err);
