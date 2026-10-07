@@ -46,6 +46,7 @@ public class EstadoSistemaService {
 
     private static final DateTimeFormatter FECHA_HORA = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
     private static final DateTimeFormatter FECHA = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+    private static final DateTimeFormatter HORA = DateTimeFormatter.ofPattern("HH:mm");
     private static final List<EstadoCompra> PAGADAS = List.of(EstadoCompra.APROBADO, EstadoCompra.USADO);
     /** Resumen de una tarjeta que no se pudo armar (AlertasService no la toma ni como alerta ni como resuelta). */
     static final String NO_SE_PUDO_CONSULTAR = "No se pudo consultar";
@@ -66,6 +67,7 @@ public class EstadoSistemaService {
     private final TerminalesService terminalesService;
     private final MetricasRequests metricasRequests;
     private final AnomaliasVentas anomaliasVentas;
+    private final PedidoBackup pedidoBackup;
 
     @Value("${app.backups.dir:/backups}")
     private String carpetaBackups;
@@ -92,7 +94,7 @@ public class EstadoSistemaService {
                                 AuditoriaService auditoriaService, EstadoMails estadoMails, JdbcTemplate jdbc,
                                 ObjectProvider<BuildProperties> build, EstadoTareas estadoTareas,
                                 TerminalesService terminalesService, MetricasRequests metricasRequests,
-                                AnomaliasVentas anomaliasVentas) {
+                                AnomaliasVentas anomaliasVentas, PedidoBackup pedidoBackup) {
         this.facturaService = facturaService;
         this.facturaRepository = facturaRepository;
         this.compraRepository = compraRepository;
@@ -109,6 +111,7 @@ public class EstadoSistemaService {
         this.terminalesService = terminalesService;
         this.metricasRequests = metricasRequests;
         this.anomaliasVentas = anomaliasVentas;
+        this.pedidoBackup = pedidoBackup;
     }
 
     @Transactional(readOnly = true)
@@ -210,8 +213,8 @@ public class EstadoSistemaService {
         }
         File[] archivos = carpeta.listFiles((dir, nombre) -> nombre.startsWith("serranita-") && nombre.endsWith(".dump"));
         if (archivos == null || archivos.length == 0) {
-            return new Tarjeta("backups", "Backups", "ALERTA", "Ningún backup todavía",
-                    List.of("El servicio de backup no generó ningún archivo. Revisar el contenedor \"backup\"."), null);
+            List<String> detalles = new ArrayList<>(List.of("El servicio de backup no generó ningún archivo. Revisar el contenedor \"backup\"."));
+            return new Tarjeta("backups", "Backups", "ALERTA", "Ningún backup todavía", detalles, null, accionBackup(detalles));
         }
         File ultimo = Arrays.stream(archivos).max(Comparator.comparingLong(File::lastModified)).orElseThrow();
         LocalDateTime cuando = LocalDateTime.ofInstant(Instant.ofEpochMilli(ultimo.lastModified()), AuditoriaService.ZONA);
@@ -221,8 +224,28 @@ public class EstadoSistemaService {
         List<String> detalles = new ArrayList<>(List.of("Último: " + cuando.format(FECHA_HORA) + " (" + tamanio(ultimo.length()) + ")",
                 archivos.length + " guardado(s), " + tamanio(total) + " en total"));
         String problemaDrive = copiaDrive(carpeta, detalles);
+        String accion = accionBackup(detalles);
         String resumen = viejo ? "El último backup tiene " + dias + " días" : problemaDrive != null ? problemaDrive : "Al día";
-        return new Tarjeta("backups", "Backups", viejo || problemaDrive != null ? "ALERTA" : "OK", resumen, detalles, null);
+        return new Tarjeta("backups", "Backups", viejo || problemaDrive != null ? "ALERTA" : "OK", resumen, detalles, null, accion);
+    }
+
+    /**
+     * Estado del "hacer backup ahora" (ver PedidoBackup) en los detalles, y el botón si se puede pedir
+     * uno: no se ofrece mientras hay otro en marcha ni si el servidor no tiene la carpeta de pedidos.
+     */
+    private String accionBackup(List<String> detalles) {
+        PedidoBackup.Estado p = pedidoBackup.estado();
+        switch (p.situacion()) {
+            case PEDIDO -> detalles.add(0, "Backup manual pedido" + (p.pedidoEn() != null ? " a las " + p.pedidoEn().format(HORA) : "")
+                    + ": arranca en menos de un minuto");
+            case EN_CURSO -> detalles.add(0, "Backup manual en curso...");
+            default -> { }
+        }
+        if (p.ultimoResultado() != null && p.ultimoEn() != null) {
+            detalles.add("Último backup manual: " + p.ultimoEn().format(FECHA_HORA)
+                    + ("OK".equals(p.ultimoResultado()) ? " (bien)" : " (FALLÓ" + (p.ultimoDetalle() != null ? ": " + p.ultimoDetalle() : "") + ")"));
+        }
+        return p.situacion() == PedidoBackup.Situacion.LIBRE ? "forzar-backup" : null;
     }
 
     /**

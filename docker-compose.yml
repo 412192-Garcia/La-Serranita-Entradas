@@ -235,6 +235,13 @@ services:
       # Caddyfile del repo ni reconstruir la imagen — ver el "import" al final del Caddyfile.
       # Carpeta vacía acá; en el VPS puede tener archivos .caddy sueltos que no se versionan.
       - ./caddy-extra:/etc/caddy/extra:ro
+    # "proxy": red compartida con los otros servicios del VPS que publica este Caddy (Chatwoot, en
+    # chat.parquelaserranita.online). Declarada acá y no conectada a mano con "docker network
+    # connect": esa conexión se pierde cada vez que el contenedor se recrea (pasó en un deploy y el
+    # chat quedó caído con 502). Para levantar el compose en otra máquina: docker network create proxy
+    networks:
+      - default
+      - proxy
 
   # Agente de Grafana Cloud: logs de todos los contenedores + métricas del backend y del servidor
   # (ver observabilidad/config.alloy). Opcional: sólo arranca con el perfil "observabilidad":
@@ -264,6 +271,11 @@ services:
       - /sys:/host/sys:ro
       - /:/host/root:ro
       - /run/udev:/run/udev:ro
+
+networks:
+  default:
+  proxy:
+    external: true
 
 volumes:
   db_data:
