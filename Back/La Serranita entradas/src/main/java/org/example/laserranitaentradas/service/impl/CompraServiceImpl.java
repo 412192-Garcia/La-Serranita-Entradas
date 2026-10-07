@@ -1477,7 +1477,7 @@ public class CompraServiceImpl implements CompraService {
         }
 
         try {
-            pagosQueCubrenLaCompra(compra).ifPresent(pagos -> confirmarAprobado(compraId, pagos, ConfirmacionPago.VERIFICACION));
+            pagosQueCubrenLaCompra(compra).ifPresent(pagos -> self.confirmarAprobado(compraId, pagos, ConfirmacionPago.VERIFICACION));
         } catch (MPException | MPApiException | RuntimeException e) {
             // No se pudo consultar a Mercado Pago ahora: se deja la compra como está
             // para poder reintentar más tarde (webhook, otra verificación, etc.).
@@ -1595,7 +1595,8 @@ public class CompraServiceImpl implements CompraService {
                     avisado.getId(), avisado.getTransactionAmount(), compra.getCodigoReserva(), compra.getMontoTotal());
             return false;
         }
-        return confirmarAprobado(compra.getId(), pagos.get(), ConfirmacionPago.WEBHOOK);
+        // self y no this: el webhook llega sin transacción y confirmarAprobado necesita la suya.
+        return self.confirmarAprobado(compra.getId(), pagos.get(), ConfirmacionPago.WEBHOOK);
     }
 
     @Override

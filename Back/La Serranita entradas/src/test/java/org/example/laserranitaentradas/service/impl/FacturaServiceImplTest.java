@@ -457,6 +457,23 @@ class FacturaServiceImplTest {
     }
 
     @Test
+    void controlNumeracion_unPuntoDeVentaQueArcaNoReconoce_noFrenaElControlDeLosDemas() {
+        when(afipClient.esProduccion()).thenReturn(true);
+        // Facturas viejas de homologación con el pto vta 37, que para el CUIT real no existe.
+        when(facturaRepository.puntosDeVentaUsados()).thenReturn(List.of(37));
+        when(wsfe.ultimoAutorizado(eq(37), anyInt())).thenThrow(new org.example.laserranitaentradas.service.afip.AfipException(
+                "ARCA: 11002 - El punto de venta no se encuentra habilitado a usar en el presente WS", false));
+
+        assertThatThrownBy(() -> service.controlarNumeracion())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("punto de venta 37 (ARCA: 11002")
+                .hasMessageContaining("Los demás coinciden con ARCA");
+        // El de boletería sí se controló.
+        verify(wsfe, atLeastOnce()).ultimoAutorizado(intThat(pv -> pv != 37), anyInt());
+        assertThat(service.controlFacturacion().numeracionControladaEn()).isNotNull();
+    }
+
+    @Test
     void controlNumeracion_enHomologacion_noConsultaArca() {
         assertThat(service.controlarNumeracion()).isEmpty();
         verify(wsfe, never()).ultimoAutorizado(anyInt(), anyInt());

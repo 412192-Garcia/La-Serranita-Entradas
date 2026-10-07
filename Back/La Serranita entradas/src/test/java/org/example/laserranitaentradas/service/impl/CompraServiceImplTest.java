@@ -79,6 +79,10 @@ class CompraServiceImplTest {
                 // `self` sólo lo usa iniciarCompraConPago para cruzar el proxy de Spring; los
                 // tests llaman a create() directo, así que alcanza con el propio service.
                 autoReferencia);
+        // El webhook y la verificación directa confirman a través de `self` (para tener la
+        // transacción de confirmarAprobado): el mock la delega al service real.
+        lenient().when(autoReferencia.confirmarAprobado(any(), any(), any())).thenAnswer(inv ->
+                service.confirmarAprobado(inv.getArgument(0), inv.getArgument(1), inv.getArgument(2)));
     }
 
     // ---------- RESERVA_ADMIN: no cobra nada por acá, sin importar el precio de lista ----------

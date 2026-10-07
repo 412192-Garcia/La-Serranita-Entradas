@@ -23,3 +23,6 @@ caddy-extra/*.caddy
 
 # Config de rclone (copia de backups a Google Drive): tiene el token de la cuenta de Google.
 /rclone/
+
+# Datos del VPS para scripts/deploy.sh (usuario, IP, ruta).
+/scripts/deploy.local

@@ -1037,20 +1037,28 @@ public class FacturaServiceImpl implements FacturaService {
         Integer online = puntoVentaOnline();
         if (online != null) puntos.add(online);
         List<ControlFacturacionDTO.Desfase> encontrados = new ArrayList<>();
+        // Cada punto de venta por separado: uno que ARCA no reconoce (ej. el de pruebas de facturas
+        // viejas de homologación, "11002 - punto de venta no habilitado") no frena el control de los demás.
+        java.util.Map<Integer, String> sinConsultar = new java.util.TreeMap<>();
         // Con la emisión frenada mientras tanto: una factura que se autoriza entre la consulta a la
         // base y la de ARCA daría un desfase que no existe.
         lockEmision.lock();
         try {
             for (int pv : puntos) {
-                for (int tipo : List.of(WsfeService.CBTE_TIPO_FACTURA_B, WsfeService.CBTE_TIPO_NOTA_CREDITO_B)) {
-                    long base = Optional.ofNullable(facturaRepository.ultimoNumeroEmitido(pv, tipo)).orElse(0L);
-                    Long reservado = facturaRepository.ultimoNumeroReservadoSinResolver(pv, tipo);
-                    long arca = wsfe.ultimoAutorizado(pv, tipo);
-                    // Un número pedido sin respuesta que ARCA sí autorizó no es desfase: lo resuelve la emisión.
-                    if (arca != base && (reservado == null || arca != reservado)) {
-                        log.warn("Numeración desfasada en pto vta {} tipo {}: base {} / ARCA {}", pv, tipo, base, arca);
-                        encontrados.add(new ControlFacturacionDTO.Desfase(pv, tipo, base, arca));
+                try {
+                    for (int tipo : List.of(WsfeService.CBTE_TIPO_FACTURA_B, WsfeService.CBTE_TIPO_NOTA_CREDITO_B)) {
+                        long base = Optional.ofNullable(facturaRepository.ultimoNumeroEmitido(pv, tipo)).orElse(0L);
+                        Long reservado = facturaRepository.ultimoNumeroReservadoSinResolver(pv, tipo);
+                        long arca = wsfe.ultimoAutorizado(pv, tipo);
+                        // Un número pedido sin respuesta que ARCA sí autorizó no es desfase: lo resuelve la emisión.
+                        if (arca != base && (reservado == null || arca != reservado)) {
+                            log.warn("Numeración desfasada en pto vta {} tipo {}: base {} / ARCA {}", pv, tipo, base, arca);
+                            encontrados.add(new ControlFacturacionDTO.Desfase(pv, tipo, base, arca));
+                        }
                     }
+                } catch (AfipException e) {
+                    log.warn("No se pudo controlar la numeración del pto vta {} en ARCA: {}", pv, e.getMessage());
+                    sinConsultar.put(pv, e.getMessage());
                 }
             }
         } finally {
@@ -1058,6 +1066,17 @@ public class FacturaServiceImpl implements FacturaService {
         }
         desfases = List.copyOf(encontrados);
         numeracionControladaEn = LocalDateTime.now(ZONA_ARGENTINA).withNano(0);
+        if (!sinConsultar.isEmpty()) {
+            // 400 con el motivo (lo ve quien apretó "Controlar"), no un error 500 del sistema.
+            StringBuilder mensaje = new StringBuilder();
+            sinConsultar.forEach((pv, motivo) -> mensaje.append("No se pudo consultar en ARCA el punto de venta ").append(pv)
+                    .append(" (").append(motivo).append("). "));
+            if (puntos.size() > sinConsultar.size()) {
+                mensaje.append(encontrados.isEmpty() ? "Los demás coinciden con ARCA." : "En los demás hay " + encontrados.size() + " desfase(s): revisalos abajo.");
+            }
+            mensaje.append(" Si ese punto de venta es de facturas de prueba viejas, no es un problema de la facturación actual.");
+            throw new IllegalStateException(mensaje.toString());
+        }
         if (encontrados.isEmpty()) log.info("Control de numeración OK ({} puntos de venta)", puntos.size());
         return desfases;
     }
