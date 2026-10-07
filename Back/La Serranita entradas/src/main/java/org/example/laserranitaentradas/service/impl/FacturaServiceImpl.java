@@ -791,6 +791,10 @@ public class FacturaServiceImpl implements FacturaService {
         if (f.getEstado() == EstadoFactura.ANULADA || Boolean.TRUE.equals(f.getAnulacionPedida())) {
             throw new IllegalStateException("Esta factura ya está anulada");
         }
+        org.example.laserranitaentradas.monitoreo.AuditoriaContexto.referencia(f.getNumero() != null
+                ? String.format("B %04d-%08d", f.getPuntoVenta(), f.getNumero()) : "(sin número)");
+        org.example.laserranitaentradas.monitoreo.AuditoriaContexto.detalle("Total: $" + f.getImporteTotal().stripTrailingZeros().toPlainString()
+                + (f.getCompra() != null ? " · compra #" + f.getCompra().getCodigoReserva() : " · manual"));
         anular(f);
     }
 

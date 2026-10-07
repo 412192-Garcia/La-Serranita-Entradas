@@ -29,6 +29,8 @@ public interface TrabajoImpresionRepository extends JpaRepository<TrabajoImpresi
 
     List<TrabajoImpresion> findByFacturaIdIn(Collection<Long> facturaIds);
 
+    long countByEstadoAndFechaCreacionAfter(EstadoTrabajoImpresion estado, LocalDateTime desde);
+
     /** Se marca ENVIADO antes de mandarlo, y sólo si todavía no tiene resultado. 0 = ya tenía. */
     @Modifying
     @Transactional

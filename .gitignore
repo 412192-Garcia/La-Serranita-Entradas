@@ -20,3 +20,6 @@ caddy-extra/*.caddy
 
 # Backups de la base (docker compose: servicio backup): nunca al repo.
 /backups/
+
+# Config de rclone (copia de backups a Google Drive): tiene el token de la cuenta de Google.
+/rclone/

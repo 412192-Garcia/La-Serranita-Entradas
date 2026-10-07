@@ -1,5 +1,7 @@
 package org.example.laserranitaentradas.service.impl;
 
+import org.example.laserranitaentradas.monitoreo.AuditoriaContexto;
+
 import com.mercadopago.client.payment.PaymentClient;
 import com.mercadopago.client.payment.PaymentRefundClient;
 import com.mercadopago.exceptions.MPApiException;
@@ -15,6 +17,7 @@ import org.example.laserranitaentradas.model.dto.*;
 import org.example.laserranitaentradas.model.entity.Caja;
 import org.example.laserranitaentradas.model.entity.Cliente;
 import org.example.laserranitaentradas.model.entity.Compra;
+import org.example.laserranitaentradas.model.entity.ConfirmacionPago;
 import org.example.laserranitaentradas.model.entity.CompraDetalle;
 import org.example.laserranitaentradas.model.entity.ArticuloVario;
 import org.example.laserranitaentradas.model.entity.Cupon;
@@ -61,6 +64,9 @@ import java.util.stream.Collectors;
 public class CompraServiceImpl implements CompraService {
 
     private static final Logger log = LoggerFactory.getLogger(CompraServiceImpl.class);
+    /** Problemas con la plata de un cliente (pagó de más, pago sobre una compra reembolsada): van a
+     * Sistema > Errores en el área Pagos, para que alguien los vea (antes quedaban sólo en el log). */
+    private static final Logger alertasPagos = LoggerFactory.getLogger("alertas.pagos");
 
     private final CompraRepository compraRepository;
     private final TipoEntradaService tipoEntradaService;
@@ -1396,7 +1402,7 @@ public class CompraServiceImpl implements CompraService {
 
     @Transactional
     @Override
-    public boolean confirmarAprobado(Long compraId, List<Long> pagosMercadoPago) {
+    public boolean confirmarAprobado(Long compraId, List<Long> pagosMercadoPago, ConfirmacionPago origen) {
         Compra compra = compraRepository.findById(compraId).orElse(null);
         if (compra == null) {
             return false;
@@ -1411,7 +1417,7 @@ public class CompraServiceImpl implements CompraService {
         // Ya se le devolvió la plata: un aviso tardío de Mercado Pago no puede revivirla, o el
         // visitante entraría con una entrada reembolsada.
         if (compra.getEstado() == EstadoCompra.REEMBOLSADA) {
-            log.error("Llegó una confirmación de los pagos {} de Mercado Pago para la compra ID {}, que está REEMBOLSADA. "
+            alertasPagos.error("Llegó una confirmación de los pagos {} de Mercado Pago para la compra ID {}, que está REEMBOLSADA. "
                     + "No se toca: revisar a mano si esos pagos hay que devolverlos.", pagosMercadoPago, compraId);
             return false;
         }
@@ -1426,6 +1432,7 @@ public class CompraServiceImpl implements CompraService {
         }
         compra.setEstado(EstadoCompra.APROBADO);
         compra.setMpPaymentIds(idsPagos);
+        compraRepository.registrarConfirmacionPago(compraId, origen.name(), LocalDateTime.now());
 
         // Cancelada y pagada después: pasa cuando el barrido la dio por abandonada y el cliente
         // terminó de pagar igual (la preferencia sigue viva un rato más). Se la revive a
@@ -1470,7 +1477,7 @@ public class CompraServiceImpl implements CompraService {
         }
 
         try {
-            pagosQueCubrenLaCompra(compra).ifPresent(pagos -> confirmarAprobado(compraId, pagos));
+            pagosQueCubrenLaCompra(compra).ifPresent(pagos -> confirmarAprobado(compraId, pagos, ConfirmacionPago.VERIFICACION));
         } catch (MPException | MPApiException | RuntimeException e) {
             // No se pudo consultar a Mercado Pago ahora: se deja la compra como está
             // para poder reintentar más tarde (webhook, otra verificación, etc.).
@@ -1563,7 +1570,7 @@ public class CompraServiceImpl implements CompraService {
             // Un pago ya registrado es MP reintentando el aviso. Uno aprobado que no es ninguno
             // de los registrados (y es de después de la compra): el cliente pagó dos veces.
             if (!compra.pagosMercadoPago().contains(avisado.getId()) && esPosteriorALaCompra(avisado, compra)) {
-                log.error("La compra {} ya estaba paga con los pagos {} de Mercado Pago y llegó otro pago aprobado, "
+                alertasPagos.error("La compra {} ya estaba paga con los pagos {} de Mercado Pago y llegó otro pago aprobado, "
                                 + "el {} por {}: el cliente pagó de más. Devolverlo desde el panel de Mercado Pago.",
                         compra.getCodigoReserva(), compra.pagosMercadoPago(), avisado.getId(), avisado.getTransactionAmount());
             }
@@ -1588,7 +1595,7 @@ public class CompraServiceImpl implements CompraService {
                     avisado.getId(), avisado.getTransactionAmount(), compra.getCodigoReserva(), compra.getMontoTotal());
             return false;
         }
-        return confirmarAprobado(compra.getId(), pagos.get());
+        return confirmarAprobado(compra.getId(), pagos.get(), ConfirmacionPago.WEBHOOK);
     }
 
     @Override
@@ -1611,7 +1618,7 @@ public class CompraServiceImpl implements CompraService {
             try {
                 Optional<List<Long>> pagos = pagosQueCubrenLaCompra(compra);
                 if (pagos.isPresent()) {
-                    confirmarAprobado(compraId, pagos.get());
+                    confirmarAprobado(compraId, pagos.get(), ConfirmacionPago.BARRIDO);
                     return;
                 }
             } catch (MPException | MPApiException | RuntimeException e) {
@@ -1692,6 +1699,8 @@ public class CompraServiceImpl implements CompraService {
         }
 
         compra.setEstado(EstadoCompra.REEMBOLSADA);
+        AuditoriaContexto.referencia("#" + compra.getCodigoReserva());
+        AuditoriaContexto.detalle("Monto reembolsado: $" + compra.getMontoTotal().stripTrailingZeros().toPlainString());
         // Si estaba facturada: nota de crédito por el total (o anulación si no llegó a ARCA).
         facturaService.alCancelarVenta(compra);
         return compraRepository.save(compra);
@@ -1709,6 +1718,8 @@ public class CompraServiceImpl implements CompraService {
             throw new IllegalStateException("Esta venta ya está cancelada.");
         }
         compra.setEstado(EstadoCompra.CANCELADO);
+        AuditoriaContexto.referencia("#" + compra.getCodigoReserva());
+        AuditoriaContexto.detalle("Monto: " + "$" + compra.getMontoTotal().stripTrailingZeros().toPlainString() + " · " + compra.getFormaPago());
         // Si estaba facturada: nota de crédito (o anulación si la factura no llegó a ARCA).
         facturaService.alCancelarVenta(compra);
         return compraRepository.save(compra);
@@ -1729,6 +1740,9 @@ public class CompraServiceImpl implements CompraService {
             throw new IllegalArgumentException("Falta indicar la forma de pago.");
         }
         BigDecimal montoAnterior = compra.getMontoTotal();
+        FormaPago formaAnterior = compra.getFormaPago();
+        String itemsAnteriores = resumenItems(compra.getDetalles());
+        AuditoriaContexto.referencia("#" + compra.getCodigoReserva());
 
         LocalDate fechaVisita = compra.getFechaVisita();
         // Cupo diario: se cuenta contra todas las compras del día MENOS esta misma (se está
@@ -1797,8 +1811,21 @@ public class CompraServiceImpl implements CompraService {
         compra.setDescuentoAplicado(descuento);
 
         Compra guardada = compraRepository.save(compra);
+        AuditoriaContexto.cambio("Total", montoAnterior, guardada.getMontoTotal());
+        AuditoriaContexto.cambio("Forma de pago", formaAnterior, guardada.getFormaPago());
+        AuditoriaContexto.cambio("Ítems", itemsAnteriores, resumenItems(guardada.getDetalles()));
         // Si cambió el total de una venta facturada: nota de crédito + factura nueva.
         facturaService.alEditarVenta(guardada, montoAnterior);
         return guardada;
+    }
+
+    /** "2× General, 1× Gorra" para el antes/después del historial. */
+    private static String resumenItems(List<CompraDetalle> detalles) {
+        if (detalles == null || detalles.isEmpty()) return "(ninguno)";
+        return detalles.stream()
+                .map(d -> d.getCantidad() + "× " + (d.getTipoEntrada() != null ? d.getTipoEntrada().getNombre()
+                        : d.getArticuloVario() != null ? d.getArticuloVario().getNombre()
+                        : java.util.Objects.requireNonNullElse(d.getDescripcionLibre(), "Artículo")))
+                .collect(Collectors.joining(", "));
     }
 }

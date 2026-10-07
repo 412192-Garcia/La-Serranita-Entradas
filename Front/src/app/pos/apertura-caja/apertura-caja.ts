@@ -32,7 +32,7 @@ export class AperturaCaja {
 
   /** "Vender sin control de caja" es sólo para el propio ADMIN: se salta el conteo de apertura
    * y (a fin de día) también el de cierre — no tiene sentido ofrecérselo a un boletero. */
-  esAdmin = computed(() => this.sesion.rol() === 'ADMIN');
+  esAdmin = this.sesion.esAdmin;
 
   /** Efectivo inicial calculado en vivo a partir del conteo por denominación más el cambio. */
   montoAperturaCalculado = computed(() =>

@@ -4,7 +4,20 @@ import { Observable, tap } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { ThemeService } from './theme.service';
 
-export type Rol = 'ADMIN' | 'BOLETERO';
+/** SUPERADMIN = soporte de la app: todo lo de ADMIN + la pantalla Sistema (monitoreo). */
+export type Rol = 'SUPERADMIN' | 'ADMIN' | 'BOLETERO';
+
+/** Qué roles incluye cada uno (la misma jerarquía que el backend: SUPERADMIN > ADMIN > BOLETERO). */
+const ROLES_INCLUIDOS: Record<Rol, Rol[]> = {
+  SUPERADMIN: ['SUPERADMIN', 'ADMIN', 'BOLETERO'],
+  ADMIN: ['ADMIN', 'BOLETERO'],
+  BOLETERO: ['BOLETERO'],
+};
+
+/** Nombre para mostrar de un rol. */
+export function nombreRol(rol: Rol | null | undefined): string {
+  return rol === 'SUPERADMIN' ? 'Soporte' : rol === 'ADMIN' ? 'Administrador' : 'Boletero';
+}
 
 export interface UsuarioSesion {
   id: number;
@@ -94,11 +107,15 @@ export class SesionService {
   readonly usuario = this.usuarioActual.asReadonly();
   readonly rol = computed(() => this.usuarioActual()?.rol ?? null);
   readonly estaAutenticado = computed(() => this.usuarioActual() !== null);
+  /** ADMIN o SUPERADMIN: para los chequeos de "si es admin, puede...". No comparar rol() === 'ADMIN'. */
+  readonly esAdmin = computed(() => this.tieneAlgunRol(['ADMIN']));
+  readonly esSuperadmin = computed(() => this.rol() === 'SUPERADMIN');
   readonly cuentasRecientes = this.cuentasRecientesActual.asReadonly();
 
+  /** Con jerarquía: un SUPERADMIN cumple ['ADMIN'], y un ADMIN cumple ['BOLETERO']. */
   tieneAlgunRol(roles: Rol[]): boolean {
     const rol = this.rol();
-    return rol !== null && roles.includes(rol);
+    return rol !== null && (ROLES_INCLUIDOS[rol] ?? []).some((r) => roles.includes(r));
   }
 
   token(): string | null {

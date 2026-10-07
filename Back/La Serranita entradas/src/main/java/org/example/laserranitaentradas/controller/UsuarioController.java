@@ -8,12 +8,14 @@ import org.example.laserranitaentradas.model.dto.CambiarPasswordRequestDTO;
 import org.example.laserranitaentradas.model.dto.LoginRequest;
 import org.example.laserranitaentradas.model.dto.LoginResponseDTO;
 import org.example.laserranitaentradas.model.dto.UsuarioResponseDTO;
+import org.example.laserranitaentradas.model.entity.RolUsuario;
 import org.example.laserranitaentradas.model.entity.Usuario;
 import org.example.laserranitaentradas.service.UsuarioService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -120,7 +122,9 @@ public class UsuarioController {
     @PostMapping
     @Operation(summary = "Crear un nuevo usuario", description = "Crea un nuevo usuario en el sistema")
     @ApiResponse(responseCode = "201", description = "Usuario creado exitosamente")
-    public ResponseEntity<UsuarioResponseDTO> crearUsuario(@RequestBody Usuario usuario) {
+    public ResponseEntity<UsuarioResponseDTO> crearUsuario(@RequestBody Usuario usuario,
+                                                           @AuthenticationPrincipal UsuarioAutenticado operador) {
+        exigirSuperadminSi(usuario.getRol() == RolUsuario.SUPERADMIN, operador);
         Usuario nuevoUsuario = usuarioService.crearUsuario(usuario);
         return ResponseEntity.status(HttpStatus.CREATED).body(entityToDto(nuevoUsuario));
     }
@@ -131,8 +135,10 @@ public class UsuarioController {
             @ApiResponse(responseCode = "200", description = "Usuario encontrado"),
             @ApiResponse(responseCode = "404", description = "Usuario no encontrado")
     })
-    public ResponseEntity<UsuarioResponseDTO> obtenerUsuarioPorId(@PathVariable @Parameter(description = "ID del usuario") Long id) {
+    public ResponseEntity<UsuarioResponseDTO> obtenerUsuarioPorId(@PathVariable @Parameter(description = "ID del usuario") Long id,
+                                                                  @AuthenticationPrincipal UsuarioAutenticado operador) {
         return usuarioService.obtenerUsuarioPorId(id)
+                .filter(u -> visiblePara(u, operador))
                 .map(u -> ResponseEntity.ok(entityToDto(u)))
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
@@ -143,8 +149,10 @@ public class UsuarioController {
             @ApiResponse(responseCode = "200", description = "Usuario encontrado"),
             @ApiResponse(responseCode = "404", description = "Usuario no encontrado")
     })
-    public ResponseEntity<UsuarioResponseDTO> obtenerUsuarioPorUsername(@PathVariable @Parameter(description = "Nombre de usuario") String username) {
+    public ResponseEntity<UsuarioResponseDTO> obtenerUsuarioPorUsername(@PathVariable @Parameter(description = "Nombre de usuario") String username,
+                                                                        @AuthenticationPrincipal UsuarioAutenticado operador) {
         return usuarioService.obtenerUsuarioPorUsername(username)
+                .filter(u -> visiblePara(u, operador))
                 .map(u -> ResponseEntity.ok(entityToDto(u)))
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
@@ -152,8 +160,9 @@ public class UsuarioController {
     @GetMapping
     @Operation(summary = "Obtener todos los usuarios", description = "Obtiene la lista de todos los usuarios registrados")
     @ApiResponse(responseCode = "200", description = "Lista de usuarios obtenida exitosamente")
-    public ResponseEntity<List<UsuarioResponseDTO>> obtenerTodosUsuarios() {
+    public ResponseEntity<List<UsuarioResponseDTO>> obtenerTodosUsuarios(@AuthenticationPrincipal UsuarioAutenticado operador) {
         List<UsuarioResponseDTO> usuarios = usuarioService.obtenerTodosUsuarios().stream()
+                .filter(u -> visiblePara(u, operador))
                 .map(UsuarioController::entityToDto)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(usuarios);
@@ -165,8 +174,11 @@ public class UsuarioController {
             @ApiResponse(responseCode = "200", description = "Usuario actualizado exitosamente"),
             @ApiResponse(responseCode = "404", description = "Usuario no encontrado")
     })
-    public ResponseEntity<UsuarioResponseDTO> actualizarUsuario(@PathVariable @Parameter(description = "ID del usuario") Long id, @RequestBody Usuario usuario) {
-        if (usuarioService.obtenerUsuarioPorId(id).isPresent()) {
+    public ResponseEntity<UsuarioResponseDTO> actualizarUsuario(@PathVariable @Parameter(description = "ID del usuario") Long id, @RequestBody Usuario usuario,
+                                                                @AuthenticationPrincipal UsuarioAutenticado operador) {
+        Optional<Usuario> existente = usuarioService.obtenerUsuarioPorId(id).filter(u -> visiblePara(u, operador));
+        if (existente.isPresent()) {
+            exigirSuperadminSi(usuario.getRol() == RolUsuario.SUPERADMIN, operador);
             usuario.setId(id);
             return ResponseEntity.ok(entityToDto(usuarioService.actualizarUsuario(usuario)));
         }
@@ -179,12 +191,32 @@ public class UsuarioController {
             @ApiResponse(responseCode = "204", description = "Usuario eliminado exitosamente"),
             @ApiResponse(responseCode = "404", description = "Usuario no encontrado")
     })
-    public ResponseEntity<Void> eliminarUsuario(@PathVariable @Parameter(description = "ID del usuario") Long id) {
-        if (usuarioService.obtenerUsuarioPorId(id).isPresent()) {
+    public ResponseEntity<Void> eliminarUsuario(@PathVariable @Parameter(description = "ID del usuario") Long id,
+                                                @AuthenticationPrincipal UsuarioAutenticado operador) {
+        if (usuarioService.obtenerUsuarioPorId(id).filter(u -> visiblePara(u, operador)).isPresent()) {
             usuarioService.eliminarUsuario(id);
             return ResponseEntity.noContent().build();
         }
         return ResponseEntity.notFound().build();
+    }
+
+    /**
+     * Los SUPERADMIN (soporte de la app) no aparecen para el admin del parque: no los ve en la lista,
+     * no los puede editar ni borrar (para él no existen: 404) y no puede crear ni ascender a nadie a
+     * ese rol (403). Así el acceso a Sistema no se puede conseguir desde Usuarios.
+     */
+    private static boolean visiblePara(Usuario u, UsuarioAutenticado operador) {
+        return u.getRol() != RolUsuario.SUPERADMIN || esSuperadmin(operador);
+    }
+
+    private static void exigirSuperadminSi(boolean condicion, UsuarioAutenticado operador) {
+        if (condicion && !esSuperadmin(operador)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Ese rol no se puede asignar desde acá.");
+        }
+    }
+
+    private static boolean esSuperadmin(UsuarioAutenticado operador) {
+        return operador != null && operador.rol() == RolUsuario.SUPERADMIN;
     }
 
     private static UsuarioResponseDTO entityToDto(Usuario u) {

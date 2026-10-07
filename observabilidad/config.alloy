@@ -1,0 +1,96 @@
+// Grafana Alloy: manda a Grafana Cloud los logs de los contenedores (Loki) y las métricas del
+// backend y del servidor (Prometheus). Lo levanta el servicio "alloy" de docker-compose.yml, sólo
+// con el perfil "observabilidad" y las variables GRAFANA_* del .env (ver .env.example).
+
+// ---------- Logs de todos los contenedores ----------
+
+discovery.docker "contenedores" {
+  host = "unix:///var/run/docker.sock"
+}
+
+// Etiquetas con pocos valores posibles (Loki indexa por etiqueta): el servicio de compose y, para
+// el backend, el nivel. El resto (requestId, usuario, mensaje) se busca dentro del JSON:
+//   {servicio="backend"} | json | requestId="1C8BA4"
+discovery.relabel "contenedores" {
+  targets = []
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "servicio"
+  }
+}
+
+loki.source.docker "contenedores" {
+  host          = "unix:///var/run/docker.sock"
+  targets       = discovery.docker.contenedores.targets
+  relabel_rules = discovery.relabel.contenedores.rules
+  forward_to    = [loki.process.backend.receiver]
+}
+
+// El backend escribe JSON (LOG_FORMATO=ecs): se saca el nivel como etiqueta para filtrar rápido
+// los WARN/ERROR. Los demás contenedores pasan como texto.
+loki.process "backend" {
+  stage.match {
+    selector = "{servicio=\"backend\"}"
+
+    stage.json {
+      expressions = { nivel = "log.level" }
+    }
+
+    stage.labels {
+      values = { nivel = "" }
+    }
+  }
+
+  forward_to = [loki.write.grafana.receiver]
+}
+
+loki.write "grafana" {
+  endpoint {
+    url = sys.env("GRAFANA_LOKI_URL")
+
+    basic_auth {
+      username = sys.env("GRAFANA_LOKI_USUARIO")
+      password = sys.env("GRAFANA_CLOUD_TOKEN")
+    }
+  }
+}
+
+// ---------- Métricas ----------
+
+// Backend: /actuator/prometheus en el puerto interno de management (no se publica).
+prometheus.scrape "backend" {
+  targets         = [{ "__address__" = "backend:8081", "servicio" = "backend" }]
+  metrics_path    = "/actuator/prometheus"
+  scrape_interval = "30s"
+  forward_to      = [prometheus.remote_write.grafana.receiver]
+}
+
+// El servidor (VPS): CPU, memoria, disco y red. Lee el /proc, /sys y / del host montados en el
+// contenedor (ver docker-compose.yml).
+prometheus.exporter.unix "servidor" {
+  procfs_path = "/host/proc"
+  sysfs_path  = "/host/sys"
+  rootfs_path = "/host/root"
+
+  filesystem {
+    mount_points_exclude = "^/(dev|proc|run|sys|var/lib/docker/.+)($|/)"
+  }
+}
+
+prometheus.scrape "servidor" {
+  targets         = prometheus.exporter.unix.servidor.targets
+  scrape_interval = "60s"
+  forward_to      = [prometheus.remote_write.grafana.receiver]
+}
+
+prometheus.remote_write "grafana" {
+  endpoint {
+    url = sys.env("GRAFANA_PROM_URL")
+
+    basic_auth {
+      username = sys.env("GRAFANA_PROM_USUARIO")
+      password = sys.env("GRAFANA_CLOUD_TOKEN")
+    }
+  }
+}

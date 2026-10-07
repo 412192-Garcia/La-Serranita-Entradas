@@ -1,0 +1,46 @@
+<div class="tarjeta" data-tour="estado-sistema">
+  <div class="titulo-con-accion">
+    <h2>
+      @if (estado(); as e) {
+        @if (alertas(e) === 0) { Todo funcionando } @else { {{ alertas(e) }} área(s) para revisar }
+      } @else {
+        Estado del sistema
+      }
+    </h2>
+    <button type="button" class="btn-secundario btn-con-icono" [disabled]="cargando()" (click)="cargar()">
+      <svg lucideRefreshCw [strokeWidth]="2"></svg> Actualizar
+    </button>
+  </div>
+
+  @if (cargando() && !estado()) {
+    <app-spinner />
+  } @else if (error(); as err) {
+    <p class="alerta">{{ err }}</p>
+  } @else if (estado(); as e) {
+    <p class="ayuda">Actualizado {{ e.generado | date: 'dd/MM/yyyy HH:mm' }} · se actualiza solo cada minuto.</p>
+    <div class="grilla-estado">
+      @for (t of e.tarjetas; track t.clave) {
+        <div class="tarjeta-estado" [class.estado-ok]="t.estado === 'OK'" [class.estado-alerta]="t.estado === 'ALERTA'"
+          [class.estado-info]="t.estado === 'INFO'">
+          <div class="tarjeta-estado-cabecera">
+            @switch (t.estado) {
+              @case ('OK') { <svg lucideCircleCheck class="icono-estado" [strokeWidth]="2" aria-hidden="true"></svg> }
+              @case ('ALERTA') { <svg lucideCircleAlert class="icono-estado" [strokeWidth]="2" aria-hidden="true"></svg> }
+              @default { <svg lucideInfo class="icono-estado" [strokeWidth]="2" aria-hidden="true"></svg> }
+            }
+            <span class="tarjeta-estado-titulo">{{ t.titulo }}</span>
+          </div>
+          <strong class="tarjeta-estado-resumen">{{ t.resumen }}</strong>
+          <ul class="tarjeta-estado-detalles">
+            @for (d of t.detalles; track $index) {
+              <li>{{ d }}</li>
+            }
+          </ul>
+          @if (t.enlace) {
+            <button type="button" class="btn-accion" (click)="ir(t)">Ver</button>
+          }
+        </div>
+      }
+    </div>
+  }
+</div>

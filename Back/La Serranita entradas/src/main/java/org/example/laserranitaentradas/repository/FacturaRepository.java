@@ -95,6 +95,8 @@ public interface FacturaRepository extends JpaRepository<Factura, Long> {
             "AND f.numero IS NULL AND f.numeroIntentado IS NOT NULL")
     Long ultimoNumeroReservadoSinResolver(@Param("pv") Integer puntoVenta, @Param("tipo") Integer tipoComprobante);
 
+    long countByNumeroIsNotNullAndFechaEmisionBetween(java.time.LocalDate desde, java.time.LocalDate hasta);
+
     @Query("SELECT DISTINCT f.puntoVenta FROM Factura f")
     List<Integer> puntosDeVentaUsados();
 

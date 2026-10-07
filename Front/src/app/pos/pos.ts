@@ -6,7 +6,7 @@ import { PromocionService } from '../services/promocion.service';
 import { ArticuloVarioService } from '../services/articulo-vario.service';
 import { ConfiguracionService, DescuentoEfectivo } from '../services/configuracion.service';
 import { PosCacheService } from '../services/pos-cache.service';
-import { PayloadRetiroAporte, PayloadIngresoEntradas } from '../services/operaciones-pendientes.service';
+import { OperacionesPendientesService, PayloadRetiroAporte, PayloadIngresoEntradas } from '../services/operaciones-pendientes.service';
 import { aFechaHoraISO } from '../shared/fecha.util';
 import { TipoEntrada } from '../models/tipo-entrada';
 import { Promocion } from '../models/promocion';
@@ -61,6 +61,10 @@ export class Pos implements OnInit, OnDestroy {
   private articuloVarioService = inject(ArticuloVarioService);
   private configuracionService = inject(ConfiguracionService);
   private cache = inject(PosCacheService);
+  /** Se pide acá (y no sólo en la barra de caja) para que la cola arranque apenas se entra al POS,
+   * aunque todavía no haya caja abierta: sincroniza lo que quedó de otro turno y le avisa al
+   * servidor el estado de esta terminal (Sistema > Estado > Terminales del POS). */
+  private readonly operacionesPendientes = inject(OperacionesPendientesService);
 
   /**
    * El POS tiene dos partes —la venta y el panel de anticipadas— y el tutorial explica las dos

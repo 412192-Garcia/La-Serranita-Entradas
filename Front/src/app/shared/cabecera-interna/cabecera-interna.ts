@@ -10,6 +10,7 @@ interface EnlaceCabecera {
   texto: string;
   ruta: string;
   soloAdmin?: boolean;
+  soloSuperadmin?: boolean;
   /** Si este destino tiene avisos asociados (ver resumenNotificaciones), de qué tipos: con que uno
    * esté prendido, se muestra el puntito. */
   tiposNotificacion?: TipoNotificacion[];
@@ -26,6 +27,7 @@ const TODOS_LOS_ENLACES: EnlaceCabecera[] = [
   { texto: 'Reportes', ruta: '/reportes', soloAdmin: true },
   { texto: 'Configuración', ruta: '/configuracion', soloAdmin: true },
   { texto: 'Acciones', ruta: '/acciones', soloAdmin: true, tiposNotificacion: ['RECHAZO_OPERACION', 'FACTURACION'] },
+  { texto: 'Sistema', ruta: '/sistema', soloSuperadmin: true, tiposNotificacion: ['SISTEMA'] },
   { texto: 'Mi cuenta', ruta: '/mi-cuenta' },
 ];
 
@@ -81,8 +83,9 @@ export class CabeceraInterna implements OnInit {
   private readonly rutaActual = this.router.url;
 
   readonly enlacesVisibles = computed(() => {
-    const esAdmin = this.sesion.rol() === 'ADMIN';
-    return TODOS_LOS_ENLACES.filter((e) => esAdmin || !e.soloAdmin);
+    const esAdmin = this.sesion.esAdmin();
+    const esSuperadmin = this.sesion.esSuperadmin();
+    return TODOS_LOS_ENLACES.filter((e) => (esAdmin || !e.soloAdmin) && (esSuperadmin || !e.soloSuperadmin));
   });
 
   /** Qué tipos de aviso están prendidos ahora mismo (ver ngOnInit). Sólo se consulta para ADMIN
@@ -92,7 +95,7 @@ export class CabeceraInterna implements OnInit {
   menuAbierto = signal(false);
 
   ngOnInit(): void {
-    if (this.sesion.rol() === 'ADMIN') {
+    if (this.sesion.esAdmin()) {
       this.notificacionService.obtenerResumen().subscribe({
         next: (r) => this.resumenNotificaciones.set(r),
         error: (err) => console.error('Error al consultar notificaciones pendientes:', err),

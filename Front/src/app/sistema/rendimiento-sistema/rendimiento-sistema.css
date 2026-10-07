@@ -1,0 +1,110 @@
+@import '../../acciones-admin/control-facturas/control-facturas.css';
+
+.encabezado-rendimiento {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.encabezado-rendimiento h2 { margin: 0; }
+
+h3 {
+  margin: 18px 0 8px;
+  font-size: 0.95rem;
+}
+
+.vacio {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.vacio svg { width: 18px; height: 18px; }
+
+.grilla {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.85rem;
+}
+
+.fila {
+  display: grid;
+  gap: 10px;
+  align-items: baseline;
+  padding: 8px 4px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.fila > * { min-width: 0; }
+
+.grilla-lentas .fila { grid-template-columns: 120px minmax(0, 1fr) 70px 60px 120px 70px; }
+.grilla-endpoints .fila { grid-template-columns: minmax(0, 1fr) 80px 90px 90px 70px 90px; }
+
+.fila-encabezado {
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-text-secondary);
+}
+
+.numero { font-variant-numeric: tabular-nums; }
+
+.endpoint {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.8rem;
+  overflow-wrap: anywhere;
+}
+
+.lento {
+  color: var(--color-danger-dark);
+  font-weight: 700;
+}
+
+.ver-todos { margin-top: 10px; }
+
+/* Igual que las grillas del resto del módulo interno: en pantallas chicas cada fila pasa a ser una
+   tarjeta con la etiqueta de cada dato al costado (data-label). */
+@media (max-width: 900px) {
+  .fila-encabezado { display: none; }
+
+  .grilla-lentas .fila,
+  .grilla-endpoints .fila {
+    grid-template-columns: 1fr;
+    gap: 4px;
+    margin-bottom: 8px;
+    padding: 10px 12px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+  }
+
+  .fila > span[data-label] {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    text-align: right;
+  }
+
+  .fila > span[data-label]::before {
+    content: attr(data-label);
+    font-family: var(--font-body);
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--color-text-secondary);
+    text-align: left;
+    flex-shrink: 0;
+  }
+
+  /* La ruta es larga: va debajo de su etiqueta, no al costado. */
+  .fila > span.endpoint {
+    flex-direction: column;
+    gap: 2px;
+    text-align: left;
+  }
+}
+
+@media (pointer: coarse) {
+  .ver-todos { min-height: 44px; }
+}

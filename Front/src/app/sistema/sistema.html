@@ -1,0 +1,24 @@
+<div class="panel">
+
+  <app-cabecera-interna
+    titulo="Sistema"
+    descripcion="Monitoreo y trazabilidad: cómo anda cada parte del sistema, quién hizo qué, los errores y los tiempos de respuesta."
+    [pasosTutorial]="pasosTutorial()" />
+
+  <nav class="tabs">
+    <button type="button" class="tab" [class.activo]="tab() === 'estado'" (click)="elegir('estado')">Estado</button>
+    <button type="button" class="tab" [class.activo]="tab() === 'historial'" (click)="elegir('historial')">Historial de acciones</button>
+    <button type="button" class="tab" [class.activo]="tab() === 'errores'" (click)="elegir('errores')">Errores</button>
+    <button type="button" class="tab" [class.activo]="tab() === 'rendimiento'" (click)="elegir('rendimiento')">Rendimiento</button>
+  </nav>
+
+  @if (tab() === 'estado') {
+    <app-estado-sistema />
+  } @else if (tab() === 'historial') {
+    <app-historial-acciones [accionInicial]="accionInicial()" />
+  } @else if (tab() === 'errores') {
+    <app-errores-sistema [areaInicial]="areaInicial()" />
+  } @else {
+    <app-rendimiento-sistema />
+  }
+</div>

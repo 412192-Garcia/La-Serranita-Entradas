@@ -18,7 +18,10 @@ public enum TipoNotificacion {
     /** Facturación con algo para resolver (ver FacturaService.idsAlertasFacturacion): facturas en
      * ERROR o trabadas, certificado de ARCA por vencer o numeración desfasada. Sigue prendida hasta
      * que se resuelva. Como no se apaga al verse, nunca se guarda en notificaciones_vistas. */
-    FACTURACION(false);
+    FACTURACION(false),
+    /** Alguna tarjeta de Sistema > Estado en rojo (ver EstadoSistemaService.idsAlertas). Sigue
+     * prendida hasta que se resuelva; nunca se guarda en notificaciones_vistas. */
+    SISTEMA(false);
 
     private final boolean desapareceAlVerse;
 

@@ -45,11 +45,39 @@ public interface CompraRepository extends JpaRepository<Compra, Long>, JpaSpecif
             """)
     int aprobarSiSigueSinPagar(@Param("id") Long id, @Param("mpPaymentIds") String mpPaymentIds);
 
+    /** Por dónde y cuándo se confirmó el pago (ver ConfirmacionPago). Aparte de la aprobación para
+     * no tocar esa sentencia; corre en la misma transacción. */
+    @Modifying(flushAutomatically = true)
+    @Query("UPDATE Compra c SET c.pagoConfirmadoPor = :origen, c.fechaPago = :fecha WHERE c.id = :id")
+    int registrarConfirmacionPago(@Param("id") Long id, @Param("origen") String origen, @Param("fecha") LocalDateTime fecha);
+
     Optional<Compra> findFirstByClienteIdAndIdNotAndFormaPagoAndEstadoInOrderByFechaCreacionDesc(
             Long clienteId, Long compraId, FormaPago formaPago, Collection<EstadoCompra> estados);
     List<Compra> findAllByFechaVisitaOrderByCodigoReservaAsc(LocalDate fechaVisita);
     long countByFechaVisita(LocalDate fechaVisita);
     long countByFechaVisitaIsNull();
+
+    /** Para Estado del sistema: checkouts que siguen sin pagar mucho después de lo normal. */
+    long countByEstadoAndFechaCreacionBefore(EstadoCompra estado, LocalDateTime limite);
+
+    // ---------- Sistema > Estado > Ventas (ver AnomaliasVentas) ----------
+
+    long countByFormaPagoAndEstadoInAndFechaCreacionBetween(FormaPago formaPago, Collection<EstadoCompra> estados,
+                                                            LocalDateTime desde, LocalDateTime hasta);
+
+    long countByFormaPagoAndFechaCreacionBetween(FormaPago formaPago, LocalDateTime desde, LocalDateTime hasta);
+
+    long countByEstadoAndFechaCreacionBetween(EstadoCompra estado, LocalDateTime desde, LocalDateTime hasta);
+
+    long countByEstadoAndFechaValidacionBetween(EstadoCompra estado, LocalDateTime desde, LocalDateTime hasta);
+
+    /** Pagos online confirmados desde `desde`, por camino: [pagoConfirmadoPor, cantidad]. */
+    @Query("SELECT c.pagoConfirmadoPor, COUNT(c) FROM Compra c WHERE c.fechaPago >= :desde AND c.pagoConfirmadoPor IS NOT NULL GROUP BY c.pagoConfirmadoPor")
+    List<Object[]> confirmacionesPorOrigen(@Param("desde") LocalDateTime desde);
+
+    /** La compra más reciente pagada con esa forma (Estado del sistema: "último pago online"). */
+    @Query("SELECT MAX(c.fechaCreacion) FROM Compra c WHERE c.formaPago = :formaPago AND c.estado IN :estados")
+    LocalDateTime ultimaCompraPagada(@Param("formaPago") FormaPago formaPago, @Param("estados") Collection<EstadoCompra> estados);
 
     /**
      * Lock de aplicación sobre "las compras de esta fecha de visita". Serializa las dos cosas

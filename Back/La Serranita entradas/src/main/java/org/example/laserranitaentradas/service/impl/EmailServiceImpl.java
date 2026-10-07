@@ -64,6 +64,7 @@ public class EmailServiceImpl implements EmailService {
     private final FacturaPdfGenerator facturaPdfGenerator;
     /** Las facturas salen de su propia casilla (facturas@); el resto, de la general (reservas@). */
     private final CasillaFacturas casillaFacturas;
+    private final org.example.laserranitaentradas.monitoreo.EstadoMails estadoMails;
 
     @Value("${spring.mail.username}")
     private String remitente;
@@ -105,7 +106,8 @@ public class EmailServiceImpl implements EmailService {
                              FacturaRepository facturaRepository,
                              ComprobanteFacturaService comprobanteFacturaService,
                              FacturaPdfGenerator facturaPdfGenerator,
-                             CasillaFacturas casillaFacturas) {
+                             CasillaFacturas casillaFacturas,
+                             org.example.laserranitaentradas.monitoreo.EstadoMails estadoMails) {
         this.mailSender = mailSender;
         this.compraRepository = compraRepository;
         this.rechazoService = rechazoService;
@@ -113,6 +115,7 @@ public class EmailServiceImpl implements EmailService {
         this.comprobanteFacturaService = comprobanteFacturaService;
         this.facturaPdfGenerator = facturaPdfGenerator;
         this.casillaFacturas = casillaFacturas;
+        this.estadoMails = estadoMails;
     }
 
     @Async
@@ -140,7 +143,7 @@ public class EmailServiceImpl implements EmailService {
             String htmlBody = construirHtmlEmail(compra);
             helper.setText(htmlBody, true);
 
-            mailSender.send(message);
+            enviarRegistrando(mailSender, message);
             // Se loguea el id de compra, no el correo, para no volcar datos de contacto al log.
             log.info("Email de confirmación enviado para la compra ID {}", compraId);
 
@@ -175,12 +178,23 @@ public class EmailServiceImpl implements EmailService {
             helper.setText(construirHtmlEmail(compra, comprobante.numeroFormateado()), true);
             helper.addAttachment("Factura-B-" + comprobante.numeroFormateado() + ".pdf",
                     new ByteArrayResource(pdf), "application/pdf");
-            mailSender.send(message);
+            enviarRegistrando(mailSender, message);
         } catch (jakarta.mail.MessagingException | java.io.UnsupportedEncodingException e) {
             throw new IllegalStateException("No se pudo armar el mail de la compra con la factura", e);
         }
         facturaRepository.marcarMailEnviadoA(facturaId, para, LocalDateTime.now());
         log.info("Email de confirmación con la factura ID {} enviado para la compra ID {}", facturaId, compraId);
+    }
+
+    /** Manda y anota el resultado para la tarjeta de Mails de Estado del sistema. */
+    private void enviarRegistrando(JavaMailSender sender, MimeMessage message) {
+        try {
+            sender.send(message);
+            if (estadoMails != null) estadoMails.ok();
+        } catch (RuntimeException e) {
+            if (estadoMails != null) estadoMails.fallo(e.getMessage());
+            throw e;
+        }
     }
 
     private static String asuntoComprobante(Compra compra) {
@@ -217,7 +231,7 @@ public class EmailServiceImpl implements EmailService {
             String htmlBody = construirHtmlAvisoRegalo(compra);
             helper.setText(htmlBody, true);
 
-            mailSender.send(message);
+            enviarRegistrando(mailSender, message);
             log.info("Email de aviso de regalo enviado para la compra ID {}", compraId);
 
         } catch (Exception e) {
@@ -277,7 +291,7 @@ public class EmailServiceImpl implements EmailService {
             helper.setText(construirHtmlFactura(comprobante), true);
             helper.addAttachment("Factura-B-" + comprobante.numeroFormateado() + ".pdf",
                     new ByteArrayResource(pdf), "application/pdf");
-            casillaFacturas.sender().send(message);
+            enviarRegistrando(casillaFacturas.sender(), message);
         } catch (jakarta.mail.MessagingException | java.io.UnsupportedEncodingException e) {
             throw new IllegalStateException("No se pudo armar el mail de la factura", e);
         }

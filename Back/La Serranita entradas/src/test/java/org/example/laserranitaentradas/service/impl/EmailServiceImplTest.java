@@ -53,7 +53,8 @@ class EmailServiceImplTest {
     @BeforeEach
     void setUp() {
         service = new EmailServiceImpl(mailSender, compraRepository, rechazoService,
-                facturaRepository, comprobanteFacturaService, facturaPdfGenerator, casillaFacturas);
+                facturaRepository, comprobanteFacturaService, facturaPdfGenerator, casillaFacturas,
+                new org.example.laserranitaentradas.monitoreo.EstadoMails());
         // lenient: sólo los tests de factura usan la casilla de facturas.
         org.mockito.Mockito.lenient().when(casillaFacturas.sender()).thenReturn(mailSender);
         org.mockito.Mockito.lenient().when(casillaFacturas.direccion()).thenReturn("facturas@laserranita.com");

@@ -1,0 +1,66 @@
+<div class="tarjeta" data-tour="rendimiento-sistema">
+  <div class="encabezado-rendimiento">
+    <h2>Rendimiento</h2>
+    <button type="button" class="btn-secundario btn-con-icono" [disabled]="cargando()" (click)="cargar()">
+      <svg lucideRefreshCw [strokeWidth]="2"></svg> Actualizar
+    </button>
+  </div>
+
+  @if (cargando() && !datos()) {
+    <app-spinner />
+  } @else if (error(); as e) {
+    <p class="alerta">{{ e }}</p>
+  } @else if (datos(); as d) {
+    <p class="ayuda">
+      {{ totalRequests() }} requests desde el {{ d.desde | date: 'dd/MM HH:mm' }} (al reiniciar el servidor vuelve a
+      cero). Lenta = {{ tiempo(d.umbralMs) }} o más; también quedan en el log del servidor.
+    </p>
+
+    <h3>Últimas requests lentas</h3>
+    @if (d.lentasRecientes.length === 0) {
+      <p class="ayuda vacio"><svg lucideCircleCheck class="icono-ok" [strokeWidth]="2"></svg> Ninguna desde que arrancó.</p>
+    } @else {
+      <div class="grilla grilla-lentas">
+        <div class="fila fila-encabezado">
+          <span>Cuándo</span><span>Endpoint</span><span>Tardó</span><span>Estado</span><span>Usuario</span><span>Id</span>
+        </div>
+        @for (l of d.lentasRecientes; track $index) {
+          <div class="fila">
+            <span data-label="Cuándo" class="numero">{{ l.momento | date: 'dd/MM HH:mm:ss' }}</span>
+            <span data-label="Endpoint" class="endpoint">{{ l.endpoint }}</span>
+            <span data-label="Tardó" class="numero lento">{{ tiempo(l.ms) }}</span>
+            <span data-label="Estado" class="numero" [class.lento]="l.estado >= 500">{{ l.estado }}</span>
+            <span data-label="Usuario">{{ l.usuario || '—' }}</span>
+            <span data-label="Id" class="numero">{{ l.requestId }}</span>
+          </div>
+        }
+      </div>
+    }
+
+    <h3>Por endpoint</h3>
+    @if (endpoints().length === 0) {
+      <p class="ayuda">Todavía no hay suficientes requests para mostrar.</p>
+    } @else {
+      <div class="grilla grilla-endpoints">
+        <div class="fila fila-encabezado">
+          <span>Endpoint</span><span>Requests</span><span>Promedio</span><span>Máximo</span><span>Lentas</span><span>Errores 5xx</span>
+        </div>
+        @for (e of endpoints(); track e.endpoint) {
+          <div class="fila">
+            <span data-label="Endpoint" class="endpoint">{{ e.endpoint }}</span>
+            <span data-label="Requests" class="numero">{{ e.cantidad }}</span>
+            <span data-label="Promedio" class="numero" [class.lento]="esLento(e.promedioMs)">{{ tiempo(e.promedioMs) }}</span>
+            <span data-label="Máximo" class="numero" [class.lento]="esLento(e.maxMs)">{{ tiempo(e.maxMs) }}</span>
+            <span data-label="Lentas" class="numero" [class.lento]="e.lentas > 0">{{ e.lentas }}</span>
+            <span data-label="Errores 5xx" class="numero" [class.lento]="e.errores > 0">{{ e.errores }}</span>
+          </div>
+        }
+      </div>
+    }
+    @if (ocultos() > 0 || verTodos()) {
+      <button type="button" class="btn-secundario ver-todos" (click)="verTodos.set(!verTodos())">
+        {{ verTodos() ? 'Ocultar los de pocas requests' : 'Ver también ' + ocultos() + ' con menos de 5 requests' }}
+      </button>
+    }
+  }
+</div>

@@ -58,8 +58,13 @@ public class UsuarioServiceImpl implements UsuarioService {
         // La contraseña es write-only: si el formulario de edición no manda una nueva,
         // llega en null/vacío acá, y guardarla tal cual pisaría el hash existente,
         // dejando al usuario sin poder iniciar sesión nunca más.
+        org.example.laserranitaentradas.monitoreo.AuditoriaContexto.referencia("\"" + existente.getUsername() + "\"");
+        org.example.laserranitaentradas.monitoreo.AuditoriaContexto.cambio("Usuario", existente.getUsername(), usuario.getUsername());
+        org.example.laserranitaentradas.monitoreo.AuditoriaContexto.cambio("Rol", existente.getRol(), usuario.getRol());
+        org.example.laserranitaentradas.monitoreo.AuditoriaContexto.cambio("Activo", existente.getActivo(), usuario.getActivo());
         if (usuario.getPassword() != null && !usuario.getPassword().isBlank()) {
             existente.setPassword(passwordEncoder.encode(usuario.getPassword()));
+            org.example.laserranitaentradas.monitoreo.AuditoriaContexto.detalle("Le cambió la contraseña");
         }
         existente.setUsername(usuario.getUsername());
         existente.setNombre(usuario.getNombre());

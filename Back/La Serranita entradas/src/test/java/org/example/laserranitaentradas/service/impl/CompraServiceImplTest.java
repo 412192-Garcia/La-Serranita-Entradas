@@ -2,6 +2,7 @@ package org.example.laserranitaentradas.service.impl;
 
 import org.example.laserranitaentradas.model.dto.CompraRequestDTO;
 import org.example.laserranitaentradas.model.dto.EditarContactoRequest;
+import org.example.laserranitaentradas.model.entity.ConfirmacionPago;
 import org.example.laserranitaentradas.model.entity.Cliente;
 import org.example.laserranitaentradas.model.entity.Compra;
 import org.example.laserranitaentradas.model.entity.EstadoCompra;
@@ -221,7 +222,7 @@ class CompraServiceImplTest {
         when(compraRepository.findById(1L)).thenReturn(Optional.of(compra));
         when(compraRepository.aprobarSiSigueSinPagar(1L, "555")).thenReturn(1);
 
-        boolean resultado = service.confirmarAprobado(1L, List.of(555L));
+        boolean resultado = service.confirmarAprobado(1L, List.of(555L), ConfirmacionPago.WEBHOOK);
 
         assertThat(resultado).isTrue();
         assertThat(compra.getEstado()).isEqualTo(EstadoCompra.APROBADO);
@@ -242,7 +243,7 @@ class CompraServiceImplTest {
         when(compraRepository.aprobarSiSigueSinPagar(1L, "555")).thenReturn(1);
         when(facturaService.solicitarOnline(compra)).thenReturn(true);
 
-        assertThat(service.confirmarAprobado(1L, List.of(555L))).isTrue();
+        assertThat(service.confirmarAprobado(1L, List.of(555L), ConfirmacionPago.WEBHOOK)).isTrue();
 
         // La manda la facturación online, con la factura adjunta (un solo mail).
         verify(emailService, never()).enviarComprobanteCompra(anyLong());
@@ -258,7 +259,7 @@ class CompraServiceImplTest {
         when(compraRepository.findById(79L)).thenReturn(Optional.of(cancelada));
         when(compraRepository.aprobarSiSigueSinPagar(79L, "555")).thenReturn(0);
 
-        assertThat(service.confirmarAprobado(79L, List.of(555L))).isFalse();
+        assertThat(service.confirmarAprobado(79L, List.of(555L), ConfirmacionPago.WEBHOOK)).isFalse();
 
         verify(emailService, never()).enviarComprobanteCompra(anyLong());
         verify(cuponService, never()).consumirUso(anyLong());
@@ -272,7 +273,7 @@ class CompraServiceImplTest {
         compra.setEstado(EstadoCompra.APROBADO);
         when(compraRepository.findById(1L)).thenReturn(Optional.of(compra));
 
-        boolean resultado = service.confirmarAprobado(1L, List.of(555L));
+        boolean resultado = service.confirmarAprobado(1L, List.of(555L), ConfirmacionPago.WEBHOOK);
 
         assertThat(resultado).isFalse();
         verify(compraRepository, never()).save(any());
@@ -286,7 +287,7 @@ class CompraServiceImplTest {
         compra.setEstado(EstadoCompra.USADO);
         when(compraRepository.findById(1L)).thenReturn(Optional.of(compra));
 
-        boolean resultado = service.confirmarAprobado(1L, List.of(555L));
+        boolean resultado = service.confirmarAprobado(1L, List.of(555L), ConfirmacionPago.WEBHOOK);
 
         assertThat(resultado).isFalse();
         verify(compraRepository, never()).save(any());
@@ -1300,7 +1301,7 @@ class CompraServiceImplTest {
         when(compraRepository.findById(74L)).thenReturn(Optional.of(reembolsada));
 
         // Aviso tardío de Mercado Pago sobre una compra a la que ya se le devolvió la plata.
-        assertThat(service.confirmarAprobado(74L, List.of(555L))).isFalse();
+        assertThat(service.confirmarAprobado(74L, List.of(555L), ConfirmacionPago.WEBHOOK)).isFalse();
 
         assertThat(reembolsada.getEstado()).isEqualTo(EstadoCompra.REEMBOLSADA);
         verify(emailService, never()).enviarComprobanteCompra(74L);
@@ -1315,7 +1316,7 @@ class CompraServiceImplTest {
 
         // Decisión deliberada: el cliente pagó, así que tiene que tener su entrada. Se prefiere
         // un lugar de más en el día antes que dejarlo afuera habiendo pagado.
-        assertThat(service.confirmarAprobado(75L, List.of(555L))).isTrue();
+        assertThat(service.confirmarAprobado(75L, List.of(555L), ConfirmacionPago.WEBHOOK)).isTrue();
 
         assertThat(cancelada.getEstado()).isEqualTo(EstadoCompra.APROBADO);
         verify(emailService).enviarComprobanteCompra(75L);
@@ -1333,7 +1334,7 @@ class CompraServiceImplTest {
         when(compraRepository.aprobarSiSigueSinPagar(77L, "555")).thenReturn(1);
         when(cuponService.consumirUso(9L)).thenReturn(true);
 
-        assertThat(service.confirmarAprobado(77L, List.of(555L))).isTrue();
+        assertThat(service.confirmarAprobado(77L, List.of(555L), ConfirmacionPago.WEBHOOK)).isTrue();
 
         // Al cancelarla se le había devuelto el uso: si no se vuelve a tomar, ese uso queda
         // libre para otra compra y el cupón termina aplicado dos veces.
@@ -1354,7 +1355,7 @@ class CompraServiceImplTest {
 
         // La persona pagó: se aprueba igual. El cupón sobreaplicado queda logueado para
         // corregirlo a mano, que es preferible a dejarla sin entrada.
-        assertThat(service.confirmarAprobado(78L, List.of(555L))).isTrue();
+        assertThat(service.confirmarAprobado(78L, List.of(555L), ConfirmacionPago.WEBHOOK)).isTrue();
 
         assertThat(cancelada.getEstado()).isEqualTo(EstadoCompra.APROBADO);
         verify(emailService).enviarComprobanteCompra(78L);
@@ -1366,9 +1367,9 @@ class CompraServiceImplTest {
         when(compraRepository.findById(73L)).thenReturn(Optional.of(pendiente));
         when(compraRepository.aprobarSiSigueSinPagar(73L, "555")).thenReturn(1);
 
-        assertThat(service.confirmarAprobado(73L, List.of(555L))).isTrue();
+        assertThat(service.confirmarAprobado(73L, List.of(555L), ConfirmacionPago.WEBHOOK)).isTrue();
         // Segunda notificación de Mercado Pago para el mismo pago (las reintenta).
-        assertThat(service.confirmarAprobado(73L, List.of(555L))).isFalse();
+        assertThat(service.confirmarAprobado(73L, List.of(555L), ConfirmacionPago.WEBHOOK)).isFalse();
 
         verify(emailService, org.mockito.Mockito.times(1)).enviarComprobanteCompra(73L);
     }

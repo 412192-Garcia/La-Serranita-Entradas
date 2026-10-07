@@ -1,0 +1,69 @@
+@import '../../acciones-admin/control-facturas/control-facturas.css';
+
+.grilla-estado {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.tarjeta-estado {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 14px 16px;
+  border: 1.5px solid var(--color-border);
+  border-left-width: 5px;
+  border-radius: var(--radius-md);
+  background-color: var(--color-card-bg);
+}
+
+.estado-ok { border-left-color: var(--color-primary); }
+.estado-alerta { border-color: var(--color-danger-dark); border-left-color: var(--color-danger-dark); }
+.estado-info { border-left-color: var(--color-text-muted); }
+
+.tarjeta-estado-cabecera {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.icono-estado {
+  width: 18px;
+  height: 18px;
+}
+
+.estado-ok .icono-estado { color: var(--color-primary-dark); }
+.estado-alerta .icono-estado { color: var(--color-danger-dark); }
+.estado-info .icono-estado { color: var(--color-text-muted); }
+
+.tarjeta-estado-titulo {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.tarjeta-estado-resumen {
+  font-size: 1rem;
+}
+
+.estado-alerta .tarjeta-estado-resumen {
+  color: var(--color-danger-dark);
+}
+
+.tarjeta-estado-detalles {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.tarjeta-estado .btn-accion {
+  margin-top: auto;
+}

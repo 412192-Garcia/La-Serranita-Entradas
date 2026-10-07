@@ -76,7 +76,7 @@
             }
             <span class="datos-cuenta">
               <span class="nombre-cuenta">{{ c.nombre }}</span>
-              <span class="rol-cuenta">{{ c.rol === 'ADMIN' ? 'Admin' : 'Boletero' }}</span>
+              <span class="rol-cuenta">{{ nombreRol(c.rol) }}</span>
             </span>
             <button type="button" class="btn-quitar-cuenta" (click)="quitarCuenta(c.username, $event)" aria-label="Quitar de la lista">
               <svg lucideX [strokeWidth]="2"></svg>

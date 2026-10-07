@@ -110,6 +110,13 @@ public class Compra extends BaseEntity {
     @Column(name = "mp_payment_ids", length = 200)
     private String mpPaymentIds;
 
+    /** Compras online: cómo se confirmó el pago (ver ConfirmacionPago) y cuándo. Null en las demás. */
+    @Column(name = "pago_confirmado_por", length = 20)
+    private String pagoConfirmadoPor;
+
+    @Column(name = "fecha_pago")
+    private LocalDateTime fechaPago;
+
     public List<Long> pagosMercadoPago() {
         if (mpPaymentIds == null || mpPaymentIds.isBlank()) {
             return List.of();

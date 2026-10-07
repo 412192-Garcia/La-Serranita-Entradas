@@ -1,13 +1,21 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Observable, firstValueFrom } from 'rxjs';
 import { timeout } from 'rxjs/operators';
-import { HttpErrorResponse } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { BoleteriaService, Reserva, VentaPosRequest } from './boleteria.service';
 import { Caja, CajaService, TipoMovimientoCaja, TipoMovimientoEntradas } from './caja.service';
 import { ConectividadService } from './conectividad.service';
+import { SesionService } from './sesion.service';
 import { aFechaHoraISO, aHoraLocalSinZona } from '../shared/fecha.util';
+import { environment } from '../../environments/environment';
 
 const COLA_KEY = 'serranita.pos.operacionesPendientes';
+
+/** Id de esta terminal (este navegador) para el latido: se genera una vez y queda guardado. */
+const TERMINAL_KEY = 'serranita.pos.terminalId';
+
+/** Cada cuánto se avisa al servidor cómo está la cola (Sistema > Estado > Terminales del POS). */
+const INTERVALO_LATIDO_MS = 60_000;
 
 /** Un intento que tarda más que esto se da por caído y la operación queda encolada. */
 const TIMEOUT_ENVIO_MS = 8_000;
@@ -73,6 +81,9 @@ export class OperacionesPendientesService {
   private boleteriaService = inject(BoleteriaService);
   private cajaService = inject(CajaService);
   private conectividad = inject(ConectividadService);
+  private sesion = inject(SesionService);
+  private http = inject(HttpClient);
+  private terminalId = this.leerTerminalId();
 
   private cola = signal<EntradaCola[]>(this.leerCola());
 
@@ -91,8 +102,41 @@ export class OperacionesPendientesService {
   constructor() {
     window.addEventListener('online', () => this.sincronizar());
     setInterval(() => this.sincronizar(), INTERVALO_REINTENTO_MS);
+    setInterval(() => this.informarLatido(), INTERVALO_LATIDO_MS);
     // Al entrar al POS puede haber quedado algo de un turno anterior sin sincronizar.
-    this.sincronizar();
+    this.sincronizar().finally(() => this.informarLatido());
+  }
+
+  /**
+   * Le cuenta al servidor cuántas operaciones tiene esta terminal sin subir. Así, si una PC se
+   * queda sin internet con ventas guardadas (o la cola no logra vaciarse), se ve desde Sistema sin
+   * estar parado frente a ella. Sin conexión no se manda nada: el servidor nota el silencio solo.
+   */
+  private informarLatido(): void {
+    if (!this.conectividad.enLinea() || !this.sesion.estaAutenticado()) return;
+    const pendientes = this.cola().filter((e) => e.estado === 'pendiente');
+    const masVieja = pendientes.map((e) => e.fechaOriginal).sort()[0] ?? null;
+    this.http
+      .post(`${environment.apiBase}/interno/terminales/latido`, {
+        terminalId: this.terminalId,
+        pendientes: pendientes.length,
+        conError: this.conError().length,
+        pendienteDesde: masVieja,
+        navegador: navigator.userAgent,
+      })
+      .subscribe({ error: () => {} });
+  }
+
+  private leerTerminalId(): string {
+    try {
+      const guardado = localStorage.getItem(TERMINAL_KEY);
+      if (guardado) return guardado;
+      const nuevo = crypto.randomUUID();
+      localStorage.setItem(TERMINAL_KEY, nuevo);
+      return nuevo;
+    } catch {
+      return crypto.randomUUID();
+    }
   }
 
   /**

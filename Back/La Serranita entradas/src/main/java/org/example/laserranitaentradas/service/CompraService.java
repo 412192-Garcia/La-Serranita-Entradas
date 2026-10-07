@@ -66,7 +66,7 @@ public interface CompraService {
      * comprobante, de forma idempotente.
      * Devuelve false si no había nada que hacer (no existe, o ya estaba aprobada/usada).
      */
-    boolean confirmarAprobado(Long compraId, List<Long> pagosMercadoPago);
+    boolean confirmarAprobado(Long compraId, List<Long> pagosMercadoPago, org.example.laserranitaentradas.model.entity.ConfirmacionPago origen);
 
     /**
      * Confirma la compra a la que apunta un pago avisado por el webhook de Mercado Pago, con las

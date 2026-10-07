@@ -1,0 +1,70 @@
+<div class="tarjeta" data-tour="historial-acciones">
+  <h2>Historial de acciones</h2>
+  <p class="ayuda">
+    Quién hizo qué y cuándo en todo lo que modifica algo, más los inicios de sesión. Las ventas del POS y las validaciones
+    en la puerta no aparecen acá: ya quedan en la caja y en cada compra.
+  </p>
+
+  <form class="filtros" (ngSubmit)="buscar()">
+    <label>Desde <input type="date" name="desde" [ngModel]="desde()" (ngModelChange)="desde.set($event)" /></label>
+    <label>Hasta <input type="date" name="hasta" [ngModel]="hasta()" (ngModelChange)="hasta.set($event)" /></label>
+    <label>Usuario
+      <select name="usuario" [ngModel]="usuario()" (ngModelChange)="usuario.set($event)">
+        <option value="">Todos</option>
+        @for (u of usuarios(); track u) { <option [value]="u">{{ u }}</option> }
+      </select>
+    </label>
+    <label>Acción
+      <select name="accion" [ngModel]="accion()" (ngModelChange)="accion.set($event)">
+        <option value="">Todas</option>
+        @for (a of acciones(); track a) { <option [value]="a">{{ nombreAccion(a) }}</option> }
+      </select>
+    </label>
+    <label class="campo-texto">Buscar
+      <input type="search" name="texto" placeholder="Código de reserva, nombre, monto…" [ngModel]="texto()" (ngModelChange)="texto.set($event)" />
+    </label>
+    <button type="submit" class="btn-primario btn-con-icono"><svg lucideSearch [strokeWidth]="2"></svg> Buscar</button>
+  </form>
+
+  @if (cargando() && !pagina()) {
+    <app-spinner />
+  } @else if (error(); as e) {
+    <p class="alerta">{{ e }}</p>
+  } @else if (pagina(); as p) {
+    @if (p.content.length === 0) {
+      <p class="ayuda">No hay acciones con esos filtros.</p>
+    } @else {
+      <p class="ayuda">{{ p.totalElements }} acción(es).</p>
+      <ul class="lista-historial">
+        @for (r of p.content; track r.id) {
+          <li class="registro" [class.registro-fallido]="r.resultado >= 400">
+            <button type="button" class="registro-fila" [attr.aria-expanded]="abiertoId() === r.id" (click)="alternar(r)">
+              <span class="registro-fecha">{{ r.fecha | date: 'dd/MM HH:mm:ss' }}</span>
+              <span class="registro-usuario">{{ r.usuario || '—' }}</span>
+              <span class="registro-descripcion">{{ r.descripcion }}</span>
+              @if (r.resultado >= 400) { <span class="etiqueta-fallo">falló ({{ r.resultado }})</span> }
+            </button>
+            @if (abiertoId() === r.id) {
+              <div class="registro-detalle">
+                @if (r.detalle) { <pre>{{ r.detalle }}</pre> } @else { <p class="secundario">Sin más detalle.</p> }
+                <p class="secundario">
+                  {{ nombreAccion(r.accion) }}
+                  @if (r.rol) { · {{ r.rol }} }
+                  @if (r.ip) { · IP {{ r.ip }} }
+                  @if (r.ruta) { · {{ r.ruta }} }
+                </p>
+              </div>
+            }
+          </li>
+        }
+      </ul>
+      @if (p.totalPages > 1) {
+        <div class="paginacion">
+          <button type="button" class="btn-secundario" [disabled]="numeroPagina() === 0 || cargando()" (click)="buscar(numeroPagina() - 1)">Anterior</button>
+          <span>Página {{ numeroPagina() + 1 }} de {{ p.totalPages }}</span>
+          <button type="button" class="btn-secundario" [disabled]="numeroPagina() + 1 >= p.totalPages || cargando()" (click)="buscar(numeroPagina() + 1)">Siguiente</button>
+        </div>
+      }
+    }
+  }
+</div>

@@ -494,6 +494,14 @@ public class CajaServiceImpl implements CajaService {
         if (entradasFisicasRestantes == null || entradasFisicasRestantes < 0) {
             throw new IllegalArgumentException("Indicá cuántas entradas quedan en el talonario");
         }
+        BigDecimal contadoAntes = caja.getMontoContado();
+        BigDecimal diferenciaAntes = caja.getDiferencia();
+        Integer entradasAntes = caja.getEntradasFisicasRestantes();
+        org.example.laserranitaentradas.monitoreo.AuditoriaContexto.referencia("de " + caja.getUsuario().getNombre()
+                + " del " + caja.getFechaApertura().toLocalDate().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")));
+        if (ajustes != null && !ajustes.isEmpty()) {
+            org.example.laserranitaentradas.monitoreo.AuditoriaContexto.detalle(ajustes.size() + " ajuste(s) entre formas de pago");
+        }
 
         LocalDateTime ahora = LocalDateTime.now();
 
@@ -538,6 +546,9 @@ public class CajaServiceImpl implements CajaService {
         Caja guardada = cajaRepository.save(caja);
         cierrePosnetRepository.deleteAllByCajaId(caja.getId());
         guardarCierresPosnet(guardada, cierres, ahora);
+        org.example.laserranitaentradas.monitoreo.AuditoriaContexto.cambio("Efectivo contado", contadoAntes, guardada.getMontoContado());
+        org.example.laserranitaentradas.monitoreo.AuditoriaContexto.cambio("Diferencia", diferenciaAntes, guardada.getDiferencia());
+        org.example.laserranitaentradas.monitoreo.AuditoriaContexto.cambio("Entradas que quedan", entradasAntes, guardada.getEntradasFisicasRestantes());
 
         return toDto(guardada);
     }

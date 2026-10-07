@@ -12,6 +12,12 @@ import java.util.List;
 
 @Repository
 public interface CajaRepository extends JpaRepository<Caja, Long>, JpaSpecificationExecutor<Caja> {
+
+    /** Cajas cerradas desde `desde` (no borradas) cuya diferencia supera el umbral, en más o en menos. */
+    @Query("SELECT c FROM Caja c JOIN FETCH c.usuario WHERE c.fechaCierre >= :desde " +
+            "AND (c.habilitada IS NULL OR c.habilitada = true) AND c.diferencia IS NOT NULL " +
+            "AND (c.diferencia >= :umbral OR c.diferencia <= -:umbral) ORDER BY c.fechaCierre DESC")
+    List<Caja> cerradasConDiferencia(@Param("desde") LocalDateTime desde, @Param("umbral") java.math.BigDecimal umbral);
     /** Todas las cajas sin cerrar de este usuario — puede haber más de una si quedaron cajas de
      * días anteriores sin cerrar (ver CajaServiceImpl.getCajaOperativaHoy): a diferencia de un
      * findBy...Optional, esto no rompe si hay más de una fila. */
