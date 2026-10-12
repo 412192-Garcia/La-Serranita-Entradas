@@ -78,6 +78,7 @@ public class FacturaPdfGenerator {
             izquierda(doc, "Cliente: Consumidor Final", NORMAL);
             izquierda(doc, "Cond. IVA: Consumidor Final", NORMAL);
             izquierda(doc, "Cond. Venta: Contado", NORMAL);
+            if (c.atendidoPor() != null) izquierda(doc, "Atendido por: " + c.atendidoPor(), NORMAL);
             if (c.comprobanteAsociado() != null) {
                 izquierda(doc, "Comprobante asociado: " + c.comprobanteAsociado(), NEGRITA);
             }

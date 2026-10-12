@@ -34,10 +34,24 @@ public record ComprobanteFactura(
         LocalTime horaEmision,
         /** Cómo se llama el código de la compra en el comprobante: "Reserva" (anticipada) o
          * "Venta" (venta de puerta, que nunca fue una reserva). */
-        String etiquetaCodigo
+        String etiquetaCodigo,
+        /** El boletero que cobró en la puerta (el de la caja de la compra); null en una compra
+         * online o una factura manual. */
+        String atendidoPor
 ) {
     private static final DateTimeFormatter FECHA = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final DateTimeFormatter HORA = DateTimeFormatter.ofPattern("HH:mm");
+
+    /** Sin el boletero. */
+    public ComprobanteFactura(String razonSocial, String domicilio, String cuit, String ingresosBrutos,
+                              String inicioActividades, int puntoVenta, long numero, LocalDate fechaEmision,
+                              String codigoReserva, List<Item> items, BigDecimal total, BigDecimal ivaContenido,
+                              String cae, LocalDate caeVencimiento, String qrUrl, int tipoComprobante,
+                              String comprobanteAsociado, LocalTime horaEmision, String etiquetaCodigo) {
+        this(razonSocial, domicilio, cuit, ingresosBrutos, inicioActividades, puntoVenta, numero, fechaEmision,
+                codigoReserva, items, total, ivaContenido, cae, caeVencimiento, qrUrl, tipoComprobante,
+                comprobanteAsociado, horaEmision, etiquetaCodigo, null);
+    }
 
     /** Sin la hora (comprobantes anteriores a ese dato). */
     public ComprobanteFactura(String razonSocial, String domicilio, String cuit, String ingresosBrutos,
@@ -47,7 +61,7 @@ public record ComprobanteFactura(
                               String comprobanteAsociado) {
         this(razonSocial, domicilio, cuit, ingresosBrutos, inicioActividades, puntoVenta, numero, fechaEmision,
                 codigoReserva, items, total, ivaContenido, cae, caeVencimiento, qrUrl, tipoComprobante,
-                comprobanteAsociado, null, "Reserva");
+                comprobanteAsociado, null, "Reserva", null);
     }
 
     /** Con la hora, para una reserva. */
@@ -58,7 +72,7 @@ public record ComprobanteFactura(
                               String comprobanteAsociado, LocalTime horaEmision) {
         this(razonSocial, domicilio, cuit, ingresosBrutos, inicioActividades, puntoVenta, numero, fechaEmision,
                 codigoReserva, items, total, ivaContenido, cae, caeVencimiento, qrUrl, tipoComprobante,
-                comprobanteAsociado, horaEmision, "Reserva");
+                comprobanteAsociado, horaEmision, "Reserva", null);
     }
 
     /** "Reserva: #L615-261005-1" / "Venta: #261005-3"; vacío en una factura manual (sin compra). */

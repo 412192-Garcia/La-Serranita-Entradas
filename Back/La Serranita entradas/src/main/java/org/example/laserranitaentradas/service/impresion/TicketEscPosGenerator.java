@@ -79,6 +79,7 @@ public class TicketEscPosGenerator {
         t.linea("Cliente: Consumidor Final");
         t.linea("Cond. IVA: Consumidor Final");
         t.linea("Cond. Venta: Contado");
+        if (c.atendidoPor() != null) t.linea("Atendido por: " + c.atendidoPor());
         if (c.comprobanteAsociado() != null) {
             t.negrita(true).linea("Asociado: " + c.comprobanteAsociado()).negrita(false);
         }

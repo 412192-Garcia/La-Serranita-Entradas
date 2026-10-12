@@ -50,6 +50,20 @@ class TicketEscPosGeneratorTest {
     }
 
     @Test
+    void ventaDePuerta_diceQueBoleteroAtendio() {
+        ComprobanteFactura c = comprobante(null);
+        ComprobanteFactura venta = new ComprobanteFactura(c.razonSocial(), c.domicilio(), c.cuit(), c.ingresosBrutos(),
+                c.inicioActividades(), 37, 21L, c.fechaEmision(), "261005-3", c.items(), c.total(), c.ivaContenido(),
+                c.cae(), c.caeVencimiento(), null, 6, null, null, "Venta", "Juan Pérez");
+
+        String texto = new String(generator.generar(venta), Charset.forName("CP850"));
+        String online = new String(generator.generar(c), Charset.forName("CP850"));
+
+        assertThat(texto).contains("Atendido por: Juan Pérez");
+        assertThat(online).doesNotContain("Atendido por");
+    }
+
+    @Test
     void arrancaConResetYTerminaConCorte() {
         byte[] t = generator.generar(comprobante("https://www.afip.gob.ar/fe/qr/?p=x"));
 

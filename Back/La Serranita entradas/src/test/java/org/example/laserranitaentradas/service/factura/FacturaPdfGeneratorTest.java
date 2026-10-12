@@ -51,6 +51,21 @@ class FacturaPdfGeneratorTest {
     }
 
     @Test
+    void ventaDePuerta_diceQueBoleteroAtendio_yOnlineNo() throws Exception {
+        ComprobanteFactura online = comprobante(List.of(new ComprobanteFactura.Item(2, "General")));
+        ComprobanteFactura puerta = new ComprobanteFactura(online.razonSocial(), online.domicilio(), online.cuit(),
+                online.ingresosBrutos(), online.inicioActividades(), 37, 21L, online.fechaEmision(), "261005-3",
+                online.items(), online.total(), online.ivaContenido(), online.cae(), online.caeVencimiento(),
+                online.qrUrl(), 6, null, null, "Venta", "Juan Pérez");
+
+        String textoPuerta = new PdfTextExtractor(new PdfReader(generator.generar(puerta))).getTextFromPage(1);
+        String textoOnline = new PdfTextExtractor(new PdfReader(generator.generar(online))).getTextFromPage(1);
+
+        assertThat(textoPuerta).contains("Atendido por: Juan Pérez");
+        assertThat(textoOnline).doesNotContain("Atendido por");
+    }
+
+    @Test
     void imprimeFechaYHoraDeEmision_ySinHoraEnLasViejas() throws Exception {
         ComprobanteFactura viejo = comprobante(List.of(new ComprobanteFactura.Item(2, "General")));
         ComprobanteFactura conHora = new ComprobanteFactura(viejo.razonSocial(), viejo.domicilio(), viejo.cuit(),

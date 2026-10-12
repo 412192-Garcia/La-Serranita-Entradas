@@ -6,6 +6,7 @@ import org.example.laserranitaentradas.model.entity.EstadoCompra;
 import org.example.laserranitaentradas.model.entity.Compra;
 import org.example.laserranitaentradas.model.entity.EstadoFactura;
 import org.example.laserranitaentradas.model.entity.Factura;
+import org.example.laserranitaentradas.model.entity.Usuario;
 import org.example.laserranitaentradas.repository.FacturaRepository;
 import org.example.laserranitaentradas.service.afip.AfipSdkClient;
 import org.slf4j.Logger;
@@ -87,7 +88,17 @@ public class ComprobanteFacturaService {
                 items, f.getImporteTotal(), f.getImporteIva(), f.getCae(), f.getCaeVencimiento(),
                 qrUrl(f), f.getTipoComprobante(), asociado,
                 f.getEmitidaEn() != null ? f.getEmitidaEn().toLocalTime() : null,
-                f.getCompra() != null && esVentaDePuerta(f.getCompra()) ? "Venta" : "Reserva");
+                f.getCompra() != null && esVentaDePuerta(f.getCompra()) ? "Venta" : "Reserva",
+                f.getCompra() != null ? boletero(f.getCompra()) : null);
+    }
+
+    /** "Nombre Apellido" del dueño de la caja en la que se cobró; null si no pasó por una caja. */
+    private static String boletero(Compra c) {
+        if (c.getCaja() == null || c.getCaja().getUsuario() == null) return null;
+        Usuario u = c.getCaja().getUsuario();
+        String nombre = ((u.getNombre() != null ? u.getNombre() : "") + " "
+                + (u.getApellido() != null ? u.getApellido() : "")).trim();
+        return nombre.isEmpty() ? u.getUsername() : nombre;
     }
 
     /**
