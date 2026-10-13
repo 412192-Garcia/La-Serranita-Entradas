@@ -603,6 +603,41 @@ class FacturaServiceImplTest {
     }
 
     @Test
+    void lote_unaFacturaPorVenta_sinEntrega() {
+        var lote = new org.example.laserranitaentradas.model.dto.FacturaManualLoteDTO(List.of(
+                // Aunque venga con destino, el lote no se entrega.
+                manual(DestinoFactura.MAIL, "x@y.com", item("ENTRADA", 2, "General", "60000")),
+                manual(DestinoFactura.NINGUNO, null, item("ENTRADA", 1, "General", "30000"), item("ARTICULO", 1, "Gorra", "10000"))));
+
+        var r = service.emitirManualLote(lote);
+
+        ArgumentCaptor<Factura> captor = ArgumentCaptor.forClass(Factura.class);
+        verify(facturaRepository, org.mockito.Mockito.times(2)).save(captor.capture());
+        assertThat(r).hasSize(2);
+        assertThat(captor.getAllValues()).allSatisfy(f -> {
+            assertThat(f.getDestino()).isEqualTo(DestinoFactura.NINGUNO);
+            assertThat(f.getEmail()).isNull();
+        });
+        assertThat(captor.getAllValues().get(0).getImporteTotal()).isEqualByComparingTo("60000");
+        assertThat(captor.getAllValues().get(1).getConcepto()).isEqualTo(3);
+        verify(eventPublisher, org.mockito.Mockito.times(2)).publishEvent(any(FacturaServiceImpl.FacturaSolicitadaEvent.class));
+    }
+
+    @Test
+    void lote_conUnaFacturaInvalida_noPideNingunaYDiceCual() {
+        var lote = new org.example.laserranitaentradas.model.dto.FacturaManualLoteDTO(List.of(
+                manual(DestinoFactura.NINGUNO, null, item("ENTRADA", 1, "General", "30000")),
+                manual(DestinoFactura.NINGUNO, null, item("LIBRE", 1, "Algo", "0"))));
+
+        assertThatThrownBy(() -> service.emitirManualLote(lote))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageStartingWith("Factura 2 del lote");
+        assertThatThrownBy(() -> service.emitirManualLote(new org.example.laserranitaentradas.model.dto.FacturaManualLoteDTO(List.of())))
+                .isInstanceOf(IllegalArgumentException.class);
+        verify(facturaRepository, never()).save(any());
+    }
+
+    @Test
     void manual_sinFacturacionConfigurada_error() {
         when(afipClient.estaConfigurado()).thenReturn(false);
 

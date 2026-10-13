@@ -1,4 +1,4 @@
-import { Component, DestroyRef, ElementRef, HostListener, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, ElementRef, HostListener, computed, inject, input, signal } from '@angular/core';
 import { LucideCheck, LucidePrinter } from '@lucide/angular';
 import { FacturaService } from '../../services/factura.service';
 import { ConectividadService } from '../../services/conectividad.service';
@@ -25,6 +25,9 @@ export class SelectorTicketera {
   /** Sin conexión no hay CAE, así que no se imprime nada: el botón se oculta en vez de quedar en rojo. */
   readonly enLinea = inject(ConectividadService).enLinea;
   abierto = signal(false);
+  /** Hacia dónde se despliega la lista: en la barra del POS el botón está a la derecha (el menú
+   * crece hacia la izquierda); en un formulario está a la izquierda y tiene que crecer al revés. */
+  alinear = input<'derecha' | 'izquierda'>('derecha');
 
   /** ok = lista para imprimir; mal = PC apagada o ticketera apagada; elegir = hay varias y
    * ninguna elegida todavía. */

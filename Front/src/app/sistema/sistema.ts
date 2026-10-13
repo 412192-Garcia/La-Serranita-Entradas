@@ -6,8 +6,10 @@ import { EstadoSistemaPanel } from './estado-sistema/estado-sistema';
 import { HistorialAcciones } from './historial-acciones/historial-acciones';
 import { ErroresSistema } from './errores-sistema/errores-sistema';
 import { RendimientoSistema } from './rendimiento-sistema/rendimiento-sistema';
+import { RechazosOperaciones } from './rechazos-operaciones/rechazos-operaciones';
+import { RechazoService } from '../services/rechazo.service';
 
-type Tab = 'estado' | 'historial' | 'errores' | 'rendimiento';
+type Tab = 'estado' | 'historial' | 'errores' | 'rendimiento' | 'rechazos';
 
 const PASOS_POR_TAB: Record<Tab, TourStep[]> = {
   estado: [
@@ -38,35 +40,50 @@ const PASOS_POR_TAB: Record<Tab, TourStep[]> = {
       texto: 'Cuánto tarda cada endpoint de la API desde que arrancó el servidor, y las últimas requests lentas con su id: con ese id se encuentran sus líneas en el log del servidor.',
     },
   ],
+  rechazos: [
+    {
+      selector: '[data-tour="rechazos-operaciones"]',
+      titulo: 'Operaciones rechazadas',
+      texto: 'Ventas, retiros/aportes, ingresos o retiros de entradas y mails que el servidor rechazó (dato inválido, caja ya cerrada, etc.). Desde acá se resuelven o reintentan.',
+    },
+  ],
 };
 
 /**
  * Sistema (SUPERADMIN): monitoreo y trazabilidad. Estado de cada área, historial de acciones,
- * errores y rendimiento. Las otras pantallas pueden mandar directo a una pestaña (?tab=errores&area=PAGOS,
+ * errores, rendimiento y operaciones rechazadas. Las otras pantallas pueden mandar directo a una pestaña (?tab=errores&area=PAGOS,
  * ?tab=historial&accion=LOGIN_FALLIDO).
  */
 @Component({
   selector: 'app-sistema',
-  imports: [CabeceraInterna, EstadoSistemaPanel, HistorialAcciones, ErroresSistema, RendimientoSistema],
+  imports: [CabeceraInterna, EstadoSistemaPanel, HistorialAcciones, ErroresSistema, RendimientoSistema, RechazosOperaciones],
   templateUrl: './sistema.html',
   styleUrl: './sistema.css',
 })
 export class Sistema implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
+  private rechazoService = inject(RechazoService);
 
   tab = signal<Tab>('estado');
   pasosTutorial = computed(() => PASOS_POR_TAB[this.tab()]);
   /** Filtros que vinieron en la URL, para la pestaña que corresponda. */
   accionInicial = signal<string | null>(null);
   areaInicial = signal<string | null>(null);
+  /** Punto de aviso en "Operaciones rechazadas": la pestaña filtra en "Pendientes" al entrar, así
+   * que sin esto sólo se nota abriéndola. */
+  hayRechazosPendientes = signal(false);
 
   ngOnInit(): void {
     this.route.queryParamMap.subscribe((q) => {
       const tab = q.get('tab');
-      if (tab === 'historial' || tab === 'errores' || tab === 'estado' || tab === 'rendimiento') this.tab.set(tab);
+      if (tab === 'historial' || tab === 'errores' || tab === 'estado' || tab === 'rendimiento' || tab === 'rechazos') this.tab.set(tab);
       this.accionInicial.set(q.get('accion'));
       this.areaInicial.set(q.get('area'));
+    });
+    this.rechazoService.listar(false).subscribe({
+      next: (rs) => this.hayRechazosPendientes.set(rs.length > 0),
+      error: (err) => console.error('Error al consultar operaciones rechazadas pendientes:', err),
     });
   }
 

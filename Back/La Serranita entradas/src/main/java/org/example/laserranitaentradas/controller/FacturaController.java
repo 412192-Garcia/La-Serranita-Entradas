@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.example.laserranitaentradas.config.UsuarioAutenticado;
 import org.example.laserranitaentradas.model.dto.ControlFacturacionDTO;
 import org.example.laserranitaentradas.model.dto.FacturaManualDTO;
+import org.example.laserranitaentradas.model.dto.FacturaManualLoteDTO;
 import org.example.laserranitaentradas.model.dto.FacturaResponseDTO;
 import org.example.laserranitaentradas.model.dto.FacturacionPosDTO;
 import org.example.laserranitaentradas.model.dto.VentaFacturaDTO;
@@ -127,6 +128,13 @@ public class FacturaController {
             description = "Factura B sin venta, con los ítems e importes que se carguen. Destino IMPRIMIR, MAIL o NINGUNO (sólo PDF).")
     public FacturaResponseDTO emitirManual(@RequestBody FacturaManualDTO pedido) {
         return facturaService.emitirManual(pedido);
+    }
+
+    @PostMapping("/manual/lote")
+    @Operation(summary = "Lote de facturas manuales (ADMIN)",
+            description = "Varias facturas B sin venta de una vez (las ventas que quedaron sin facturar). Todo o nada; sin entrega, queda el PDF.")
+    public List<FacturaResponseDTO> emitirManualLote(@RequestBody FacturaManualLoteDTO lote) {
+        return facturaService.emitirManualLote(lote);
     }
 
     @GetMapping("/manuales")

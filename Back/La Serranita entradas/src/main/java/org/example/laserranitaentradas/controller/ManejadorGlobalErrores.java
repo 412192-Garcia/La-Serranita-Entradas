@@ -60,6 +60,12 @@ public class ManejadorGlobalErrores {
      */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<String> errorInesperado(Exception ex) {
+        if (esDesconexionDelCliente(ex)) {
+            // El navegador (o el agente de impresión) cortó antes de recibir la respuesta: cerró la
+            // pestaña, perdió señal, recargó. No es un error del servidor ni hay a quién responderle.
+            log.debug("El cliente cortó la conexión antes de la respuesta: {}", ex.toString());
+            return null;
+        }
         // "E" + el id de la request (ver MetricasRequestsFilter): con el código que reporta el usuario
         // se encuentran en el log todas las líneas de esa request, no sólo la del error.
         String requestId = org.slf4j.MDC.get("requestId");
@@ -73,5 +79,18 @@ public class ManejadorGlobalErrores {
         }
         return ResponseEntity.internalServerError()
                 .body("Ocurrió un error inesperado (código " + codigo + "). Reintentá en unos minutos; si sigue pasando, avisale al administrador con ese código.");
+    }
+
+    /** "Broken pipe", "Connection reset", ClientAbortException...: el otro lado ya no está. */
+    public static boolean esDesconexionDelCliente(Throwable ex) {
+        for (Throwable t = ex; t != null; t = t.getCause() == t ? null : t.getCause()) {
+            String clase = t.getClass().getSimpleName();
+            if (clase.equals("ClientAbortException") || clase.equals("AsyncRequestNotUsableException")) return true;
+            if (t instanceof java.io.IOException && t.getMessage() != null) {
+                String m = t.getMessage().toLowerCase(java.util.Locale.ROOT);
+                if (m.contains("broken pipe") || m.contains("connection reset") || m.contains("connection abort")) return true;
+            }
+        }
+        return false;
     }
 }

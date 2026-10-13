@@ -4,7 +4,7 @@ import { Router } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { interval } from 'rxjs';
 import { LucideCircleAlert, LucideCircleCheck, LucideInfo, LucideRefreshCw } from '@lucide/angular';
-import { EstadoSistema, TarjetaEstado } from '../../models/sistema';
+import { EstadoSistema, FilaEstado, TarjetaEstado } from '../../models/sistema';
 import { SistemaService } from '../../services/sistema.service';
 import { Spinner } from '../../shared/spinner/spinner';
 
@@ -26,6 +26,9 @@ export class EstadoSistemaPanel implements OnInit {
   estado = signal<EstadoSistema | null>(null);
   cargando = signal(true);
   error = signal<string | null>(null);
+  /** Tarjetas con tabla desplegada (por defecto se ven sólo las primeras filas). */
+  private expandidas = signal<Set<string>>(new Set());
+  readonly FILAS_INICIALES = 6;
 
   ngOnInit(): void {
     this.cargar();
@@ -50,6 +53,26 @@ export class EstadoSistemaPanel implements OnInit {
           if (conSpinner) this.error.set('No se pudo consultar el estado del sistema.');
         },
       });
+  }
+
+  expandida(clave: string): boolean {
+    return this.expandidas().has(clave);
+  }
+
+  alternarFilas(clave: string): void {
+    this.expandidas.update((s) => {
+      const n = new Set(s);
+      if (!n.delete(clave)) n.add(clave);
+      return n;
+    });
+  }
+
+  /** Las que tienen problemas vienen primero del servidor, así que plegada nunca se esconde una. */
+  filasVisibles(t: TarjetaEstado): FilaEstado[] {
+    const filas = t.filas ?? [];
+    if (this.expandida(t.clave)) return filas;
+    const problemas = filas.filter((f) => f.estado === 'ALERTA').length;
+    return filas.slice(0, Math.max(this.FILAS_INICIALES, problemas));
   }
 
   alertas(e: EstadoSistema): number {

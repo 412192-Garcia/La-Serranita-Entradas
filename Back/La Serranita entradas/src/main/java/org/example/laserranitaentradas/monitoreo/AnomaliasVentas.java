@@ -24,7 +24,8 @@ import java.util.Locale;
  * - Checkouts que no se pagan: casi nadie termina de pagar los que abre (se rompió algún paso).
  * - Webhook: los pagos se confirman por el respaldo (verificación del navegador, barrido) y no por
  *   el aviso de Mercado Pago.
- * - Puerta: entra gente con anticipadas y el POS no registra ninguna venta (o al revés).
+ * - Puerta: entra gente con anticipadas y el POS no registra ninguna venta (o al revés, pero sólo
+ *   si para hoy hay anticipadas sin usar: un día sin compras online es normal que no se valide nada).
  *
  * Sólo cuenta en la base: no consulta a Mercado Pago.
  */
@@ -51,6 +52,9 @@ public class AnomaliasVentas {
     /** Validaciones (o ventas de puerta) en la última hora a partir de las cuales que el otro lado esté en 0 es raro. */
     @Value("${app.monitoreo.ventas.movimiento-puerta:15}")
     private int movimientoPuerta;
+    /** Anticipadas de hoy todavía sin validar a partir de las cuales que no se valide ninguna es raro. */
+    @Value("${app.monitoreo.ventas.anticipadas-esperadas:10}")
+    private int anticipadasEsperadas;
 
     public AnomaliasVentas(CompraRepository compras) {
         this.compras = compras;
@@ -136,9 +140,12 @@ public class AnomaliasVentas {
         if (validaciones >= movimientoPuerta && ventasPuerta == 0) {
             problemas.add(validaciones + " anticipadas validadas en la última hora y ninguna venta en la boletería: "
                     + "¿el POS está sin conexión o sin subir las ventas? (ver Terminales del POS)");
-        } else if (ventasPuerta >= movimientoPuerta && validaciones == 0) {
-            problemas.add(ventasPuerta + " ventas en la boletería en la última hora y ninguna anticipada validada: "
-                    + "¿falla la validación en la puerta?");
+        } else if (ventasPuerta >= movimientoPuerta && validaciones == 0
+                && compras.countByEstadoAndFechaVisita(EstadoCompra.APROBADO, ahora.toLocalDate()) >= anticipadasEsperadas) {
+            // Con gente entrando por la boletería y muchas anticipadas de hoy esperando, que no se
+            // valide ninguna sí es raro. Sin anticipadas para hoy es lo normal (día flojo online).
+            problemas.add(ventasPuerta + " ventas en la boletería en la última hora y ninguna anticipada validada, con "
+                    + "anticipadas de hoy sin usar: ¿falla la validación en la puerta?");
         } else {
             detalles.add("Última hora en la puerta: " + ventasPuerta + " venta(s) en boletería, " + validaciones + " anticipada(s) validada(s)");
         }

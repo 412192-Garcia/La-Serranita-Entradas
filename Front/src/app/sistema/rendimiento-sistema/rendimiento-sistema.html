@@ -13,7 +13,9 @@
   } @else if (datos(); as d) {
     <p class="ayuda">
       {{ totalRequests() }} requests desde el {{ d.desde | date: 'dd/MM HH:mm' }} (al reiniciar el servidor vuelve a
-      cero). Lenta = {{ tiempo(d.umbralMs) }} o más; también quedan en el log del servidor.
+      cero). Lenta = {{ tiempo(d.umbralMs) }} o más; también quedan en el log del servidor. Tocá una columna para
+      ordenar: "Tiempo total" muestra qué le ocupa más al servidor (muchas requests rápidas pueden sumar más que una
+      lenta); p95 es lo que tardó el 95 % de las requests.
     </p>
 
     <h3>Últimas requests lentas</h3>
@@ -43,16 +45,29 @@
     } @else {
       <div class="grilla grilla-endpoints">
         <div class="fila fila-encabezado">
-          <span>Endpoint</span><span>Requests</span><span>Promedio</span><span>Máximo</span><span>Lentas</span><span>Errores 5xx</span>
+          <span>Endpoint</span>
+          @for (c of columnas; track c.clave) {
+            <button type="button" class="orden" [class.activo]="orden() === c.clave" [title]="c.ayuda"
+              [attr.aria-sort]="orden() === c.clave ? 'descending' : null" (click)="orden.set(c.clave)">
+              {{ c.titulo }}
+              @if (orden() === c.clave) { <svg lucideArrowDown [strokeWidth]="2.5" aria-hidden="true"></svg> }
+            </button>
+          }
         </div>
         @for (e of endpoints(); track e.endpoint) {
           <div class="fila">
             <span data-label="Endpoint" class="endpoint">{{ e.endpoint }}</span>
             <span data-label="Requests" class="numero">{{ e.cantidad }}</span>
             <span data-label="Promedio" class="numero" [class.lento]="esLento(e.promedioMs)">{{ tiempo(e.promedioMs) }}</span>
+            <span data-label="p95" class="numero" [class.lento]="esLento(e.p95Ms)">{{ tiempo(e.p95Ms) }}</span>
             <span data-label="Máximo" class="numero" [class.lento]="esLento(e.maxMs)">{{ tiempo(e.maxMs) }}</span>
+            <span data-label="Tiempo total" class="numero total">
+              {{ tiempoLargo(e.totalMs) }}
+              <span class="porcentaje">{{ porcentaje(e.totalMs) }}</span>
+            </span>
             <span data-label="Lentas" class="numero" [class.lento]="e.lentas > 0">{{ e.lentas }}</span>
-            <span data-label="Errores 5xx" class="numero" [class.lento]="e.errores > 0">{{ e.errores }}</span>
+            <span data-label="4xx" class="numero" [class.aviso]="e.errores4xx > 0">{{ e.errores4xx }}</span>
+            <span data-label="5xx" class="numero" [class.lento]="e.errores > 0">{{ e.errores }}</span>
           </div>
         }
       </div>

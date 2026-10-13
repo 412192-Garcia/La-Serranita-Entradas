@@ -791,11 +791,20 @@ public class CajaServiceImpl implements CajaService {
 
     @Override
     public List<Long> getIdsCajasAtrasadas() {
-        LocalDateTime inicioDeHoy = LocalDate.now().atStartOfDay();
+        LocalDateTime ahora = LocalDateTime.now();
+        LocalDateTime inicioDeHoy = ahora.toLocalDate().atStartOfDay();
+        // Las "sin control" las cierra solas CierreAutomaticoCajasEspecialesScheduler a las 00:05: hasta
+        // que pase su margen no están atrasadas (si no, el aviso se prendía a las 00:00 y se apagaba
+        // solo minutos después). Si a esa hora siguen abiertas, el cierre automático falló y sí cuentan.
+        boolean cierreAutomaticoPendiente = ahora.isBefore(inicioDeHoy.plus(MARGEN_CIERRE_AUTOMATICO));
         return cajaRepository.findAllByFechaCierreIsNullAndFechaAperturaBefore(inicioDeHoy).stream()
+                .filter(c -> !(cierreAutomaticoPendiente && Boolean.TRUE.equals(c.getControlOmitido())))
                 .map(Caja::getId)
                 .toList();
     }
+
+    /** Hasta qué hora se espera que el cierre automático de las 00:05 haya cerrado las cajas sin control. */
+    private static final java.time.Duration MARGEN_CIERRE_AUTOMATICO = java.time.Duration.ofMinutes(30);
 
     private List<CierrePosnetRequestDTO> validarCierresPosnet(List<CierrePosnetRequestDTO> cierresPosnet) {
         List<CierrePosnetRequestDTO> cierres = cierresPosnet == null ? List.of() : cierresPosnet;

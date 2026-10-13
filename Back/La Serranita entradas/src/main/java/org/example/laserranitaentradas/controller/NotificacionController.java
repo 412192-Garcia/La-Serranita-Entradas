@@ -19,8 +19,7 @@ import java.util.List;
 import java.util.Map;
 
 /** Avisos genéricos (punto rojo en la cabecera interna) del usuario logueado. ADMIN-only por
- * ahora (gateado en SecurityConfig): los dos tipos existentes (CAJA_ATRASADA, RECHAZO_OPERACION)
- * sólo le importan al admin. Si en el futuro se agrega un tipo para BOLETERO, aflojar esa regla. */
+ * ahora (gateado en SecurityConfig); RECHAZO_OPERACION y SISTEMA, además, sólo al SUPERADMIN. Si en el futuro se agrega un tipo para BOLETERO, aflojar esa regla. */
 @RestController
 @RequestMapping("/api/interno/notificaciones")
 @Tag(name = "Notificaciones", description = "Avisos genéricos (cajas atrasadas, rechazos pendientes, etc.) del usuario logueado")
@@ -48,12 +47,14 @@ public class NotificacionController {
         Map<TipoNotificacion, Boolean> resultado = new EnumMap<>(TipoNotificacion.class);
         resultado.put(TipoNotificacion.CAJA_ATRASADA,
                 notificacionService.hayPendientes(TipoNotificacion.CAJA_ATRASADA, cajaService.getIdsCajasAtrasadas(), operador.id()));
-        resultado.put(TipoNotificacion.RECHAZO_OPERACION,
-                notificacionService.hayPendientes(TipoNotificacion.RECHAZO_OPERACION, rechazoService.getIdsPendientes(), operador.id()));
+        // Las operaciones rechazadas se resuelven en Sistema: tampoco se le avisan al admin del parque.
+        boolean superadmin = operador.rol() == RolUsuario.SUPERADMIN;
+        resultado.put(TipoNotificacion.RECHAZO_OPERACION, superadmin
+                && notificacionService.hayPendientes(TipoNotificacion.RECHAZO_OPERACION, rechazoService.getIdsPendientes(), operador.id()));
         resultado.put(TipoNotificacion.FACTURACION,
                 notificacionService.hayPendientes(TipoNotificacion.FACTURACION, facturaService.idsAlertasFacturacion(), operador.id()));
         // Sistema es sólo del SUPERADMIN: al admin del parque no se le prende por algo que no puede ver.
-        resultado.put(TipoNotificacion.SISTEMA, operador.rol() == RolUsuario.SUPERADMIN
+        resultado.put(TipoNotificacion.SISTEMA, superadmin
                 && notificacionService.hayPendientes(TipoNotificacion.SISTEMA, estadoSistemaService.idsAlertas(), operador.id()));
         return ResponseEntity.ok(resultado);
     }

@@ -91,6 +91,9 @@ public interface FacturaService {
      */
     FacturaResponseDTO emitirManual(org.example.laserranitaentradas.model.dto.FacturaManualDTO pedido);
 
+    /** Varias facturas manuales de una vez (las ventas del día que quedaron sin facturar), sin entrega. Todo o nada. */
+    java.util.List<FacturaResponseDTO> emitirManualLote(org.example.laserranitaentradas.model.dto.FacturaManualLoteDTO lote);
+
     /** Las últimas facturas manuales, con su estado (incluida la anulación). */
     java.util.List<FacturaResponseDTO> manuales();
 

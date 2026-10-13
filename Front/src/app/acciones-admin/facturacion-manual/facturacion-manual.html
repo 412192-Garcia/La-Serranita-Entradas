@@ -1,5 +1,15 @@
 <div class="seccion-facturacion">
 
+  <div class="modos" data-tour="modos-factura" role="tablist" aria-label="Cómo facturar">
+    <button type="button" role="tab" class="modo" [class.activo]="modo() === 'una'" [attr.aria-selected]="modo() === 'una'"
+      (click)="modo.set('una')">Una factura</button>
+    <button type="button" role="tab" class="modo" [class.activo]="modo() === 'lote'" [attr.aria-selected]="modo() === 'lote'"
+      (click)="modo.set('lote')">En lote</button>
+  </div>
+
+  @if (modo() === 'lote') {
+    <app-facturacion-lote (emitido)="alEmitirLote()" />
+  } @else {
   <!-- ============ NUEVA FACTURA ============ -->
   <div class="tarjeta tarjeta-formulario" data-tour="factura-manual">
     <h2>Nueva factura manual</h2>
@@ -81,11 +91,14 @@
           [ngModel]="email()" (ngModelChange)="email.set($event); confirmando.set(false)" />
       }
       @if (destino() === 'IMPRIMIR') {
-        @if (impresoras.motivoNoDisponible(); as motivo) {
-          <p class="nota">{{ motivo }}</p>
-        } @else {
-          <p class="nota nota-ok">Se imprime en "{{ impresoras.efectiva()?.nombre }}".</p>
-        }
+        <div class="fila-ticketera">
+          <app-selector-ticketera alinear="izquierda" />
+          @if (impresoras.motivoNoDisponible(); as motivo) {
+            <p class="nota">{{ motivo }}</p>
+          } @else {
+            <p class="nota nota-ok">Se imprime en "{{ impresoras.efectiva()?.nombre }}".</p>
+          }
+        </div>
       }
     </div>
 
@@ -117,6 +130,7 @@
       <p class="aviso-ok" role="status">{{ aviso }}</p>
     }
   </div>
+  }
 
   <!-- ============ ÚLTIMAS FACTURAS MANUALES ============ -->
   <div class="tarjeta">

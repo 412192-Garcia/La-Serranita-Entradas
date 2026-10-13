@@ -13,9 +13,20 @@ export interface TarjetaEstado {
   detalles: string[];
   /** Ruta de la app donde se resuelve (puede traer ?tab=...), o null. */
   enlace: string | null;
+  /** Tarjetas que son una lista de cosas con su estado (tareas programadas): se dibujan como tabla. */
+  filas?: FilaEstado[] | null;
 }
 
 /** Un registro del historial de acciones. */
+export interface FilaEstado {
+  nombre: string;
+  /** "hace 2 min", "falló". */
+  valor: string;
+  /** "próxima en 1 min", o null. */
+  secundario: string | null;
+  estado: 'OK' | 'ALERTA' | 'INFO';
+}
+
 export interface RegistroAuditoria {
   id: number;
   fecha: string;
@@ -64,8 +75,13 @@ export interface EndpointRendimiento {
   endpoint: string;
   cantidad: number;
   promedioMs: number;
+  /** El 95 % tardó esto o menos (aproximado, por tramos). */
+  p95Ms: number;
   maxMs: number;
+  /** Tiempo sumado de todas las requests: lo que el endpoint le ocupa al servidor. */
+  totalMs: number;
   lentas: number;
+  errores4xx: number;
   errores: number;
 }
 

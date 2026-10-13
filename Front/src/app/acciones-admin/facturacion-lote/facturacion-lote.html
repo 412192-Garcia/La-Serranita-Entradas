@@ -1,0 +1,135 @@
+<div class="tarjeta tarjeta-formulario" data-tour="factura-lote">
+  <h2>Facturar en lote</h2>
+  <p class="ayuda">
+    Para las ventas que quedaron sin facturar. Armá cada venta tocando los ítems (cada toque suma uno), poné cuántas
+    veces se repitió y agregala al lote. Al final se emiten todas juntas, una Factura B por venta. No se imprimen ni se
+    mandan por mail: quedan los PDF en la lista de abajo. Lo que es sin cargo no va en la factura.
+  </p>
+
+  @if (!habilitada()) {
+    <p class="alerta">La facturación no está configurada en el servidor: no se pueden emitir facturas.</p>
+  }
+
+  <!-- ---------- catálogo ---------- -->
+  <div class="catalogo" role="group" aria-label="Sumar un ítem a la venta">
+    @for (i of catalogo(); track i.clave) {
+      <button type="button" class="item-catalogo" [class.en-venta]="cantidadEnVenta(i.clave) > 0" (click)="sumar(i)">
+        <span class="item-nombre">{{ i.nombre }}</span>
+        <span class="item-precio">{{ i.precio != null ? (i.precio | pesos) : 'Sin precio' }}</span>
+        @if (cantidadEnVenta(i.clave) > 0) {
+          <span class="item-cantidad" aria-label="En la venta">{{ cantidadEnVenta(i.clave) }}</span>
+        }
+      </button>
+    } @empty {
+      <p class="ayuda">Cargando el catálogo…</p>
+    }
+  </div>
+
+  <!-- ---------- venta en armado ---------- -->
+  <div class="venta">
+    <span class="entrega-titulo">Venta</span>
+    @if (venta().length === 0) {
+      <p class="ayuda venta-vacia">Tocá los ítems de arriba para armar una venta.</p>
+    } @else {
+      @for (l of venta(); track l.clave) {
+        <div class="linea-venta">
+          <div class="contador">
+            <button type="button" class="btn-icono" aria-label="Uno menos" (click)="cambiarCantidad(l.clave, -1)">
+              <svg lucideMinus [strokeWidth]="2"></svg>
+            </button>
+            <span class="contador-valor">{{ l.cantidad }}</span>
+            <button type="button" class="btn-icono" aria-label="Uno más" (click)="cambiarCantidad(l.clave, 1)">
+              <svg lucidePlus [strokeWidth]="2"></svg>
+            </button>
+          </div>
+          <span class="linea-nombre">{{ l.nombre }}</span>
+          <input type="number" min="0" step="0.01" inputmode="decimal" class="linea-precio" placeholder="Precio"
+            [attr.aria-label]="'Precio unitario de ' + l.nombre"
+            [ngModel]="l.precio" (ngModelChange)="cambiarPrecio(l.clave, $event)" />
+          <span class="num subtotal">{{ l.precio === 0 ? 'Sin cargo' : (subtotal(l) | pesos) }}</span>
+        </div>
+      }
+      <div class="pie-venta">
+        <label class="veces">
+          Cantidad de ventas iguales
+          <input type="number" min="1" [max]="lugar()" step="1" inputmode="numeric"
+            [ngModel]="veces()" (ngModelChange)="veces.set($event)" (keydown.enter)="agregarAlLote()" />
+        </label>
+        <div class="total">
+          <span>Por venta</span>
+          <strong>{{ totalVenta() | pesos }}</strong>
+        </div>
+      </div>
+      <div class="acciones-venta">
+        <button type="button" class="btn-secundario" (click)="venta.set([])">Descartar</button>
+        <button type="button" class="btn-primario btn-con-icono" [disabled]="!ventaValida() || veces() < 1 || lugar() === 0"
+          (click)="agregarAlLote()">
+          <svg lucidePlus [strokeWidth]="2"></svg>
+          Agregar {{ veces() > 1 ? veces() + ' ventas' : 'venta' }} al lote
+        </button>
+      </div>
+    }
+  </div>
+
+  <!-- ---------- lote ---------- -->
+  @if (lote().length > 0) {
+    <div class="lote">
+      <div class="lote-cabecera">
+        <span class="entrega-titulo">Lote</span>
+        <button type="button" class="btn-link" [disabled]="emitiendo()" (click)="vaciarLote()">Vaciar</button>
+      </div>
+      <ol class="lista-lote">
+        @for (v of lote(); track v.id) {
+          <li class="venta-lote">
+            <span class="venta-veces">{{ v.veces }}×</span>
+            <span class="venta-resumen">{{ resumen(v.lineas) }}</span>
+            <span class="num venta-importe">
+              {{ totalDe(v.lineas) | pesos }}
+              @if (v.veces > 1) { <span class="secundario">c/u</span> }
+            </span>
+            <button type="button" class="btn-icono" title="Quitar del lote" aria-label="Quitar del lote"
+              [disabled]="emitiendo()" (click)="quitarDelLote(v.id)">
+              <svg lucideTrash2 [strokeWidth]="2"></svg>
+            </button>
+          </li>
+        }
+      </ol>
+      <div class="pie-renglones">
+        <span class="secundario">{{ cantidadFacturas() }} {{ cantidadFacturas() === 1 ? 'factura' : 'facturas' }} (máximo {{ maxFacturas }})</span>
+        <div class="total">
+          <span>Total</span>
+          <strong>{{ totalLote() | pesos }}</strong>
+        </div>
+      </div>
+
+      @if (confirmando()) {
+        <div class="confirmacion" role="alert">
+          <p>
+            Vas a emitir <strong>{{ cantidadFacturas() }} {{ cantidadFacturas() === 1 ? 'Factura B' : 'Facturas B' }}
+            por {{ totalLote() | pesos }}</strong> en total en ARCA. Son comprobantes fiscales: si después hay un error,
+            cada una se anula con su nota de crédito.
+          </p>
+          <div class="acciones-confirmacion">
+            <button type="button" class="btn-secundario" [disabled]="emitiendo()" (click)="confirmando.set(false)">Revisar</button>
+            <button type="button" class="btn-primario" [disabled]="emitiendo()" (click)="emitir()">
+              {{ emitiendo() ? 'Emitiendo…' : 'Emitir ' + cantidadFacturas() + (cantidadFacturas() === 1 ? ' factura' : ' facturas') }}
+            </button>
+          </div>
+        </div>
+      } @else {
+        <div class="acciones-form">
+          <button type="button" class="btn-primario" [disabled]="!habilitada()" (click)="pedirConfirmacion()">
+            Facturar {{ cantidadFacturas() }} {{ cantidadFacturas() === 1 ? 'venta' : 'ventas' }}
+          </button>
+        </div>
+      }
+    </div>
+  }
+
+  @if (error(); as e) {
+    <p class="alerta">{{ e }}</p>
+  }
+  @if (aviso(); as a) {
+    <p class="aviso-ok" role="status">{{ a }}</p>
+  }
+</div>

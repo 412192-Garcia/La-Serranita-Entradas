@@ -44,6 +44,7 @@ final class CatalogoAcciones {
             entry("POST /api/interno/compras/generar-reserva", new Accion("RESERVA_GENERADA", "Generó una reserva manual", "Compra")),
             // Facturas
             entry("POST /api/interno/facturas/manual", new Accion("FACTURA_MANUAL", "Emitió una factura manual", "Factura")),
+            entry("POST /api/interno/facturas/manual/lote", new Accion("FACTURAS_MANUALES_LOTE", "Emitió un lote de facturas manuales", null)),
             entry("POST /api/interno/facturas/{id}/anular", new Accion("FACTURA_ANULADA", "Anuló la factura", "Factura")),
             entry("POST /api/interno/facturas/{id}/reintentar", new Accion("FACTURA_REINTENTADA", "Reintentó la factura", "Factura")),
             entry("POST /api/interno/facturas/{id}/enviar-mail", new Accion("FACTURA_ENVIADA", "Mandó por mail la factura", "Factura")),

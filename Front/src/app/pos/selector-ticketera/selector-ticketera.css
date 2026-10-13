@@ -132,3 +132,8 @@
     min-height: 44px;
   }
 }
+
+.menu-ticketera.menu-izquierda {
+  right: auto;
+  left: 0;
+}

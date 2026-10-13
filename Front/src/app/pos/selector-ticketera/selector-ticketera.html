@@ -13,7 +13,7 @@
     </button>
 
     @if (abierto()) {
-      <div class="menu-ticketera" role="menu" aria-label="Elegir ticketera">
+      <div class="menu-ticketera" [class.menu-izquierda]="alinear() === 'izquierda'" role="menu" aria-label="Elegir ticketera">
         @if (servicio.impresoras().length === 0) {
           <p class="menu-vacio">
             La PC de la entrada está apagada o sin conexión. Cuando se prenda, las ticketeras aparecen acá solas.

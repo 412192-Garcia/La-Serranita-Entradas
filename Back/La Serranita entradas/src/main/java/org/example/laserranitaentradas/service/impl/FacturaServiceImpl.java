@@ -2,6 +2,7 @@ package org.example.laserranitaentradas.service.impl;
 
 import org.example.laserranitaentradas.model.dto.ControlFacturacionDTO;
 import org.example.laserranitaentradas.model.dto.FacturaManualDTO;
+import org.example.laserranitaentradas.model.dto.FacturaManualLoteDTO;
 import org.example.laserranitaentradas.model.dto.FacturaResponseDTO;
 import org.example.laserranitaentradas.model.dto.FacturacionPosDTO;
 import org.example.laserranitaentradas.model.entity.Compra;
@@ -704,12 +705,61 @@ public class FacturaServiceImpl implements FacturaService {
     private static final int MAX_ITEMS_MANUAL = 30;
     private static final int MAX_DESCRIPCION_MANUAL = 80;
 
+    /** Facturas por lote: alcanza para un día entero de ventas que quedaron sin facturar. */
+    private static final int MAX_FACTURAS_LOTE = 100;
+
     @Override
     @Transactional
     public FacturaResponseDTO emitirManual(FacturaManualDTO pedido) {
         if (!estaHabilitada()) {
             throw new IllegalStateException("La facturación no está configurada");
         }
+        Factura factura = facturaRepository.save(armarManual(pedido));
+        log.info("Factura manual ID {} pedida por {} ({} ítems)", factura.getId(), factura.getImporteTotal(), pedido.items().size());
+        eventPublisher.publishEvent(new FacturaSolicitadaEvent(factura.getId()));
+        return toDto(factura);
+    }
+
+    /**
+     * Varias facturas manuales de una vez, para las ventas que quedaron sin facturar en el día. Todo
+     * o nada: si una tiene un error no se pide ninguna (se arregla y se manda el lote de nuevo). Sin
+     * entrega: el cliente ya se fue, quedan los PDF en la lista.
+     */
+    @Override
+    @Transactional
+    public List<FacturaResponseDTO> emitirManualLote(FacturaManualLoteDTO lote) {
+        if (!estaHabilitada()) {
+            throw new IllegalStateException("La facturación no está configurada");
+        }
+        if (lote == null || lote.facturas() == null || lote.facturas().isEmpty()) {
+            throw new IllegalArgumentException("El lote no tiene facturas");
+        }
+        if (lote.facturas().size() > MAX_FACTURAS_LOTE) {
+            throw new IllegalArgumentException("Máximo " + MAX_FACTURAS_LOTE + " facturas por lote");
+        }
+        List<Factura> armadas = new ArrayList<>();
+        for (int i = 0; i < lote.facturas().size(); i++) {
+            FacturaManualDTO f = lote.facturas().get(i);
+            try {
+                armadas.add(armarManual(f == null ? null : new FacturaManualDTO(f.items(), DestinoFactura.NINGUNO, null, null)));
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("Factura " + (i + 1) + " del lote: " + e.getMessage());
+            }
+        }
+        List<FacturaResponseDTO> salida = new ArrayList<>();
+        BigDecimal total = BigDecimal.ZERO;
+        for (Factura armada : armadas) {
+            Factura factura = facturaRepository.save(armada);
+            total = total.add(factura.getImporteTotal());
+            eventPublisher.publishEvent(new FacturaSolicitadaEvent(factura.getId()));
+            salida.add(toDto(factura));
+        }
+        log.info("Lote de {} facturas manuales pedido por {}", armadas.size(), total);
+        return salida;
+    }
+
+    /** Valida el pedido y arma la factura manual (sin guardar). */
+    private Factura armarManual(FacturaManualDTO pedido) {
         if (pedido == null || pedido.items() == null || pedido.items().isEmpty()) {
             throw new IllegalArgumentException("Cargá al menos un ítem");
         }
@@ -753,7 +803,7 @@ public class FacturaServiceImpl implements FacturaService {
         }
 
         BigDecimal neto = total.divide(DIVISOR_IVA_21, 2, RoundingMode.HALF_UP);
-        Factura factura = facturaRepository.save(Factura.builder()
+        return Factura.builder()
                 .destino(destino)
                 .email(destino == DestinoFactura.MAIL ? email : null)
                 .impresora(destino == DestinoFactura.IMPRIMIR ? pedido.impresora() : null)
@@ -766,10 +816,7 @@ public class FacturaServiceImpl implements FacturaService {
                 .importeNeto(neto)
                 .importeIva(total.subtract(neto))
                 .detalle(detalle.toString())
-                .build());
-        log.info("Factura manual ID {} pedida por {} ({} ítems)", factura.getId(), total, pedido.items().size());
-        eventPublisher.publishEvent(new FacturaSolicitadaEvent(factura.getId()));
-        return toDto(factura);
+                .build();
     }
 
     @Override

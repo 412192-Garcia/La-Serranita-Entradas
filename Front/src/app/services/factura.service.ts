@@ -2,7 +2,7 @@ import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
-import { ControlFacturacion, DesfaseNumeracion, Factura, FacturaManualPedido, FacturacionPos, TotalesFacturacion, ImpresoraConectada, VentaFactura } from '../models/factura';
+import { ControlFacturacion, DesfaseNumeracion, Factura, FacturaManualItem, FacturaManualPedido, FacturacionPos, TotalesFacturacion, ImpresoraConectada, VentaFactura } from '../models/factura';
 
 const CLAVE_HABILITADA = 'facturacion-habilitada';
 
@@ -77,6 +77,13 @@ export class FacturaService {
   /** Factura B sin venta, con los ítems e importes que cargó el admin. */
   emitirManual(pedido: FacturaManualPedido): Observable<Factura> {
     return this.http.post<Factura>(`${this.url}/manual`, pedido);
+  }
+
+  /** Varias facturas manuales de una vez (una por venta), sin entrega. Todo o nada. */
+  emitirManualLote(facturas: FacturaManualItem[][]): Observable<Factura[]> {
+    return this.http.post<Factura[]>(`${this.url}/manual/lote`, {
+      facturas: facturas.map((items) => ({ items, destino: 'NINGUNO', email: null, impresora: null })),
+    });
   }
 
   /** Las últimas 50 facturas manuales. */

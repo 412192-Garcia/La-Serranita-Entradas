@@ -71,6 +71,9 @@ public interface CompraRepository extends JpaRepository<Compra, Long>, JpaSpecif
 
     long countByEstadoAndFechaValidacionBetween(EstadoCompra estado, LocalDateTime desde, LocalDateTime hasta);
 
+    /** Anticipadas para un día (ej. las pagadas que todavía no entraron). */
+    long countByEstadoAndFechaVisita(EstadoCompra estado, java.time.LocalDate fechaVisita);
+
     /** Pagos online confirmados desde `desde`, por camino: [pagoConfirmadoPor, cantidad]. */
     @Query("SELECT c.pagoConfirmadoPor, COUNT(c) FROM Compra c WHERE c.fechaPago >= :desde AND c.pagoConfirmadoPor IS NOT NULL GROUP BY c.pagoConfirmadoPor")
     List<Object[]> confirmacionesPorOrigen(@Param("desde") LocalDateTime desde);

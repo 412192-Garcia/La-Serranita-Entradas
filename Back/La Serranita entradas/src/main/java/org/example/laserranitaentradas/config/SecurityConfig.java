@@ -112,7 +112,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.DELETE, "/api/interno/caja/*/ajustes/*").hasRole("ADMIN")
                 // Vender sin la apertura formal de caja: sólo para cuando el propio ADMIN vende.
                 .requestMatchers(HttpMethod.POST, "/api/interno/caja/abrir-sin-control").hasRole("ADMIN")
-                .requestMatchers("/api/interno/rechazos/**").hasRole("ADMIN")
+                // Operaciones rechazadas: se resuelven desde Sistema, junto con el resto del monitoreo.
+                .requestMatchers("/api/interno/rechazos/**").hasRole("SUPERADMIN")
                 .requestMatchers("/api/interno/notificaciones/**").hasRole("ADMIN")
                 // Monitoreo: sólo el que mantiene la app, no el admin del parque.
                 .requestMatchers("/api/interno/sistema/**").hasRole("SUPERADMIN")

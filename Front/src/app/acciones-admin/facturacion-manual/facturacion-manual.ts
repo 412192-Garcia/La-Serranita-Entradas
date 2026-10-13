@@ -21,6 +21,8 @@ import { TipoEntradaService } from '../../services/tipo-entrada.service';
 import { ArticuloVarioService } from '../../services/articulo-vario.service';
 import { PesosPipe } from '../../shared/pesos.pipe';
 import { Spinner } from '../../shared/spinner/spinner';
+import { SelectorTicketera } from '../../pos/selector-ticketera/selector-ticketera';
+import { FacturacionLote } from '../facturacion-lote/facturacion-lote';
 
 /** Un renglón del formulario. `origen` es "libre", "e:<id>" (entrada) o "a:<id>" (artículo). */
 interface Linea {
@@ -41,12 +43,14 @@ const MAX_REFRESCOS = 24;
  * cargue el admin (del catálogo o a mano). Para lo que no pasa por el POS: un grupo que pagó por
  * transferencia, un servicio especial, corregir algo que se cobró sin factura...
  *
+ * En lote (FacturacionLote): las ventas del día que quedaron sin facturar, una factura por venta.
+ *
  * Abajo, las últimas facturas manuales con sus acciones: PDF, mail, reimprimir y anular (nota de
  * crédito por el total).
  */
 @Component({
   selector: 'app-facturacion-manual',
-  imports: [FormsModule, DatePipe, PesosPipe, Spinner, LucidePlus, LucideTrash2, LucideFileText, LucideMail,
+  imports: [FormsModule, DatePipe, PesosPipe, Spinner, SelectorTicketera, FacturacionLote, LucidePlus, LucideTrash2, LucideFileText, LucideMail,
     LucidePrinter, LucideCircleAlert, LucideLoaderCircle],
   templateUrl: './facturacion-manual.html',
   styleUrl: './facturacion-manual.css',
@@ -63,6 +67,9 @@ export class FacturacionManual implements OnInit {
 
   tipos = signal<TipoEntrada[]>([]);
   articulos = signal<ArticuloVario[]>([]);
+
+  /** Una factura a mano, o un lote con las ventas del día que quedaron sin facturar. */
+  modo = signal<'una' | 'lote'>('una');
 
   private proximaClave = 1;
   lineas = signal<Linea[]>([this.lineaVacia()]);
@@ -193,6 +200,11 @@ export class FacturacionManual implements OnInit {
           this.errorForm.set(this.mensaje(err, 'No se pudo emitir la factura.'));
         },
       });
+  }
+
+  alEmitirLote(): void {
+    this.refrescosHechos = 0;
+    this.cargarLista(false);
   }
 
   // ---------- lista ----------

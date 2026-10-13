@@ -15,8 +15,9 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAdder;
 
 /**
- * Cuánto tarda cada endpoint de la API (Sistema > Rendimiento): cantidad, promedio, máximo, lentas
- * y errores 5xx por endpoint desde que arrancó el servidor, más las últimas requests lentas. En
+ * Cuánto tarda cada endpoint de la API (Sistema > Rendimiento): cantidad, promedio, p95, máximo,
+ * tiempo total, lentas y errores 4xx/5xx por endpoint desde que arrancó el servidor, más las
+ * últimas requests lentas. En
  * memoria a propósito: es "cómo viene ahora", se pierde al reiniciar y no le suma carga a la base.
  */
 @Component
@@ -24,7 +25,17 @@ public class MetricasRequests {
 
     private static final int MAX_LENTAS_RECIENTES = 200;
 
-    public record Endpoint(String endpoint, long cantidad, long promedioMs, long maxMs, long lentas, long errores) {}
+    /**
+     * @param p95Ms     el 95 % de las requests tardó esto o menos. Aproximado: sale de un histograma
+     *                  por tramos (ver TRAMOS_MS), así no hay que guardar cada duración.
+     * @param totalMs   tiempo sumado de todas: lo que ese endpoint le ocupa al servidor
+     * @param errores4xx pedidos rechazados (sesión vencida, datos inválidos, 404)
+     */
+    public record Endpoint(String endpoint, long cantidad, long promedioMs, long p95Ms, long maxMs, long totalMs,
+                           long lentas, long errores4xx, long errores) {}
+
+    /** Límites superiores de los tramos del histograma, en ms. El último tramo es "más que eso". */
+    static final long[] TRAMOS_MS = {5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 30000};
 
     public record RequestLenta(LocalDateTime momento, String endpoint, long ms, int estado, String usuario, String requestId) {}
 
@@ -35,7 +46,25 @@ public class MetricasRequests {
         final LongAdder totalMs = new LongAdder();
         final AtomicLong maxMs = new AtomicLong();
         final LongAdder lentas = new LongAdder();
+        final LongAdder errores4xx = new LongAdder();
         final LongAdder errores = new LongAdder();
+        final LongAdder[] tramos = new LongAdder[TRAMOS_MS.length + 1];
+
+        Acumulado() {
+            for (int i = 0; i < tramos.length; i++) tramos[i] = new LongAdder();
+        }
+
+        /** El límite del tramo donde se llega al 95 %; en el último tramo, el máximo real. */
+        long p95(long cantidad) {
+            if (cantidad == 0) return 0;
+            long objetivo = (long) Math.ceil(cantidad * 0.95);
+            long acumulado = 0;
+            for (int i = 0; i < TRAMOS_MS.length; i++) {
+                acumulado += tramos[i].sum();
+                if (acumulado >= objetivo) return Math.min(TRAMOS_MS[i], maxMs.get());
+            }
+            return maxMs.get();
+        }
     }
 
     private final Map<String, Acumulado> porEndpoint = new ConcurrentHashMap<>();
@@ -56,6 +85,10 @@ public class MetricasRequests {
         a.totalMs.add(ms);
         a.maxMs.accumulateAndGet(ms, Math::max);
         if (estado >= 500) a.errores.increment();
+        else if (estado >= 400) a.errores4xx.increment();
+        int tramo = 0;
+        while (tramo < TRAMOS_MS.length && ms > TRAMOS_MS[tramo]) tramo++;
+        a.tramos[tramo].increment();
         boolean lenta = ms >= umbralMs;
         if (lenta) {
             a.lentas.increment();
@@ -79,8 +112,9 @@ public class MetricasRequests {
         List<Endpoint> endpoints = new ArrayList<>();
         porEndpoint.forEach((nombre, a) -> {
             long cantidad = a.cantidad.sum();
-            endpoints.add(new Endpoint(nombre, cantidad, cantidad == 0 ? 0 : a.totalMs.sum() / cantidad, a.maxMs.get(),
-                    a.lentas.sum(), a.errores.sum()));
+            long total = a.totalMs.sum();
+            endpoints.add(new Endpoint(nombre, cantidad, cantidad == 0 ? 0 : total / cantidad, a.p95(cantidad), a.maxMs.get(),
+                    total, a.lentas.sum(), a.errores4xx.sum(), a.errores.sum()));
         });
         endpoints.sort(Comparator.comparingLong(Endpoint::promedioMs).reversed());
         List<RequestLenta> recientes;

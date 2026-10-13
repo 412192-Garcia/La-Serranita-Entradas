@@ -67,3 +67,80 @@
 .tarjeta-estado .btn-accion {
   margin-top: auto;
 }
+
+/* ---------- tarjeta con tabla (tareas programadas) ---------- */
+@media (min-width: 640px) {
+  .tarjeta-estado.con-filas { grid-column: span 2; }
+}
+
+.filas-estado {
+  list-style: none;
+  margin: 2px 0 0;
+  padding: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.fila-estado {
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 0.82rem;
+}
+
+.fila-estado:last-child { border-bottom: none; }
+
+.punto-fila {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--color-primary);
+}
+
+.fila-alerta .punto-fila { background-color: var(--color-danger-dark); }
+.fila-info .punto-fila { background-color: var(--color-text-muted); }
+
+.fila-nombre {
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+
+.fila-valor {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.fila-alerta .fila-nombre,
+.fila-alerta .fila-valor {
+  color: var(--color-danger-dark);
+  font-weight: 700;
+}
+
+.fila-secundario {
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+  font-weight: 400;
+}
+
+.btn-link-filas {
+  border: none;
+  background: none;
+  padding: 2px 0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--color-primary-dark);
+  cursor: pointer;
+}
+
+@media (pointer: coarse) {
+  .btn-link-filas { min-height: 44px; }
+}

@@ -391,13 +391,53 @@ public class EstadoSistemaService {
             };
             detalles.add(t.nombre() + ": " + que);
         }
-        for (EstadoTareas.Tarea t : tareas) {
-            if (t.enProblemas()) continue;
-            detalles.add(t.nombre() + ": " + (t.ultima() != null ? "última " + t.ultima().format(FECHA_HORA) : "todavía no corrió")
-                    + (t.proxima() != null ? " · próxima " + t.proxima().format(FECHA_HORA) : ""));
-        }
+        if (problemas == 0) detalles.add("Todas corrieron a tiempo");
+        // En pantalla, una tabla: primero las que tienen problemas, después por nombre.
+        LocalDateTime ahora = LocalDateTime.now(AuditoriaService.ZONA);
+        List<EstadoSistemaDTO.Fila> filas = tareas.stream()
+                .sorted(java.util.Comparator.comparing((EstadoTareas.Tarea t) -> !t.enProblemas()).thenComparing(EstadoTareas.Tarea::nombre))
+                .map(t -> new EstadoSistemaDTO.Fila(t.nombre(), valorTarea(t, ahora),
+                        t.proxima() != null ? "próxima " + proxima(t.proxima(), ahora) : null,
+                        t.enProblemas() ? "ALERTA" : t.situacion() == EstadoTareas.Situacion.NUNCA ? "INFO" : "OK"))
+                .toList();
         return new Tarjeta("tareas", "Tareas programadas", problemas > 0 ? "ALERTA" : "OK",
-                problemas > 0 ? problemas + " tarea(s) con problemas" : tareas.size() + " tareas funcionando", detalles, null);
+                problemas > 0 ? problemas + " tarea(s) con problemas" : tareas.size() + " tareas funcionando", detalles, null, null, filas);
+    }
+
+    private static String valorTarea(EstadoTareas.Tarea t, LocalDateTime ahora) {
+        return switch (t.situacion()) {
+            case TRABADA -> "trabada";
+            case ATRASADA -> "no arrancó";
+            case FALLO -> "falló";
+            case CORRIENDO -> "corriendo";
+            case NUNCA -> "todavía no corrió";
+            default -> t.ultima() != null ? ultima(t.ultima(), ahora) : "—";
+        };
+    }
+
+    /** "recién", "hace 12 min", "hoy 03:30", "ayer 04:15", "05/10 04:15". */
+    static String ultima(LocalDateTime cuando, LocalDateTime ahora) {
+        Duration d = Duration.between(cuando, ahora);
+        if (d.toSeconds() < 60) return "recién";
+        if (d.toMinutes() < 60) return "hace " + d.toMinutes() + " min";
+        return diaYHora(cuando, ahora);
+    }
+
+    /** "en segundos", "en 12 min", "hoy 18:00", "mañana 03:30". */
+    static String proxima(LocalDateTime cuando, LocalDateTime ahora) {
+        Duration d = Duration.between(ahora, cuando);
+        if (d.toSeconds() < 60) return "en segundos";
+        if (d.toMinutes() < 60) return "en " + d.toMinutes() + " min";
+        return diaYHora(cuando, ahora);
+    }
+
+    private static String diaYHora(LocalDateTime cuando, LocalDateTime ahora) {
+        long dias = java.time.temporal.ChronoUnit.DAYS.between(ahora.toLocalDate(), cuando.toLocalDate());
+        String hora = cuando.format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"));
+        if (dias == 0) return "hoy " + hora;
+        if (dias == -1) return "ayer " + hora;
+        if (dias == 1) return "mañana " + hora;
+        return cuando.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"));
     }
 
     private Tarjeta rendimiento() {

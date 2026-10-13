@@ -6,6 +6,36 @@
   gap: 20px;
 }
 
+.modos {
+  display: inline-flex;
+  align-self: flex-start;
+  padding: 3px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-card-bg);
+}
+
+.modo {
+  min-height: 34px;
+  padding: 6px 16px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.modo.activo {
+  background-color: var(--color-primary);
+  color: #fff;
+}
+
+@media (pointer: coarse) {
+  .modo { min-height: 44px; }
+}
+
 .tarjeta h2 {
   margin: 0 0 6px;
   font-family: var(--font-heading);
@@ -162,6 +192,13 @@
   margin: 0;
   font-size: 0.8rem;
   color: var(--color-accent-dark);
+}
+
+.fila-ticketera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
 }
 
 .nota-ok {

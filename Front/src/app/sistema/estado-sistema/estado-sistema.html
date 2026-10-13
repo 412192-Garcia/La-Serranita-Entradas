@@ -20,7 +20,7 @@
     <p class="ayuda">Actualizado {{ e.generado | date: 'dd/MM/yyyy HH:mm' }} · se actualiza solo cada minuto.</p>
     <div class="grilla-estado">
       @for (t of e.tarjetas; track t.clave) {
-        <div class="tarjeta-estado" [class.estado-ok]="t.estado === 'OK'" [class.estado-alerta]="t.estado === 'ALERTA'"
+        <div class="tarjeta-estado" [class.con-filas]="t.filas?.length" [class.estado-ok]="t.estado === 'OK'" [class.estado-alerta]="t.estado === 'ALERTA'"
           [class.estado-info]="t.estado === 'INFO'">
           <div class="tarjeta-estado-cabecera">
             @switch (t.estado) {
@@ -31,11 +31,39 @@
             <span class="tarjeta-estado-titulo">{{ t.titulo }}</span>
           </div>
           <strong class="tarjeta-estado-resumen">{{ t.resumen }}</strong>
-          <ul class="tarjeta-estado-detalles">
-            @for (d of t.detalles; track $index) {
-              <li>{{ d }}</li>
+          @if (t.filas?.length) {
+            <!-- Las tareas: el detalle de los problemas arriba (con el error), y la tabla de todas. -->
+            @if (t.estado === 'ALERTA') {
+              <ul class="tarjeta-estado-detalles">
+                @for (d of t.detalles; track $index) {
+                  <li>{{ d }}</li>
+                }
+              </ul>
             }
-          </ul>
+            <ul class="filas-estado">
+              @for (f of filasVisibles(t); track f.nombre) {
+                <li class="fila-estado" [class.fila-alerta]="f.estado === 'ALERTA'" [class.fila-info]="f.estado === 'INFO'">
+                  <span class="punto-fila" aria-hidden="true"></span>
+                  <span class="fila-nombre">{{ f.nombre }}</span>
+                  <span class="fila-valor">
+                    {{ f.valor }}
+                    @if (f.secundario) { <span class="fila-secundario">{{ f.secundario }}</span> }
+                  </span>
+                </li>
+              }
+            </ul>
+            @if (t.filas!.length > FILAS_INICIALES) {
+              <button type="button" class="btn-link-filas" (click)="alternarFilas(t.clave)">
+                {{ expandida(t.clave) ? 'Ver menos' : 'Ver las ' + t.filas!.length }}
+              </button>
+            }
+          } @else {
+            <ul class="tarjeta-estado-detalles">
+              @for (d of t.detalles; track $index) {
+                <li>{{ d }}</li>
+              }
+            </ul>
+          }
           @if (t.enlace) {
             <button type="button" class="btn-accion" (click)="ir(t)">Ver</button>
           }

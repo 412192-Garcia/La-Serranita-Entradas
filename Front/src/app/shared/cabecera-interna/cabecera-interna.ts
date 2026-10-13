@@ -26,8 +26,8 @@ const TODOS_LOS_ENLACES: EnlaceCabecera[] = [
   { texto: 'Cajas', ruta: '/cajas', soloAdmin: true, tiposNotificacion: ['CAJA_ATRASADA'] },
   { texto: 'Reportes', ruta: '/reportes', soloAdmin: true },
   { texto: 'Configuración', ruta: '/configuracion', soloAdmin: true },
-  { texto: 'Acciones', ruta: '/acciones', soloAdmin: true, tiposNotificacion: ['RECHAZO_OPERACION', 'FACTURACION'] },
-  { texto: 'Sistema', ruta: '/sistema', soloSuperadmin: true, tiposNotificacion: ['SISTEMA'] },
+  { texto: 'Acciones', ruta: '/acciones', soloAdmin: true, tiposNotificacion: ['FACTURACION'] },
+  { texto: 'Sistema', ruta: '/sistema', soloSuperadmin: true, tiposNotificacion: ['SISTEMA', 'RECHAZO_OPERACION'] },
   { texto: 'Mi cuenta', ruta: '/mi-cuenta' },
 ];
 
