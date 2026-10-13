@@ -70,4 +70,33 @@ describe('ConteoCierre', () => {
     c.entradasFisicasRestantes.set(null);
     expect(c.validar()).toContain('talonario');
   });
+
+  it('en un cierre nuevo precarga el posnet con lo que cobró el Point, una sola vez', () => {
+    const fixture = TestBed.createComponent(ConteoCierre);
+    fixture.componentRef.setInput('cajaId', 9);
+    fixture.detectChanges();
+    const resumen = { tarjeta: 30000, qr: 5000, cantidad: 3, sinVenta: [] };
+    fixture.componentRef.setInput('cobrosPoint', resumen);
+    fixture.detectChanges();
+    const c = fixture.componentInstance as any;
+
+    expect(c.modoPosnet()).toBe('SEPARADO');
+    expect(c.valor().cierresPosnet).toEqual([
+      { formaPago: 'TARJETA', monto: 30000, nota: 'Point integrado' },
+      { formaPago: 'MERCADO_PAGO_QR', monto: 5000, nota: 'Point integrado' },
+    ]);
+
+    // Si el admin lo borra, no se vuelve a llenar solo.
+    c.actualizarCierre('TARJETA', 0, { monto: null });
+    fixture.detectChanges();
+    expect(c.cierresTarjeta()[0].monto).toBeNull();
+  });
+
+  it('no precarga el Point sobre una corrección (ya tiene sus cierres guardados)', () => {
+    const fixture = TestBed.createComponent(ConteoCierre);
+    fixture.componentRef.setInput('precarga', cajaBase());
+    fixture.componentRef.setInput('cobrosPoint', { tarjeta: 30000, qr: 0, cantidad: 1, sinVenta: [] });
+    fixture.detectChanges();
+    expect((fixture.componentInstance as any).valor().cierresPosnet).toEqual([]);
+  });
 });

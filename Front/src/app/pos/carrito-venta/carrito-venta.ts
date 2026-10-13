@@ -21,6 +21,8 @@ import { LucideMail, LucidePrinter, LucideTrash2 } from '@lucide/angular';
 import { FacturaService } from '../../services/factura.service';
 import { DestinoFactura, FacturacionPos } from '../../models/factura';
 import { ImpresorasService } from '../../services/impresoras.service';
+import { CobroPoint, FormaPagoPoint, PointService, TerminalPoint } from '../../services/point.service';
+import { CobroPointModal } from '../cobro-point/cobro-point';
 
 
 export interface ItemVentaResumen {
@@ -47,9 +49,25 @@ export interface VentaPosConfirmada {
 
 const EMAIL_VALIDO = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
+/** Una parte de la venta que se cobra con el Point: la tarjeta o el QR. */
+interface ParteCobroPoint {
+  forma: FormaPagoPoint;
+  monto: number;
+}
+
+/** La ventana del Point abierta: qué parte se cobra y con qué Point, o un cobro que se retoma. */
+interface PedidoPoint {
+  monto: number;
+  forma: FormaPagoPoint;
+  terminal: TerminalPoint;
+  reanudar: CobroPoint | null;
+  /** "Parte 1 de 2" en un pago mixto tarjeta + QR. */
+  paso: string | null;
+}
+
 @Component({
   selector: 'app-carrito-venta',
-  imports: [PesosPipe, DecimalPipe, FormsModule, MoneyInputDirective, LucideTrash2, LucidePrinter, LucideMail],
+  imports: [PesosPipe, DecimalPipe, FormsModule, MoneyInputDirective, LucideTrash2, LucidePrinter, LucideMail, CobroPointModal],
   templateUrl: './carrito-venta.html',
   styleUrl: './carrito-venta.css',
 })
@@ -111,6 +129,63 @@ export class CarritoVenta {
     const email = this.emailFactura().trim();
     return this.destinoFactura() === 'MAIL' && email !== '' && !EMAIL_VALIDO.test(email);
   });
+
+  // ---------- Cobro con el Point de Mercado Pago: si esta tablet tiene un Point elegido y hay
+  // señal, la parte en tarjeta y/o QR se manda al Point y la venta se registra recién con los
+  // pagos aprobados. Sin Point (o sin señal) se anota a mano, como siempre. ----------
+  readonly point = inject(PointService);
+  /** Lo que hay que cobrar con el Point: la tarjeta y/o el QR (el total, o cada parte de un pago mixto). */
+  partesPoint = computed<ParteCobroPoint[]>(() => {
+    if (this.sinCobro()) return [];
+    const partes: ParteCobroPoint[] = [];
+    const agregar = (forma: FormaPagoPos | null, monto: number | null) => {
+      if ((forma === 'TARJETA' || forma === 'MERCADO_PAGO_QR') && monto !== null && monto > 0) partes.push({ forma, monto });
+    };
+    if (this.pagoMixtoActivo()) {
+      agregar(this.formaPago(), this.montoFormaPagoPrincipal());
+      agregar(this.formaPagoSecundaria(), this.montoFormaPagoSecundaria());
+    } else {
+      agregar(this.formaPago(), this.total());
+    }
+    return partes;
+  });
+  cobraConPoint = computed(() => this.partesPoint().length > 0 && this.point.usable());
+  /** Hay varios Points y esta tablet no eligió ninguno: no se sabe a cuál mandar el cobro. */
+  faltaElegirPoint = computed(
+    () => this.partesPoint().length > 0 && this.point.faltaElegir() && this.conectividad.enLinea()
+  );
+  /** Ventana del Point abierta: qué parte se cobra y con qué Point, o retomando un cobro que quedó esperando. */
+  pedidoPoint = signal<PedidoPoint | null>(null);
+  pedidosPointAbiertos = computed(() => {
+    const p = this.pedidoPoint();
+    return p ? [p] : [];
+  });
+  /** Lo que la ventana del Point le devuelve al cobro en curso. */
+  private resolverPoint: ((r: CobroPoint | 'manual' | null) => void) | null = null;
+  /** Cobros que el Point aprobó y todavía no son una venta (la venta se rechazó, se recargó la página...). */
+  cobrosSinVenta = computed(() => this.point.cobrosPendientes().filter((c) => c.estado === 'APROBADO' && c.compraId === null));
+  /** Qué cobro aprobado paga cada parte de esta venta (misma forma y mismo monto): esas partes no
+   * se vuelven a cobrar. Null en una parte que todavía hay que cobrar. */
+  private asignacionCobros = computed<(CobroPoint | null)[]>(() => {
+    const libres = [...this.cobrosSinVenta()];
+    return this.partesPoint().map((parte) => {
+      const i = libres.findIndex((c) => c.formaPago === parte.forma && c.monto === parte.monto);
+      return i >= 0 ? libres.splice(i, 1)[0] : null;
+    });
+  });
+  /** Los cobros aprobados que esta venta va a usar. */
+  cobrosQueSirven = computed(() =>
+    this.cobraConPoint() ? this.asignacionCobros().filter((c): c is CobroPoint => c !== null) : []
+  );
+  /** Cobros aprobados que no son de esta venta: hay que devolverlos o descartarlos antes de cobrar
+   * otra vez con el Point (si no, quedarían olvidados). */
+  cobrosQueSobran = computed(() => {
+    const usados = new Set(this.cobrosQueSirven().map((c) => c.id));
+    return this.cobrosSinVenta().filter((c) => !usados.has(c.id));
+  });
+  /** Ya está todo cobrado en el Point: "Registrar venta" sin pasar otra tarjeta. */
+  todoCobradoEnPoint = computed(() => this.cobraConPoint() && this.asignacionCobros().every((c) => c !== null));
+  devolviendoCobroId = signal<number | null>(null);
 
   promocionesActivas = computed(() => this.promociones().filter((p) => p.activo));
 
@@ -299,6 +374,11 @@ export class CarritoVenta {
       (!this.tieneEntradas() || this.tieneObligatorio()) &&
       !this.faltaCompletarPagoDolares() &&
       !this.faltaCompletarPagoMixto() &&
+      !this.faltaElegirPoint() &&
+      this.pedidoPoint() === null &&
+      // Un cobro aprobado sin venta que no es de este monto: antes de pasar otra tarjeta hay que
+      // devolverlo o descartarlo, si no quedaría olvidado.
+      !(this.cobraConPoint() && this.cobrosQueSobran().length > 0) &&
       // Las validaciones de factura sólo cuentan si de verdad se va a facturar: con la
       // facturación apagada o una venta de $0 el selector no se ve, y un email mal escrito que
       // quedó cargado no puede trabar el cobro sin que el cajero vea por qué.
@@ -310,6 +390,9 @@ export class CarritoVenta {
 
   motivoBloqueo = computed(() => {
     if (!this.hayItems()) return null;
+    if (this.faltaElegirPoint()) {
+      return 'Elegí el Point de esta tablet en el botón de dispositivos (o "Sin Point" para anotar la tarjeta a mano).';
+    }
     // Una venta sólo de artículos (sin entradas) no exige ningún pase obligatorio.
     if (this.tieneEntradas() && !this.tieneObligatorio()) {
       const obligatorios = this.tiposEntrada().filter((t) => t.obligatorio).map((t) => t.nombre).join(' o ');
@@ -320,6 +403,20 @@ export class CarritoVenta {
 
   constructor() {
     this.facturaService.actualizarEstadoServicio();
+
+    // Se recargó la página con un cobro esperando en el Point: se retoma esa espera (sin carrito:
+    // si sale aprobado queda el aviso de "cobro sin venta" para usarlo o devolverlo).
+    const pendiente = this.point.cobrosPendientes().find((c) => c.enCurso);
+    if (pendiente) {
+      const terminal = this.point.terminales().find((t) => t.id === pendiente.terminalId) ?? {
+        id: pendiente.terminalId,
+        nombre: 'Point',
+        serie: '',
+        modo: 'PDV',
+        integrado: true,
+      };
+      this.pedidoPoint.set({ monto: pendiente.monto, forma: pendiente.formaPago, terminal, reanudar: pendiente, paso: null });
+    }
 
     // Si se corta la señal con "Imprimir" marcado, pasa a mail (vacío = sin factura): imprimir
     // no se puede, y así el botón Cobrar no queda trabado sin que se entienda por qué.
@@ -577,6 +674,88 @@ export class CarritoVenta {
 
   async cobrar(): Promise<void> {
     if (!this.puedeCobrar()) return;
+    if (!this.cobraConPoint()) {
+      await this.registrar([]);
+      return;
+    }
+    // Primero se cobra en el Point cada parte que falta (tarjeta y/o QR, de a una); la venta se
+    // registra recién con todo aprobado. Lo ya aprobado de un intento anterior no se vuelve a cobrar.
+    this.error.set(null);
+    const partes = this.partesPoint();
+    const asignados = this.asignacionCobros();
+    const terminal = this.point.efectiva()!;
+    const ids: number[] = [];
+    for (let i = 0; i < partes.length; i++) {
+      const ya = asignados[i];
+      if (ya) {
+        ids.push(ya.id);
+        continue;
+      }
+      const paso = partes.length > 1 ? `Parte ${i + 1} de ${partes.length}` : null;
+      const r = await this.cobrarParteEnPoint({ monto: partes[i].monto, forma: partes[i].forma, terminal, reanudar: null, paso });
+      if (r === null) return; // no salió o se canceló: el carrito queda como estaba
+      if (r !== 'manual') ids.push(r.id);
+    }
+    await this.registrar(ids);
+  }
+
+  private cobrarParteEnPoint(pedido: PedidoPoint): Promise<CobroPoint | 'manual' | null> {
+    return new Promise((resolve) => {
+      this.resolverPoint = resolve;
+      this.pedidoPoint.set(pedido);
+    });
+  }
+
+  private cerrarPoint(r: CobroPoint | 'manual' | null): void {
+    const pedido = this.pedidoPoint();
+    this.pedidoPoint.set(null);
+    const resolver = this.resolverPoint;
+    this.resolverPoint = null;
+    // Retomado después de recargar: no hay cobro en curso que lo espere; si salió aprobado queda
+    // el aviso de cobro sin venta.
+    if (pedido?.reanudar || !resolver) return;
+    resolver(r);
+  }
+
+  onPointAprobado(cobro: CobroPoint): void {
+    this.cerrarPoint(cobro);
+  }
+
+  /** El Point no confirmó pero el boletero vio que el pago salió: esa parte va anotada a mano. */
+  onPointAMano(): void {
+    this.cerrarPoint('manual');
+  }
+
+  onPointCerrado(): void {
+    this.cerrarPoint(null);
+  }
+
+  /** Devuelve al cliente un cobro aprobado que no terminó en venta. */
+  devolverCobroSinVenta(c: CobroPoint): void {
+    this.devolviendoCobroId.set(c.id);
+    this.error.set(null);
+    this.point.devolverCobro(c.id).subscribe({
+      next: () => {
+        this.devolviendoCobroId.set(null);
+        this.point.olvidarCobros([c.id]);
+      },
+      error: (err) => {
+        this.devolviendoCobroId.set(null);
+        this.error.set(typeof err?.error === 'string' && err.error ? err.error : 'No se pudo devolver el cobro.');
+      },
+    });
+  }
+
+  /** El boletero ya lo resolvió por su cuenta (cargó la venta a mano, lo devolvió en el Point...). */
+  descartarCobroSinVenta(c: CobroPoint): void {
+    this.point.olvidarCobros([c.id]);
+  }
+
+  etiquetaFormaPoint(forma: FormaPagoPoint): string {
+    return forma === 'MERCADO_PAGO_QR' ? 'QR' : 'tarjeta';
+  }
+
+  private async registrar(cobrosPointIds: number[]): Promise<void> {
     const formaPago: FormaPagoVentaPos | null = this.sinCobro() ? 'SIN_COBRO' : this.formaPago();
     if (formaPago === null) return;
 
@@ -618,6 +797,7 @@ export class CarritoVenta {
       ...dolaresPayload,
       ...pagoMixtoPayload,
       ...(facturacion ? { facturacion } : {}),
+      ...(cobrosPointIds.length ? { cobrosPointIds } : {}),
     };
 
     // Toda venta pasa por la cola: si hay señal se confirma al instante y sigue todo igual que
@@ -628,6 +808,12 @@ export class CarritoVenta {
     const pagoMixtoConfirmado = this.pagoMixtoActivo()
       ? { formaPagoSecundaria: this.formaPagoSecundaria(), montoFormaPagoSecundaria: this.montoFormaPagoSecundaria() }
       : { formaPagoSecundaria: null, montoFormaPagoSecundaria: null };
+
+    // Registrada o guardada en la cola: el cobro del Point ya es de esta venta (si la cola la
+    // sincroniza después, viaja con su id). Rechazada, el cobro queda para reintentar o devolver.
+    if (cobrosPointIds.length && (resultado.confirmada || !resultado.rechazada)) {
+      this.point.olvidarCobros(cobrosPointIds);
+    }
 
     if (resultado.confirmada) {
       this.ventaRegistrada.emit({ venta: resultado.resultado, formaPago, vuelto, items, pagoEnDolares, pendiente: false, ...pagoMixtoConfirmado, facturacion });

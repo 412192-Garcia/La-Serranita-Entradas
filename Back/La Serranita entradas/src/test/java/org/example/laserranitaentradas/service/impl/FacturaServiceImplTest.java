@@ -46,15 +46,17 @@ class FacturaServiceImplTest {
     @Mock private org.example.laserranitaentradas.service.EmailService emailService;
     @Mock private org.example.laserranitaentradas.service.impresion.ImpresionService impresionService;
     @Mock private org.example.laserranitaentradas.service.CalculoPrecioService calculoPrecioService;
+    @Mock private org.example.laserranitaentradas.service.ModulosService modulos;
 
     private FacturaServiceImpl service;
 
     @BeforeEach
     void setUp() {
         service = new FacturaServiceImpl(facturaRepository, wsfe, afipClient, eventPublisher, transactionManager, em,
-                comprobanteFacturaService, pdfGenerator, emailService, impresionService, calculoPrecioService);
+                comprobanteFacturaService, pdfGenerator, emailService, impresionService, calculoPrecioService, modulos);
         ReflectionTestUtils.setField(service, "puntoVentaBoleteria", 5);
         when(afipClient.estaConfigurado()).thenReturn(true);
+        lenient().when(modulos.activo(org.example.laserranitaentradas.model.entity.Modulo.FACTURACION)).thenReturn(true);
         when(afipClient.getCuit()).thenReturn("20409378472");
         when(facturaRepository.save(any(Factura.class))).thenAnswer(inv -> {
             Factura f = inv.getArgument(0);

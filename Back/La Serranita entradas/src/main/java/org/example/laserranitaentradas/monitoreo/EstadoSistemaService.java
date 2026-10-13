@@ -15,6 +15,8 @@ import org.example.laserranitaentradas.repository.FacturaRepository;
 import org.example.laserranitaentradas.repository.TrabajoImpresionRepository;
 import org.example.laserranitaentradas.service.CajaService;
 import org.example.laserranitaentradas.service.FacturaService;
+import org.example.laserranitaentradas.service.ModulosService;
+import org.example.laserranitaentradas.model.entity.Modulo;
 import org.example.laserranitaentradas.service.impresion.ImpresionService;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
@@ -68,6 +70,7 @@ public class EstadoSistemaService {
     private final MetricasRequests metricasRequests;
     private final AnomaliasVentas anomaliasVentas;
     private final PedidoBackup pedidoBackup;
+    private final ModulosService modulos;
 
     @Value("${app.backups.dir:/backups}")
     private String carpetaBackups;
@@ -94,7 +97,7 @@ public class EstadoSistemaService {
                                 AuditoriaService auditoriaService, EstadoMails estadoMails, JdbcTemplate jdbc,
                                 ObjectProvider<BuildProperties> build, EstadoTareas estadoTareas,
                                 TerminalesService terminalesService, MetricasRequests metricasRequests,
-                                AnomaliasVentas anomaliasVentas, PedidoBackup pedidoBackup) {
+                                AnomaliasVentas anomaliasVentas, PedidoBackup pedidoBackup, ModulosService modulos) {
         this.facturaService = facturaService;
         this.facturaRepository = facturaRepository;
         this.compraRepository = compraRepository;
@@ -112,6 +115,7 @@ public class EstadoSistemaService {
         this.metricasRequests = metricasRequests;
         this.anomaliasVentas = anomaliasVentas;
         this.pedidoBackup = pedidoBackup;
+        this.modulos = modulos;
     }
 
     @Transactional(readOnly = true)
@@ -155,6 +159,9 @@ public class EstadoSistemaService {
     // ---------- tarjetas ----------
 
     private Tarjeta facturacion() {
+        if (!modulos.activo(Modulo.FACTURACION)) {
+            return new Tarjeta("facturacion", "Facturación", "INFO", "Apagada", List.of("Apagada desde Sistema > Módulos: se vende sin factura."), null);
+        }
         if (!facturaService.estaHabilitada()) {
             return new Tarjeta("facturacion", "Facturación", "INFO", "Apagada", List.of("Sin configurar en el servidor: se vende sin factura."), null);
         }

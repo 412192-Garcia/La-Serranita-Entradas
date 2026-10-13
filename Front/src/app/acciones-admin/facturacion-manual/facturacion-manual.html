@@ -177,7 +177,7 @@
       }
       @if (destino() === 'IMPRIMIR') {
         <div class="fila-ticketera">
-          <app-selector-ticketera alinear="izquierda" />
+          <app-selector-dispositivos alinear="izquierda" [conPoint]="false" />
           @if (impresoras.motivoNoDisponible(); as motivo) {
             <p class="nota">{{ motivo }}</p>
           } @else {

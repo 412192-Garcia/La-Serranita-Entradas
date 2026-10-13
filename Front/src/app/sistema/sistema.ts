@@ -7,9 +7,10 @@ import { HistorialAcciones } from './historial-acciones/historial-acciones';
 import { ErroresSistema } from './errores-sistema/errores-sistema';
 import { RendimientoSistema } from './rendimiento-sistema/rendimiento-sistema';
 import { RechazosOperaciones } from './rechazos-operaciones/rechazos-operaciones';
+import { ModulosSistema } from './modulos-sistema/modulos-sistema';
 import { RechazoService } from '../services/rechazo.service';
 
-type Tab = 'estado' | 'historial' | 'errores' | 'rendimiento' | 'rechazos';
+type Tab = 'estado' | 'historial' | 'errores' | 'rendimiento' | 'rechazos' | 'modulos';
 
 const PASOS_POR_TAB: Record<Tab, TourStep[]> = {
   estado: [
@@ -47,16 +48,28 @@ const PASOS_POR_TAB: Record<Tab, TourStep[]> = {
       texto: 'Ventas, retiros/aportes, ingresos o retiros de entradas y mails que el servidor rechazó (dato inválido, caja ya cerrada, etc.). Desde acá se resuelven o reintentan.',
     },
   ],
+  modulos: [
+    {
+      selector: '[data-tour="modulos-sistema"]',
+      titulo: 'Módulos',
+      texto: 'Prendé o apagá partes del sistema, como la facturación o el cobro con Point. Apagar pide confirmar con un segundo toque.',
+    },
+    {
+      selector: '[data-tour="points-sistema"]',
+      titulo: 'Points de Mercado Pago',
+      texto: 'Los Points de la cuenta: el nombre que ven las tablets y si están integrados (reciben los cobros de la tablet) o en manual.',
+    },
+  ],
 };
 
 /**
  * Sistema (SUPERADMIN): monitoreo y trazabilidad. Estado de cada área, historial de acciones,
- * errores, rendimiento y operaciones rechazadas. Las otras pantallas pueden mandar directo a una pestaña (?tab=errores&area=PAGOS,
+ * errores, rendimiento, operaciones rechazadas y los módulos que se pueden apagar. Las otras pantallas pueden mandar directo a una pestaña (?tab=errores&area=PAGOS,
  * ?tab=historial&accion=LOGIN_FALLIDO).
  */
 @Component({
   selector: 'app-sistema',
-  imports: [CabeceraInterna, EstadoSistemaPanel, HistorialAcciones, ErroresSistema, RendimientoSistema, RechazosOperaciones],
+  imports: [CabeceraInterna, EstadoSistemaPanel, HistorialAcciones, ErroresSistema, RendimientoSistema, RechazosOperaciones, ModulosSistema],
   templateUrl: './sistema.html',
   styleUrl: './sistema.css',
 })
@@ -77,7 +90,7 @@ export class Sistema implements OnInit {
   ngOnInit(): void {
     this.route.queryParamMap.subscribe((q) => {
       const tab = q.get('tab');
-      if (tab === 'historial' || tab === 'errores' || tab === 'estado' || tab === 'rendimiento' || tab === 'rechazos') this.tab.set(tab);
+      if (tab === 'historial' || tab === 'errores' || tab === 'estado' || tab === 'rendimiento' || tab === 'rechazos' || tab === 'modulos') this.tab.set(tab);
       this.accionInicial.set(q.get('accion'));
       this.areaInicial.set(q.get('area'));
     });

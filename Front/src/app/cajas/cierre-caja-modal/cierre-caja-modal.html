@@ -3,7 +3,7 @@
     <h3>Cerrar caja</h3>
 
     <div class="cuerpo-cierre">
-      <app-conteo-cierre [cajaId]="cajaId()" [huboVentaDolares]="huboVentaDolares()" [dosColumnas]="true">
+      <app-conteo-cierre [cajaId]="cajaId()" [huboVentaDolares]="huboVentaDolares()" [dosColumnas]="true" [cobrosPoint]="resumenPoint()">
         <!-- Se proyecta al final de la columna derecha (posnet/entradas), donde queda lugar libre. -->
         <section class="seccion-cierre seccion-movimientos" data-tour="cierre-movimientos">
           <h4>Movimientos de caja</h4>
@@ -22,6 +22,7 @@
       </app-conteo-cierre>
     </div>
 
+    <app-cobros-point-sin-venta [cajaId]="cajaId()" (resumenCargado)="resumenPoint.set($event)" />
     @if (errorCierre()) {
       <p class="alerta-error">{{ errorCierre() }}</p>
     }

@@ -60,6 +60,7 @@ class CompraServiceImplTest {
     @Mock private PagoService efectivoEstrategia;
     @Mock private PagoService reservaAdminEstrategia;
     @Mock private EntityManager em;
+    @Mock private org.example.laserranitaentradas.service.point.CobroPointService cobroPointService;
     /** El propio bean visto por el proxy de Spring. Sólo lo usa iniciarCompraConPago, que
      *  ningún test de acá ejercita (necesitaría el contexto de Spring para que el proxy exista
      *  de verdad): va un mock para poder construir el service. */
@@ -78,7 +79,7 @@ class CompraServiceImplTest {
                 articuloVarioRepository, facturaService, List.of(mercadoPagoEstrategia, efectivoEstrategia, reservaAdminEstrategia), em,
                 // `self` sólo lo usa iniciarCompraConPago para cruzar el proxy de Spring; los
                 // tests llaman a create() directo, así que alcanza con el propio service.
-                autoReferencia);
+                autoReferencia, cobroPointService);
         // El webhook y la verificación directa confirman a través de `self` (para tener la
         // transacción de confirmarAprobado): el mock la delega al service real.
         lenient().when(autoReferencia.confirmarAprobado(any(), any(), any())).thenAnswer(inv ->

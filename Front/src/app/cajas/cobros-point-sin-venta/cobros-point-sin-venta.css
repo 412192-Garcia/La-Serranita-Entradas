@@ -1,0 +1,77 @@
+:host {
+  display: contents;
+}
+
+/* Plata cobrada por el Point que no quedó como venta: hay que revisarla antes de cerrar. */
+.aviso-cobros-sin-venta {
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background-color: var(--color-accent-light);
+  color: var(--color-text);
+  font-size: 0.85rem;
+  text-align: left;
+}
+
+.aviso-cobros-sin-venta p {
+  margin: 0 0 6px;
+  color: inherit;
+  font-size: inherit;
+}
+
+.aviso-cobros-sin-venta ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.aviso-cobros-sin-venta li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.btn-devolver {
+  padding: 6px 12px;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-card-bg);
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-devolver:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-primary-dark);
+}
+
+.btn-devolver:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.btn-devolver:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(57, 169, 53, 0.35);
+}
+
+.error-point {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background-color: var(--color-danger-light);
+  color: var(--color-danger-dark);
+  font-size: 0.85rem;
+}
+
+@media (pointer: coarse) {
+  .btn-devolver {
+    min-height: 44px;
+  }
+}

@@ -12,10 +12,12 @@ import org.example.laserranitaentradas.model.entity.EstadoCompra;
 import org.example.laserranitaentradas.model.entity.EstadoFactura;
 import org.example.laserranitaentradas.model.entity.Factura;
 import org.example.laserranitaentradas.model.entity.FormaPago;
+import org.example.laserranitaentradas.model.entity.Modulo;
 import org.example.laserranitaentradas.model.entity.TrabajoImpresion;
 import org.example.laserranitaentradas.repository.FacturaRepository;
 import org.example.laserranitaentradas.service.CalculoPrecioService;
 import org.example.laserranitaentradas.service.EmailService;
+import org.example.laserranitaentradas.service.ModulosService;
 import org.example.laserranitaentradas.service.FacturaService;
 import org.example.laserranitaentradas.service.factura.ComprobanteFacturaService;
 import org.example.laserranitaentradas.service.factura.FacturaPdfGenerator;
@@ -84,6 +86,7 @@ public class FacturaServiceImpl implements FacturaService {
     private final EmailService emailService;
     private final ImpresionService impresionService;
     private final CalculoPrecioService calculoPrecioService;
+    private final ModulosService modulos;
 
     /**
      * ARCA numera en orden estricto por punto de venta: dos emisiones a la vez pedirían el mismo
@@ -107,7 +110,7 @@ public class FacturaServiceImpl implements FacturaService {
                               EntityManager em,
                               ComprobanteFacturaService comprobanteFacturaService, FacturaPdfGenerator pdfGenerator,
                               EmailService emailService, ImpresionService impresionService,
-                              CalculoPrecioService calculoPrecioService) {
+                              CalculoPrecioService calculoPrecioService, ModulosService modulos) {
         this.facturaRepository = facturaRepository;
         this.wsfe = wsfe;
         this.afipClient = afipClient;
@@ -121,11 +124,13 @@ public class FacturaServiceImpl implements FacturaService {
         this.emailService = emailService;
         this.impresionService = impresionService;
         this.calculoPrecioService = calculoPrecioService;
+        this.modulos = modulos;
     }
 
+    /** Configurada en el servidor (certificado de ARCA) y no apagada desde Sistema > Módulos. */
     @Override
     public boolean estaHabilitada() {
-        return afipClient.estaConfigurado();
+        return afipClient.estaConfigurado() && modulos.activo(Modulo.FACTURACION);
     }
 
     @Override

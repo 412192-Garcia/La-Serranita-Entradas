@@ -6,6 +6,7 @@ import { NotificacionService } from '../services/notificacion.service';
 import { CabeceraInterna } from '../shared/cabecera-interna/cabecera-interna';
 import { Spinner } from '../shared/spinner/spinner';
 import { CierreCajaModal } from './cierre-caja-modal/cierre-caja-modal';
+import { CobrosPointSinVenta } from './cobros-point-sin-venta/cobros-point-sin-venta';
 import { ResumenCierre } from './resumen-cierre/resumen-cierre';
 import { CajaOperaciones } from './caja-operaciones/caja-operaciones';
 import { Modal } from '../shared/modal/modal';
@@ -24,7 +25,7 @@ const CAJAS_CERRADAS_POR_PAGINA = 20;
 import { FacturaService } from '../services/factura.service';
 @Component({
   selector: 'app-configuracion-cajas',
-  imports: [FormsModule, PesosPipe, DatePipe, CabeceraInterna, Spinner, CierreCajaModal, ResumenCierre, Modal, CajaOperaciones, ColumnaOrdenable],
+  imports: [FormsModule, PesosPipe, DatePipe, CabeceraInterna, Spinner, CierreCajaModal, CobrosPointSinVenta, ResumenCierre, Modal, CajaOperaciones, ColumnaOrdenable],
   templateUrl: './cajas.html',
   styleUrls: ['../configuracion/configuracion-shared.css', './cajas.css'],
 })

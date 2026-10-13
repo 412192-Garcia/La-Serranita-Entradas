@@ -162,6 +162,7 @@
       <div class="dialogo-confirmacion">
         <h3>Cerrar esta caja</h3>
         <p>Esta caja no requiere ningun ingreso de cierre.</p>
+        <app-cobros-point-sin-venta [cajaId]="id" />
         <div class="acciones-dialogo-confirmacion">
           <button type="button" class="btn-limpiar" (click)="confirmandoCierreSinControlId.set(null)">Cancelar</button>
           <button type="button" class="btn-primario" (click)="confirmarCierreSinControl()">Cerrar caja</button>

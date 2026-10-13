@@ -145,6 +145,8 @@ export interface VentaPosRequest extends DescuentoPos {
   montoFormaPagoSecundaria?: number | null;
   /** "Imprimir factura" / "Enviar por mail". Ausente = no se factura. */
   facturacion?: FacturacionPos;
+  /** Cobros con el Point (ya aprobados) que pagaron la parte en tarjeta y/o QR. Ausente = anotada a mano. */
+  cobrosPointIds?: number[];
 }
 
 /** Corrección de una venta de puerta (ADMIN): reemplaza entradas, artículos y forma de pago por completo (mandar la lista final, no un diff). */

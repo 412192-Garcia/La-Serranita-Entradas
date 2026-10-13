@@ -4,6 +4,8 @@ import { RetiroEfectivoModal } from '../../shared/retiro-efectivo-modal/retiro-e
 import { Modal } from '../../shared/modal/modal';
 import { PesosPipe } from '../../shared/pesos.pipe';
 import { ConteoCierre } from '../conteo-cierre/conteo-cierre';
+import { ResumenCajaPoint } from '../../services/point.service';
+import { CobrosPointSinVenta } from '../cobros-point-sin-venta/cobros-point-sin-venta';
 
 /**
  * Vive en Cajas (admin), no en POS: cerrar caja dejó de ser self-service — un ADMIN es quien
@@ -13,7 +15,7 @@ import { ConteoCierre } from '../conteo-cierre/conteo-cierre';
  */
 @Component({
   selector: 'app-cierre-caja-modal',
-  imports: [RetiroEfectivoModal, Modal, PesosPipe, ConteoCierre],
+  imports: [RetiroEfectivoModal, Modal, PesosPipe, ConteoCierre, CobrosPointSinVenta],
   templateUrl: './cierre-caja-modal.html',
   styleUrl: './cierre-caja-modal.css',
 })
@@ -31,6 +33,9 @@ export class CierreCajaModal {
   cajaActualizada = output<Caja>();
 
   private conteo = viewChild.required(ConteoCierre);
+
+  /** Lo que cobró el Point en esta caja (lo trae CobrosPointSinVenta): precarga el posnet. */
+  resumenPoint = signal<ResumenCajaPoint | null>(null);
 
   huboVentaDolares = computed(() => this.cajaAbierta()?.huboVentaDolares ?? false);
   retirosMostrados = computed(() => this.cajaAbierta()?.retiros ?? []);

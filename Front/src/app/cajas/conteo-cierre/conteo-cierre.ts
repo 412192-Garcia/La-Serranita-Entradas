@@ -1,8 +1,9 @@
-import { Component, computed, effect, input, signal } from '@angular/core';
+import { Component, computed, effect, input, signal, untracked } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Caja, CierrePosnetInput, ConteoDenominacion, FormaPagoPosnet } from '../../services/caja.service';
 import { MoneyInputDirective } from '../../shared/money-input/money-input.directive';
 import { PesosPipe } from '../../shared/pesos.pipe';
+import { ResumenCajaPoint } from '../../services/point.service';
 
 /** Billetes de curso legal actual en Argentina (sin monedas). */
 const DENOMINACIONES = [100, 200, 500, 1000, 2000, 10000, 20000];
@@ -40,6 +41,10 @@ export class ConteoCierre {
   huboVentaDolares = input(false);
   /** true = efectivo a la izquierda, resto a la derecha (modal ancho). false (default) = todo apilado (columna angosta de "Corregir caja"). */
   dosColumnas = input(false);
+  /** Lo que cobró el Point integrado en esta caja (sólo en un cierre nuevo): precarga el posnet. */
+  cobrosPoint = input<ResumenCajaPoint | null>(null);
+  /** Cuánto se precargó desde el Point, para avisarlo arriba de las filas. */
+  precargadoPoint = signal<{ tarjeta: number; qr: number } | null>(null);
 
   readonly denominaciones = DENOMINACIONES;
   conteoEfectivo = signal<Record<number, number>>({});
@@ -56,6 +61,7 @@ export class ConteoCierre {
   );
 
   private ultimaCajaId: number | null | 'ninguna' = 'ninguna';
+  private resumenAplicado: ResumenCajaPoint | null = null;
 
   constructor() {
     effect(() => {
@@ -65,6 +71,23 @@ export class ConteoCierre {
       this.ultimaCajaId = idObjetivo;
       if (caja) this.precargarDesdeCaja(caja);
       else this.resetearEstado();
+    });
+
+    // Cierre nuevo: lo que cobró el Point integrado ya lo sabe el sistema, así que se precarga por
+    // separado (tarjeta y QR). El admin suma los cierres de otros posnet o del Point en modo manual.
+    // Sólo si el posnet todavía está vacío: nunca pisa lo que ya se tipeó.
+    effect(() => {
+      const resumen = this.cobrosPoint();
+      // Una sola vez por resumen: si después el admin borra las filas, no se vuelven a llenar.
+      if (!resumen || resumen === this.resumenAplicado || this.precarga() || (resumen.tarjeta <= 0 && resumen.qr <= 0)) return;
+      this.resumenAplicado = resumen;
+      const vacio = untracked(() => [...this.cierresTarjeta(), ...this.cierresQr(), ...this.cierresCombinados()]).every((f) => f.monto === null);
+      if (!vacio) return;
+      const fila = (monto: number) => [{ monto: monto > 0 ? monto : null, nota: monto > 0 ? 'Point integrado' : '' }];
+      this.modoPosnet.set('SEPARADO');
+      this.cierresTarjeta.set(fila(resumen.tarjeta));
+      this.cierresQr.set(fila(resumen.qr));
+      this.precargadoPoint.set({ tarjeta: resumen.tarjeta, qr: resumen.qr });
     });
   }
 
@@ -106,6 +129,7 @@ export class ConteoCierre {
   }
 
   private resetearEstado(): void {
+    this.precargadoPoint.set(null);
     this.conteoEfectivo.set({});
     this.cambioContado.set(null);
     this.modoPosnet.set('COMBINADO');

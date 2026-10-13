@@ -171,7 +171,7 @@ export class CajaOperaciones implements OnInit {
 
   cancelar(op: OperacionCaja): void {
     if (op.compraId === null) return;
-    if (!window.confirm(`¿Cancelar esta venta (${op.detalle})? Deja de contar para el cupo diario, la caja y los reportes. Si estaba facturada, se emite una nota de crédito por el total.`)) return;
+    if (!window.confirm(`¿Cancelar esta venta (${op.detalle})? Deja de contar para el cupo diario, la caja y los reportes. Si estaba facturada, se emite una nota de crédito por el total. Si se cobró con el Point, se le devuelve el pago al cliente.`)) return;
     this.cancelandoId.set(op.compraId);
     this.boleteriaService.cancelarVenta(op.compraId).subscribe({
       next: () => {

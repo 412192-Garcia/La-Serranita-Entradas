@@ -2,7 +2,7 @@
 
   <app-cabecera-interna
     titulo="Sistema"
-    descripcion="Monitoreo y trazabilidad: cómo anda cada parte del sistema, quién hizo qué, los errores, los tiempos de respuesta y las operaciones que el servidor rechazó."
+    descripcion="Monitoreo y trazabilidad: cómo anda cada parte del sistema, quién hizo qué, los errores, los tiempos de respuesta, las operaciones que el servidor rechazó y los módulos que se pueden apagar."
     [pasosTutorial]="pasosTutorial()" />
 
   <nav class="tabs">
@@ -16,6 +16,7 @@
         <span class="punto-notificacion-tab" aria-label="Hay operaciones rechazadas pendientes"></span>
       }
     </button>
+    <button type="button" class="tab" [class.activo]="tab() === 'modulos'" (click)="elegir('modulos')">Módulos</button>
   </nav>
 
   @if (tab() === 'estado') {
@@ -26,7 +27,9 @@
     <app-errores-sistema [areaInicial]="areaInicial()" />
   } @else if (tab() === 'rendimiento') {
     <app-rendimiento-sistema />
-  } @else {
+  } @else if (tab() === 'rechazos') {
     <app-rechazos-operaciones />
+  } @else {
+    <app-modulos-sistema />
   }
 </div>

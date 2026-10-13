@@ -81,4 +81,11 @@ public class VentaPosRequestDTO {
      * la cola offline antes de que existiera la facturación.
      */
     FacturacionPosDTO facturacion;
+
+    /**
+     * Cobros con el Point de Mercado Pago que pagaron la parte en tarjeta y/o QR de esta venta (ver
+     * CobroPoint): el POS cobra primero y manda la venta recién con los pagos aprobados. Vacío si
+     * se cobró en el posnet y se anota a mano, o si no hay tarjeta ni QR.
+     */
+    List<Long> cobrosPointIds;
 }

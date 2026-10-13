@@ -32,7 +32,7 @@ import { TipoEntradaService } from '../../services/tipo-entrada.service';
 import { ArticuloVarioService } from '../../services/articulo-vario.service';
 import { PesosPipe } from '../../shared/pesos.pipe';
 import { Spinner } from '../../shared/spinner/spinner';
-import { SelectorTicketera } from '../../pos/selector-ticketera/selector-ticketera';
+import { SelectorDispositivos } from '../../pos/selector-dispositivos/selector-dispositivos';
 import { FacturacionLote } from '../facturacion-lote/facturacion-lote';
 
 /** Un renglón del formulario. `origen` es "libre", "e:<id>" (entrada) o "a:<id>" (artículo). */
@@ -64,7 +64,7 @@ const MAX_REFRESCOS = 24;
  */
 @Component({
   selector: 'app-facturacion-manual',
-  imports: [FormsModule, DatePipe, PesosPipe, Spinner, SelectorTicketera, FacturacionLote, LucidePlus, LucideTrash2, LucideFileText, LucideMail,
+  imports: [FormsModule, DatePipe, PesosPipe, Spinner, SelectorDispositivos, FacturacionLote, LucidePlus, LucideTrash2, LucideFileText, LucideMail,
     LucidePrinter, LucideCircleAlert, LucideCircleCheck, LucideLoaderCircle],
   templateUrl: './facturacion-manual.html',
   styleUrl: './facturacion-manual.css',

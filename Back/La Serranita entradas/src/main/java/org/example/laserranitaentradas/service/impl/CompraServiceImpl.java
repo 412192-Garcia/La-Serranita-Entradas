@@ -33,6 +33,7 @@ import org.example.laserranitaentradas.repository.CompraRepository;
 import org.example.laserranitaentradas.repository.CompraSpecifications;
 import org.example.laserranitaentradas.repository.PromocionRepository;
 import org.example.laserranitaentradas.service.*;
+import org.example.laserranitaentradas.service.point.CobroPointService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Lazy;
@@ -87,6 +88,7 @@ public class CompraServiceImpl implements CompraService {
      *  @Transactional valga en una llamada de un método de esta clase a otro. @Lazy corta el
      *  ciclo de dependencia que si no tendría consigo mismo al construirse. */
     private final CompraService self;
+    private final CobroPointService cobroPointService;
 
     public CompraServiceImpl
             (CompraRepository compraRepository,
@@ -104,7 +106,8 @@ public class CompraServiceImpl implements CompraService {
              FacturaService facturaService,
              List<PagoService> estrategiasDisponibles,
              EntityManager em,
-             @Lazy CompraService self)
+             @Lazy CompraService self,
+             CobroPointService cobroPointService)
     {
         this.compraRepository = compraRepository;
         this.tipoEntradaService = tipoEntradaService;
@@ -123,6 +126,7 @@ public class CompraServiceImpl implements CompraService {
                 .collect(Collectors.toMap(PagoService::getFormaPago, estrategia -> estrategia));
         this.em = em;
         this.self = self;
+        this.cobroPointService = cobroPointService;
     }
 
     /**
@@ -1119,6 +1123,7 @@ public class CompraServiceImpl implements CompraService {
         Compra venta = request.getCompraReservadaId() != null
                 ? cobrarReservaComoVentaPos(request, caja, vendedor, idempotencyKey)
                 : crearVenta(request, caja, vendedor, idempotencyKey);
+        vincularCobroPoint(request, venta);
         // En la misma transacción que la venta: si la venta no se guarda, tampoco queda la
         // factura encolada. La emisión contra ARCA arranca recién después del commit.
         facturaService.solicitar(venta, request.getFacturacion());
@@ -1136,8 +1141,15 @@ public class CompraServiceImpl implements CompraService {
         // Queda a nombre del boletero dueño de la caja (no del admin que la carga): es una
         // venta que le faltó registrar a esa persona, no una del admin.
         Compra venta = crearVenta(request, caja, caja.getUsuario(), null);
+        vincularCobroPoint(request, venta);
         facturaService.solicitar(venta, request.getFacturacion());
         return venta;
+    }
+
+    /** Si la tarjeta se cobró con el Point, ata ese cobro a la venta (en la misma transacción:
+     * si el cobro no cierra con la venta, la venta no se registra). */
+    private void vincularCobroPoint(VentaPosRequestDTO request, Compra venta) {
+        cobroPointService.vincular(request.getCobrosPointIds(), venta);
     }
 
     /** Arma y guarda la venta contra una caja y un vendedor ya resueltos (turno propio o, vía
@@ -1559,6 +1571,11 @@ public class CompraServiceImpl implements CompraService {
         if (!"approved".equals(avisado.getStatus()) || avisado.getExternalReference() == null) {
             return false;
         }
+        // Los pagos del Point también avisan por "payment", pero no son compras online: los
+        // maneja CobroPointService por el aviso "order".
+        if (avisado.getExternalReference().startsWith(CobroPointService.PREFIJO_REFERENCIA)) {
+            return false;
+        }
         Compra compra = compraRepository.findByCodigoReserva(avisado.getExternalReference()).orElse(null);
         if (compra == null) {
             log.warn("Pago aprobado {} de Mercado Pago con external_reference {} que no corresponde a ninguna compra",
@@ -1718,9 +1735,11 @@ public class CompraServiceImpl implements CompraService {
         if (compra.getEstado() == EstadoCompra.CANCELADO) {
             throw new IllegalStateException("Esta venta ya está cancelada.");
         }
-        compra.setEstado(EstadoCompra.CANCELADO);
         AuditoriaContexto.referencia("#" + compra.getCodigoReserva());
         AuditoriaContexto.detalle("Monto: " + "$" + compra.getMontoTotal().stripTrailingZeros().toPlainString() + " · " + compra.getFormaPago());
+        // Pagada con el Point: se le devuelve la plata al cliente. Si MP no la acepta, no se cancela.
+        cobroPointService.devolverDeVenta(compra);
+        compra.setEstado(EstadoCompra.CANCELADO);
         // Si estaba facturada: nota de crédito (o anulación si la factura no llegó a ARCA).
         facturaService.alCancelarVenta(compra);
         return compraRepository.save(compra);
@@ -1810,6 +1829,8 @@ public class CompraServiceImpl implements CompraService {
         compra.setFormaPago(request.getFormaPago());
         compra.setMontoTotal(montoFinal);
         compra.setDescuentoAplicado(descuento);
+        // Lo que cobró el Point no se puede cambiar editando: ver CobroPointService#validarEdicion.
+        cobroPointService.validarEdicion(compra);
 
         Compra guardada = compraRepository.save(compra);
         AuditoriaContexto.cambio("Total", montoAnterior, guardada.getMontoTotal());

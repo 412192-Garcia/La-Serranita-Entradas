@@ -6,6 +6,7 @@ import com.mercadopago.resources.merchantorder.MerchantOrder;
 import com.mercadopago.resources.payment.Payment;
 import jakarta.servlet.http.HttpServletRequest;
 import org.example.laserranitaentradas.service.CompraService;
+import org.example.laserranitaentradas.service.point.CobroPointService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -28,6 +29,7 @@ public class PagoController {
     private static final Logger log = LoggerFactory.getLogger(PagoController.class);
 
     private final CompraService compraService;
+    private final CobroPointService cobroPointService;
 
     // Sin valor por defecto: si no está seteada, se salta la validación de firma (para
     // no romper el flujo de dev con ngrok, donde nunca se configuró) pero avisando fuerte
@@ -36,8 +38,9 @@ public class PagoController {
     @Value("${mercadopago.webhook-secret:}")
     private String webhookSecret;
 
-    public PagoController(CompraService compraService) {
+    public PagoController(CompraService compraService, CobroPointService cobroPointService) {
         this.compraService = compraService;
+        this.cobroPointService = cobroPointService;
     }
 
     @PostMapping("/webhook")
@@ -79,6 +82,16 @@ public class PagoController {
                 if (paymentId != null) {
                     // Nunca se confía en el cuerpo del aviso: el pago se trae de la API de MP con nuestro token.
                     confirmar(new PaymentClient().get(Long.parseLong(paymentId)));
+                }
+
+            } else if ("order".equals(evento)) {
+                // Órdenes del Point (cobros con tarjeta de la boletería): el id es el de la orden (ORD...).
+                String ordenId = dataId;
+                if (ordenId == null && payload != null && payload.get("data") instanceof Map<?, ?> data) {
+                    ordenId = data.get("id") != null ? String.valueOf(data.get("id")) : null;
+                }
+                if (ordenId != null) {
+                    cobroPointService.actualizarDesdeMercadoPago(ordenId);
                 }
 
             } else if ("merchant_order".equals(evento)) {
