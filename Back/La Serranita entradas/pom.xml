@@ -96,6 +96,14 @@
             <version>3.5.3</version>
         </dependency>
 
+        <!-- Firma CMS del pedido de ticket de acceso a WSAA (facturación con ARCA) y lectura de la
+             clave privada en PEM, sea PKCS#1 ("RSA PRIVATE KEY") o PKCS#8 ("PRIVATE KEY") -->
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcpkix-jdk18on</artifactId>
+            <version>1.80</version>
+        </dependency>
+
         <!-- Mercado Pago Java SDK -->
         <dependency>
             <groupId>com.mercadopago</groupId>

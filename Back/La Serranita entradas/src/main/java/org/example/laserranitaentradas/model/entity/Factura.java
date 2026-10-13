@@ -8,7 +8,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * Factura electrónica B (Consumidor Final) de una compra, autorizada por ARCA vía AfipSDK. Una
+ * Factura electrónica B (Consumidor Final) de una compra, autorizada por ARCA (WSFEv1). Una
  * factura manual también puede ser A, a un receptor identificado por CUIT (campos receptor*).
  *
  * Vive aparte de la Compra a propósito: la venta se confirma siempre, aunque ARCA esté caída,

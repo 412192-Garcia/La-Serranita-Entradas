@@ -4,7 +4,7 @@ import org.example.laserranitaentradas.model.dto.FacturacionPosDTO;
 import org.example.laserranitaentradas.model.entity.*;
 import org.example.laserranitaentradas.repository.FacturaRepository;
 import org.example.laserranitaentradas.service.afip.AfipException;
-import org.example.laserranitaentradas.service.afip.AfipSdkClient;
+import org.example.laserranitaentradas.service.afip.ArcaClient;
 import org.example.laserranitaentradas.service.afip.WsfeService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -37,7 +37,7 @@ class FacturaServiceImplTest {
 
     @Mock private FacturaRepository facturaRepository;
     @Mock private WsfeService wsfe;
-    @Mock private AfipSdkClient afipClient;
+    @Mock private ArcaClient afipClient;
     @Mock private ApplicationEventPublisher eventPublisher;
     @Mock private PlatformTransactionManager transactionManager;
     @Mock private jakarta.persistence.EntityManager em;
@@ -85,7 +85,7 @@ class FacturaServiceImplTest {
     }
 
     @Test
-    void sinAccessToken_noFacturaNiFalla() {
+    void sinCertificado_noFacturaNiFalla() {
         when(afipClient.estaConfigurado()).thenReturn(false);
         assertThat(service.solicitar(compra("2500", entrada()), pedido(DestinoFactura.IMPRIMIR, null))).isEmpty();
     }

@@ -8,7 +8,7 @@ import org.example.laserranitaentradas.model.entity.EstadoFactura;
 import org.example.laserranitaentradas.model.entity.Factura;
 import org.example.laserranitaentradas.model.entity.Usuario;
 import org.example.laserranitaentradas.repository.FacturaRepository;
-import org.example.laserranitaentradas.service.afip.AfipSdkClient;
+import org.example.laserranitaentradas.service.afip.ArcaClient;
 import org.example.laserranitaentradas.service.afip.WsfeService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,7 +34,7 @@ public class ComprobanteFacturaService {
     private static final BigDecimal DIVISOR_IVA_21 = new BigDecimal("1.21");
 
     private final FacturaRepository facturaRepository;
-    private final AfipSdkClient afipClient;
+    private final ArcaClient afipClient;
     private final ObjectMapper objectMapper;
 
     @Value("${afip.emisor.razon-social:PARQUE RECREATIVO LA SERRANITA S.A.S.}")
@@ -49,7 +49,7 @@ public class ComprobanteFacturaService {
     @Value("${afip.emisor.inicio-actividades:}")
     private String inicioActividades;
 
-    public ComprobanteFacturaService(FacturaRepository facturaRepository, AfipSdkClient afipClient, ObjectMapper objectMapper) {
+    public ComprobanteFacturaService(FacturaRepository facturaRepository, ArcaClient afipClient, ObjectMapper objectMapper) {
         this.facturaRepository = facturaRepository;
         this.afipClient = afipClient;
         this.objectMapper = objectMapper;
@@ -157,7 +157,8 @@ public class ComprobanteFacturaService {
      * comprobante en JSON y base64. Escanearlo lleva a la consulta de validez del comprobante.
      */
     public String qrUrl(Factura f) {
-        if (f.getEstado() != EstadoFactura.EMITIDA || f.getCae() == null) return null;
+        // Sin CUIT = la facturación ya no está configurada (ej. una base de prueba sin el certificado).
+        if (f.getEstado() != EstadoFactura.EMITIDA || f.getCae() == null || afipClient.getCuit() == null) return null;
         Map<String, Object> datos = new LinkedHashMap<>();
         datos.put("ver", 1);
         datos.put("fecha", f.getFechaEmision().toString());
