@@ -14,16 +14,31 @@ import java.util.Optional;
 
 /**
  * Traduce entre el dominio y los métodos de WSFEv1 de ARCA (manual del desarrollador
- * COMPG v4). Sólo lo que usa el parque: Factura B a Consumidor Final con IVA 21%.
+ * COMPG v4). Sólo lo que usa el parque: Factura B a Consumidor Final y, en la facturación manual,
+ * Factura A a un responsable inscripto o monotributista identificado por CUIT. Todo con IVA 21%.
  */
 @Component
 public class WsfeService {
 
+    public static final int CBTE_TIPO_FACTURA_A = 1;
+    public static final int CBTE_TIPO_NOTA_CREDITO_A = 3;
     public static final int CBTE_TIPO_FACTURA_B = 6;
     public static final int CBTE_TIPO_NOTA_CREDITO_B = 8;
     /** DocTipo 99 + DocNro 0 = consumidor final sin identificar. */
     private static final int DOC_TIPO_SIN_IDENTIFICAR = 99;
+    private static final int DOC_TIPO_CUIT = 80;
     private static final int CONDICION_IVA_CONSUMIDOR_FINAL = 5;
+
+    /**
+     * Condiciones frente al IVA del receptor que admiten Factura A (tabla FEParamGetCondicionIvaReceptor):
+     * responsable inscripto y las tres variantes de monotributo (RG 5003). Exento, no alcanzado y
+     * consumidor final van con Factura B.
+     */
+    public static final Map<Integer, String> CONDICIONES_IVA_FACTURA_A = Map.of(
+            1, "IVA Responsable Inscripto",
+            6, "Responsable Monotributo",
+            13, "Monotributista Social",
+            16, "Monotributo Trabajador Independiente Promovido");
     private static final int ALICUOTA_IVA_21 = 5;
     /** "No existen datos en nuestros registros": el comprobante consultado no existe. */
     private static final int ERROR_COMPROBANTE_INEXISTENTE = 602;
@@ -70,11 +85,51 @@ public class WsfeService {
                 new BigDecimal(c.path("ImpTotal").asText("0"))));
     }
 
+    public static boolean esNotaDeCredito(int tipoComprobante) {
+        return tipoComprobante == CBTE_TIPO_NOTA_CREDITO_A || tipoComprobante == CBTE_TIPO_NOTA_CREDITO_B;
+    }
+
+    public static boolean esFactura(int tipoComprobante) {
+        return tipoComprobante == CBTE_TIPO_FACTURA_A || tipoComprobante == CBTE_TIPO_FACTURA_B;
+    }
+
+    /** "A" o "B". */
+    public static String letra(int tipoComprobante) {
+        return tipoComprobante == CBTE_TIPO_FACTURA_A || tipoComprobante == CBTE_TIPO_NOTA_CREDITO_A ? "A" : "B";
+    }
+
+    /** "Factura A" / "Nota de Crédito B". */
+    public static String nombre(int tipoComprobante) {
+        return (esNotaDeCredito(tipoComprobante) ? "Nota de Crédito " : "Factura ") + letra(tipoComprobante);
+    }
+
+    /** La nota de crédito que anula una factura de este tipo (misma letra). */
+    public static int notaDeCreditoDe(int tipoFactura) {
+        return tipoFactura == CBTE_TIPO_FACTURA_A ? CBTE_TIPO_NOTA_CREDITO_A : CBTE_TIPO_NOTA_CREDITO_B;
+    }
+
+    /** CUIT con dígito verificador válido (11 dígitos, sin guiones). */
+    public static boolean cuitValido(String cuit) {
+        if (cuit == null || !cuit.matches("\\d{11}")) return false;
+        int[] pesos = {5, 4, 3, 2, 7, 6, 5, 4, 3, 2};
+        int suma = 0;
+        for (int i = 0; i < 10; i++) suma += (cuit.charAt(i) - '0') * pesos[i];
+        int verificador = 11 - (suma % 11);
+        if (verificador == 11) verificador = 0;
+        if (verificador == 10) return false;
+        return verificador == cuit.charAt(10) - '0';
+    }
+
     public ResultadoCae solicitarCae(SolicitudCae s) {
         Map<String, Object> det = new LinkedHashMap<>();
         det.put("Concepto", s.concepto());
-        det.put("DocTipo", DOC_TIPO_SIN_IDENTIFICAR);
-        det.put("DocNro", 0);
+        if (s.receptor() != null) {
+            det.put("DocTipo", DOC_TIPO_CUIT);
+            det.put("DocNro", Long.parseLong(s.receptor().cuit()));
+        } else {
+            det.put("DocTipo", DOC_TIPO_SIN_IDENTIFICAR);
+            det.put("DocNro", 0);
+        }
         det.put("CbteDesde", s.numero());
         det.put("CbteHasta", s.numero());
         det.put("CbteFch", s.fecha().format(FORMATO_FECHA));
@@ -94,7 +149,7 @@ public class WsfeService {
         }
         det.put("MonId", "PES");
         det.put("MonCotiz", 1);
-        det.put("CondicionIVAReceptorId", CONDICION_IVA_CONSUMIDOR_FINAL);
+        det.put("CondicionIVAReceptorId", s.receptor() != null ? s.receptor().condicionIva() : CONDICION_IVA_CONSUMIDOR_FINAL);
         // Nota de crédito: la factura que anula. Va antes de Iva: en el SOAP de ARCA el orden
         // de los campos importa, y AfipSDK respeta el orden de este mapa.
         if (s.asociado() != null) {
@@ -180,7 +235,11 @@ public class WsfeService {
 
     public record SolicitudCae(int puntoVenta, int tipoComprobante, int concepto, long numero,
                                LocalDate fecha, LocalDate fechaServicio,
-                               BigDecimal total, BigDecimal neto, BigDecimal iva, Asociado asociado) {}
+                               BigDecimal total, BigDecimal neto, BigDecimal iva, Asociado asociado,
+                               Receptor receptor) {}
+
+    /** Receptor identificado de una Factura A (o su nota de crédito). Null = consumidor final. */
+    public record Receptor(String cuit, int condicionIva) {}
 
     /** Comprobante que anula una nota de crédito. */
     public record Asociado(int tipo, int puntoVenta, long numero, LocalDate fecha) {}

@@ -362,7 +362,11 @@ public class FacturaServiceImpl implements FacturaService {
                 .comprobanteAsociado(factura)
                 .destino(DestinoFactura.NINGUNO)
                 .puntoVenta(factura.getPuntoVenta())
-                .tipoComprobante(WsfeService.CBTE_TIPO_NOTA_CREDITO_B)
+                .tipoComprobante(WsfeService.notaDeCreditoDe(factura.getTipoComprobante()))
+                .receptorCuit(factura.getReceptorCuit())
+                .receptorRazonSocial(factura.getReceptorRazonSocial())
+                .receptorDomicilio(factura.getReceptorDomicilio())
+                .receptorCondicionIva(factura.getReceptorCondicionIva())
                 .concepto(factura.getConcepto())
                 .fechaServicio(factura.getFechaServicio())
                 .importeTotal(factura.getImporteTotal())
@@ -467,7 +471,7 @@ public class FacturaServiceImpl implements FacturaService {
                 WsfeService.ResultadoCae resultado = wsfe.solicitarCae(new WsfeService.SolicitudCae(
                         pv, tipo, factura.getConcepto(), numero, fecha, factura.getFechaServicio(),
                         factura.getImporteTotal(), factura.getImporteNeto(), factura.getImporteIva(),
-                        asociado(factura)));
+                        asociado(factura), receptor(factura)));
 
                 if (resultado.aprobado()) {
                     marcarEmitida(id, numero, resultado.cae(), resultado.caeVencimiento(), fecha);
@@ -598,6 +602,12 @@ public class FacturaServiceImpl implements FacturaService {
         return new WsfeService.Asociado(a.getTipoComprobante(), a.getPuntoVenta(), a.getNumero(), a.getFechaEmision());
     }
 
+    /** El receptor identificado de una Factura A (o su nota de crédito); null = consumidor final. */
+    private static WsfeService.Receptor receptor(Factura f) {
+        if (f.getReceptorCuit() == null) return null;
+        return new WsfeService.Receptor(f.getReceptorCuit(), f.getReceptorCondicionIva());
+    }
+
     /** Número a pedir y de dónde salió (si vino de la base, un rechazo se corrige preguntando a ARCA). */
     private record Numero(long valor, boolean deLaBase) {}
 
@@ -715,7 +725,8 @@ public class FacturaServiceImpl implements FacturaService {
             throw new IllegalStateException("La facturación no está configurada");
         }
         Factura factura = facturaRepository.save(armarManual(pedido));
-        log.info("Factura manual ID {} pedida por {} ({} ítems)", factura.getId(), factura.getImporteTotal(), pedido.items().size());
+        log.info("Factura manual {} ID {} pedida por {} ({} ítems)", WsfeService.letra(factura.getTipoComprobante()),
+                factura.getId(), factura.getImporteTotal(), pedido.items().size());
         eventPublisher.publishEvent(new FacturaSolicitadaEvent(factura.getId()));
         return toDto(factura);
     }
@@ -802,13 +813,18 @@ public class FacturaServiceImpl implements FacturaService {
             throw new IllegalArgumentException("Demasiado texto en los ítems: acortá las descripciones o dividí la factura");
         }
 
+        FacturaManualDTO.Receptor receptor = validarReceptor(pedido.receptor());
         BigDecimal neto = total.divide(DIVISOR_IVA_21, 2, RoundingMode.HALF_UP);
         return Factura.builder()
                 .destino(destino)
                 .email(destino == DestinoFactura.MAIL ? email : null)
                 .impresora(destino == DestinoFactura.IMPRIMIR ? pedido.impresora() : null)
                 .puntoVenta(puntoVentaBoleteria)
-                .tipoComprobante(WsfeService.CBTE_TIPO_FACTURA_B)
+                .tipoComprobante(receptor != null ? WsfeService.CBTE_TIPO_FACTURA_A : WsfeService.CBTE_TIPO_FACTURA_B)
+                .receptorCuit(receptor != null ? receptor.cuit() : null)
+                .receptorRazonSocial(receptor != null ? receptor.razonSocial() : null)
+                .receptorDomicilio(receptor != null ? receptor.domicilio() : null)
+                .receptorCondicionIva(receptor != null ? receptor.condicionIva() : null)
                 .concepto(hayServicio && hayProducto ? CONCEPTO_PRODUCTOS_Y_SERVICIOS
                         : hayProducto ? CONCEPTO_PRODUCTOS : CONCEPTO_SERVICIOS)
                 .fechaServicio(LocalDate.now(ZONA_ARGENTINA))
@@ -819,10 +835,44 @@ public class FacturaServiceImpl implements FacturaService {
                 .build();
     }
 
+    private static final int MAX_RAZON_SOCIAL = 150;
+    private static final int MAX_DOMICILIO = 200;
+
+    /** Normaliza y valida el receptor de una Factura A; null si no vino (Factura B). */
+    private FacturaManualDTO.Receptor validarReceptor(FacturaManualDTO.Receptor r) {
+        if (r == null) return null;
+        String cuit = r.cuit() == null ? "" : r.cuit().replaceAll("[\\s.-]", "");
+        if (!WsfeService.cuitValido(cuit)) {
+            throw new IllegalArgumentException("El CUIT del receptor no es válido");
+        }
+        if (cuit.equals(afipClient.getCuit())) {
+            throw new IllegalArgumentException("El CUIT del receptor es el del parque");
+        }
+        String razonSocial = r.razonSocial() == null ? "" : r.razonSocial().replaceAll("\\s+", " ").trim();
+        if (razonSocial.isEmpty()) {
+            throw new IllegalArgumentException("Falta la razón social del receptor");
+        }
+        if (razonSocial.length() > MAX_RAZON_SOCIAL) {
+            throw new IllegalArgumentException("La razón social es muy larga (máximo " + MAX_RAZON_SOCIAL + " caracteres)");
+        }
+        String domicilio = r.domicilio() == null ? "" : r.domicilio().replaceAll("\\s+", " ").trim();
+        if (domicilio.isEmpty()) {
+            throw new IllegalArgumentException("Falta el domicilio comercial del receptor (va impreso en la Factura A)");
+        }
+        if (domicilio.length() > MAX_DOMICILIO) {
+            throw new IllegalArgumentException("El domicilio es muy largo (máximo " + MAX_DOMICILIO + " caracteres)");
+        }
+        if (r.condicionIva() == null || !WsfeService.CONDICIONES_IVA_FACTURA_A.containsKey(r.condicionIva())) {
+            throw new IllegalArgumentException("La condición frente al IVA del receptor no admite Factura A");
+        }
+        return new FacturaManualDTO.Receptor(cuit, razonSocial, domicilio, r.condicionIva());
+    }
+
     @Override
     @Transactional(readOnly = true)
     public List<FacturaResponseDTO> manuales() {
-        List<Factura> facturas = facturaRepository.findTop50ByCompraIsNullAndTipoComprobanteOrderByIdDesc(WsfeService.CBTE_TIPO_FACTURA_B);
+        List<Factura> facturas = facturaRepository.findTop50ByCompraIsNullAndTipoComprobanteInOrderByIdDesc(
+                List.of(WsfeService.CBTE_TIPO_FACTURA_A, WsfeService.CBTE_TIPO_FACTURA_B));
         Map<Long, TrabajoImpresion> trabajos = impresionService.ultimosTrabajos(facturas.stream().map(Factura::getId).toList());
         return facturas.stream().map(f -> toDto(f, Optional.ofNullable(trabajos.get(f.getId())))).toList();
     }
@@ -832,14 +882,14 @@ public class FacturaServiceImpl implements FacturaService {
     public void anularFactura(Long facturaId) {
         Factura f = facturaRepository.findById(facturaId)
                 .orElseThrow(() -> new IllegalArgumentException("Factura no encontrada ID: " + facturaId));
-        if (f.getTipoComprobante() != WsfeService.CBTE_TIPO_FACTURA_B) {
+        if (!WsfeService.esFactura(f.getTipoComprobante())) {
             throw new IllegalStateException("Sólo se anulan facturas (una nota de crédito no se anula)");
         }
         if (f.getEstado() == EstadoFactura.ANULADA || Boolean.TRUE.equals(f.getAnulacionPedida())) {
             throw new IllegalStateException("Esta factura ya está anulada");
         }
         org.example.laserranitaentradas.monitoreo.AuditoriaContexto.referencia(f.getNumero() != null
-                ? String.format("B %04d-%08d", f.getPuntoVenta(), f.getNumero()) : "(sin número)");
+                ? String.format("%s %04d-%08d", WsfeService.letra(f.getTipoComprobante()), f.getPuntoVenta(), f.getNumero()) : "(sin número)");
         org.example.laserranitaentradas.monitoreo.AuditoriaContexto.detalle("Total: $" + f.getImporteTotal().stripTrailingZeros().toPlainString()
                 + (f.getCompra() != null ? " · compra #" + f.getCompra().getCodigoReserva() : " · manual"));
         anular(f);
@@ -1041,6 +1091,8 @@ public class FacturaServiceImpl implements FacturaService {
                 .impresionEstado(ultimo.map(TrabajoImpresion::getEstado).orElse(null))
                 .impresionError(ultimo.map(TrabajoImpresion::getError).orElse(null))
                 .detalle(f.getDetalle())
+                .receptorCuit(f.getReceptorCuit())
+                .receptorRazonSocial(f.getReceptorRazonSocial())
                 .build();
     }
 
@@ -1093,7 +1145,7 @@ public class FacturaServiceImpl implements FacturaService {
         try {
             for (int pv : puntos) {
                 try {
-                    for (int tipo : List.of(WsfeService.CBTE_TIPO_FACTURA_B, WsfeService.CBTE_TIPO_NOTA_CREDITO_B)) {
+                    for (int tipo : tiposAControlar(pv)) {
                         long base = Optional.ofNullable(facturaRepository.ultimoNumeroEmitido(pv, tipo)).orElse(0L);
                         Long reservado = facturaRepository.ultimoNumeroReservadoSinResolver(pv, tipo);
                         long arca = wsfe.ultimoAutorizado(pv, tipo);
@@ -1126,6 +1178,16 @@ public class FacturaServiceImpl implements FacturaService {
         }
         if (encontrados.isEmpty()) log.info("Control de numeración OK ({} puntos de venta)", puntos.size());
         return desfases;
+    }
+
+    /** B siempre; A sólo si ese punto de venta ya emitió alguna (si no, ARCA y la base están en 0 igual). */
+    private List<Integer> tiposAControlar(int pv) {
+        List<Integer> tipos = new ArrayList<>(List.of(WsfeService.CBTE_TIPO_FACTURA_B, WsfeService.CBTE_TIPO_NOTA_CREDITO_B));
+        if (facturaRepository.ultimoNumeroEmitido(pv, WsfeService.CBTE_TIPO_FACTURA_A) != null) {
+            tipos.add(WsfeService.CBTE_TIPO_FACTURA_A);
+            tipos.add(WsfeService.CBTE_TIPO_NOTA_CREDITO_A);
+        }
+        return tipos;
     }
 
     @Override
@@ -1163,18 +1225,19 @@ public class FacturaServiceImpl implements FacturaService {
         java.time.format.DateTimeFormatter fecha = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy");
         java.time.format.DateTimeFormatter hora = java.time.format.DateTimeFormatter.ofPattern("HH:mm");
         StringBuilder csv = new StringBuilder("\uFEFF"); // BOM: Excel lo abre como UTF-8 (tildes)
-        csv.append("Fecha;Hora;Comprobante;Punto de venta;Número;CAE;Vto. CAE;Total;Neto gravado;IVA 21%;Estado;Compra;Comprobante asociado\r\n");
+        csv.append("Fecha;Hora;Comprobante;Punto de venta;Número;CAE;Vto. CAE;Total;Neto gravado;IVA 21%;Estado;Compra;Comprobante asociado;CUIT receptor;Razón social receptor\r\n");
         for (Factura f : facturaRepository.emitidasEntre(desde, hasta)) {
-            boolean nc = f.getTipoComprobante() == WsfeService.CBTE_TIPO_NOTA_CREDITO_B;
+            boolean nc = WsfeService.esNotaDeCredito(f.getTipoComprobante());
             String asociado = "";
             if (f.getComprobanteAsociado() != null && f.getComprobanteAsociado().getNumero() != null) {
-                asociado = String.format("%04d-%08d", f.getComprobanteAsociado().getPuntoVenta(), f.getComprobanteAsociado().getNumero());
+                asociado = String.format("%s %04d-%08d", WsfeService.letra(f.getComprobanteAsociado().getTipoComprobante()),
+                        f.getComprobanteAsociado().getPuntoVenta(), f.getComprobanteAsociado().getNumero());
             }
             String estado = nc ? "Emitida" : (Boolean.TRUE.equals(f.getAnulacionPedida()) ? "Anulada con nota de crédito" : "Emitida");
             csv.append(String.join(";",
                     f.getFechaEmision().format(fecha),
                     f.getEmitidaEn() != null ? f.getEmitidaEn().format(hora) : "",
-                    nc ? "Nota de Crédito B" : "Factura B",
+                    WsfeService.nombre(f.getTipoComprobante()),
                     String.format("%04d", f.getPuntoVenta()),
                     String.format("%08d", f.getNumero()),
                     nullAVacio(f.getCae()),
@@ -1184,7 +1247,9 @@ public class FacturaServiceImpl implements FacturaService {
                     importeCsv(f.getImporteIva()),
                     estado,
                     f.getCompra() != null ? nullAVacio(f.getCompra().getCodigoReserva()) : "Manual",
-                    asociado)).append("\r\n");
+                    asociado,
+                    nullAVacio(f.getReceptorCuit()),
+                    nullAVacio(f.getReceptorRazonSocial()))).append("\r\n");
         }
         return csv.toString();
     }

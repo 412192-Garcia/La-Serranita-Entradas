@@ -2,7 +2,7 @@ import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
-import { ControlFacturacion, DesfaseNumeracion, Factura, FacturaManualItem, FacturaManualPedido, FacturacionPos, TotalesFacturacion, ImpresoraConectada, VentaFactura } from '../models/factura';
+import { ControlFacturacion, DesfaseNumeracion, Factura, FacturaManualItem, FacturaManualPedido, FacturacionPos, PadronContribuyente, TotalesFacturacion, ImpresoraConectada, VentaFactura } from '../models/factura';
 
 const CLAVE_HABILITADA = 'facturacion-habilitada';
 
@@ -74,9 +74,14 @@ export class FacturaService {
     return this.http.get(`${this.url}/${facturaId}/pdf`, { responseType: 'blob' });
   }
 
-  /** Factura B sin venta, con los ítems e importes que cargó el admin. */
+  /** Factura B (o A, con receptor) sin venta, con los ítems e importes que cargó el admin. */
   emitirManual(pedido: FacturaManualPedido): Observable<Factura> {
     return this.http.post<Factura>(`${this.url}/manual`, pedido);
+  }
+
+  /** Datos de un CUIT en el padrón de ARCA, para completar una Factura A. Los problemas vienen en `estado`. */
+  padron(cuit: string): Observable<PadronContribuyente> {
+    return this.http.get<PadronContribuyente>(`${this.url}/padron/${encodeURIComponent(cuit)}`);
   }
 
   /** Varias facturas manuales de una vez (una por venta), sin entrega. Todo o nada. */

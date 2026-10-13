@@ -21,7 +21,7 @@ public interface FacturaRepository extends JpaRepository<Factura, Long> {
     Optional<Factura> findFirstByCompraIdAndTipoComprobanteOrderByIdDesc(Long compraId, Integer tipoComprobante);
 
     /** Las últimas facturas manuales (sin venta), de la más nueva a la más vieja. */
-    List<Factura> findTop50ByCompraIsNullAndTipoComprobanteOrderByIdDesc(Integer tipoComprobante);
+    List<Factura> findTop50ByCompraIsNullAndTipoComprobanteInOrderByIdDesc(Collection<Integer> tiposComprobante);
 
     /**
      * Otras facturas del mismo punto de venta y tipo que pidieron un número a ARCA y todavía no

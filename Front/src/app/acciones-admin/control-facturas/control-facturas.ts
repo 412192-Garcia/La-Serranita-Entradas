@@ -10,7 +10,7 @@ import {
   LucideRefreshCw,
   LucideShieldCheck,
 } from '@lucide/angular';
-import { ControlFacturacion, TotalesFacturacion, numeroComprobante } from '../../models/factura';
+import { ControlFacturacion, TotalesFacturacion, esNotaDeCredito, nombreComprobante, numeroComprobante } from '../../models/factura';
 import { FacturaService } from '../../services/factura.service';
 import { PesosPipe } from '../../shared/pesos.pipe';
 import { Spinner } from '../../shared/spinner/spinner';
@@ -60,7 +60,7 @@ export class ControlFacturas implements OnInit {
   /** Neto del período: facturas menos notas de crédito. */
   readonly netoPeriodo = computed(() => {
     const t = this.totales() ?? [];
-    return t.reduce((suma, x) => suma + (x.tipoComprobante === 8 ? -x.total : x.total), 0);
+    return t.reduce((suma, x) => suma + (esNotaDeCredito(x.tipoComprobante) ? -x.total : x.total), 0);
   });
 
   ngOnInit(): void {
@@ -91,7 +91,7 @@ export class ControlFacturas implements OnInit {
   }
 
   tipoTexto(tipo: number): string {
-    return tipo === 8 ? 'Nota de Crédito B' : 'Factura B';
+    return nombreComprobante(tipo);
   }
 
   controlarAhora(): void {

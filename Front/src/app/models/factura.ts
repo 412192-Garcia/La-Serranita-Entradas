@@ -51,6 +51,9 @@ export interface Factura {
   impresionError: string | null;
   /** Ítems facturados: "cantidad<TAB>descripción<TAB>subtotal" por línea. */
   detalle?: string | null;
+  /** Sólo en una Factura A (o su nota de crédito). */
+  receptorCuit?: string | null;
+  receptorRazonSocial?: string | null;
 }
 
 /** Acciones > Control de facturas. */
@@ -90,12 +93,72 @@ export interface FacturaManualItem {
   subtotal: number;
 }
 
-/** NINGUNO = sólo queda el PDF para descargar. */
+/** Receptor de una Factura A manual. */
+export interface ReceptorFacturaA {
+  /** 11 dígitos, sin guiones. */
+  cuit: string;
+  razonSocial: string;
+  /** Domicilio comercial: va impreso en la Factura A. */
+  domicilio: string;
+  /** Código ARCA (ver CONDICIONES_IVA_FACTURA_A). */
+  condicionIva: number;
+}
+
+/**
+ * Lo que dice el padrón de ARCA de un CUIT. NO_EXISTE: no está en el padrón; CON_ERROR: ARCA no da
+ * la constancia (cancelada, bloqueada...); NO_DISPONIBLE: no se pudo consultar (se carga a mano).
+ */
+export interface PadronContribuyente {
+  cuit: string;
+  estado: 'ENCONTRADO' | 'NO_EXISTE' | 'CON_ERROR' | 'NO_DISPONIBLE';
+  razonSocial: string | null;
+  domicilio: string | null;
+  condicionIva: number | null;
+  condicionIvaTexto: string | null;
+  admiteFacturaA: boolean;
+  mensaje: string | null;
+}
+
+/** NINGUNO = sólo queda el PDF para descargar. Con receptor = Factura A; sin = Factura B. */
 export interface FacturaManualPedido {
   items: FacturaManualItem[];
   destino: DestinoFactura;
   email: string | null;
   impresora: string | null;
+  receptor?: ReceptorFacturaA | null;
+}
+
+/** Condiciones frente al IVA del receptor que admiten Factura A (códigos de ARCA). */
+export const CONDICIONES_IVA_FACTURA_A: { codigo: number; nombre: string }[] = [
+  { codigo: 1, nombre: 'IVA Responsable Inscripto' },
+  { codigo: 6, nombre: 'Responsable Monotributo' },
+  { codigo: 13, nombre: 'Monotributista Social' },
+  { codigo: 16, nombre: 'Monotributo Trabajador Independiente Promovido' },
+];
+
+/** "Factura A" / "Nota de Crédito B" a partir del código de ARCA (1, 3, 6, 8). */
+export function nombreComprobante(tipo: number): string {
+  return `${tipo === 3 || tipo === 8 ? 'Nota de Crédito' : 'Factura'} ${tipo === 1 || tipo === 3 ? 'A' : 'B'}`;
+}
+
+/** Nota de crédito (A o B): resta en los totales. */
+export function esNotaDeCredito(tipo: number): boolean {
+  return tipo === 3 || tipo === 8;
+}
+
+/** CUIT de 11 dígitos con el dígito verificador bien. */
+export function cuitValido(cuit: string): boolean {
+  if (!/^\d{11}$/.test(cuit)) return false;
+  const pesos = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2];
+  const suma = pesos.reduce((s, p, i) => s + p * Number(cuit[i]), 0);
+  let verificador = 11 - (suma % 11);
+  if (verificador === 11) verificador = 0;
+  return verificador !== 10 && verificador === Number(cuit[10]);
+}
+
+/** "30-71701573-4". */
+export function formatearCuit(cuit: string): string {
+  return cuit.length === 11 ? `${cuit.slice(0, 2)}-${cuit.slice(2, 10)}-${cuit.slice(10)}` : cuit;
 }
 
 /** Una venta de un turno con su factura, para la ventana "Ventas y facturas". */

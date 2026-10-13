@@ -176,7 +176,7 @@ public class EmailServiceImpl implements EmailService {
             agregarCopia(helper);
             helper.setSubject(asuntoComprobante(compra));
             helper.setText(construirHtmlEmail(compra, comprobante.numeroFormateado()), true);
-            helper.addAttachment("Factura-B-" + comprobante.numeroFormateado() + ".pdf",
+            helper.addAttachment("Factura-" + (comprobante.esA() ? "A" : "B") + "-" + comprobante.numeroFormateado() + ".pdf",
                     new ByteArrayResource(pdf), "application/pdf");
             enviarRegistrando(mailSender, message);
         } catch (jakarta.mail.MessagingException | java.io.UnsupportedEncodingException e) {
@@ -289,7 +289,7 @@ public class EmailServiceImpl implements EmailService {
             agregarCopia(helper);
             helper.setSubject("Tu factura " + comprobante.numeroFormateado() + " - La Serranita Parque Recreativo");
             helper.setText(construirHtmlFactura(comprobante), true);
-            helper.addAttachment("Factura-B-" + comprobante.numeroFormateado() + ".pdf",
+            helper.addAttachment("Factura-" + (comprobante.esA() ? "A" : "B") + "-" + comprobante.numeroFormateado() + ".pdf",
                     new ByteArrayResource(pdf), "application/pdf");
             enviarRegistrando(casillaFacturas.sender(), message);
         } catch (jakarta.mail.MessagingException | java.io.UnsupportedEncodingException e) {
@@ -663,7 +663,7 @@ public class EmailServiceImpl implements EmailService {
 
     private String construirHtmlFactura(ComprobanteFactura c) {
         String header = construirHeader("Tu factura", "Gracias por visitar La Serranita.",
-                "FACTURA B " + c.numeroFormateado(), COLOR_PRIMARIO_OSCURO, COLOR_PRIMARIO_CLARO);
+                c.titulo() + " " + c.numeroFormateado(), COLOR_PRIMARIO_OSCURO, COLOR_PRIMARIO_CLARO);
         String cuerpo = """
             <p style="margin:0 0 16px; font-family:Arial,Helvetica,sans-serif; font-size:14px; color:%s; line-height:1.5;">
               Te adjuntamos la factura de tu compra del <strong style="color:%s;">%s</strong> por

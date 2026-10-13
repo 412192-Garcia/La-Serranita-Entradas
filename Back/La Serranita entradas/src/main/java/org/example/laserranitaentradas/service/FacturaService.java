@@ -86,7 +86,7 @@ public interface FacturaService {
     FacturaResponseDTO facturarOnlineAhora(Long compraId);
 
     /**
-     * Factura B manual, sin venta (Acciones > Facturación manual): los ítems e importes que cargó el
+     * Factura B (o A, con receptor) manual, sin venta (Acciones > Facturación manual): los ítems e importes que cargó el
      * admin. Se emite cuando commitea la transacción, como cualquier otra.
      */
     FacturaResponseDTO emitirManual(org.example.laserranitaentradas.model.dto.FacturaManualDTO pedido);
@@ -98,7 +98,7 @@ public interface FacturaService {
     java.util.List<FacturaResponseDTO> manuales();
 
     /**
-     * Anula una factura (ADMIN): nota de crédito B por el total, o anulada si no llegó a ARCA. Sirve
+     * Anula una factura (ADMIN): nota de crédito (de la misma letra) por el total, o anulada si no llegó a ARCA. Sirve
      * para las manuales y para las de una venta: la venta queda como está, sin factura, y se puede
      * volver a facturar.
      */

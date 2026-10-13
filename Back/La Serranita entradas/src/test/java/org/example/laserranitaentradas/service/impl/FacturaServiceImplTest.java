@@ -522,7 +522,7 @@ class FacturaServiceImplTest {
         assertThat(csv).startsWith("\uFEFFFecha;Hora;Comprobante");
         assertThat(csv).contains("05/10/2026;14:32;Factura B;0011;00000007;123;");
         assertThat(csv).contains(";34300,00;28347,11;5952,89;Anulada con nota de crédito;261005-3;");
-        assertThat(csv).contains("Nota de Crédito B;0011;00000001").contains(";0011-00000007\r\n");
+        assertThat(csv).contains("Nota de Crédito B;0011;00000001").contains(";B 0011-00000007;;\r\n");
     }
 
     @Test
@@ -678,6 +678,98 @@ class FacturaServiceImplTest {
         when(facturaRepository.findById(10L)).thenReturn(Optional.of(f));
 
         assertThatThrownBy(() -> service.anularFactura(10L)).isInstanceOf(IllegalStateException.class);
+    }
+
+    // ---------- factura A manual ----------
+
+    private static org.example.laserranitaentradas.model.dto.FacturaManualDTO manualA(
+            org.example.laserranitaentradas.model.dto.FacturaManualDTO.Receptor receptor) {
+        return new org.example.laserranitaentradas.model.dto.FacturaManualDTO(
+                List.of(item("ENTRADA", 2, "General", "60500")), DestinoFactura.NINGUNO, null, null, receptor);
+    }
+
+    private static org.example.laserranitaentradas.model.dto.FacturaManualDTO.Receptor receptor(String cuit, String domicilio, Integer condicion) {
+        return new org.example.laserranitaentradas.model.dto.FacturaManualDTO.Receptor(cuit, "  Colegio   San Martín SRL ", domicilio, condicion);
+    }
+
+    @Test
+    void manual_conReceptor_esFacturaAConElCuitNormalizado() {
+        service.emitirManual(manualA(receptor("30-71701573-4", "Av. Siempreviva 742, Córdoba", 1)));
+
+        ArgumentCaptor<Factura> captor = ArgumentCaptor.forClass(Factura.class);
+        verify(facturaRepository).save(captor.capture());
+        Factura f = captor.getValue();
+        assertThat(f.getTipoComprobante()).isEqualTo(WsfeService.CBTE_TIPO_FACTURA_A);
+        assertThat(f.getReceptorCuit()).isEqualTo("30717015734");
+        assertThat(f.getReceptorRazonSocial()).isEqualTo("Colegio San Martín SRL");
+        assertThat(f.getReceptorCondicionIva()).isEqualTo(1);
+        assertThat(f.getImporteNeto()).isEqualByComparingTo("50000");
+        assertThat(f.getImporteIva()).isEqualByComparingTo("10500");
+    }
+
+    @Test
+    void manual_sinReceptor_sigueSiendoFacturaB() {
+        service.emitirManual(manual(DestinoFactura.NINGUNO, null, item("ENTRADA", 1, "General", "100")));
+
+        ArgumentCaptor<Factura> captor = ArgumentCaptor.forClass(Factura.class);
+        verify(facturaRepository).save(captor.capture());
+        assertThat(captor.getValue().getTipoComprobante()).isEqualTo(WsfeService.CBTE_TIPO_FACTURA_B);
+        assertThat(captor.getValue().getReceptorCuit()).isNull();
+    }
+
+    @Test
+    void manual_facturaA_validaciones() {
+        // Dígito verificador mal.
+        assertThatThrownBy(() -> service.emitirManual(manualA(receptor("30717015735", "Calle 1", 1))))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("CUIT");
+        // El CUIT del parque.
+        assertThatThrownBy(() -> service.emitirManual(manualA(receptor("20409378472", "Calle 1", 1))))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("parque");
+        // Consumidor final (5) no admite A.
+        assertThatThrownBy(() -> service.emitirManual(manualA(receptor("30717015734", "Calle 1", 5))))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("condición");
+        assertThatThrownBy(() -> service.emitirManual(manualA(receptor("30717015734", " ", 1))))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("domicilio");
+        verify(facturaRepository, never()).save(any());
+    }
+
+    @Test
+    void emitir_facturaA_mandaElCuitYLaCondicionDelReceptor() {
+        Factura f = pendiente();
+        f.setTipoComprobante(WsfeService.CBTE_TIPO_FACTURA_A);
+        f.setReceptorCuit("30717015734");
+        f.setReceptorCondicionIva(6);
+        when(facturaRepository.findById(10L)).thenReturn(Optional.of(f));
+        when(wsfe.ultimoAutorizado(5, 1)).thenReturn(0L);
+        when(wsfe.solicitarCae(any())).thenReturn(new WsfeService.ResultadoCae(true, "1", LocalDate.now(), List.of(), List.of()));
+
+        service.emitir(10L);
+
+        ArgumentCaptor<WsfeService.SolicitudCae> captor = ArgumentCaptor.forClass(WsfeService.SolicitudCae.class);
+        verify(wsfe).solicitarCae(captor.capture());
+        assertThat(captor.getValue().tipoComprobante()).isEqualTo(1);
+        assertThat(captor.getValue().numero()).isEqualTo(1L);
+        assertThat(captor.getValue().receptor()).isEqualTo(new WsfeService.Receptor("30717015734", 6));
+    }
+
+    @Test
+    void anularFactura_A_notaDeCreditoAConElMismoReceptor() {
+        Factura f = emitida();
+        f.setTipoComprobante(WsfeService.CBTE_TIPO_FACTURA_A);
+        f.setReceptorCuit("30717015734");
+        f.setReceptorRazonSocial("Colegio SRL");
+        f.setReceptorDomicilio("Calle 1");
+        f.setReceptorCondicionIva(1);
+        when(facturaRepository.findById(10L)).thenReturn(Optional.of(f));
+
+        service.anularFactura(10L);
+
+        Factura nc = capturarGuardadas().stream().filter(x -> x.getTipoComprobante() == WsfeService.CBTE_TIPO_NOTA_CREDITO_A)
+                .findFirst().orElseThrow();
+        assertThat(nc.getComprobanteAsociado()).isSameAs(f);
+        assertThat(nc.getReceptorCuit()).isEqualTo("30717015734");
+        assertThat(nc.getReceptorCondicionIva()).isEqualTo(1);
+        assertThat(nc.getReceptorDomicilio()).isEqualTo("Calle 1");
     }
 
     // ---------- numeración: en producción sale de la base ----------

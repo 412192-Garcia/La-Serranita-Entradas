@@ -36,6 +36,8 @@ public class AfipSdkClient {
 
     private static final Logger log = LoggerFactory.getLogger(AfipSdkClient.class);
     private static final String WSID_FACTURACION = "wsfe";
+    /** Padrón de constancia de inscripción (datos fiscales de un CUIT), para la Factura A. */
+    private static final String WSID_PADRON = "ws_sr_constancia_inscripcion";
     /** Se pide un ticket nuevo un rato antes de que venza el actual, no justo en el límite. */
     private static final Duration MARGEN_VENCIMIENTO_TA = Duration.ofMinutes(10);
     private static final String USER_AGENT = "LaSerranitaEntradas/1.0";
@@ -71,9 +73,10 @@ public class AfipSdkClient {
     private LocalDate certificadoVence;
     private String keyPem;
 
-    private String token;
-    private String sign;
-    private Instant vencimientoTa = Instant.EPOCH;
+    /** Ticket de acceso de WSAA vigente por web service: cada uno se autoriza por separado. */
+    private final Map<String, TicketAcceso> tickets = new java.util.concurrent.ConcurrentHashMap<>();
+
+    private record TicketAcceso(String token, String sign, Instant vence) {}
 
     public AfipSdkClient(ObjectMapper objectMapper,
                          @Value("${afip.base-url:https://app.afipsdk.com/api/v1/afip}") String baseUrl) {
@@ -202,7 +205,12 @@ public class AfipSdkClient {
         cuerpo.put("method", metodo);
         cuerpo.put("wsid", WSID_FACTURACION);
         ObjectNode paramsNode = objectMapper.valueToTree(params);
-        paramsNode.set("Auth", auth());
+        TicketAcceso ta = ticket(WSID_FACTURACION);
+        ObjectNode authNode = objectMapper.createObjectNode();
+        authNode.put("Token", ta.token());
+        authNode.put("Sign", ta.sign());
+        authNode.put("Cuit", cuit);
+        paramsNode.set("Auth", authNode);
         cuerpo.set("params", paramsNode);
 
         JsonNode respuesta = post("/requests", cuerpo);
@@ -210,31 +218,50 @@ public class AfipSdkClient {
         return resultado != null ? resultado : respuesta;
     }
 
-    private synchronized ObjectNode auth() {
-        if (token == null || Instant.now().isAfter(vencimientoTa.minus(MARGEN_VENCIMIENTO_TA))) {
+    /**
+     * getPersona_v2 del padrón de constancia de inscripción: los datos fiscales de un CUIT. A
+     * diferencia de WSFE, el ticket va suelto en los parámetros (token, sign, cuitRepresentada).
+     * En producción el certificado tiene que estar autorizado para este servicio en ARCA
+     * (Administrador de Relaciones), aparte de la facturación.
+     */
+    public JsonNode consultarPadron(long cuitConsultado) {
+        TicketAcceso ta = ticket(WSID_PADRON);
+        ObjectNode cuerpo = objectMapper.createObjectNode();
+        cuerpo.put("environment", environment);
+        cuerpo.put("method", "getPersona_v2");
+        cuerpo.put("wsid", WSID_PADRON);
+        ObjectNode params = cuerpo.putObject("params");
+        params.put("token", ta.token());
+        params.put("sign", ta.sign());
+        params.put("cuitRepresentada", cuit);
+        params.put("idPersona", cuitConsultado);
+        return post("/requests", cuerpo);
+    }
+
+    private synchronized TicketAcceso ticket(String wsid) {
+        TicketAcceso ta = tickets.get(wsid);
+        if (ta == null || Instant.now().isAfter(ta.vence().minus(MARGEN_VENCIMIENTO_TA))) {
             ObjectNode cuerpo = objectMapper.createObjectNode();
             cuerpo.put("environment", environment);
             cuerpo.put("tax_id", cuit);
-            cuerpo.put("wsid", WSID_FACTURACION);
+            cuerpo.put("wsid", wsid);
             if (certPem != null && keyPem != null) {
                 cuerpo.put("cert", certPem);
                 cuerpo.put("key", keyPem);
             }
             JsonNode respuesta = post("/auth", cuerpo);
-            token = respuesta.path("token").asText(null);
-            sign = respuesta.path("sign").asText(null);
+            String token = respuesta.path("token").asText(null);
+            String sign = respuesta.path("sign").asText(null);
             if (token == null || sign == null) {
                 throw new AfipException("AfipSDK no devolvió token/sign al autenticar", true);
             }
             String expiration = respuesta.path("expiration").asText(null);
-            vencimientoTa = expiration != null ? Instant.parse(expiration) : Instant.now().plus(Duration.ofHours(1));
-            log.info("Ticket de acceso de ARCA renovado (vence {})", vencimientoTa);
+            ta = new TicketAcceso(token, sign,
+                    expiration != null ? Instant.parse(expiration) : Instant.now().plus(Duration.ofHours(1)));
+            tickets.put(wsid, ta);
+            log.info("Ticket de acceso de ARCA para {} renovado (vence {})", wsid, ta.vence());
         }
-        ObjectNode authNode = objectMapper.createObjectNode();
-        authNode.put("Token", token);
-        authNode.put("Sign", sign);
-        authNode.put("Cuit", cuit);
-        return authNode;
+        return ta;
     }
 
     private JsonNode post(String ruta, JsonNode cuerpo) {

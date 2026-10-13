@@ -76,8 +76,15 @@ public class TicketEscPosGenerator {
         t.izquierda();
         // Una factura manual no tiene reserva.
         t.fila("Fecha: " + c.fechaYHora(), c.referencia());
-        t.linea("Cliente: Consumidor Final");
-        t.linea("Cond. IVA: Consumidor Final");
+        if (c.receptor() != null) {
+            t.linea("Cliente: " + c.receptor().razonSocial());
+            t.linea("CUIT: " + c.receptor().cuitFormateado());
+            t.linea("Domicilio: " + c.receptor().domicilio());
+            t.linea("Cond. IVA: " + c.receptor().condicionIva());
+        } else {
+            t.linea("Cliente: Consumidor Final");
+            t.linea("Cond. IVA: Consumidor Final");
+        }
         t.linea("Cond. Venta: Contado");
         if (c.atendidoPor() != null) t.linea("Atendido por: " + c.atendidoPor());
         if (c.comprobanteAsociado() != null) {
@@ -97,15 +104,23 @@ public class TicketEscPosGenerator {
         }
         t.separador();
 
-        t.negrita(true).fila("TOTAL:", pesos(c.total())).negrita(false);
-        t.separador();
+        if (c.esA()) {
+            // Factura A: IVA discriminado. La leyenda de la Ley 27.743 es sólo para consumidor final.
+            t.fila("Subtotal neto gravado:", pesos(c.neto()));
+            t.fila("IVA 21%:", pesos(c.ivaContenido()));
+            t.negrita(true).fila("TOTAL:", pesos(c.total())).negrita(false);
+            t.separador();
+        } else {
+            t.negrita(true).fila("TOTAL:", pesos(c.total())).negrita(false);
+            t.separador();
 
-        t.centro();
-        t.linea("Régimen de Transparencia Fiscal");
-        t.linea("al Consumidor - Ley 27.743");
-        t.izquierda();
-        t.fila("IVA Contenido:", pesos(c.ivaContenido()));
-        t.separador();
+            t.centro();
+            t.linea("Régimen de Transparencia Fiscal");
+            t.linea("al Consumidor - Ley 27.743");
+            t.izquierda();
+            t.fila("IVA Contenido:", pesos(c.ivaContenido()));
+            t.separador();
+        }
 
         t.linea("CAE: " + c.cae());
         t.linea("Vto. CAE: " + c.caeVencimiento().format(FECHA));

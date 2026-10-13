@@ -75,8 +75,15 @@ public class FacturaPdfGenerator {
 
             // Una factura manual no tiene reserva.
             fila(doc, "Fecha: " + c.fechaYHora(), c.referencia(), NORMAL);
-            izquierda(doc, "Cliente: Consumidor Final", NORMAL);
-            izquierda(doc, "Cond. IVA: Consumidor Final", NORMAL);
+            if (c.receptor() != null) {
+                izquierda(doc, "Cliente: " + c.receptor().razonSocial(), NORMAL);
+                izquierda(doc, "CUIT: " + c.receptor().cuitFormateado(), NORMAL);
+                izquierda(doc, "Domicilio: " + c.receptor().domicilio(), NORMAL);
+                izquierda(doc, "Cond. IVA: " + c.receptor().condicionIva(), NORMAL);
+            } else {
+                izquierda(doc, "Cliente: Consumidor Final", NORMAL);
+                izquierda(doc, "Cond. IVA: Consumidor Final", NORMAL);
+            }
             izquierda(doc, "Cond. Venta: Contado", NORMAL);
             if (c.atendidoPor() != null) izquierda(doc, "Atendido por: " + c.atendidoPor(), NORMAL);
             if (c.comprobanteAsociado() != null) {
@@ -94,13 +101,21 @@ public class FacturaPdfGenerator {
             }
             separador(doc);
 
-            fila(doc, "TOTAL:", pesos(c.total()), TOTAL);
-            separador(doc);
+            if (c.esA()) {
+                // Factura A: IVA discriminado. La leyenda de la Ley 27.743 es sólo para consumidor final.
+                fila(doc, "Subtotal neto gravado:", pesos(c.neto()), NORMAL);
+                fila(doc, "IVA 21%:", pesos(c.ivaContenido()), NORMAL);
+                fila(doc, "TOTAL:", pesos(c.total()), TOTAL);
+                separador(doc);
+            } else {
+                fila(doc, "TOTAL:", pesos(c.total()), TOTAL);
+                separador(doc);
 
-            centrado(doc, "Régimen de Transparencia Fiscal", NORMAL);
-            centrado(doc, "al Consumidor - Ley 27.743", NORMAL);
-            fila(doc, "IVA Contenido:", pesos(c.ivaContenido()), NORMAL);
-            separador(doc);
+                centrado(doc, "Régimen de Transparencia Fiscal", NORMAL);
+                centrado(doc, "al Consumidor - Ley 27.743", NORMAL);
+                fila(doc, "IVA Contenido:", pesos(c.ivaContenido()), NORMAL);
+                separador(doc);
+            }
 
             izquierda(doc, "CAE: " + c.cae(), NORMAL);
             izquierda(doc, "Vto. CAE: " + c.caeVencimiento().format(FECHA), NORMAL);

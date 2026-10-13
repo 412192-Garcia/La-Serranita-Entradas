@@ -32,7 +32,7 @@ const PASOS_POR_TAB: Record<Tab, TourStep[]> = {
     {
       selector: '[data-tour="factura-manual"]',
       titulo: 'Factura manual',
-      texto: 'Factura B sin venta: elegí ítems del catálogo o escribilos a mano, ajustá precios y elegí si se descarga en PDF, se manda por mail o se imprime. Antes de emitir pide confirmación. Abajo quedan las últimas, con la opción de anularlas (nota de crédito).',
+      texto: 'Factura B (o A, con el CUIT del cliente) sin venta: elegí ítems del catálogo o escribilos a mano, ajustá precios y elegí si se descarga en PDF, se manda por mail o se imprime. Antes de emitir pide confirmación. Abajo quedan las últimas, con la opción de anularlas (nota de crédito).',
     },
   ],
   control: [

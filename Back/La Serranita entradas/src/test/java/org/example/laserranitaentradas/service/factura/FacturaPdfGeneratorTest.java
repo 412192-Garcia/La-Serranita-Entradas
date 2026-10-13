@@ -107,4 +107,27 @@ class FacturaPdfGeneratorTest {
         assertThat(readerLargo.getPageSize(1).getHeight())
                 .isGreaterThan(new PdfReader(corto).getPageSize(1).getHeight());
     }
+
+    @Test
+    void facturaA_conReceptorEIvaDiscriminado_sinLeyendaDeConsumidorFinal() throws Exception {
+        ComprobanteFactura b = comprobante(List.of(new ComprobanteFactura.Item(2, "General", new BigDecimal("56694.21"))));
+        ComprobanteFactura a = new ComprobanteFactura(b.razonSocial(), b.domicilio(), b.cuit(), b.ingresosBrutos(),
+                b.inicioActividades(), 11, 3L, b.fechaEmision(), null, b.items(), b.total(), b.ivaContenido(), b.cae(),
+                b.caeVencimiento(), b.qrUrl(), 1, null, null, "Reserva", null,
+                new ComprobanteFactura.Receptor("Colegio San Martín SRL", "20409378472", "Av. Siempreviva 742", "IVA Responsable Inscripto"));
+
+        String texto = new PdfTextExtractor(new PdfReader(generator.generar(a))).getTextFromPage(1);
+
+        assertThat(texto)
+                .contains("FACTURA A")
+                .contains("COD. 001")
+                .contains("Colegio San Martín SRL")
+                .contains("20-40937847-2")
+                .contains("Av. Siempreviva 742")
+                .contains("IVA Responsable Inscripto")
+                .contains("Subtotal neto gravado")
+                .contains("IVA 21%")
+                .doesNotContain("Consumidor Final")
+                .doesNotContain("Ley 27.743");
+    }
 }

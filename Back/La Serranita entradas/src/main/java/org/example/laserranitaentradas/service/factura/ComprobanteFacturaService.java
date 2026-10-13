@@ -9,6 +9,7 @@ import org.example.laserranitaentradas.model.entity.Factura;
 import org.example.laserranitaentradas.model.entity.Usuario;
 import org.example.laserranitaentradas.repository.FacturaRepository;
 import org.example.laserranitaentradas.service.afip.AfipSdkClient;
+import org.example.laserranitaentradas.service.afip.WsfeService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -16,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -29,6 +31,7 @@ public class ComprobanteFacturaService {
 
     private static final Logger log = LoggerFactory.getLogger(ComprobanteFacturaService.class);
     private static final String URL_QR_ARCA = "https://www.afip.gob.ar/fe/qr/?p=";
+    private static final BigDecimal DIVISOR_IVA_21 = new BigDecimal("1.21");
 
     private final FacturaRepository facturaRepository;
     private final AfipSdkClient afipClient;
@@ -79,7 +82,14 @@ public class ComprobanteFacturaService {
         String asociado = null;
         if (f.getComprobanteAsociado() != null) {
             Factura a = f.getComprobanteAsociado();
-            asociado = String.format("Factura B %04d-%08d", a.getPuntoVenta(), a.getNumero());
+            asociado = String.format("%s %04d-%08d", WsfeService.nombre(a.getTipoComprobante()), a.getPuntoVenta(), a.getNumero());
+        }
+
+        ComprobanteFactura.Receptor receptor = null;
+        if (f.getReceptorCuit() != null) {
+            receptor = new ComprobanteFactura.Receptor(f.getReceptorRazonSocial(), f.getReceptorCuit(), f.getReceptorDomicilio(),
+                    WsfeService.CONDICIONES_IVA_FACTURA_A.getOrDefault(f.getReceptorCondicionIva(), ""));
+            items = itemsSinIva(items, f.getImporteNeto());
         }
 
         return new ComprobanteFactura(
@@ -89,7 +99,33 @@ public class ComprobanteFacturaService {
                 qrUrl(f), f.getTipoComprobante(), asociado,
                 f.getEmitidaEn() != null ? f.getEmitidaEn().toLocalTime() : null,
                 f.getCompra() != null && esVentaDePuerta(f.getCompra()) ? "Venta" : "Reserva",
-                f.getCompra() != null ? boletero(f.getCompra()) : null);
+                f.getCompra() != null ? boletero(f.getCompra()) : null,
+                receptor);
+    }
+
+    /**
+     * En una Factura A el IVA va discriminado: cada renglón se muestra sin IVA. El redondeo de cada
+     * renglón puede no sumar justo el neto de la factura; la diferencia (centavos) va al renglón más
+     * grande, para que los renglones cierren con el "Subtotal neto gravado".
+     */
+    private static List<ComprobanteFactura.Item> itemsSinIva(List<ComprobanteFactura.Item> items, BigDecimal neto) {
+        if (items.isEmpty() || items.stream().anyMatch(i -> i.subtotal() == null)) return items;
+        List<ComprobanteFactura.Item> salida = new ArrayList<>();
+        BigDecimal suma = BigDecimal.ZERO;
+        int mayor = 0;
+        for (int i = 0; i < items.size(); i++) {
+            ComprobanteFactura.Item item = items.get(i);
+            BigDecimal sinIva = item.subtotal().divide(DIVISOR_IVA_21, 2, RoundingMode.HALF_UP);
+            suma = suma.add(sinIva);
+            if (sinIva.compareTo(salida.isEmpty() ? BigDecimal.ZERO : salida.get(mayor).subtotal()) > 0) mayor = i;
+            salida.add(new ComprobanteFactura.Item(item.cantidad(), item.descripcion(), sinIva));
+        }
+        BigDecimal diferencia = neto.subtract(suma);
+        if (diferencia.signum() != 0) {
+            ComprobanteFactura.Item m = salida.get(mayor);
+            salida.set(mayor, new ComprobanteFactura.Item(m.cantidad(), m.descripcion(), m.subtotal().add(diferencia)));
+        }
+        return salida;
     }
 
     /** "Nombre Apellido" del dueño de la caja en la que se cobró; null si no pasó por una caja. */
@@ -136,6 +172,11 @@ public class ComprobanteFacturaService {
         // tipoDocRec/nroDocRec son opcionales en la especificación de ARCA y no se informan para un
         // consumidor final sin identificar (99/0). Omitirlos achica el QR de 61x61 a 57x57
         // cuadraditos: el contenido es lo que lo hace tan denso y difícil de leer en papel térmico.
+        // En una Factura A el receptor está identificado: ahí sí se informa su CUIT.
+        if (f.getReceptorCuit() != null) {
+            datos.put("tipoDocRec", 80);
+            datos.put("nroDocRec", Long.parseLong(f.getReceptorCuit()));
+        }
         datos.put("tipoCodAut", "E");
         datos.put("codAut", Long.parseLong(f.getCae()));
         try {
