@@ -33,9 +33,9 @@ public class PadronService {
     private static final int CONDICION_MONOTRIBUTO_SOCIAL = 13;
     private static final int CONDICION_MONOTRIBUTO_PROMOVIDO = 16;
 
-    private final AfipSdkClient client;
+    private final ArcaClient client;
 
-    public PadronService(AfipSdkClient client) {
+    public PadronService(ArcaClient client) {
         this.client = client;
     }
 

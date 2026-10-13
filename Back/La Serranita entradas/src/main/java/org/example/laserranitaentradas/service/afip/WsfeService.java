@@ -16,6 +16,9 @@ import java.util.Optional;
  * Traduce entre el dominio y los métodos de WSFEv1 de ARCA (manual del desarrollador
  * COMPG v4). Sólo lo que usa el parque: Factura B a Consumidor Final y, en la facturación manual,
  * Factura A a un responsable inscripto o monotributista identificado por CUIT. Todo con IVA 21%.
+ *
+ * Los campos se arman en el orden del WSDL (SoapXml.campos): WSFE es un servicio .NET que toma un
+ * campo fuera de lugar como si no hubiera venido.
  */
 @Component
 public class WsfeService {
@@ -46,14 +49,14 @@ public class WsfeService {
     public static final int ERROR_NUMERO_NO_ES_EL_PROXIMO = 10016;
     private static final DateTimeFormatter FORMATO_FECHA = DateTimeFormatter.BASIC_ISO_DATE;
 
-    private final AfipSdkClient client;
+    private final ArcaClient client;
 
-    public WsfeService(AfipSdkClient client) {
+    public WsfeService(ArcaClient client) {
         this.client = client;
     }
 
     public long ultimoAutorizado(int puntoVenta, int tipoComprobante) {
-        JsonNode r = client.llamarWsfe("FECompUltimoAutorizado", Map.of(
+        JsonNode r = client.llamarWsfe("FECompUltimoAutorizado", SoapXml.campos(
                 "PtoVta", puntoVenta,
                 "CbteTipo", tipoComprobante));
         lanzarSiHayErrores(r, true);
@@ -62,11 +65,11 @@ public class WsfeService {
 
     /** Vacío si ARCA no tiene ese comprobante. */
     public Optional<ComprobanteAutorizado> consultar(int puntoVenta, int tipoComprobante, long numero) {
-        JsonNode r = client.llamarWsfe("FECompConsultar", Map.of(
-                "FeCompConsReq", Map.of(
+        JsonNode r = client.llamarWsfe("FECompConsultar", SoapXml.campos(
+                "FeCompConsReq", SoapXml.campos(
+                        "CbteTipo", tipoComprobante,
                         "CbteNro", numero,
-                        "PtoVta", puntoVenta,
-                        "CbteTipo", tipoComprobante)));
+                        "PtoVta", puntoVenta)));
         List<String> errores = mensajes(r.path("Errors").path("Err"));
         if (!errores.isEmpty()) {
             if (tieneCodigo(r.path("Errors").path("Err"), ERROR_COMPROBANTE_INEXISTENTE)) {
@@ -137,8 +140,8 @@ public class WsfeService {
         det.put("ImpTotConc", 0);
         det.put("ImpNeto", s.neto());
         det.put("ImpOpEx", 0);
-        det.put("ImpIVA", s.iva());
         det.put("ImpTrib", 0);
+        det.put("ImpIVA", s.iva());
         // Concepto 2 (servicios) y 3 (productos y servicios) exigen el período del servicio y
         // el vencimiento del pago. Es una entrada de un día cobrada en el acto: el período es
         // ese día y el pago "vence" en la fecha del comprobante (contado).
@@ -150,28 +153,27 @@ public class WsfeService {
         det.put("MonId", "PES");
         det.put("MonCotiz", 1);
         det.put("CondicionIVAReceptorId", s.receptor() != null ? s.receptor().condicionIva() : CONDICION_IVA_CONSUMIDOR_FINAL);
-        // Nota de crédito: la factura que anula. Va antes de Iva: en el SOAP de ARCA el orden
-        // de los campos importa, y AfipSDK respeta el orden de este mapa.
+        // Nota de crédito: la factura que anula. Va antes de Iva, como en el WSDL.
         if (s.asociado() != null) {
-            det.put("CbtesAsoc", Map.of("CbteAsoc", List.of(Map.of(
+            det.put("CbtesAsoc", SoapXml.campos("CbteAsoc", List.of(SoapXml.campos(
                     "Tipo", s.asociado().tipo(),
                     "PtoVta", s.asociado().puntoVenta(),
                     "Nro", s.asociado().numero(),
                     "Cuit", client.getCuit(),
                     "CbteFch", s.asociado().fecha().format(FORMATO_FECHA)))));
         }
-        det.put("Iva", Map.of("AlicIva", List.of(Map.of(
+        det.put("Iva", SoapXml.campos("AlicIva", List.of(SoapXml.campos(
                 "Id", ALICUOTA_IVA_21,
                 "BaseImp", s.neto(),
                 "Importe", s.iva()))));
 
-        JsonNode r = client.llamarWsfe("FECAESolicitar", Map.of(
-                "FeCAEReq", Map.of(
-                        "FeCabReq", Map.of(
+        JsonNode r = client.llamarWsfe("FECAESolicitar", SoapXml.campos(
+                "FeCAEReq", SoapXml.campos(
+                        "FeCabReq", SoapXml.campos(
                                 "CantReg", 1,
                                 "PtoVta", s.puntoVenta(),
                                 "CbteTipo", s.tipoComprobante()),
-                        "FeDetReq", Map.of("FECAEDetRequest", det))));
+                        "FeDetReq", SoapXml.campos("FECAEDetRequest", det))));
 
         JsonNode detResp = primero(r.path("FeDetResp").path("FECAEDetResponse"));
         List<String> mensajes = new ArrayList<>(mensajes(r.path("Errors").path("Err")));

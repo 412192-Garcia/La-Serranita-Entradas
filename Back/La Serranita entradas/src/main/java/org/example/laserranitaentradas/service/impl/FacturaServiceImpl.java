@@ -21,7 +21,7 @@ import org.example.laserranitaentradas.service.factura.ComprobanteFacturaService
 import org.example.laserranitaentradas.service.factura.FacturaPdfGenerator;
 import org.example.laserranitaentradas.service.impresion.ImpresionService;
 import org.example.laserranitaentradas.service.afip.AfipException;
-import org.example.laserranitaentradas.service.afip.AfipSdkClient;
+import org.example.laserranitaentradas.service.afip.ArcaClient;
 import org.example.laserranitaentradas.service.afip.WsfeService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -73,7 +73,7 @@ public class FacturaServiceImpl implements FacturaService {
 
     private final FacturaRepository facturaRepository;
     private final WsfeService wsfe;
-    private final AfipSdkClient afipClient;
+    private final ArcaClient afipClient;
     private final ApplicationEventPublisher eventPublisher;
     private final TransactionTemplate tx;
     /** Siempre en una transacción propia (la factura de una compra online, ver solicitarOnline). */
@@ -102,7 +102,7 @@ public class FacturaServiceImpl implements FacturaService {
     @Value("${afip.punto-venta.online:}")
     private String puntoVentaOnline;
 
-    public FacturaServiceImpl(FacturaRepository facturaRepository, WsfeService wsfe, AfipSdkClient afipClient,
+    public FacturaServiceImpl(FacturaRepository facturaRepository, WsfeService wsfe, ArcaClient afipClient,
                               ApplicationEventPublisher eventPublisher, PlatformTransactionManager transactionManager,
                               EntityManager em,
                               ComprobanteFacturaService comprobanteFacturaService, FacturaPdfGenerator pdfGenerator,
@@ -152,7 +152,7 @@ public class FacturaServiceImpl implements FacturaService {
             return Optional.empty();
         }
         if (!estaHabilitada()) {
-            log.warn("Se pidió factura para la compra ID {} pero la facturación no está configurada (falta AFIPSDK_ACCESS_TOKEN)", compra.getId());
+            log.warn("Se pidió factura para la compra ID {} pero la facturación no está configurada (falta el certificado de ARCA)", compra.getId());
             return Optional.empty();
         }
         // Reintento de la cola offline con la misma venta: ya tiene su factura.
@@ -488,9 +488,9 @@ public class FacturaServiceImpl implements FacturaService {
                         continue;
                     }
                     // Otro comprobante tomó ese número entre la consulta y el pedido (no debería
-                    // pasar con un punto de venta propio, pero sí en homologación, donde el CUIT de
-                    // prueba es compartido). No es un error de la factura: se reintenta con el
-                    // número que siga.
+                    // pasar con un punto de venta propio, pero sí en homologación si otra base de
+                    // prueba factura con el mismo certificado). No es un error de la factura: se
+                    // reintenta con el número que siga.
                     reprogramar(id, "ARCA: " + String.join(" | ", resultado.mensajes()));
                     return;
                 }
@@ -614,12 +614,13 @@ public class FacturaServiceImpl implements FacturaService {
     /**
      * El próximo número del punto de venta. En producción sale de la base (el último emitido + 1):
      * el punto de venta web services es exclusivo de este sistema (desde "Comprobantes en línea"
-     * no se puede usar), así que nadie más saca números ahí. Ahorra un request a AfipSDK por
+     * no se puede usar), así que nadie más saca números ahí. Ahorra un request a ARCA por
      * factura. Se le pregunta a ARCA si la base no tiene ninguno (la primera factura) o si ARCA
      * rechazó el número de la base.
      *
-     * En homologación se pregunta siempre: el CUIT de prueba de AfipSDK es compartido y otros
-     * sacan números en el mismo punto de venta, así que el de la base casi nunca sería el próximo.
+     * En homologación se pregunta siempre: las bases de prueba se borran seguido (y varias pueden
+     * usar el mismo certificado) mientras ARCA conserva todo lo emitido, así que el de la base casi
+     * nunca sería el próximo.
      */
     private Numero proximoNumero(int pv, int tipo, boolean preguntarAArca) {
         if (!preguntarAArca && afipClient.esProduccion()) {

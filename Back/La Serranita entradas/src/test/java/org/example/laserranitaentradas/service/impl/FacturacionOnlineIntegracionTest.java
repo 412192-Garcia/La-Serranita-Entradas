@@ -5,8 +5,10 @@ import org.example.laserranitaentradas.repository.CompraRepository;
 import org.example.laserranitaentradas.repository.FacturaRepository;
 import org.example.laserranitaentradas.service.EmailService;
 import org.example.laserranitaentradas.service.FacturaService;
+import org.example.laserranitaentradas.service.afip.ArcaClient;
 import org.example.laserranitaentradas.service.afip.WsfeService;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -27,7 +29,6 @@ import static org.mockito.Mockito.when;
  * ARCA y el mail están simulados: la emisión no sale a internet.
  */
 @SpringBootTest(properties = {
-        "afip.access-token=solo-para-tests",
         "afip.environment=dev",
         "afip.punto-venta.online=12",
         "afip.emision.intervalo-ms=3600000",
@@ -39,8 +40,15 @@ class FacturacionOnlineIntegracionTest {
     @Autowired private FacturaRepository facturaRepository;
     @Autowired private PlatformTransactionManager transactionManager;
 
+    @MockitoBean private ArcaClient arca;
     @MockitoBean private WsfeService wsfe;
     @MockitoBean private EmailService emailService;
+
+    @BeforeEach
+    void facturacionConfigurada() {
+        when(arca.estaConfigurado()).thenReturn(true);
+        when(arca.getCuit()).thenReturn("20111111112");
+    }
 
     @AfterEach
     void limpiar() {

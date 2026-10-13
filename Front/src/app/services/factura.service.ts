@@ -12,7 +12,7 @@ export class FacturaService {
   private url = `${environment.apiBase}/interno/facturas`;
 
   /**
-   * Si el backend tiene la facturación configurada (token de AfipSDK). Sin eso el POS no
+   * Si el backend tiene la facturación configurada (certificado de ARCA). Sin eso el POS no
    * muestra las opciones de factura. Se recuerda el último valor conocido para que, si la
    * tablet arranca sin señal, el selector siga apareciendo igual que antes del corte.
    */

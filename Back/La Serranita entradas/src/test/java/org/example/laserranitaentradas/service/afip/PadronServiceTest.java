@@ -16,12 +16,12 @@ import static org.mockito.Mockito.*;
 class PadronServiceTest {
 
     private final ObjectMapper om = new ObjectMapper();
-    private AfipSdkClient client;
+    private ArcaClient client;
     private PadronService service;
 
     @BeforeEach
     void setUp() {
-        client = mock(AfipSdkClient.class);
+        client = mock(ArcaClient.class);
         when(client.estaConfigurado()).thenReturn(true);
         service = new PadronService(client);
     }
@@ -101,14 +101,14 @@ class PadronServiceTest {
     @Test
     void cuitInexistente() {
         when(client.consultarPadron(anyLong())).thenThrow(new AfipException(
-                "AfipSDK respondió 422: {\"message\":\"soap:Server: No existe persona con ese Id\",\"statusCode\":422}", false));
+                "ARCA (ws_sr_constancia_inscripcion): No existe persona con ese Id [Server]", false));
 
         assertThat(service.consultar("30717015734").estado()).isEqualTo(Estado.NO_EXISTE);
     }
 
     @Test
     void arcaNoContesta_noEsUnErrorHttp_seCargaAMano() {
-        when(client.consultarPadron(anyLong())).thenThrow(new AfipException("No se pudo contactar a AfipSDK: timeout", true));
+        when(client.consultarPadron(anyLong())).thenThrow(new AfipException("No se pudo contactar a ARCA (ws_sr_constancia_inscripcion): timeout", true));
 
         PadronContribuyenteDTO r = service.consultar("30717015734");
 
