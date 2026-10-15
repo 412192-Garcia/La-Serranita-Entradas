@@ -8,7 +8,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * Factura electrónica B (Consumidor Final) de una compra, autorizada por ARCA vía AfipSDK.
+ * Factura electrónica B (Consumidor Final) de una compra, autorizada por ARCA (WSFEv1). Una
+ * factura manual también puede ser A, a un receptor identificado por CUIT (campos receptor*).
  *
  * Vive aparte de la Compra a propósito: la venta se confirma siempre, aunque ARCA esté caída,
  * y la factura se emite después en segundo plano (ver FacturaServiceImpl). Por eso nace
@@ -83,9 +84,32 @@ public class Factura extends BaseEntity {
     @Column(name = "punto_venta", nullable = false)
     private Integer puntoVenta;
 
-    /** Código ARCA del comprobante: 6 = Factura B. */
+    /** Código ARCA del comprobante: 1 = Factura A, 3 = Nota de Crédito A, 6 = Factura B,
+     * 8 = Nota de Crédito B. */
     @Column(name = "tipo_comprobante", nullable = false)
     private Integer tipoComprobante;
+
+    /** Sólo en una Factura A (y su nota de crédito): CUIT del receptor, 11 dígitos sin guiones.
+     * Null = Consumidor Final sin identificar. */
+    @Column(name = "receptor_cuit", length = 11)
+    private String receptorCuit;
+
+    @Column(name = "receptor_razon_social", length = 150)
+    private String receptorRazonSocial;
+
+    /** Domicilio comercial del receptor: la Factura A lo tiene que llevar impreso (RG 1415). */
+    @Column(name = "receptor_domicilio", length = 200)
+    private String receptorDomicilio;
+
+    /** Código ARCA de la condición frente al IVA del receptor (1 = Resp. Inscripto, 6 = Monotributo...). */
+    @Column(name = "receptor_condicion_iva")
+    private Integer receptorCondicionIva;
+
+    /** Sólo en las facturas de un lote manual: la clave que manda el front con el lote. Si el pedido
+     * se repite (se perdió la respuesta y el admin tocó "Facturar" de nuevo), se devuelven las mismas
+     * facturas en vez de pedir el lote otra vez a ARCA. */
+    @Column(name = "lote_clave", length = 64)
+    private String loteClave;
 
     /** Código ARCA del concepto: 1 = productos, 2 = servicios, 3 = ambos. */
     @Column(nullable = false)

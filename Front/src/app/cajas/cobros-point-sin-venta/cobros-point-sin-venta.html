@@ -1,0 +1,18 @@
+@if (resumen()?.sinVenta?.length) {
+  <div class="aviso-cobros-sin-venta" role="alert">
+    <p><strong>Cobros con Point sin venta:</strong> el Point los cobró pero no quedaron como venta en esta caja. Si el cliente no se llevó nada, devolvelos.</p>
+    <ul>
+      @for (c of resumen()!.sinVenta; track c.id) {
+        <li>
+          <span>{{ c.monto | pesos }} · {{ c.formaPago === 'MERCADO_PAGO_QR' ? 'QR' : 'Tarjeta' }}</span>
+          <button type="button" class="btn-devolver" [disabled]="devolviendoId() === c.id" (click)="devolver(c)">
+            {{ devolviendoId() === c.id ? 'Devolviendo…' : 'Devolver' }}
+          </button>
+        </li>
+      }
+    </ul>
+  </div>
+}
+@if (error()) {
+  <p class="error-point">{{ error() }}</p>
+}

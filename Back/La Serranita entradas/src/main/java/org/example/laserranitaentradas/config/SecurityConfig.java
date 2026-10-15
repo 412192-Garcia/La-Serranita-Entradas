@@ -60,6 +60,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/tipos-entrada/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/cupones/codigo/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/compras", "/api/compras/iniciar-pago", "/api/compras/cotizar").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/compras/opciones-pago").permitAll()
                 // {id:\d+} y no {id}: un {id} suelto también matchea /api/compras/buscar (esta regla
                 // gana por ir primero) y dejaba la búsqueda de boletería abierta sin login.
                 .requestMatchers(HttpMethod.GET, "/api/compras/{id:\\d+}", "/api/compras/{id:\\d+}/estado", "/api/compras/codigo/*").permitAll()
@@ -87,11 +88,14 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/interno/caja/abiertas").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.GET, "/api/interno/caja/cerradas").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.GET, "/api/interno/caja/cerradas/boleteros").hasRole("ADMIN")
+                // Lo cobrado con el Point en una caja: es un total "esperado", como los del cierre.
+                .requestMatchers(HttpMethod.GET, "/api/interno/point/caja/*/resumen").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/api/interno/compras/*/cancelar-venta").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/api/interno/compras/*/editar-venta").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/interno/compras/caja/*/venta-pos").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/interno/facturas/*/reintentar").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.POST, "/api/interno/facturas/manual").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.POST, "/api/interno/facturas/manual", "/api/interno/facturas/manual/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.GET, "/api/interno/facturas/padron/*").hasRole("ADMIN")
                 .requestMatchers("/api/interno/facturas/control/**", "/api/interno/facturas/control").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.GET, "/api/interno/facturas/totales", "/api/interno/facturas/exportar").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.GET, "/api/interno/facturas/manuales").hasRole("ADMIN")
@@ -112,7 +116,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.DELETE, "/api/interno/caja/*/ajustes/*").hasRole("ADMIN")
                 // Vender sin la apertura formal de caja: sólo para cuando el propio ADMIN vende.
                 .requestMatchers(HttpMethod.POST, "/api/interno/caja/abrir-sin-control").hasRole("ADMIN")
-                .requestMatchers("/api/interno/rechazos/**").hasRole("ADMIN")
+                // Operaciones rechazadas: se resuelven desde Sistema, junto con el resto del monitoreo.
+                .requestMatchers("/api/interno/rechazos/**").hasRole("SUPERADMIN")
                 .requestMatchers("/api/interno/notificaciones/**").hasRole("ADMIN")
                 // Monitoreo: sólo el que mantiene la app, no el admin del parque.
                 .requestMatchers("/api/interno/sistema/**").hasRole("SUPERADMIN")

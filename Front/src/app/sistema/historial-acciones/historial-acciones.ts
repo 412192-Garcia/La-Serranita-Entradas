@@ -22,6 +22,7 @@ const NOMBRES_ACCION: Record<string, string> = {
   VALIDACION_DESHECHA: 'Validación deshecha',
   RESERVA_GENERADA: 'Reserva manual',
   FACTURA_MANUAL: 'Factura manual',
+  FACTURAS_MANUALES_LOTE: 'Lote de facturas manuales',
   FACTURA_ANULADA: 'Factura anulada',
   FACTURA_REINTENTADA: 'Factura reintentada',
   FACTURA_ENVIADA: 'Factura mandada por mail',

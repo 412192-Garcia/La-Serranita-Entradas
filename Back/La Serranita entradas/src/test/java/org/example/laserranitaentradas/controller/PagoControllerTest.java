@@ -42,7 +42,7 @@ class PagoControllerTest {
 
     @BeforeEach
     void setUp() {
-        controller = new PagoController(compraService);
+        controller = new PagoController(compraService, org.mockito.Mockito.mock(org.example.laserranitaentradas.service.point.CobroPointService.class));
     }
 
     private void configurarSecreto(String secreto) {

@@ -2,6 +2,7 @@ package org.example.laserranitaentradas.service.impl;
 
 import org.example.laserranitaentradas.model.dto.ControlFacturacionDTO;
 import org.example.laserranitaentradas.model.dto.FacturaManualDTO;
+import org.example.laserranitaentradas.model.dto.FacturaManualLoteDTO;
 import org.example.laserranitaentradas.model.dto.FacturaResponseDTO;
 import org.example.laserranitaentradas.model.dto.FacturacionPosDTO;
 import org.example.laserranitaentradas.model.entity.Compra;
@@ -11,16 +12,18 @@ import org.example.laserranitaentradas.model.entity.EstadoCompra;
 import org.example.laserranitaentradas.model.entity.EstadoFactura;
 import org.example.laserranitaentradas.model.entity.Factura;
 import org.example.laserranitaentradas.model.entity.FormaPago;
+import org.example.laserranitaentradas.model.entity.Modulo;
 import org.example.laserranitaentradas.model.entity.TrabajoImpresion;
 import org.example.laserranitaentradas.repository.FacturaRepository;
 import org.example.laserranitaentradas.service.CalculoPrecioService;
 import org.example.laserranitaentradas.service.EmailService;
+import org.example.laserranitaentradas.service.ModulosService;
 import org.example.laserranitaentradas.service.FacturaService;
 import org.example.laserranitaentradas.service.factura.ComprobanteFacturaService;
 import org.example.laserranitaentradas.service.factura.FacturaPdfGenerator;
 import org.example.laserranitaentradas.service.impresion.ImpresionService;
 import org.example.laserranitaentradas.service.afip.AfipException;
-import org.example.laserranitaentradas.service.afip.AfipSdkClient;
+import org.example.laserranitaentradas.service.afip.ArcaClient;
 import org.example.laserranitaentradas.service.afip.WsfeService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -72,7 +75,7 @@ public class FacturaServiceImpl implements FacturaService {
 
     private final FacturaRepository facturaRepository;
     private final WsfeService wsfe;
-    private final AfipSdkClient afipClient;
+    private final ArcaClient afipClient;
     private final ApplicationEventPublisher eventPublisher;
     private final TransactionTemplate tx;
     /** Siempre en una transacción propia (la factura de una compra online, ver solicitarOnline). */
@@ -83,6 +86,7 @@ public class FacturaServiceImpl implements FacturaService {
     private final EmailService emailService;
     private final ImpresionService impresionService;
     private final CalculoPrecioService calculoPrecioService;
+    private final ModulosService modulos;
 
     /**
      * ARCA numera en orden estricto por punto de venta: dos emisiones a la vez pedirían el mismo
@@ -101,12 +105,12 @@ public class FacturaServiceImpl implements FacturaService {
     @Value("${afip.punto-venta.online:}")
     private String puntoVentaOnline;
 
-    public FacturaServiceImpl(FacturaRepository facturaRepository, WsfeService wsfe, AfipSdkClient afipClient,
+    public FacturaServiceImpl(FacturaRepository facturaRepository, WsfeService wsfe, ArcaClient afipClient,
                               ApplicationEventPublisher eventPublisher, PlatformTransactionManager transactionManager,
                               EntityManager em,
                               ComprobanteFacturaService comprobanteFacturaService, FacturaPdfGenerator pdfGenerator,
                               EmailService emailService, ImpresionService impresionService,
-                              CalculoPrecioService calculoPrecioService) {
+                              CalculoPrecioService calculoPrecioService, ModulosService modulos) {
         this.facturaRepository = facturaRepository;
         this.wsfe = wsfe;
         this.afipClient = afipClient;
@@ -120,11 +124,13 @@ public class FacturaServiceImpl implements FacturaService {
         this.emailService = emailService;
         this.impresionService = impresionService;
         this.calculoPrecioService = calculoPrecioService;
+        this.modulos = modulos;
     }
 
+    /** Configurada en el servidor (certificado de ARCA) y no apagada desde Sistema > Módulos. */
     @Override
     public boolean estaHabilitada() {
-        return afipClient.estaConfigurado();
+        return afipClient.estaConfigurado() && modulos.activo(Modulo.FACTURACION);
     }
 
     @Override
@@ -151,7 +157,12 @@ public class FacturaServiceImpl implements FacturaService {
             return Optional.empty();
         }
         if (!estaHabilitada()) {
-            log.warn("Se pidió factura para la compra ID {} pero la facturación no está configurada (falta AFIPSDK_ACCESS_TOKEN)", compra.getId());
+            log.warn("Se pidió factura para la compra ID {} pero la facturación no está configurada (falta el certificado de ARCA)", compra.getId());
+            return Optional.empty();
+        }
+        if (!modulos.activo(Modulo.FACTURACION_BOLETERIA)) {
+            // Apagada desde Sistema > Módulos (una tablet con la pantalla vieja todavía la ofrecía).
+            log.info("Se pidió factura para la compra ID {} con la facturación de boletería apagada: se vende sin factura", compra.getId());
             return Optional.empty();
         }
         // Reintento de la cola offline con la misma venta: ya tiene su factura.
@@ -361,7 +372,11 @@ public class FacturaServiceImpl implements FacturaService {
                 .comprobanteAsociado(factura)
                 .destino(DestinoFactura.NINGUNO)
                 .puntoVenta(factura.getPuntoVenta())
-                .tipoComprobante(WsfeService.CBTE_TIPO_NOTA_CREDITO_B)
+                .tipoComprobante(WsfeService.notaDeCreditoDe(factura.getTipoComprobante()))
+                .receptorCuit(factura.getReceptorCuit())
+                .receptorRazonSocial(factura.getReceptorRazonSocial())
+                .receptorDomicilio(factura.getReceptorDomicilio())
+                .receptorCondicionIva(factura.getReceptorCondicionIva())
                 .concepto(factura.getConcepto())
                 .fechaServicio(factura.getFechaServicio())
                 .importeTotal(factura.getImporteTotal())
@@ -391,6 +406,13 @@ public class FacturaServiceImpl implements FacturaService {
 
     @Override
     public void emitir(Long facturaId) {
+        // Con el módulo apagado nada va a ARCA, venga de donde venga (el evento de una venta, una
+        // nota de crédito al cancelar o editar, una compra online): la factura queda PENDIENTE y la
+        // toma emitirPendientes cuando se vuelve a prender.
+        if (!estaHabilitada()) {
+            log.info("Factura ID {} queda pendiente: la facturación está apagada", facturaId);
+            return;
+        }
         lockEmision.lock();
         try {
             Factura factura = facturaRepository.findById(facturaId).orElse(null);
@@ -466,7 +488,7 @@ public class FacturaServiceImpl implements FacturaService {
                 WsfeService.ResultadoCae resultado = wsfe.solicitarCae(new WsfeService.SolicitudCae(
                         pv, tipo, factura.getConcepto(), numero, fecha, factura.getFechaServicio(),
                         factura.getImporteTotal(), factura.getImporteNeto(), factura.getImporteIva(),
-                        asociado(factura)));
+                        asociado(factura), receptor(factura)));
 
                 if (resultado.aprobado()) {
                     marcarEmitida(id, numero, resultado.cae(), resultado.caeVencimiento(), fecha);
@@ -483,9 +505,9 @@ public class FacturaServiceImpl implements FacturaService {
                         continue;
                     }
                     // Otro comprobante tomó ese número entre la consulta y el pedido (no debería
-                    // pasar con un punto de venta propio, pero sí en homologación, donde el CUIT de
-                    // prueba es compartido). No es un error de la factura: se reintenta con el
-                    // número que siga.
+                    // pasar con un punto de venta propio, pero sí en homologación si otra base de
+                    // prueba factura con el mismo certificado). No es un error de la factura: se
+                    // reintenta con el número que siga.
                     reprogramar(id, "ARCA: " + String.join(" | ", resultado.mensajes()));
                     return;
                 }
@@ -597,18 +619,25 @@ public class FacturaServiceImpl implements FacturaService {
         return new WsfeService.Asociado(a.getTipoComprobante(), a.getPuntoVenta(), a.getNumero(), a.getFechaEmision());
     }
 
+    /** El receptor identificado de una Factura A (o su nota de crédito); null = consumidor final. */
+    private static WsfeService.Receptor receptor(Factura f) {
+        if (f.getReceptorCuit() == null) return null;
+        return new WsfeService.Receptor(f.getReceptorCuit(), f.getReceptorCondicionIva());
+    }
+
     /** Número a pedir y de dónde salió (si vino de la base, un rechazo se corrige preguntando a ARCA). */
     private record Numero(long valor, boolean deLaBase) {}
 
     /**
      * El próximo número del punto de venta. En producción sale de la base (el último emitido + 1):
      * el punto de venta web services es exclusivo de este sistema (desde "Comprobantes en línea"
-     * no se puede usar), así que nadie más saca números ahí. Ahorra un request a AfipSDK por
+     * no se puede usar), así que nadie más saca números ahí. Ahorra un request a ARCA por
      * factura. Se le pregunta a ARCA si la base no tiene ninguno (la primera factura) o si ARCA
      * rechazó el número de la base.
      *
-     * En homologación se pregunta siempre: el CUIT de prueba de AfipSDK es compartido y otros
-     * sacan números en el mismo punto de venta, así que el de la base casi nunca sería el próximo.
+     * En homologación se pregunta siempre: las bases de prueba se borran seguido (y varias pueden
+     * usar el mismo certificado) mientras ARCA conserva todo lo emitido, así que el de la base casi
+     * nunca sería el próximo.
      */
     private Numero proximoNumero(int pv, int tipo, boolean preguntarAArca) {
         if (!preguntarAArca && afipClient.esProduccion()) {
@@ -669,6 +698,9 @@ public class FacturaServiceImpl implements FacturaService {
 
     @Override
     public FacturaResponseDTO reintentar(Long facturaId) {
+        if (!estaHabilitada()) {
+            throw new IllegalStateException("La facturación está apagada (Sistema > Módulos): se reintenta cuando se vuelva a prender");
+        }
         // Sólo ERROR: una ANULADA es de una venta cancelada y reintentarla autorizaría una factura
         // sin su nota de crédito. Se chequea con la fila bloqueada, no antes.
         tx.executeWithoutResult(s -> {
@@ -704,12 +736,80 @@ public class FacturaServiceImpl implements FacturaService {
     private static final int MAX_ITEMS_MANUAL = 30;
     private static final int MAX_DESCRIPCION_MANUAL = 80;
 
+    /** Facturas por lote: alcanza para un día entero de ventas que quedaron sin facturar. */
+    private static final int MAX_FACTURAS_LOTE = 100;
+
     @Override
     @Transactional
     public FacturaResponseDTO emitirManual(FacturaManualDTO pedido) {
         if (!estaHabilitada()) {
             throw new IllegalStateException("La facturación no está configurada");
         }
+        Factura factura = facturaRepository.save(armarManual(pedido));
+        log.info("Factura manual {} ID {} pedida por {} ({} ítems)", WsfeService.letra(factura.getTipoComprobante()),
+                factura.getId(), factura.getImporteTotal(), pedido.items().size());
+        eventPublisher.publishEvent(new FacturaSolicitadaEvent(factura.getId()));
+        return toDto(factura);
+    }
+
+    /**
+     * Varias facturas manuales de una vez, para las ventas que quedaron sin facturar en el día. Todo
+     * o nada: si una tiene un error no se pide ninguna (se arregla y se manda el lote de nuevo). Sin
+     * entrega: el cliente ya se fue, quedan los PDF en la lista.
+     */
+    @Override
+    @Transactional
+    public List<FacturaResponseDTO> emitirManualLote(FacturaManualLoteDTO lote) {
+        if (!estaHabilitada()) {
+            throw new IllegalStateException("La facturación no está configurada");
+        }
+        if (lote == null || lote.facturas() == null || lote.facturas().isEmpty()) {
+            throw new IllegalArgumentException("El lote no tiene facturas");
+        }
+        if (lote.facturas().size() > MAX_FACTURAS_LOTE) {
+            throw new IllegalArgumentException("Máximo " + MAX_FACTURAS_LOTE + " facturas por lote");
+        }
+        String clave = lote.claveIdempotencia() == null || lote.claveIdempotencia().isBlank() ? null : lote.claveIdempotencia().trim();
+        if (clave != null) {
+            if (clave.length() > 64) throw new IllegalArgumentException("La clave del lote es demasiado larga");
+            // Un lote ya pedido (se perdió la respuesta y se mandó de nuevo): mismas facturas, nada nuevo a ARCA.
+            facturaRepository.bloquearLote(clave);
+            List<Factura> yaPedidas = facturaRepository.findAllByLoteClaveOrderByIdAsc(clave);
+            if (!yaPedidas.isEmpty()) {
+                log.info("Lote de facturas manuales {} repetido: se devuelven las {} ya pedidas", clave, yaPedidas.size());
+                return yaPedidas.stream().map(f -> toDto(f, Optional.empty())).toList();
+            }
+        }
+        List<Factura> armadas = new ArrayList<>();
+        for (int i = 0; i < lote.facturas().size(); i++) {
+            FacturaManualDTO f = lote.facturas().get(i);
+            try {
+                armadas.add(armarManual(f == null ? null : new FacturaManualDTO(f.items(), DestinoFactura.NINGUNO, null, null)));
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("Factura " + (i + 1) + " del lote: " + e.getMessage());
+            }
+        }
+        List<FacturaResponseDTO> salida = new ArrayList<>();
+        List<Long> ids = new ArrayList<>();
+        BigDecimal total = BigDecimal.ZERO;
+        for (Factura armada : armadas) {
+            armada.setLoteClave(clave);
+            Factura factura = facturaRepository.save(armada);
+            total = total.add(factura.getImporteTotal());
+            ids.add(factura.getId());
+            // Recién creadas: no tienen trabajos de impresión (no se busca uno por factura).
+            salida.add(toDto(factura, Optional.empty()));
+        }
+        // Un solo evento para todo el lote, que se emite de a una en un mismo hilo: con un evento por
+        // factura, cien tareas ocupaban todo el pool @Async (esperando el mismo lock de emisión) y
+        // las facturas del POS y los mails quedaban en fila detrás de ellas.
+        eventPublisher.publishEvent(new LoteFacturasSolicitadoEvent(ids));
+        log.info("Lote de {} facturas manuales pedido por {}", armadas.size(), total);
+        return salida;
+    }
+
+    /** Valida el pedido y arma la factura manual (sin guardar). */
+    private Factura armarManual(FacturaManualDTO pedido) {
         if (pedido == null || pedido.items() == null || pedido.items().isEmpty()) {
             throw new IllegalArgumentException("Cargá al menos un ítem");
         }
@@ -752,13 +852,18 @@ public class FacturaServiceImpl implements FacturaService {
             throw new IllegalArgumentException("Demasiado texto en los ítems: acortá las descripciones o dividí la factura");
         }
 
+        FacturaManualDTO.Receptor receptor = validarReceptor(pedido.receptor());
         BigDecimal neto = total.divide(DIVISOR_IVA_21, 2, RoundingMode.HALF_UP);
-        Factura factura = facturaRepository.save(Factura.builder()
+        return Factura.builder()
                 .destino(destino)
                 .email(destino == DestinoFactura.MAIL ? email : null)
                 .impresora(destino == DestinoFactura.IMPRIMIR ? pedido.impresora() : null)
                 .puntoVenta(puntoVentaBoleteria)
-                .tipoComprobante(WsfeService.CBTE_TIPO_FACTURA_B)
+                .tipoComprobante(receptor != null ? WsfeService.CBTE_TIPO_FACTURA_A : WsfeService.CBTE_TIPO_FACTURA_B)
+                .receptorCuit(receptor != null ? receptor.cuit() : null)
+                .receptorRazonSocial(receptor != null ? receptor.razonSocial() : null)
+                .receptorDomicilio(receptor != null ? receptor.domicilio() : null)
+                .receptorCondicionIva(receptor != null ? receptor.condicionIva() : null)
                 .concepto(hayServicio && hayProducto ? CONCEPTO_PRODUCTOS_Y_SERVICIOS
                         : hayProducto ? CONCEPTO_PRODUCTOS : CONCEPTO_SERVICIOS)
                 .fechaServicio(LocalDate.now(ZONA_ARGENTINA))
@@ -766,16 +871,47 @@ public class FacturaServiceImpl implements FacturaService {
                 .importeNeto(neto)
                 .importeIva(total.subtract(neto))
                 .detalle(detalle.toString())
-                .build());
-        log.info("Factura manual ID {} pedida por {} ({} ítems)", factura.getId(), total, pedido.items().size());
-        eventPublisher.publishEvent(new FacturaSolicitadaEvent(factura.getId()));
-        return toDto(factura);
+                .build();
+    }
+
+    private static final int MAX_RAZON_SOCIAL = 150;
+    private static final int MAX_DOMICILIO = 200;
+
+    /** Normaliza y valida el receptor de una Factura A; null si no vino (Factura B). */
+    private FacturaManualDTO.Receptor validarReceptor(FacturaManualDTO.Receptor r) {
+        if (r == null) return null;
+        String cuit = r.cuit() == null ? "" : r.cuit().replaceAll("[\\s.-]", "");
+        if (!WsfeService.cuitValido(cuit)) {
+            throw new IllegalArgumentException("El CUIT del receptor no es válido");
+        }
+        if (cuit.equals(afipClient.getCuit())) {
+            throw new IllegalArgumentException("El CUIT del receptor es el del parque");
+        }
+        String razonSocial = r.razonSocial() == null ? "" : r.razonSocial().replaceAll("\\s+", " ").trim();
+        if (razonSocial.isEmpty()) {
+            throw new IllegalArgumentException("Falta la razón social del receptor");
+        }
+        if (razonSocial.length() > MAX_RAZON_SOCIAL) {
+            throw new IllegalArgumentException("La razón social es muy larga (máximo " + MAX_RAZON_SOCIAL + " caracteres)");
+        }
+        String domicilio = r.domicilio() == null ? "" : r.domicilio().replaceAll("\\s+", " ").trim();
+        if (domicilio.isEmpty()) {
+            throw new IllegalArgumentException("Falta el domicilio comercial del receptor (va impreso en la Factura A)");
+        }
+        if (domicilio.length() > MAX_DOMICILIO) {
+            throw new IllegalArgumentException("El domicilio es muy largo (máximo " + MAX_DOMICILIO + " caracteres)");
+        }
+        if (r.condicionIva() == null || !WsfeService.CONDICIONES_IVA_FACTURA_A.containsKey(r.condicionIva())) {
+            throw new IllegalArgumentException("La condición frente al IVA del receptor no admite Factura A");
+        }
+        return new FacturaManualDTO.Receptor(cuit, razonSocial, domicilio, r.condicionIva());
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<FacturaResponseDTO> manuales() {
-        List<Factura> facturas = facturaRepository.findTop50ByCompraIsNullAndTipoComprobanteOrderByIdDesc(WsfeService.CBTE_TIPO_FACTURA_B);
+        List<Factura> facturas = facturaRepository.findTop50ByCompraIsNullAndTipoComprobanteInOrderByIdDesc(
+                List.of(WsfeService.CBTE_TIPO_FACTURA_A, WsfeService.CBTE_TIPO_FACTURA_B));
         Map<Long, TrabajoImpresion> trabajos = impresionService.ultimosTrabajos(facturas.stream().map(Factura::getId).toList());
         return facturas.stream().map(f -> toDto(f, Optional.ofNullable(trabajos.get(f.getId())))).toList();
     }
@@ -785,14 +921,14 @@ public class FacturaServiceImpl implements FacturaService {
     public void anularFactura(Long facturaId) {
         Factura f = facturaRepository.findById(facturaId)
                 .orElseThrow(() -> new IllegalArgumentException("Factura no encontrada ID: " + facturaId));
-        if (f.getTipoComprobante() != WsfeService.CBTE_TIPO_FACTURA_B) {
+        if (!WsfeService.esFactura(f.getTipoComprobante())) {
             throw new IllegalStateException("Sólo se anulan facturas (una nota de crédito no se anula)");
         }
         if (f.getEstado() == EstadoFactura.ANULADA || Boolean.TRUE.equals(f.getAnulacionPedida())) {
             throw new IllegalStateException("Esta factura ya está anulada");
         }
         org.example.laserranitaentradas.monitoreo.AuditoriaContexto.referencia(f.getNumero() != null
-                ? String.format("B %04d-%08d", f.getPuntoVenta(), f.getNumero()) : "(sin número)");
+                ? String.format("%s %04d-%08d", WsfeService.letra(f.getTipoComprobante()), f.getPuntoVenta(), f.getNumero()) : "(sin número)");
         org.example.laserranitaentradas.monitoreo.AuditoriaContexto.detalle("Total: $" + f.getImporteTotal().stripTrailingZeros().toPlainString()
                 + (f.getCompra() != null ? " · compra #" + f.getCompra().getCodigoReserva() : " · manual"));
         anular(f);
@@ -914,8 +1050,21 @@ public class FacturaServiceImpl implements FacturaService {
     }
 
     @Override
+    /** Se factura sola cada compra online pagada: configurada y prendida en Sistema > Módulos
+     * (la general y la online). Facturar a mano una compra online (facturarOnlineAhora) no depende
+     * del módulo online: se puede igual con él apagado. */
     public boolean facturacionOnlineActiva() {
-        return puntoVentaOnline() != null && estaHabilitada();
+        return puntoVentaOnline() != null && estaHabilitada() && modulos.activo(Modulo.FACTURACION_ONLINE);
+    }
+
+    @Override
+    public boolean facturacionBoleteriaActiva() {
+        return estaHabilitada() && modulos.activo(Modulo.FACTURACION_BOLETERIA);
+    }
+
+    @Override
+    public boolean puntoVentaOnlineConfigurado() {
+        return puntoVentaOnline() != null;
     }
 
     @Override
@@ -994,6 +1143,8 @@ public class FacturaServiceImpl implements FacturaService {
                 .impresionEstado(ultimo.map(TrabajoImpresion::getEstado).orElse(null))
                 .impresionError(ultimo.map(TrabajoImpresion::getError).orElse(null))
                 .detalle(f.getDetalle())
+                .receptorCuit(f.getReceptorCuit())
+                .receptorRazonSocial(f.getReceptorRazonSocial())
                 .build();
     }
 
@@ -1046,7 +1197,7 @@ public class FacturaServiceImpl implements FacturaService {
         try {
             for (int pv : puntos) {
                 try {
-                    for (int tipo : List.of(WsfeService.CBTE_TIPO_FACTURA_B, WsfeService.CBTE_TIPO_NOTA_CREDITO_B)) {
+                    for (int tipo : tiposAControlar(pv)) {
                         long base = Optional.ofNullable(facturaRepository.ultimoNumeroEmitido(pv, tipo)).orElse(0L);
                         Long reservado = facturaRepository.ultimoNumeroReservadoSinResolver(pv, tipo);
                         long arca = wsfe.ultimoAutorizado(pv, tipo);
@@ -1081,12 +1232,25 @@ public class FacturaServiceImpl implements FacturaService {
         return desfases;
     }
 
+    /** B siempre; A sólo si ese punto de venta ya emitió alguna (si no, ARCA y la base están en 0 igual). */
+    private List<Integer> tiposAControlar(int pv) {
+        List<Integer> tipos = new ArrayList<>(List.of(WsfeService.CBTE_TIPO_FACTURA_B, WsfeService.CBTE_TIPO_NOTA_CREDITO_B));
+        if (facturaRepository.ultimoNumeroEmitido(pv, WsfeService.CBTE_TIPO_FACTURA_A) != null) {
+            tipos.add(WsfeService.CBTE_TIPO_FACTURA_A);
+            tipos.add(WsfeService.CBTE_TIPO_NOTA_CREDITO_A);
+        }
+        return tipos;
+    }
+
     @Override
     @Transactional(readOnly = true)
     public List<Long> idsAlertasFacturacion() {
-        if (!estaHabilitada()) return List.of();
+        if (!afipClient.estaConfigurado()) return List.of();
+        // Con el módulo apagado las pendientes esperan a propósito (no son "trabadas"), pero las que
+        // quedaron en ERROR y el vencimiento del certificado se siguen avisando.
+        boolean apagada = !modulos.activo(Modulo.FACTURACION);
         List<Long> ids = new ArrayList<>(facturaRepository.conProblemas(LocalDateTime.now(ZONA_ARGENTINA).minusMinutes(MINUTOS_PARA_TRABADA))
-                .stream().map(Factura::getId).toList());
+                .stream().filter(f -> !apagada || f.getEstado() == EstadoFactura.ERROR).map(Factura::getId).toList());
         afipClient.vencimientoCertificado().ifPresent(vence -> {
             if (java.time.temporal.ChronoUnit.DAYS.between(LocalDate.now(ZONA_ARGENTINA), vence) <= DIAS_AVISO_CERTIFICADO) ids.add(-1L);
         });
@@ -1116,18 +1280,19 @@ public class FacturaServiceImpl implements FacturaService {
         java.time.format.DateTimeFormatter fecha = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy");
         java.time.format.DateTimeFormatter hora = java.time.format.DateTimeFormatter.ofPattern("HH:mm");
         StringBuilder csv = new StringBuilder("\uFEFF"); // BOM: Excel lo abre como UTF-8 (tildes)
-        csv.append("Fecha;Hora;Comprobante;Punto de venta;Número;CAE;Vto. CAE;Total;Neto gravado;IVA 21%;Estado;Compra;Comprobante asociado\r\n");
+        csv.append("Fecha;Hora;Comprobante;Punto de venta;Número;CAE;Vto. CAE;Total;Neto gravado;IVA 21%;Estado;Compra;Comprobante asociado;CUIT receptor;Razón social receptor\r\n");
         for (Factura f : facturaRepository.emitidasEntre(desde, hasta)) {
-            boolean nc = f.getTipoComprobante() == WsfeService.CBTE_TIPO_NOTA_CREDITO_B;
+            boolean nc = WsfeService.esNotaDeCredito(f.getTipoComprobante());
             String asociado = "";
             if (f.getComprobanteAsociado() != null && f.getComprobanteAsociado().getNumero() != null) {
-                asociado = String.format("%04d-%08d", f.getComprobanteAsociado().getPuntoVenta(), f.getComprobanteAsociado().getNumero());
+                asociado = String.format("%s %04d-%08d", WsfeService.letra(f.getComprobanteAsociado().getTipoComprobante()),
+                        f.getComprobanteAsociado().getPuntoVenta(), f.getComprobanteAsociado().getNumero());
             }
             String estado = nc ? "Emitida" : (Boolean.TRUE.equals(f.getAnulacionPedida()) ? "Anulada con nota de crédito" : "Emitida");
             csv.append(String.join(";",
                     f.getFechaEmision().format(fecha),
                     f.getEmitidaEn() != null ? f.getEmitidaEn().format(hora) : "",
-                    nc ? "Nota de Crédito B" : "Factura B",
+                    WsfeService.nombre(f.getTipoComprobante()),
                     String.format("%04d", f.getPuntoVenta()),
                     String.format("%08d", f.getNumero()),
                     nullAVacio(f.getCae()),
@@ -1137,7 +1302,9 @@ public class FacturaServiceImpl implements FacturaService {
                     importeCsv(f.getImporteIva()),
                     estado,
                     f.getCompra() != null ? nullAVacio(f.getCompra().getCodigoReserva()) : "Manual",
-                    asociado)).append("\r\n");
+                    asociado,
+                    nullAVacio(f.getReceptorCuit()),
+                    nullAVacio(f.getReceptorRazonSocial()))).append("\r\n");
         }
         return csv.toString();
     }
@@ -1151,6 +1318,9 @@ public class FacturaServiceImpl implements FacturaService {
     }
 
     public record FacturaSolicitadaEvent(Long facturaId) {}
+
+    /** Las facturas de un lote manual, para emitirlas una tras otra en un solo hilo. */
+    public record LoteFacturasSolicitadoEvent(List<Long> facturaIds) {}
 
     /** Se aprobó el pago de una compra online: factura y confirmación en segundo plano. */
     public record CompraOnlinePagadaEvent(Long compraId) {}

@@ -1,9 +1,9 @@
-.selector-ticketera {
+.selector-dispositivos {
   position: relative;
 }
 
 /* Mismo pill que Retiro/Aporte y Reponer talonario (ver pos.css), para que la fila quede pareja. */
-.btn-ticketera {
+.btn-dispositivos {
   padding: 8px 14px;
   border: 1.5px solid var(--color-border);
   border-radius: 999px;
@@ -18,29 +18,34 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  max-width: 260px;
+  max-width: 300px;
+  overflow: hidden;
+}
+
+.etiqueta {
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.btn-ticketera svg {
+.btn-dispositivos svg {
   width: 15px;
   height: 15px;
   flex-shrink: 0;
 }
 
-.btn-ticketera:hover {
+.btn-dispositivos:hover {
   border-color: var(--color-primary);
   color: var(--color-primary-dark);
 }
 
-.btn-ticketera:focus-visible,
-.opcion-ticketera:focus-visible {
+.btn-dispositivos:focus-visible,
+.opcion:focus-visible {
   outline: none;
   box-shadow: 0 0 0 3px rgba(57, 169, 53, 0.35);
 }
 
-/* Punto de estado: verde = lista; rojo = PC o ticketera apagada; ámbar = falta elegir. */
+/* Punto de estado: verde = listo; rojo = apagado / no disponible; ámbar = falta elegir;
+   gris = a propósito sin Point (la tarjeta se anota a mano). */
 .punto {
   width: 9px;
   height: 9px;
@@ -52,14 +57,17 @@
 .punto-ok { background-color: var(--color-primary); }
 .punto-mal { background-color: var(--color-danger-dark); }
 .punto-elegir { background-color: var(--color-accent-dark); }
+.punto-manual { background-color: var(--color-text-muted); }
 
-.menu-ticketera {
+.menu-dispositivos {
   position: absolute;
   top: calc(100% + 6px);
   right: 0;
   z-index: 50;
-  min-width: 260px;
-  max-width: min(340px, calc(100vw - 32px));
+  min-width: 320px;
+  max-width: min(360px, calc(100vw - 32px));
+  max-height: min(70vh, 560px);
+  overflow-y: auto;
   padding: 6px;
   background-color: var(--color-card-bg);
   border: 1px solid var(--color-border);
@@ -70,7 +78,7 @@
   gap: 2px;
 }
 
-.opcion-ticketera {
+.opcion {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -85,8 +93,29 @@
   cursor: pointer;
 }
 
-.opcion-ticketera:hover {
+.opcion:hover:not(:disabled) {
   background-color: var(--color-primary-light);
+}
+
+.opcion:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.menu-titulo {
+  margin: 0;
+  padding: 8px 10px 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.menu-titulo-separado {
+  margin-top: 4px;
+  border-top: 1px solid var(--color-border);
+  padding-top: 10px;
 }
 
 .opcion-texto {
@@ -127,8 +156,64 @@
 }
 
 @media (pointer: coarse) {
-  .btn-ticketera,
-  .opcion-ticketera {
+  .btn-dispositivos,
+  .opcion {
+    min-height: 44px;
+  }
+}
+
+.menu-dispositivos.menu-izquierda {
+  right: auto;
+  left: 0;
+}
+
+/* Un Point: la opción para elegirlo y, al lado, el botón para pasarlo a manual / integrado. */
+.fila-point {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.fila-point .opcion {
+  flex: 1;
+  min-width: 0;
+}
+
+.btn-modo {
+  flex-shrink: 0;
+  padding: 6px 10px;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-card-bg);
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  font-size: 0.74rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.btn-modo:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-primary-dark);
+}
+
+.btn-modo:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.btn-modo:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(57, 169, 53, 0.35);
+}
+
+.menu-error {
+  color: var(--color-danger-dark);
+}
+
+@media (pointer: coarse) {
+  .btn-modo {
     min-height: 44px;
   }
 }

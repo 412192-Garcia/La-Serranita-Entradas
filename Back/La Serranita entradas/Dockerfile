@@ -10,7 +10,10 @@ COPY pom.xml .
 RUN mvn -B -q dependency:go-offline
 
 COPY src ./src
-RUN mvn -B -q -DskipTests package
+# Versión que se ve en Sistema > Estado (las pasa el CI; armando la imagen a mano queda "dev").
+ARG APP_RELEASE=dev
+ARG APP_COMMIT=local
+RUN mvn -B -q -DskipTests package -Dapp.release="${APP_RELEASE}" -Dapp.commit="${APP_COMMIT}"
 
 # ---------- Etapa 2: runtime ----------
 # JRE (no JDK) alpine: liviano, no hace falta el toolchain de compilación en producción.

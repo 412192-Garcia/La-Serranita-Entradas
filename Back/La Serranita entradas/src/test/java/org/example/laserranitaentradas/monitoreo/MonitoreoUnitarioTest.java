@@ -244,6 +244,23 @@ class MonitoreoUnitarioTest {
         assertThat(e.lentas()).isEqualTo(1);
         assertThat(e.errores()).isEqualTo(1);
         assertThat(m.lentasUltimaHora()).isEqualTo(1);
+        assertThat(e.totalMs()).isEqualTo(2000);
+    }
+
+    @Test
+    void metricas_p95PorTramos_y4xxAparte() {
+        MetricasRequests m = new MetricasRequests();
+        org.springframework.test.util.ReflectionTestUtils.setField(m, "umbralMs", 3000L);
+        for (int i = 0; i < 19; i++) m.registrar("GET /api/b", 8, 200, null, "x");  // 19 en el tramo de 10 ms
+        m.registrar("GET /api/b", 700, 401, null, "y");                               // 1 en el de 1 s
+
+        MetricasRequests.Endpoint e = m.resumen().endpoints().get(0);
+        assertThat(e.p95Ms()).isEqualTo(10);
+        assertThat(e.errores4xx()).isEqualTo(1);
+        assertThat(e.errores()).isZero();
+
+        m.registrar("GET /api/b", 900, 200, null, "z");  // ya son 2 de 21 lentas de verdad: el p95 sube
+        assertThat(m.resumen().endpoints().get(0).p95Ms()).isEqualTo(900);
     }
 
     @Test
@@ -276,6 +293,45 @@ class MonitoreoUnitarioTest {
         org.springframework.test.util.ReflectionTestUtils.setField(anomalias, "minimoEsperado", 3.0);
 
         assertThat(anomalias.tarjeta().estado()).isEqualTo("OK");
+    }
+
+    @Test
+    void puerta_ventasSinValidaciones_sinAnticipadasParaHoy_noEsAlerta_yConAnticipadasSi() {
+        var repo = mock(org.example.laserranitaentradas.repository.CompraRepository.class);
+        when(repo.confirmacionesPorOrigen(any())).thenReturn(java.util.List.of());
+        when(repo.countByEstadoAndFechaCreacionBetween(any(), any(), any())).thenReturn(20L); // 20 ventas de puerta
+        AnomaliasVentas anomalias = new AnomaliasVentas(repo);
+        org.springframework.test.util.ReflectionTestUtils.setField(anomalias, "ventanaHoras", 3);
+        org.springframework.test.util.ReflectionTestUtils.setField(anomalias, "minimoEsperado", 3.0);
+        org.springframework.test.util.ReflectionTestUtils.setField(anomalias, "movimientoPuerta", 15);
+        org.springframework.test.util.ReflectionTestUtils.setField(anomalias, "anticipadasEsperadas", 10);
+
+        when(repo.countByEstadoAndFechaVisita(any(), any())).thenReturn(2L);
+        assertThat(anomalias.tarjeta().estado()).isEqualTo("OK");
+
+        when(repo.countByEstadoAndFechaVisita(any(), any())).thenReturn(30L);
+        assertThat(anomalias.tarjeta().estado()).isEqualTo("ALERTA");
+    }
+
+    @Test
+    void desconexionDelCliente_noEsUnError() {
+        assertThat(org.example.laserranitaentradas.controller.ManejadorGlobalErrores.esDesconexionDelCliente(
+                new RuntimeException(new org.apache.catalina.connector.ClientAbortException(
+                        new java.io.IOException("Broken pipe"))))).isTrue();
+        assertThat(org.example.laserranitaentradas.controller.ManejadorGlobalErrores.esDesconexionDelCliente(
+                new org.springframework.web.context.request.async.AsyncRequestNotUsableException("cerrado"))).isTrue();
+        assertThat(org.example.laserranitaentradas.controller.ManejadorGlobalErrores.esDesconexionDelCliente(
+                new IllegalStateException("otra cosa"))).isFalse();
+    }
+
+    @Test
+    void connectionResetDelServidor_siEsUnError() {
+        // La base, el SMTP o Mercado Pago cortando la conexión: mismo mensaje, pero es del servidor.
+        assertThat(org.example.laserranitaentradas.controller.ManejadorGlobalErrores.esDesconexionDelCliente(
+                new org.springframework.dao.DataAccessResourceFailureException("I/O error",
+                        new java.net.SocketException("Connection reset")))).isFalse();
+        assertThat(org.example.laserranitaentradas.controller.ManejadorGlobalErrores.esDesconexionDelCliente(
+                new RuntimeException(new java.io.IOException("Broken pipe")))).isFalse();
     }
 
     @Test

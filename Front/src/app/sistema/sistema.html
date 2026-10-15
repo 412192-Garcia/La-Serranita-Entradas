@@ -2,7 +2,7 @@
 
   <app-cabecera-interna
     titulo="Sistema"
-    descripcion="Monitoreo y trazabilidad: cómo anda cada parte del sistema, quién hizo qué, los errores y los tiempos de respuesta."
+    descripcion="Monitoreo y trazabilidad: cómo anda cada parte del sistema, quién hizo qué, los errores, los tiempos de respuesta, las operaciones que el servidor rechazó y los módulos que se pueden apagar."
     [pasosTutorial]="pasosTutorial()" />
 
   <nav class="tabs">
@@ -10,6 +10,13 @@
     <button type="button" class="tab" [class.activo]="tab() === 'historial'" (click)="elegir('historial')">Historial de acciones</button>
     <button type="button" class="tab" [class.activo]="tab() === 'errores'" (click)="elegir('errores')">Errores</button>
     <button type="button" class="tab" [class.activo]="tab() === 'rendimiento'" (click)="elegir('rendimiento')">Rendimiento</button>
+    <button type="button" class="tab" [class.activo]="tab() === 'rechazos'" (click)="elegir('rechazos')">
+      Operaciones rechazadas
+      @if (hayRechazosPendientes()) {
+        <span class="punto-notificacion-tab" aria-label="Hay operaciones rechazadas pendientes"></span>
+      }
+    </button>
+    <button type="button" class="tab" [class.activo]="tab() === 'modulos'" (click)="elegir('modulos')">Módulos</button>
   </nav>
 
   @if (tab() === 'estado') {
@@ -18,7 +25,11 @@
     <app-historial-acciones [accionInicial]="accionInicial()" />
   } @else if (tab() === 'errores') {
     <app-errores-sistema [areaInicial]="areaInicial()" />
-  } @else {
+  } @else if (tab() === 'rendimiento') {
     <app-rendimiento-sistema />
+  } @else if (tab() === 'rechazos') {
+    <app-rechazos-operaciones />
+  } @else {
+    <app-modulos-sistema />
   }
 </div>

@@ -51,6 +51,21 @@ class FacturaPdfGeneratorTest {
     }
 
     @Test
+    void ventaDePuerta_diceQueBoleteroAtendio_yOnlineNo() throws Exception {
+        ComprobanteFactura online = comprobante(List.of(new ComprobanteFactura.Item(2, "General")));
+        ComprobanteFactura puerta = new ComprobanteFactura(online.razonSocial(), online.domicilio(), online.cuit(),
+                online.ingresosBrutos(), online.inicioActividades(), 37, 21L, online.fechaEmision(), "261005-3",
+                online.items(), online.total(), online.ivaContenido(), online.cae(), online.caeVencimiento(),
+                online.qrUrl(), 6, null, null, "Venta", "Juan Pérez");
+
+        String textoPuerta = new PdfTextExtractor(new PdfReader(generator.generar(puerta))).getTextFromPage(1);
+        String textoOnline = new PdfTextExtractor(new PdfReader(generator.generar(online))).getTextFromPage(1);
+
+        assertThat(textoPuerta).contains("Atendido por: Juan Pérez");
+        assertThat(textoOnline).doesNotContain("Atendido por");
+    }
+
+    @Test
     void imprimeFechaYHoraDeEmision_ySinHoraEnLasViejas() throws Exception {
         ComprobanteFactura viejo = comprobante(List.of(new ComprobanteFactura.Item(2, "General")));
         ComprobanteFactura conHora = new ComprobanteFactura(viejo.razonSocial(), viejo.domicilio(), viejo.cuit(),
@@ -91,5 +106,28 @@ class FacturaPdfGeneratorTest {
         assertThat(readerLargo.getNumberOfPages()).isEqualTo(1);
         assertThat(readerLargo.getPageSize(1).getHeight())
                 .isGreaterThan(new PdfReader(corto).getPageSize(1).getHeight());
+    }
+
+    @Test
+    void facturaA_conReceptorEIvaDiscriminado_sinLeyendaDeConsumidorFinal() throws Exception {
+        ComprobanteFactura b = comprobante(List.of(new ComprobanteFactura.Item(2, "General", new BigDecimal("56694.21"))));
+        ComprobanteFactura a = new ComprobanteFactura(b.razonSocial(), b.domicilio(), b.cuit(), b.ingresosBrutos(),
+                b.inicioActividades(), 11, 3L, b.fechaEmision(), null, b.items(), b.total(), b.ivaContenido(), b.cae(),
+                b.caeVencimiento(), b.qrUrl(), 1, null, null, "Reserva", null,
+                new ComprobanteFactura.Receptor("Colegio San Martín SRL", "20409378472", "Av. Siempreviva 742", "IVA Responsable Inscripto"));
+
+        String texto = new PdfTextExtractor(new PdfReader(generator.generar(a))).getTextFromPage(1);
+
+        assertThat(texto)
+                .contains("FACTURA A")
+                .contains("COD. 001")
+                .contains("Colegio San Martín SRL")
+                .contains("20-40937847-2")
+                .contains("Av. Siempreviva 742")
+                .contains("IVA Responsable Inscripto")
+                .contains("Subtotal neto gravado")
+                .contains("IVA 21%")
+                .doesNotContain("Consumidor Final")
+                .doesNotContain("Ley 27.743");
     }
 }

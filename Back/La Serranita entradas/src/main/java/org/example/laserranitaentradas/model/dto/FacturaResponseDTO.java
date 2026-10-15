@@ -37,6 +37,9 @@ public class FacturaResponseDTO {
     private String impresionError;
     /** Ítems facturados, "cantidad<TAB>descripción<TAB>subtotal" por línea (para listar las manuales). */
     private String detalle;
+    /** Sólo en una Factura A (o su nota de crédito). */
+    private String receptorCuit;
+    private String receptorRazonSocial;
     /** URL del QR de ARCA (RG 4892). Sólo cuando está EMITIDA. */
     private String qrUrl;
 }

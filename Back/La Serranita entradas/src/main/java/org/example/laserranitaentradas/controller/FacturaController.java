@@ -6,8 +6,11 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.example.laserranitaentradas.config.UsuarioAutenticado;
 import org.example.laserranitaentradas.model.dto.ControlFacturacionDTO;
 import org.example.laserranitaentradas.model.dto.FacturaManualDTO;
+import org.example.laserranitaentradas.model.dto.FacturaManualLoteDTO;
 import org.example.laserranitaentradas.model.dto.FacturaResponseDTO;
 import org.example.laserranitaentradas.model.dto.FacturacionPosDTO;
+import org.example.laserranitaentradas.model.dto.PadronContribuyenteDTO;
+import org.example.laserranitaentradas.service.afip.PadronService;
 import org.example.laserranitaentradas.model.dto.VentaFacturaDTO;
 import org.example.laserranitaentradas.service.factura.VentasFacturasService;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -27,16 +30,20 @@ public class FacturaController {
 
     private final FacturaService facturaService;
     private final VentasFacturasService ventasFacturasService;
+    private final PadronService padronService;
 
-    public FacturaController(FacturaService facturaService, VentasFacturasService ventasFacturasService) {
+    public FacturaController(FacturaService facturaService, VentasFacturasService ventasFacturasService,
+                             PadronService padronService) {
         this.facturaService = facturaService;
         this.ventasFacturasService = ventasFacturasService;
+        this.padronService = padronService;
     }
 
     @GetMapping("/estado-servicio")
     @Operation(summary = "Si la facturación está configurada", description = "El POS lo usa para mostrar u ocultar las opciones de factura.")
     public Map<String, Boolean> estadoServicio() {
-        return Map.of("habilitada", facturaService.estaHabilitada(), "online", facturaService.facturacionOnlineActiva());
+        return Map.of("habilitada", facturaService.estaHabilitada(), "boleteria", facturaService.facturacionBoleteriaActiva(),
+                "online", facturaService.facturacionOnlineActiva());
     }
 
     @PostMapping("/compra/{compraId}/online")
@@ -124,9 +131,23 @@ public class FacturaController {
 
     @PostMapping("/manual")
     @Operation(summary = "Factura manual (ADMIN)",
-            description = "Factura B sin venta, con los ítems e importes que se carguen. Destino IMPRIMIR, MAIL o NINGUNO (sólo PDF).")
+            description = "Factura B sin venta (o A, si viene el receptor con su CUIT), con los ítems e importes que se carguen. Destino IMPRIMIR, MAIL o NINGUNO (sólo PDF).")
     public FacturaResponseDTO emitirManual(@RequestBody FacturaManualDTO pedido) {
         return facturaService.emitirManual(pedido);
+    }
+
+    @PostMapping("/manual/lote")
+    @Operation(summary = "Lote de facturas manuales (ADMIN)",
+            description = "Varias facturas B sin venta de una vez (las ventas que quedaron sin facturar). Todo o nada; sin entrega, queda el PDF.")
+    public List<FacturaResponseDTO> emitirManualLote(@RequestBody FacturaManualLoteDTO lote) {
+        return facturaService.emitirManualLote(lote);
+    }
+
+    @GetMapping("/padron/{cuit}")
+    @Operation(summary = "Datos de un CUIT en el padrón de ARCA (ADMIN)",
+            description = "Razón social, domicilio fiscal y condición frente al IVA, para completar una Factura A. Si ARCA no contesta o no da la constancia lo dice en `estado` (no es un error HTTP): los datos se cargan a mano.")
+    public PadronContribuyenteDTO padron(@PathVariable @Parameter(description = "CUIT, con o sin guiones") String cuit) {
+        return padronService.consultar(cuit);
     }
 
     @GetMapping("/manuales")
@@ -137,7 +158,7 @@ public class FacturaController {
 
     @PostMapping("/{id}/anular")
     @Operation(summary = "Anular una factura (ADMIN)",
-            description = "Emite la nota de crédito B por el total. Manual o de una venta: la venta queda igual, sin factura, y se puede volver a facturar.")
+            description = "Emite la nota de crédito (A o B, la de la factura) por el total. Manual o de una venta: la venta queda igual, sin factura, y se puede volver a facturar.")
     public ResponseEntity<Void> anularFactura(@PathVariable @Parameter(description = "ID de la factura") Long id) {
         facturaService.anularFactura(id);
         return ResponseEntity.ok().build();

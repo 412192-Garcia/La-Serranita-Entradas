@@ -1,0 +1,128 @@
+<div class="tarjeta" data-tour="modulos-sistema">
+  <h2>Módulos</h2>
+  <p class="ayuda">Partes del sistema que se pueden apagar sin tocar el servidor. El cambio llega a las tablets en el próximo minuto.</p>
+
+  @if (modulos().length === 0) {
+    <app-spinner />
+  }
+
+  <ul class="lista-modulos">
+    @for (m of principales(); track m.codigo) {
+      <li class="grupo-modulo">
+        <ng-container *ngTemplateOutlet="filaModulo; context: { $implicit: m, padreApagado: false }" />
+        @if (hijos(m.codigo).length) {
+          <ul class="lista-submodulos">
+            @for (h of hijos(m.codigo); track h.codigo) {
+              <li>
+                <ng-container *ngTemplateOutlet="filaModulo; context: { $implicit: h, padreApagado: !m.activo, padre: m }" />
+              </li>
+            }
+          </ul>
+        }
+      </li>
+    }
+  </ul>
+
+  <!-- Una fila: módulo principal o submódulo. Un submódulo con su módulo apagado queda apagado
+       también (sin perder cómo estaba) y su interruptor no se puede tocar. -->
+  <ng-template #filaModulo let-m let-padreApagado="padreApagado" let-padre="padre">
+    <div class="modulo" [class.modulo-apagado]="!m.activo || padreApagado" [class.submodulo]="m.padre">
+      <div class="modulo-texto">
+        <div class="modulo-titulo">
+          <strong>{{ m.nombre }}</strong>
+          <span class="estado-modulo"
+            [class.estado-prendido]="m.activo && m.configurado && !padreApagado"
+            [class.estado-incompleto]="m.activo && !m.configurado && !padreApagado">
+            {{ padreApagado ? 'Apagado con ' + padre.nombre : !m.activo ? 'Apagado' : m.configurado ? 'Prendido' : 'Prendido, sin configurar' }}
+          </span>
+        </div>
+        <p class="modulo-descripcion">{{ m.descripcion }}</p>
+        @if (m.faltaConfigurar && !padreApagado) {
+          <p class="alerta">{{ m.faltaConfigurar }}</p>
+        }
+        @if (confirmandoApagar() === m.codigo) {
+          <p class="confirmar-apagado">
+            ¿Apagar {{ m.nombre.toLowerCase() }}? Tocá de nuevo el interruptor para confirmar.
+            <button type="button" class="btn-accion" (click)="confirmandoApagar.set(null)">No, dejarlo prendido</button>
+          </p>
+        }
+      </div>
+      <button
+        type="button"
+        role="switch"
+        class="interruptor"
+        [class.interruptor-confirmando]="confirmandoApagar() === m.codigo"
+        [attr.aria-checked]="m.activo && !padreApagado"
+        [attr.aria-label]="(m.activo ? 'Apagar ' : 'Prender ') + m.nombre"
+        [title]="padreApagado ? 'Se prende junto con ' + padre.nombre : ''"
+        [disabled]="guardando() === m.codigo || padreApagado"
+        (click)="cambiar(m)">
+        <span class="interruptor-perilla"></span>
+      </button>
+    </div>
+  </ng-template>
+  @if (error(); as e) {
+    <p class="alerta">{{ e }}</p>
+  }
+</div>
+
+<div class="tarjeta" data-tour="points-sistema">
+  <div class="titulo-con-accion">
+    <h2>Points de Mercado Pago</h2>
+    <button type="button" class="btn-secundario btn-con-icono" [disabled]="cargandoTerminales()" (click)="cargarTerminales()">
+      <svg lucideRefreshCw [strokeWidth]="2"></svg> Actualizar
+    </button>
+  </div>
+  <p class="ayuda">
+    Para que un Point reciba los cobros de las tablets tiene que estar <strong>integrado</strong> y asociado a una caja (punto de
+    venta) en Mercado Pago, una por Point. Cada tablet elige el suyo en el botón de dispositivos de la pantalla de venta.
+  </p>
+  <p class="ayuda">
+    Si se corta internet en la boletería, las tablets anotan la tarjeta a mano, pero un Point integrado no cobra solo: pasalo a
+    <strong>manual</strong> desde acá (por ejemplo, con el celular) y volvelo a integrado cuando vuelva la señal. Si el Point no toma
+    el cambio, reinicialo.
+  </p>
+
+  @if (cargandoTerminales() && terminales() === null) {
+    <app-spinner />
+  }
+  @if (errorTerminales(); as e) {
+    <p class="alerta">{{ e }}</p>
+  }
+  @if (avisoPoint(); as a) {
+    <p class="aviso-ok">{{ a }}</p>
+  }
+
+  @if (terminales(); as lista) {
+    @if (lista.length === 0) {
+      <p class="ayuda">No hay Points en la cuenta de Mercado Pago.</p>
+    }
+    <ul class="lista-points">
+      @for (t of lista; track t.id) {
+        <li class="point">
+          <div class="point-datos">
+            <label class="point-nombre">
+              <span class="sr-only">Nombre de {{ t.serie }}</span>
+              <input
+                type="text"
+                maxlength="60"
+                [ngModel]="nombres()[t.id]"
+                (ngModelChange)="setNombre(t.id, $event)"
+                (keydown.enter)="nombreCambiado(t) && guardarNombre(t)" />
+            </label>
+            <span class="secundario">Serie {{ t.serie }}</span>
+          </div>
+          <span class="estado-modulo" [class.estado-prendido]="t.integrado">{{ t.integrado ? 'Integrado' : 'Manual' }}</span>
+          <div class="point-acciones">
+            @if (nombreCambiado(t)) {
+              <button type="button" class="btn-accion" [disabled]="operandoPoint() === t.id" (click)="guardarNombre(t)">Guardar nombre</button>
+            }
+            <button type="button" class="btn-accion" [disabled]="operandoPoint() === t.id" (click)="cambiarModo(t)">
+              {{ t.integrado ? 'Pasar a manual' : 'Pasar a integrado' }}
+            </button>
+          </div>
+        </li>
+      }
+    </ul>
+  }
+</div>

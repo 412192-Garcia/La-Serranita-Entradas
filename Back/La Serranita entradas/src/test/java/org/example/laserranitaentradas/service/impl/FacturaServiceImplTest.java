@@ -4,7 +4,7 @@ import org.example.laserranitaentradas.model.dto.FacturacionPosDTO;
 import org.example.laserranitaentradas.model.entity.*;
 import org.example.laserranitaentradas.repository.FacturaRepository;
 import org.example.laserranitaentradas.service.afip.AfipException;
-import org.example.laserranitaentradas.service.afip.AfipSdkClient;
+import org.example.laserranitaentradas.service.afip.ArcaClient;
 import org.example.laserranitaentradas.service.afip.WsfeService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -37,7 +37,7 @@ class FacturaServiceImplTest {
 
     @Mock private FacturaRepository facturaRepository;
     @Mock private WsfeService wsfe;
-    @Mock private AfipSdkClient afipClient;
+    @Mock private ArcaClient afipClient;
     @Mock private ApplicationEventPublisher eventPublisher;
     @Mock private PlatformTransactionManager transactionManager;
     @Mock private jakarta.persistence.EntityManager em;
@@ -46,15 +46,18 @@ class FacturaServiceImplTest {
     @Mock private org.example.laserranitaentradas.service.EmailService emailService;
     @Mock private org.example.laserranitaentradas.service.impresion.ImpresionService impresionService;
     @Mock private org.example.laserranitaentradas.service.CalculoPrecioService calculoPrecioService;
+    @Mock private org.example.laserranitaentradas.service.ModulosService modulos;
 
     private FacturaServiceImpl service;
 
     @BeforeEach
     void setUp() {
         service = new FacturaServiceImpl(facturaRepository, wsfe, afipClient, eventPublisher, transactionManager, em,
-                comprobanteFacturaService, pdfGenerator, emailService, impresionService, calculoPrecioService);
+                comprobanteFacturaService, pdfGenerator, emailService, impresionService, calculoPrecioService, modulos);
         ReflectionTestUtils.setField(service, "puntoVentaBoleteria", 5);
         when(afipClient.estaConfigurado()).thenReturn(true);
+        // Todos los módulos prendidos salvo que el test diga otra cosa.
+        lenient().when(modulos.activo(any(org.example.laserranitaentradas.model.entity.Modulo.class))).thenReturn(true);
         when(afipClient.getCuit()).thenReturn("20409378472");
         when(facturaRepository.save(any(Factura.class))).thenAnswer(inv -> {
             Factura f = inv.getArgument(0);
@@ -85,7 +88,7 @@ class FacturaServiceImplTest {
     }
 
     @Test
-    void sinAccessToken_noFacturaNiFalla() {
+    void sinCertificado_noFacturaNiFalla() {
         when(afipClient.estaConfigurado()).thenReturn(false);
         assertThat(service.solicitar(compra("2500", entrada()), pedido(DestinoFactura.IMPRIMIR, null))).isEmpty();
     }
@@ -522,7 +525,7 @@ class FacturaServiceImplTest {
         assertThat(csv).startsWith("\uFEFFFecha;Hora;Comprobante");
         assertThat(csv).contains("05/10/2026;14:32;Factura B;0011;00000007;123;");
         assertThat(csv).contains(";34300,00;28347,11;5952,89;Anulada con nota de crédito;261005-3;");
-        assertThat(csv).contains("Nota de Crédito B;0011;00000001").contains(";0011-00000007\r\n");
+        assertThat(csv).contains("Nota de Crédito B;0011;00000001").contains(";B 0011-00000007;;\r\n");
     }
 
     @Test
@@ -603,6 +606,69 @@ class FacturaServiceImplTest {
     }
 
     @Test
+    void lote_unaFacturaPorVenta_sinEntrega() {
+        var lote = new org.example.laserranitaentradas.model.dto.FacturaManualLoteDTO(List.of(
+                // Aunque venga con destino, el lote no se entrega.
+                manual(DestinoFactura.MAIL, "x@y.com", item("ENTRADA", 2, "General", "60000")),
+                manual(DestinoFactura.NINGUNO, null, item("ENTRADA", 1, "General", "30000"), item("ARTICULO", 1, "Gorra", "10000"))));
+
+        var r = service.emitirManualLote(lote);
+
+        ArgumentCaptor<Factura> captor = ArgumentCaptor.forClass(Factura.class);
+        verify(facturaRepository, org.mockito.Mockito.times(2)).save(captor.capture());
+        assertThat(r).hasSize(2);
+        assertThat(captor.getAllValues()).allSatisfy(f -> {
+            assertThat(f.getDestino()).isEqualTo(DestinoFactura.NINGUNO);
+            assertThat(f.getEmail()).isNull();
+        });
+        assertThat(captor.getAllValues().get(0).getImporteTotal()).isEqualByComparingTo("60000");
+        assertThat(captor.getAllValues().get(1).getConcepto()).isEqualTo(3);
+        // Un solo evento para todo el lote (no uno por factura, que llenaba el pool @Async).
+        verify(eventPublisher, never()).publishEvent(any(FacturaServiceImpl.FacturaSolicitadaEvent.class));
+        verify(eventPublisher).publishEvent(any(FacturaServiceImpl.LoteFacturasSolicitadoEvent.class));
+    }
+
+    @Test
+    void lote_repetidoConLaMismaClave_devuelveLasYaPedidasSinCrearOtras() {
+        Factura yaPedida = Factura.builder().id(70L).estado(EstadoFactura.PENDIENTE).destino(DestinoFactura.NINGUNO)
+                .puntoVenta(11).tipoComprobante(6).concepto(2).importeTotal(new BigDecimal("30000"))
+                .importeNeto(new BigDecimal("24793.39")).importeIva(new BigDecimal("5206.61")).loteClave("L1").build();
+        when(facturaRepository.findAllByLoteClaveOrderByIdAsc("L1")).thenReturn(List.of(yaPedida));
+        var lote = new org.example.laserranitaentradas.model.dto.FacturaManualLoteDTO(List.of(
+                manual(DestinoFactura.NINGUNO, null, item("ENTRADA", 1, "General", "30000"))), "L1");
+
+        var r = service.emitirManualLote(lote);
+
+        assertThat(r).hasSize(1);
+        verify(facturaRepository, never()).save(any());
+        verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    @Test
+    void emitir_conElModuloApagado_noVaAArcaYQuedaPendiente() {
+        when(modulos.activo(org.example.laserranitaentradas.model.entity.Modulo.FACTURACION)).thenReturn(false);
+
+        service.emitir(1L);
+
+        verify(facturaRepository, never()).findById(any());
+        verifyNoInteractions(wsfe);
+    }
+
+    @Test
+    void lote_conUnaFacturaInvalida_noPideNingunaYDiceCual() {
+        var lote = new org.example.laserranitaentradas.model.dto.FacturaManualLoteDTO(List.of(
+                manual(DestinoFactura.NINGUNO, null, item("ENTRADA", 1, "General", "30000")),
+                manual(DestinoFactura.NINGUNO, null, item("LIBRE", 1, "Algo", "0"))));
+
+        assertThatThrownBy(() -> service.emitirManualLote(lote))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageStartingWith("Factura 2 del lote");
+        assertThatThrownBy(() -> service.emitirManualLote(new org.example.laserranitaentradas.model.dto.FacturaManualLoteDTO(List.of())))
+                .isInstanceOf(IllegalArgumentException.class);
+        verify(facturaRepository, never()).save(any());
+    }
+
+    @Test
     void manual_sinFacturacionConfigurada_error() {
         when(afipClient.estaConfigurado()).thenReturn(false);
 
@@ -643,6 +709,98 @@ class FacturaServiceImplTest {
         when(facturaRepository.findById(10L)).thenReturn(Optional.of(f));
 
         assertThatThrownBy(() -> service.anularFactura(10L)).isInstanceOf(IllegalStateException.class);
+    }
+
+    // ---------- factura A manual ----------
+
+    private static org.example.laserranitaentradas.model.dto.FacturaManualDTO manualA(
+            org.example.laserranitaentradas.model.dto.FacturaManualDTO.Receptor receptor) {
+        return new org.example.laserranitaentradas.model.dto.FacturaManualDTO(
+                List.of(item("ENTRADA", 2, "General", "60500")), DestinoFactura.NINGUNO, null, null, receptor);
+    }
+
+    private static org.example.laserranitaentradas.model.dto.FacturaManualDTO.Receptor receptor(String cuit, String domicilio, Integer condicion) {
+        return new org.example.laserranitaentradas.model.dto.FacturaManualDTO.Receptor(cuit, "  Colegio   San Martín SRL ", domicilio, condicion);
+    }
+
+    @Test
+    void manual_conReceptor_esFacturaAConElCuitNormalizado() {
+        service.emitirManual(manualA(receptor("30-71701573-4", "Av. Siempreviva 742, Córdoba", 1)));
+
+        ArgumentCaptor<Factura> captor = ArgumentCaptor.forClass(Factura.class);
+        verify(facturaRepository).save(captor.capture());
+        Factura f = captor.getValue();
+        assertThat(f.getTipoComprobante()).isEqualTo(WsfeService.CBTE_TIPO_FACTURA_A);
+        assertThat(f.getReceptorCuit()).isEqualTo("30717015734");
+        assertThat(f.getReceptorRazonSocial()).isEqualTo("Colegio San Martín SRL");
+        assertThat(f.getReceptorCondicionIva()).isEqualTo(1);
+        assertThat(f.getImporteNeto()).isEqualByComparingTo("50000");
+        assertThat(f.getImporteIva()).isEqualByComparingTo("10500");
+    }
+
+    @Test
+    void manual_sinReceptor_sigueSiendoFacturaB() {
+        service.emitirManual(manual(DestinoFactura.NINGUNO, null, item("ENTRADA", 1, "General", "100")));
+
+        ArgumentCaptor<Factura> captor = ArgumentCaptor.forClass(Factura.class);
+        verify(facturaRepository).save(captor.capture());
+        assertThat(captor.getValue().getTipoComprobante()).isEqualTo(WsfeService.CBTE_TIPO_FACTURA_B);
+        assertThat(captor.getValue().getReceptorCuit()).isNull();
+    }
+
+    @Test
+    void manual_facturaA_validaciones() {
+        // Dígito verificador mal.
+        assertThatThrownBy(() -> service.emitirManual(manualA(receptor("30717015735", "Calle 1", 1))))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("CUIT");
+        // El CUIT del parque.
+        assertThatThrownBy(() -> service.emitirManual(manualA(receptor("20409378472", "Calle 1", 1))))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("parque");
+        // Consumidor final (5) no admite A.
+        assertThatThrownBy(() -> service.emitirManual(manualA(receptor("30717015734", "Calle 1", 5))))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("condición");
+        assertThatThrownBy(() -> service.emitirManual(manualA(receptor("30717015734", " ", 1))))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("domicilio");
+        verify(facturaRepository, never()).save(any());
+    }
+
+    @Test
+    void emitir_facturaA_mandaElCuitYLaCondicionDelReceptor() {
+        Factura f = pendiente();
+        f.setTipoComprobante(WsfeService.CBTE_TIPO_FACTURA_A);
+        f.setReceptorCuit("30717015734");
+        f.setReceptorCondicionIva(6);
+        when(facturaRepository.findById(10L)).thenReturn(Optional.of(f));
+        when(wsfe.ultimoAutorizado(5, 1)).thenReturn(0L);
+        when(wsfe.solicitarCae(any())).thenReturn(new WsfeService.ResultadoCae(true, "1", LocalDate.now(), List.of(), List.of()));
+
+        service.emitir(10L);
+
+        ArgumentCaptor<WsfeService.SolicitudCae> captor = ArgumentCaptor.forClass(WsfeService.SolicitudCae.class);
+        verify(wsfe).solicitarCae(captor.capture());
+        assertThat(captor.getValue().tipoComprobante()).isEqualTo(1);
+        assertThat(captor.getValue().numero()).isEqualTo(1L);
+        assertThat(captor.getValue().receptor()).isEqualTo(new WsfeService.Receptor("30717015734", 6));
+    }
+
+    @Test
+    void anularFactura_A_notaDeCreditoAConElMismoReceptor() {
+        Factura f = emitida();
+        f.setTipoComprobante(WsfeService.CBTE_TIPO_FACTURA_A);
+        f.setReceptorCuit("30717015734");
+        f.setReceptorRazonSocial("Colegio SRL");
+        f.setReceptorDomicilio("Calle 1");
+        f.setReceptorCondicionIva(1);
+        when(facturaRepository.findById(10L)).thenReturn(Optional.of(f));
+
+        service.anularFactura(10L);
+
+        Factura nc = capturarGuardadas().stream().filter(x -> x.getTipoComprobante() == WsfeService.CBTE_TIPO_NOTA_CREDITO_A)
+                .findFirst().orElseThrow();
+        assertThat(nc.getComprobanteAsociado()).isSameAs(f);
+        assertThat(nc.getReceptorCuit()).isEqualTo("30717015734");
+        assertThat(nc.getReceptorCondicionIva()).isEqualTo(1);
+        assertThat(nc.getReceptorDomicilio()).isEqualTo("Calle 1");
     }
 
     // ---------- numeración: en producción sale de la base ----------
@@ -946,6 +1104,14 @@ class FacturaServiceImplTest {
         service.alCancelarVenta(Compra.builder().id(1L).build());
 
         verify(impresionService).cancelarTrabajos(10L);
+    }
+
+    @Test
+    void solicitar_conLaFacturacionDeBoleteriaApagada_vendeSinFactura() {
+        when(modulos.activo(org.example.laserranitaentradas.model.entity.Modulo.FACTURACION_BOLETERIA)).thenReturn(false);
+
+        assertThat(service.solicitar(compra("2500", entrada()), pedido(DestinoFactura.IMPRIMIR, null))).isEmpty();
+        verify(facturaRepository, never()).save(any());
     }
 
     @Test

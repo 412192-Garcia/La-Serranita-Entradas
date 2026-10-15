@@ -9,6 +9,7 @@ import org.example.laserranitaentradas.model.entity.TerminalPos;
 import org.example.laserranitaentradas.repository.CompraRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -26,8 +27,13 @@ import java.util.concurrent.atomic.AtomicLong;
  *   Sirve para armar alertas en Grafana con el historial de cuándo pasó y cuánto duró.
  * - serranita_ventas_ultima_hora{canal="online|puerta"}, serranita_validaciones_ultima_hora.
  * - serranita_incidentes_pendientes, serranita_terminales_operaciones_pendientes.
+ *
+ * Sólo existe con Grafana configurado (GRAFANA_PROM_URL): sin nadie que lea las métricas, armar
+ * cada minuto todo Sistema > Estado (con sus consultas a la base) es trabajo tirado, y la tarea
+ * aparecía en Tareas programadas como si Grafana estuviera andando.
  */
 @Component
+@ConditionalOnExpression("!'${app.monitoreo.grafana-prom-url:}'.isBlank()")
 public class MetricasNegocio {
 
     private static final Logger log = LoggerFactory.getLogger(MetricasNegocio.class);

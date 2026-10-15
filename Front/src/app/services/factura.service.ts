@@ -2,9 +2,10 @@ import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
-import { ControlFacturacion, DesfaseNumeracion, Factura, FacturaManualPedido, FacturacionPos, TotalesFacturacion, ImpresoraConectada, VentaFactura } from '../models/factura';
+import { ControlFacturacion, DesfaseNumeracion, Factura, FacturaManualItem, FacturaManualPedido, FacturacionPos, PadronContribuyente, TotalesFacturacion, ImpresoraConectada, VentaFactura } from '../models/factura';
 
 const CLAVE_HABILITADA = 'facturacion-habilitada';
+const CLAVE_BOLETERIA = 'facturacion-boleteria';
 
 @Injectable({ providedIn: 'root' })
 export class FacturaService {
@@ -12,18 +13,24 @@ export class FacturaService {
   private url = `${environment.apiBase}/interno/facturas`;
 
   /**
-   * Si el backend tiene la facturación configurada (token de AfipSDK). Sin eso el POS no
+   * Si el backend tiene la facturación configurada (certificado de ARCA). Sin eso el POS no
    * muestra las opciones de factura. Se recuerda el último valor conocido para que, si la
    * tablet arranca sin señal, el selector siga apareciendo igual que antes del corte.
    */
   readonly habilitada = signal<boolean>(this.leerHabilitadaGuardada());
+  /** Facturar las ventas del POS: lo de arriba y además el submódulo Facturación > Boletería prendido. */
+  readonly habilitadaBoleteria = signal<boolean>(this.leerHabilitadaGuardada(CLAVE_BOLETERIA));
 
   actualizarEstadoServicio(): void {
-    this.http.get<{ habilitada: boolean }>(`${this.url}/estado-servicio`).subscribe({
-      next: ({ habilitada }) => {
+    this.http.get<{ habilitada: boolean; boleteria?: boolean }>(`${this.url}/estado-servicio`).subscribe({
+      next: ({ habilitada, boleteria }) => {
+        // Un backend viejo no manda "boleteria": vale lo general.
+        const enBoleteria = boleteria ?? habilitada;
         this.habilitada.set(habilitada);
+        this.habilitadaBoleteria.set(enBoleteria);
         try {
           localStorage.setItem(CLAVE_HABILITADA, String(habilitada));
+          localStorage.setItem(CLAVE_BOLETERIA, String(enBoleteria));
         } catch {
           // Sin storage (modo privado, etc.): sólo se pierde el recuerdo entre sesiones.
         }
@@ -74,9 +81,23 @@ export class FacturaService {
     return this.http.get(`${this.url}/${facturaId}/pdf`, { responseType: 'blob' });
   }
 
-  /** Factura B sin venta, con los ítems e importes que cargó el admin. */
+  /** Factura B (o A, con receptor) sin venta, con los ítems e importes que cargó el admin. */
   emitirManual(pedido: FacturaManualPedido): Observable<Factura> {
     return this.http.post<Factura>(`${this.url}/manual`, pedido);
+  }
+
+  /** Datos de un CUIT en el padrón de ARCA, para completar una Factura A. Los problemas vienen en `estado`. */
+  padron(cuit: string): Observable<PadronContribuyente> {
+    return this.http.get<PadronContribuyente>(`${this.url}/padron/${encodeURIComponent(cuit)}`);
+  }
+
+  /** Varias facturas manuales de una vez (una por venta), sin entrega. Todo o nada. */
+  /** `claveIdempotencia`: la misma para el mismo lote, así reintentarlo no duplica facturas. */
+  emitirManualLote(facturas: FacturaManualItem[][], claveIdempotencia: string): Observable<Factura[]> {
+    return this.http.post<Factura[]>(`${this.url}/manual/lote`, {
+      facturas: facturas.map((items) => ({ items, destino: 'NINGUNO', email: null, impresora: null })),
+      claveIdempotencia,
+    });
   }
 
   /** Las últimas 50 facturas manuales. */
@@ -124,9 +145,9 @@ export class FacturaService {
     return this.http.get(`${this.url}/exportar?desde=${desde}&hasta=${hasta}`, { responseType: 'blob' });
   }
 
-  private leerHabilitadaGuardada(): boolean {
+  private leerHabilitadaGuardada(clave = CLAVE_HABILITADA): boolean {
     try {
-      return localStorage.getItem(CLAVE_HABILITADA) === 'true';
+      return localStorage.getItem(clave) === 'true';
     } catch {
       return false;
     }

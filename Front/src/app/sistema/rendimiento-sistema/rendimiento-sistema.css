@@ -40,7 +40,46 @@ h3 {
 .fila > * { min-width: 0; }
 
 .grilla-lentas .fila { grid-template-columns: 120px minmax(0, 1fr) 70px 60px 120px 70px; }
-.grilla-endpoints .fila { grid-template-columns: minmax(0, 1fr) 80px 90px 90px 70px 90px; }
+.grilla-endpoints .fila { grid-template-columns: minmax(0, 1fr) 76px 74px 64px 74px 104px 56px 44px 44px; }
+
+.grilla-endpoints .fila > .numero,
+.grilla-endpoints .col-ordenable { text-align: right; justify-content: flex-end; }
+
+/* Encabezados que ordenan: mismo aspecto que .col-ordenable de las tablas de Configuración. */
+.col-ordenable {
+  display: inline-flex;
+  white-space: nowrap;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.col-ordenable:hover { color: var(--color-text); }
+.col-ordenable ::ng-deep svg { width: 12px; height: 12px; flex-shrink: 0; }
+.col-ordenable ::ng-deep .icono-orden-inactivo { opacity: 0.35; }
+
+.total {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.porcentaje {
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+}
+
+.aviso {
+  color: var(--color-accent-dark);
+  font-weight: 700;
+}
 
 .fila-encabezado {
   font-size: 0.75rem;
@@ -68,7 +107,21 @@ h3 {
 /* Igual que las grillas del resto del módulo interno: en pantallas chicas cada fila pasa a ser una
    tarjeta con la etiqueta de cada dato al costado (data-label). */
 @media (max-width: 900px) {
-  .fila-encabezado { display: none; }
+  /* El encabezado se va, pero el orden sigue sirviendo: queda como fila de botones. */
+  .grilla-endpoints .fila-encabezado {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 12px;
+    padding: 4px 0 10px;
+    border-bottom: none;
+  }
+
+  .grilla-endpoints .fila-encabezado > span:first-child { display: none; }
+  .grilla-lentas .fila-encabezado { display: none; }
+
+  .total { flex-direction: row; justify-content: flex-end; align-items: baseline; }
+  .total::before { margin-right: auto; }
+  .total .porcentaje { margin-left: 6px; }
 
   .grilla-lentas .fila,
   .grilla-endpoints .fila {

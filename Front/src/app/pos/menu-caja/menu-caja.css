@@ -2,7 +2,7 @@
   position: relative;
 }
 
-/* Mismo pill que el resto de la fila de acciones (ver pos.css y selector-ticketera.css). */
+/* Mismo pill que el resto de la fila de acciones (ver pos.css y selector-dispositivos.css). */
 .btn-caja {
   padding: 8px 14px;
   border: 1.5px solid var(--color-border);

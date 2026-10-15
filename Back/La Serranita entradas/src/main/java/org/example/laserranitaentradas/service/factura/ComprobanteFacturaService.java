@@ -6,8 +6,10 @@ import org.example.laserranitaentradas.model.entity.EstadoCompra;
 import org.example.laserranitaentradas.model.entity.Compra;
 import org.example.laserranitaentradas.model.entity.EstadoFactura;
 import org.example.laserranitaentradas.model.entity.Factura;
+import org.example.laserranitaentradas.model.entity.Usuario;
 import org.example.laserranitaentradas.repository.FacturaRepository;
-import org.example.laserranitaentradas.service.afip.AfipSdkClient;
+import org.example.laserranitaentradas.service.afip.ArcaClient;
+import org.example.laserranitaentradas.service.afip.WsfeService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -15,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -28,9 +31,10 @@ public class ComprobanteFacturaService {
 
     private static final Logger log = LoggerFactory.getLogger(ComprobanteFacturaService.class);
     private static final String URL_QR_ARCA = "https://www.afip.gob.ar/fe/qr/?p=";
+    private static final BigDecimal DIVISOR_IVA_21 = new BigDecimal("1.21");
 
     private final FacturaRepository facturaRepository;
-    private final AfipSdkClient afipClient;
+    private final ArcaClient afipClient;
     private final ObjectMapper objectMapper;
 
     @Value("${afip.emisor.razon-social:PARQUE RECREATIVO LA SERRANITA S.A.S.}")
@@ -45,7 +49,7 @@ public class ComprobanteFacturaService {
     @Value("${afip.emisor.inicio-actividades:}")
     private String inicioActividades;
 
-    public ComprobanteFacturaService(FacturaRepository facturaRepository, AfipSdkClient afipClient, ObjectMapper objectMapper) {
+    public ComprobanteFacturaService(FacturaRepository facturaRepository, ArcaClient afipClient, ObjectMapper objectMapper) {
         this.facturaRepository = facturaRepository;
         this.afipClient = afipClient;
         this.objectMapper = objectMapper;
@@ -78,7 +82,14 @@ public class ComprobanteFacturaService {
         String asociado = null;
         if (f.getComprobanteAsociado() != null) {
             Factura a = f.getComprobanteAsociado();
-            asociado = String.format("Factura B %04d-%08d", a.getPuntoVenta(), a.getNumero());
+            asociado = String.format("%s %04d-%08d", WsfeService.nombre(a.getTipoComprobante()), a.getPuntoVenta(), a.getNumero());
+        }
+
+        ComprobanteFactura.Receptor receptor = null;
+        if (f.getReceptorCuit() != null) {
+            receptor = new ComprobanteFactura.Receptor(f.getReceptorRazonSocial(), f.getReceptorCuit(), f.getReceptorDomicilio(),
+                    WsfeService.CONDICIONES_IVA_FACTURA_A.getOrDefault(f.getReceptorCondicionIva(), ""));
+            items = itemsSinIva(items, f.getImporteNeto());
         }
 
         return new ComprobanteFactura(
@@ -87,7 +98,43 @@ public class ComprobanteFacturaService {
                 items, f.getImporteTotal(), f.getImporteIva(), f.getCae(), f.getCaeVencimiento(),
                 qrUrl(f), f.getTipoComprobante(), asociado,
                 f.getEmitidaEn() != null ? f.getEmitidaEn().toLocalTime() : null,
-                f.getCompra() != null && esVentaDePuerta(f.getCompra()) ? "Venta" : "Reserva");
+                f.getCompra() != null && esVentaDePuerta(f.getCompra()) ? "Venta" : "Reserva",
+                f.getCompra() != null ? boletero(f.getCompra()) : null,
+                receptor);
+    }
+
+    /**
+     * En una Factura A el IVA va discriminado: cada renglón se muestra sin IVA. El redondeo de cada
+     * renglón puede no sumar justo el neto de la factura; la diferencia (centavos) va al renglón más
+     * grande, para que los renglones cierren con el "Subtotal neto gravado".
+     */
+    private static List<ComprobanteFactura.Item> itemsSinIva(List<ComprobanteFactura.Item> items, BigDecimal neto) {
+        if (items.isEmpty() || items.stream().anyMatch(i -> i.subtotal() == null)) return items;
+        List<ComprobanteFactura.Item> salida = new ArrayList<>();
+        BigDecimal suma = BigDecimal.ZERO;
+        int mayor = 0;
+        for (int i = 0; i < items.size(); i++) {
+            ComprobanteFactura.Item item = items.get(i);
+            BigDecimal sinIva = item.subtotal().divide(DIVISOR_IVA_21, 2, RoundingMode.HALF_UP);
+            suma = suma.add(sinIva);
+            if (sinIva.compareTo(salida.isEmpty() ? BigDecimal.ZERO : salida.get(mayor).subtotal()) > 0) mayor = i;
+            salida.add(new ComprobanteFactura.Item(item.cantidad(), item.descripcion(), sinIva));
+        }
+        BigDecimal diferencia = neto.subtract(suma);
+        if (diferencia.signum() != 0) {
+            ComprobanteFactura.Item m = salida.get(mayor);
+            salida.set(mayor, new ComprobanteFactura.Item(m.cantidad(), m.descripcion(), m.subtotal().add(diferencia)));
+        }
+        return salida;
+    }
+
+    /** "Nombre Apellido" del dueño de la caja en la que se cobró; null si no pasó por una caja. */
+    private static String boletero(Compra c) {
+        if (c.getCaja() == null || c.getCaja().getUsuario() == null) return null;
+        Usuario u = c.getCaja().getUsuario();
+        String nombre = ((u.getNombre() != null ? u.getNombre() : "") + " "
+                + (u.getApellido() != null ? u.getApellido() : "")).trim();
+        return nombre.isEmpty() ? u.getUsername() : nombre;
     }
 
     /**
@@ -110,7 +157,8 @@ public class ComprobanteFacturaService {
      * comprobante en JSON y base64. Escanearlo lleva a la consulta de validez del comprobante.
      */
     public String qrUrl(Factura f) {
-        if (f.getEstado() != EstadoFactura.EMITIDA || f.getCae() == null) return null;
+        // Sin CUIT = la facturación ya no está configurada (ej. una base de prueba sin el certificado).
+        if (f.getEstado() != EstadoFactura.EMITIDA || f.getCae() == null || afipClient.getCuit() == null) return null;
         Map<String, Object> datos = new LinkedHashMap<>();
         datos.put("ver", 1);
         datos.put("fecha", f.getFechaEmision().toString());
@@ -125,6 +173,11 @@ public class ComprobanteFacturaService {
         // tipoDocRec/nroDocRec son opcionales en la especificación de ARCA y no se informan para un
         // consumidor final sin identificar (99/0). Omitirlos achica el QR de 61x61 a 57x57
         // cuadraditos: el contenido es lo que lo hace tan denso y difícil de leer en papel térmico.
+        // En una Factura A el receptor está identificado: ahí sí se informa su CUIT.
+        if (f.getReceptorCuit() != null) {
+            datos.put("tipoDocRec", 80);
+            datos.put("nroDocRec", Long.parseLong(f.getReceptorCuit()));
+        }
         datos.put("tipoCodAut", "E");
         datos.put("codAut", Long.parseLong(f.getCae()));
         try {

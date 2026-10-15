@@ -15,6 +15,8 @@ import org.example.laserranitaentradas.repository.FacturaRepository;
 import org.example.laserranitaentradas.repository.TrabajoImpresionRepository;
 import org.example.laserranitaentradas.service.CajaService;
 import org.example.laserranitaentradas.service.FacturaService;
+import org.example.laserranitaentradas.service.ModulosService;
+import org.example.laserranitaentradas.model.entity.Modulo;
 import org.example.laserranitaentradas.service.impresion.ImpresionService;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
@@ -68,6 +70,7 @@ public class EstadoSistemaService {
     private final MetricasRequests metricasRequests;
     private final AnomaliasVentas anomaliasVentas;
     private final PedidoBackup pedidoBackup;
+    private final ModulosService modulos;
 
     @Value("${app.backups.dir:/backups}")
     private String carpetaBackups;
@@ -94,7 +97,7 @@ public class EstadoSistemaService {
                                 AuditoriaService auditoriaService, EstadoMails estadoMails, JdbcTemplate jdbc,
                                 ObjectProvider<BuildProperties> build, EstadoTareas estadoTareas,
                                 TerminalesService terminalesService, MetricasRequests metricasRequests,
-                                AnomaliasVentas anomaliasVentas, PedidoBackup pedidoBackup) {
+                                AnomaliasVentas anomaliasVentas, PedidoBackup pedidoBackup, ModulosService modulos) {
         this.facturaService = facturaService;
         this.facturaRepository = facturaRepository;
         this.compraRepository = compraRepository;
@@ -112,6 +115,7 @@ public class EstadoSistemaService {
         this.metricasRequests = metricasRequests;
         this.anomaliasVentas = anomaliasVentas;
         this.pedidoBackup = pedidoBackup;
+        this.modulos = modulos;
     }
 
     @Transactional(readOnly = true)
@@ -155,6 +159,9 @@ public class EstadoSistemaService {
     // ---------- tarjetas ----------
 
     private Tarjeta facturacion() {
+        if (!modulos.activo(Modulo.FACTURACION)) {
+            return new Tarjeta("facturacion", "Facturación", "INFO", "Apagada", List.of("Apagada desde Sistema > Módulos: se vende sin factura."), null);
+        }
         if (!facturaService.estaHabilitada()) {
             return new Tarjeta("facturacion", "Facturación", "INFO", "Apagada", List.of("Sin configurar en el servidor: se vende sin factura."), null);
         }
@@ -290,7 +297,9 @@ public class EstadoSistemaService {
         boolean alerta = falloReciente || incidentes > 0;
         return new Tarjeta("mails", "Mails", alerta ? "ALERTA" : "OK",
                 falloReciente ? "El último envío falló" : incidentes > 0 ? "Hubo errores al mandar mails" : "Funcionando",
-                detalles, alerta ? "/acciones" : null);
+                // Un mail que no salió queda como operación rechazada (se reenvía desde ahí); los
+                // errores sueltos, en Errores. Ya no viven en Acciones.
+                detalles, falloReciente ? "/sistema?tab=rechazos" : incidentes > 0 ? "/sistema?tab=errores&area=MAILS" : null);
     }
 
     private Tarjeta impresion() {
@@ -391,13 +400,53 @@ public class EstadoSistemaService {
             };
             detalles.add(t.nombre() + ": " + que);
         }
-        for (EstadoTareas.Tarea t : tareas) {
-            if (t.enProblemas()) continue;
-            detalles.add(t.nombre() + ": " + (t.ultima() != null ? "última " + t.ultima().format(FECHA_HORA) : "todavía no corrió")
-                    + (t.proxima() != null ? " · próxima " + t.proxima().format(FECHA_HORA) : ""));
-        }
+        if (problemas == 0) detalles.add("Todas corrieron a tiempo");
+        // En pantalla, una tabla: primero las que tienen problemas, después por nombre.
+        LocalDateTime ahora = LocalDateTime.now(AuditoriaService.ZONA);
+        List<EstadoSistemaDTO.Fila> filas = tareas.stream()
+                .sorted(java.util.Comparator.comparing((EstadoTareas.Tarea t) -> !t.enProblemas()).thenComparing(EstadoTareas.Tarea::nombre))
+                .map(t -> new EstadoSistemaDTO.Fila(t.nombre(), valorTarea(t, ahora),
+                        t.proxima() != null ? "próxima " + proxima(t.proxima(), ahora) : null,
+                        t.enProblemas() ? "ALERTA" : t.situacion() == EstadoTareas.Situacion.NUNCA ? "INFO" : "OK"))
+                .toList();
         return new Tarjeta("tareas", "Tareas programadas", problemas > 0 ? "ALERTA" : "OK",
-                problemas > 0 ? problemas + " tarea(s) con problemas" : tareas.size() + " tareas funcionando", detalles, null);
+                problemas > 0 ? problemas + " tarea(s) con problemas" : tareas.size() + " tareas funcionando", detalles, null, null, filas);
+    }
+
+    private static String valorTarea(EstadoTareas.Tarea t, LocalDateTime ahora) {
+        return switch (t.situacion()) {
+            case TRABADA -> "trabada";
+            case ATRASADA -> "no arrancó";
+            case FALLO -> "falló";
+            case CORRIENDO -> "corriendo";
+            case NUNCA -> "todavía no corrió";
+            default -> t.ultima() != null ? ultima(t.ultima(), ahora) : "—";
+        };
+    }
+
+    /** "recién", "hace 12 min", "hoy 03:30", "ayer 04:15", "05/10 04:15". */
+    static String ultima(LocalDateTime cuando, LocalDateTime ahora) {
+        Duration d = Duration.between(cuando, ahora);
+        if (d.toSeconds() < 60) return "recién";
+        if (d.toMinutes() < 60) return "hace " + d.toMinutes() + " min";
+        return diaYHora(cuando, ahora);
+    }
+
+    /** "en segundos", "en 12 min", "hoy 18:00", "mañana 03:30". */
+    static String proxima(LocalDateTime cuando, LocalDateTime ahora) {
+        Duration d = Duration.between(ahora, cuando);
+        if (d.toSeconds() < 60) return "en segundos";
+        if (d.toMinutes() < 60) return "en " + d.toMinutes() + " min";
+        return diaYHora(cuando, ahora);
+    }
+
+    private static String diaYHora(LocalDateTime cuando, LocalDateTime ahora) {
+        long dias = java.time.temporal.ChronoUnit.DAYS.between(ahora.toLocalDate(), cuando.toLocalDate());
+        String hora = cuando.format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"));
+        if (dias == 0) return "hoy " + hora;
+        if (dias == -1) return "ayer " + hora;
+        if (dias == 1) return "mañana " + hora;
+        return cuando.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"));
     }
 
     private Tarjeta rendimiento() {
@@ -437,7 +486,13 @@ public class EstadoSistemaService {
         detalles.add(latidoUrl.isBlank() ? "Monitor externo: sin latido (falta ALERTAS_LATIDO_URL)" : "Monitor externo: latido cada 5 min");
         BuildProperties b = build.getIfAvailable();
         if (b != null && b.getTime() != null) {
-            detalles.add("Versión: " + b.getVersion() + " (compilada el " + LocalDateTime.ofInstant(b.getTime(), AuditoriaService.ZONA).format(FECHA_HORA) + ")");
+            // La release (release-X.Y.Z mergeada a main) y el commit los pone el CI; la <version>
+            // del pom no se mantiene. Compilado a mano dice "dev".
+            String release = b.get("release");
+            String commit = b.get("commit");
+            detalles.add("Versión: " + (release != null && !release.isBlank() ? release : b.getVersion())
+                    + (commit != null && !commit.isBlank() && !"local".equals(commit) ? " · commit " + commit : "")
+                    + " (compilada el " + LocalDateTime.ofInstant(b.getTime(), AuditoriaService.ZONA).format(FECHA_HORA) + ")");
         }
         return new Tarjeta("servidor", "Servidor", poco ? "ALERTA" : "OK", poco ? "Queda poco espacio en disco" : "Funcionando", detalles, null);
     }

@@ -615,10 +615,10 @@ public class ReporteServiceImpl implements ReporteService {
             int tipo = ((Number) fila[0]).intValue();
             long cantidad = ((Number) fila[1]).longValue();
             BigDecimal suma = new BigDecimal(fila[2].toString());
-            if (tipo == WsfeService.CBTE_TIPO_FACTURA_B) {
+            if (WsfeService.esFactura(tipo)) {
                 totalFacturado = totalFacturado.add(suma);
                 cantidadFacturas += cantidad;
-            } else if (tipo == WsfeService.CBTE_TIPO_NOTA_CREDITO_B) {
+            } else if (WsfeService.esNotaDeCredito(tipo)) {
                 totalFacturado = totalFacturado.subtract(suma);
                 cantidadNotasCredito += cantidad;
             }

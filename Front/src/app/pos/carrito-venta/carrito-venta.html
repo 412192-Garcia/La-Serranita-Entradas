@@ -349,14 +349,58 @@
       <p class="motivo-bloqueo">{{ motivo }}</p>
     }
 
+    @if (cobraConPoint() && cobrosQueSirven().length) {
+      <div class="aviso-cobro-point aviso-cobro-point-sirve">
+        @for (c of cobrosQueSirven(); track c.id) {
+          <p>El Point ya cobró {{ c.monto | pesos }} en {{ etiquetaFormaPoint(c.formaPago) }}: se usa ese pago, no hace falta cobrarlo otra vez.</p>
+        }
+      </div>
+    }
+    @for (c of cobraConPoint() ? cobrosQueSobran() : cobrosSinVenta(); track c.id) {
+      <div class="aviso-cobro-point">
+        <p>Hay un cobro con Point de {{ c.monto | pesos }} ({{ etiquetaFormaPoint(c.formaPago) }}) aprobado que no quedó registrado como venta.</p>
+        <div class="aviso-cobro-point-acciones">
+          <button type="button" class="btn-aviso-point" [disabled]="devolviendoCobroId() === c.id" (click)="devolverCobroSinVenta(c)">
+            {{ devolviendoCobroId() === c.id ? 'Devolviendo…' : 'Devolver al cliente' }}
+          </button>
+          <button type="button" class="btn-aviso-point" (click)="descartarCobroSinVenta(c)">Ya lo resolví</button>
+        </div>
+      </div>
+    }
+
     @if (error()) {
       <p class="alerta-error">{{ error() }}</p>
     }
 
     <div class="acciones">
       <button type="button" class="btn-cobrar" [disabled]="!puedeCobrar()" (click)="cobrar()">
-        {{ cobrando() ? 'Registrando…' : (compraReservada() ? 'Cobrar reserva' : 'Cobrar') }}
+        @if (cobrando()) {
+          Registrando…
+        } @else if (cobraConPoint()) {
+          {{ todoCobradoEnPoint() ? 'Registrar venta' : 'Cobrar con Point' }}
+        } @else {
+          {{ compraReservada() ? 'Cobrar reserva' : 'Cobrar' }}
+        }
       </button>
     </div>
+    @if (partesPoint().length && point.habilitado() && !cobraConPoint() && !faltaElegirPoint()) {
+      <p class="aviso-factura">
+        {{ point.efectiva() ? 'Sin conexión: cobrá en el Point y la venta se anota a mano.' : 'Esta tablet no cobra con Point: la tarjeta y el QR se anotan a mano.' }}
+      </p>
+    }
+
+    <!-- Una ventana nueva por cada parte (track por identidad): en un pago tarjeta + QR la segunda
+         parte no puede heredar el estado "aprobado" de la primera. -->
+    @for (pedido of pedidosPointAbiertos(); track pedido) {
+      <app-cobro-point
+        [monto]="pedido.monto"
+        [forma]="pedido.forma"
+        [terminal]="pedido.terminal"
+        [reanudar]="pedido.reanudar"
+        [paso]="pedido.paso"
+        (aprobado)="onPointAprobado($event)"
+        (anotarAMano)="onPointAMano($event)"
+        (cerrado)="onPointCerrado()" />
+    }
   </div>
 </aside>

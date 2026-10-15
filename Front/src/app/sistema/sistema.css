@@ -17,3 +17,13 @@
     white-space: nowrap;
   }
 }
+
+.punto-notificacion-tab {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: var(--color-danger);
+  margin-left: 6px;
+  vertical-align: middle;
+}

@@ -20,6 +20,8 @@ final class CatalogoAcciones {
     static final Set<String> EXCLUIDAS = Set.of(
             "POST /api/interno/compras/venta-pos",
             "POST /api/interno/compras/caja/{cajaId}/venta-pos",
+            // Cada cobro con Point: queda en su propia tabla (cobros_point), atado a la venta.
+            "POST /api/interno/point/cobros",
             "PUT /api/compras/{id}/validar",
             "POST /api/usuarios/renovar-sesion",
             "POST /api/interno/notificaciones/{tipo}/marcar-vistas",
@@ -44,6 +46,7 @@ final class CatalogoAcciones {
             entry("POST /api/interno/compras/generar-reserva", new Accion("RESERVA_GENERADA", "Generó una reserva manual", "Compra")),
             // Facturas
             entry("POST /api/interno/facturas/manual", new Accion("FACTURA_MANUAL", "Emitió una factura manual", "Factura")),
+            entry("POST /api/interno/facturas/manual/lote", new Accion("FACTURAS_MANUALES_LOTE", "Emitió un lote de facturas manuales", null)),
             entry("POST /api/interno/facturas/{id}/anular", new Accion("FACTURA_ANULADA", "Anuló la factura", "Factura")),
             entry("POST /api/interno/facturas/{id}/reintentar", new Accion("FACTURA_REINTENTADA", "Reintentó la factura", "Factura")),
             entry("POST /api/interno/facturas/{id}/enviar-mail", new Accion("FACTURA_ENVIADA", "Mandó por mail la factura", "Factura")),
@@ -96,6 +99,12 @@ final class CatalogoAcciones {
             entry("POST /api/usuarios", new Accion("USUARIO_CREADO", "Creó el usuario", "Usuario")),
             entry("PUT /api/usuarios/{id}", new Accion("USUARIO_MODIFICADO", "Modificó el usuario", "Usuario")),
             entry("DELETE /api/usuarios/{id}", new Accion("USUARIO_ELIMINADO", "Eliminó el usuario", "Usuario")),
+            // Point
+            entry("POST /api/interno/point/cobros/{id}/cancelar", new Accion("COBRO_POINT_CANCELADO", "Canceló un cobro con Point", "Cobro con Point")),
+            entry("POST /api/interno/point/cobros/{id}/devolver", new Accion("COBRO_POINT_DEVUELTO", "Devolvió un cobro con Point", "Cobro con Point")),
             // Sistema
-            entry("POST /api/interno/sistema/incidentes/{id}/resolver", new Accion("ERROR_RESUELTO", "Marcó resuelto un error del sistema", "Error")));
+            entry("POST /api/interno/sistema/incidentes/{id}/resolver", new Accion("ERROR_RESUELTO", "Marcó resuelto un error del sistema", "Error")),
+            entry("PUT /api/interno/sistema/modulos/{codigo}", new Accion("MODULO_CAMBIADO", "Prendió/apagó un módulo", "Módulo")),
+            entry("PUT /api/interno/sistema/point/terminales/{id}/nombre", new Accion("POINT_RENOMBRADO", "Le cambió el nombre a un Point", "Point")),
+            entry("PUT /api/interno/point/terminales/{id}/modo", new Accion("POINT_MODO_CAMBIADO", "Cambió el modo de un Point", "Point")));
 }

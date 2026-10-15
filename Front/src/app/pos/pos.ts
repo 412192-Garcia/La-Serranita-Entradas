@@ -23,7 +23,7 @@ import { CatalogoEntradas } from './catalogo-entradas/catalogo-entradas';
 import { AgregarArticulo } from './agregar-articulo/agregar-articulo';
 import { CarritoVenta, VentaPosConfirmada } from './carrito-venta/carrito-venta';
 import { ComprobanteVenta } from './comprobante-venta/comprobante-venta';
-import { SelectorTicketera } from './selector-ticketera/selector-ticketera';
+import { SelectorDispositivos } from './selector-dispositivos/selector-dispositivos';
 import { MenuCaja } from './menu-caja/menu-caja';
 import { AnticipadasPos } from './anticipadas-pos/anticipadas-pos';
 import { TourStep } from '../shared/tour/tour';
@@ -34,7 +34,7 @@ import { DetectorEscaneoDni, extraerDniDeEscaneo } from '../shared/escaner-dni.u
 import { VentasFacturasModal } from '../shared/ventas-facturas-modal/ventas-facturas-modal';
 @Component({
   selector: 'app-pos',
-  imports: [SelectorTicketera, MenuCaja, VentasFacturasModal,
+  imports: [SelectorDispositivos, MenuCaja, VentasFacturasModal,
     CabeceraInterna,
     Spinner,
     Modal,

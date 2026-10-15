@@ -5,6 +5,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Observable, Subscription, timer } from 'rxjs';
 import {
   LucideCircleAlert,
+  LucideCircleCheck,
   LucideFileText,
   LucideLoaderCircle,
   LucideMail,
@@ -12,7 +13,18 @@ import {
   LucidePrinter,
   LucideTrash2,
 } from '@lucide/angular';
-import { Factura, FacturaManualItem, numeroComprobante } from '../../models/factura';
+import {
+  CONDICIONES_IVA_FACTURA_A,
+  Factura,
+  FacturaManualItem,
+  PadronContribuyente,
+  ReceptorFacturaA,
+  cuitValido,
+  formatearCuit,
+  nombreComprobante,
+  letraComprobante,
+  numeroComprobante,
+} from '../../models/factura';
 import { TipoEntrada } from '../../models/tipo-entrada';
 import { ArticuloVario } from '../../models/articulo-vario';
 import { FacturaService } from '../../services/factura.service';
@@ -21,6 +33,8 @@ import { TipoEntradaService } from '../../services/tipo-entrada.service';
 import { ArticuloVarioService } from '../../services/articulo-vario.service';
 import { PesosPipe } from '../../shared/pesos.pipe';
 import { Spinner } from '../../shared/spinner/spinner';
+import { SelectorDispositivos } from '../../pos/selector-dispositivos/selector-dispositivos';
+import { FacturacionLote } from '../facturacion-lote/facturacion-lote';
 
 /** Un renglón del formulario. `origen` es "libre", "e:<id>" (entrada) o "a:<id>" (artículo). */
 interface Linea {
@@ -33,21 +47,26 @@ interface Linea {
 
 type Destino = 'NINGUNO' | 'MAIL' | 'IMPRIMIR';
 
+/** B = Consumidor Final; A = responsable inscripto o monotributista identificado por CUIT. */
+type Letra = 'A' | 'B';
+
 const INTERVALO_REFRESCO_MS = 2500;
 const MAX_REFRESCOS = 24;
 
 /**
- * Acciones > Facturación manual: una Factura B sin venta detrás, con los renglones e importes que
+ * Acciones > Facturación manual: una Factura B (o A, a un CUIT) sin venta detrás, con los renglones e importes que
  * cargue el admin (del catálogo o a mano). Para lo que no pasa por el POS: un grupo que pagó por
  * transferencia, un servicio especial, corregir algo que se cobró sin factura...
+ *
+ * En lote (FacturacionLote): las ventas del día que quedaron sin facturar, una factura por venta.
  *
  * Abajo, las últimas facturas manuales con sus acciones: PDF, mail, reimprimir y anular (nota de
  * crédito por el total).
  */
 @Component({
   selector: 'app-facturacion-manual',
-  imports: [FormsModule, DatePipe, PesosPipe, Spinner, LucidePlus, LucideTrash2, LucideFileText, LucideMail,
-    LucidePrinter, LucideCircleAlert, LucideLoaderCircle],
+  imports: [FormsModule, DatePipe, PesosPipe, Spinner, SelectorDispositivos, FacturacionLote, LucidePlus, LucideTrash2, LucideFileText, LucideMail,
+    LucidePrinter, LucideCircleAlert, LucideCircleCheck, LucideLoaderCircle],
   templateUrl: './facturacion-manual.html',
   styleUrl: './facturacion-manual.css',
 })
@@ -60,14 +79,35 @@ export class FacturacionManual implements OnInit {
 
   readonly habilitada = this.facturaService.habilitada;
   readonly numeroComprobante = numeroComprobante;
+  readonly nombreComprobante = nombreComprobante;
+  readonly letraDe = letraComprobante;
+  readonly formatearCuit = formatearCuit;
+  readonly condicionesIva = CONDICIONES_IVA_FACTURA_A;
 
   tipos = signal<TipoEntrada[]>([]);
   articulos = signal<ArticuloVario[]>([]);
+
+  /** Una factura a mano, o un lote con las ventas del día que quedaron sin facturar. */
+  modo = signal<'una' | 'lote'>('una');
 
   private proximaClave = 1;
   lineas = signal<Linea[]>([this.lineaVacia()]);
   destino = signal<Destino>('NINGUNO');
   email = signal('');
+
+  /** Factura A: los datos del receptor (los precios se cargan igual, con IVA incluido). */
+  letra = signal<Letra>('B');
+  cuit = signal('');
+  razonSocial = signal('');
+  domicilio = signal('');
+  condicionIva = signal<number>(1);
+
+  /** Consulta al padrón de ARCA: se dispara sola cuando el CUIT queda completo y válido. */
+  consultandoPadron = signal(false);
+  padron = signal<PadronContribuyente | null>(null);
+  private consultaPadron: Subscription | null = null;
+  /** Lo último que se completó desde ARCA: si el CUIT cambia y nadie lo tocó, se borra (era de otro CUIT). */
+  private autocompletado: { razonSocial: string; domicilio: string } | null = null;
 
   /** Paso de confirmación antes de emitir: es un comprobante fiscal, no se deshace. */
   confirmando = signal(false);
@@ -89,7 +129,29 @@ export class FacturacionManual implements OnInit {
 
   total = computed(() => this.lineas().reduce((suma, l) => suma + this.subtotal(l), 0));
 
+  /** Neto e IVA 21% del total (lo que discrimina la Factura A), redondeado como el backend. */
+  neto = computed(() => Math.round((this.total() / 1.21) * 100) / 100);
+  iva = computed(() => Math.round((this.total() - this.neto()) * 100) / 100);
+
+  /** El CUIT sin guiones ni espacios. */
+  cuitLimpio = computed(() => this.cuit().replace(/[\s.-]/g, ''));
+  cuitOk = computed(() => cuitValido(this.cuitLimpio()));
+
+  /** Según ARCA, a este CUIT no le corresponde Factura A (exento, no inscripto): no se deja emitir. */
+  padronRechazaA = computed(() => {
+    const p = this.padron();
+    return p !== null && p.cuit === this.cuitLimpio() && p.estado === 'ENCONTRADO' && !p.admiteFacturaA;
+  });
+
+  receptorValido = computed(() =>
+    this.letra() === 'B' ||
+    (this.cuitOk() && !this.padronRechazaA() && !this.consultandoPadron() &&
+      this.razonSocial().trim() !== '' && this.domicilio().trim() !== ''));
+
+  nombreCondicion = computed(() => this.condicionesIva.find((c) => c.codigo === this.condicionIva())?.nombre ?? '');
+
   formularioValido = computed(() =>
+    this.receptorValido() &&
     this.lineas().length > 0 &&
     this.lineas().every((l) => l.cantidad >= 1 && l.descripcion.trim() !== '' && this.subtotal(l) > 0) &&
     (this.destino() !== 'MAIL' || this.emailValido(this.email())) &&
@@ -152,6 +214,74 @@ export class FacturacionManual implements OnInit {
     return 'LIBRE';
   }
 
+  elegirLetra(letra: Letra): void {
+    this.letra.set(letra);
+    this.confirmando.set(false);
+  }
+
+  /** Cualquier cambio en el receptor saca el paso de confirmación (lo confirmado era otra cosa). */
+  cambiarReceptor(campo: 'cuit' | 'razonSocial' | 'domicilio', valor: string): void {
+    this[campo].set(valor ?? '');
+    this.confirmando.set(false);
+    if (campo === 'cuit') this.alCambiarCuit();
+  }
+
+  /** Con el CUIT completo y válido se consulta el padrón (una vez por CUIT); si cambia, se descarta lo anterior. */
+  private alCambiarCuit(): void {
+    const cuit = this.cuitLimpio();
+    if (this.padron()?.cuit === cuit) return;
+    this.consultaPadron?.unsubscribe();
+    this.consultandoPadron.set(false);
+    this.padron.set(null);
+    if (this.autocompletado) {
+      if (this.razonSocial() === this.autocompletado.razonSocial) this.razonSocial.set('');
+      if (this.domicilio() === this.autocompletado.domicilio) this.domicilio.set('');
+      this.autocompletado = null;
+    }
+    if (this.cuitOk()) this.consultarPadron();
+  }
+
+  consultarPadron(): void {
+    const cuit = this.cuitLimpio();
+    if (!cuitValido(cuit)) return;
+    this.consultaPadron?.unsubscribe();
+    this.consultandoPadron.set(true);
+    this.consultaPadron = this.facturaService
+      .padron(cuit)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (p) => {
+          this.consultandoPadron.set(false);
+          this.padron.set(p);
+          if (p.estado !== 'ENCONTRADO') return;
+          // Lo de ARCA pisa lo que hubiera: es el dato oficial. Se puede corregir a mano igual.
+          if (p.razonSocial) this.razonSocial.set(p.razonSocial);
+          if (p.domicilio) this.domicilio.set(p.domicilio);
+          if (p.admiteFacturaA && p.condicionIva != null) this.condicionIva.set(p.condicionIva);
+          this.autocompletado = { razonSocial: this.razonSocial(), domicilio: this.domicilio() };
+          this.confirmando.set(false);
+        },
+        error: (err) => {
+          this.consultandoPadron.set(false);
+          this.padron.set({
+            cuit, estado: 'NO_DISPONIBLE', razonSocial: null, domicilio: null, condicionIva: null,
+            condicionIvaTexto: null, admiteFacturaA: false,
+            mensaje: this.mensaje(err, 'No se pudo consultar el padrón de ARCA. Cargá los datos a mano.'),
+          });
+        },
+      });
+  }
+
+  private receptor(): ReceptorFacturaA | null {
+    if (this.letra() !== 'A') return null;
+    return {
+      cuit: this.cuitLimpio(),
+      razonSocial: this.razonSocial().trim(),
+      domicilio: this.domicilio().trim(),
+      condicionIva: this.condicionIva(),
+    };
+  }
+
   pedirConfirmacion(): void {
     this.errorForm.set(null);
     this.avisoForm.set(null);
@@ -174,6 +304,7 @@ export class FacturacionManual implements OnInit {
         destino,
         email: destino === 'MAIL' ? this.email().trim() : null,
         impresora: destino === 'IMPRIMIR' ? this.impresoras.efectiva()?.nombre ?? null : null,
+        receptor: this.receptor(),
       })
       .subscribe({
         next: () => {
@@ -181,6 +312,12 @@ export class FacturacionManual implements OnInit {
           this.confirmando.set(false);
           this.lineas.set([this.lineaVacia()]);
           this.email.set('');
+          // El receptor se limpia: la próxima factura A suele ser a otro cliente.
+          this.cuit.set('');
+          this.razonSocial.set('');
+          this.domicilio.set('');
+          this.padron.set(null);
+          this.autocompletado = null;
           this.avisoForm.set(
             destino === 'IMPRIMIR' ? 'Factura pedida: sale por la ticketera en unos segundos.'
               : destino === 'MAIL' ? 'Factura pedida: se manda por mail en unos segundos.'
@@ -193,6 +330,11 @@ export class FacturacionManual implements OnInit {
           this.errorForm.set(this.mensaje(err, 'No se pudo emitir la factura.'));
         },
       });
+  }
+
+  alEmitirLote(): void {
+    this.refrescosHechos = 0;
+    this.cargarLista(false);
   }
 
   // ---------- lista ----------

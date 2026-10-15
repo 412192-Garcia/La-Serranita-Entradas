@@ -3,6 +3,7 @@ import {DatePipe} from '@angular/common';
 import {FormsModule} from '@angular/forms';
 import { FormaPagoType, ResumenCompraData } from '../../models/compra';
 import { Cupon } from '../../models/cupon';
+import { CompraService } from '../../services/compra.service';
 import { CuponService } from '../../services/cupon.service';
 import { LucideCalendar, LucideTicket, LucideCreditCard, LucideTag, LucideGift, LucideBanknote } from '@lucide/angular';
 import { PesosPipe } from '../../shared/pesos.pipe';
@@ -37,9 +38,22 @@ export class Resumen {
   @Output() cuponCambio = new EventEmitter<Cupon | null>();
 
   codigoInput: string = '';
+  /** "Efectivo en Boletería": se puede apagar desde Sistema > Módulos. Mientras no se sabe, se muestra. */
+  reservaEfectivo = true;
   errorCupon: string | null = null;
 
-  constructor(private cuponService: CuponService, private cdr: ChangeDetectorRef) {}
+  constructor(private cuponService: CuponService, private cdr: ChangeDetectorRef, compraService: CompraService) {
+    compraService.opcionesPago().subscribe({
+      next: ({ reservaEfectivo }) => {
+        this.reservaEfectivo = reservaEfectivo;
+        // Estaba elegida y se apagó: vuelve a Mercado Pago (el backend la rechazaría igual).
+        if (!reservaEfectivo && this.datosCompra?.formaPago === 'EFECTIVO_BOLETERIA') this.onCambiarFormaPago('MERCADO_PAGO');
+        this.cdr.markForCheck();
+      },
+      // Sin respuesta se deja como estaba: si está apagada, el backend la rechaza con el motivo.
+      error: () => {},
+    });
+  }
 
   onPagar(): void {
     this.confirmarPago.emit();

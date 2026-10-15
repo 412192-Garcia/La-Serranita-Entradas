@@ -1,0 +1,66 @@
+<app-modal [cerrarAlTocarFondo]="false" (cerrar)="!enCurso() && cerrar()">
+  <div class="panel-caja panel-point" role="dialog" aria-labelledby="titulo-cobro-point" aria-live="polite">
+    <h3 id="titulo-cobro-point">
+      {{ forma() === 'MERCADO_PAGO_QR' ? 'Cobro con QR en el Point' : 'Cobro con Point' }}
+      @if (paso(); as p) {
+        <span class="paso-point">{{ p }}</span>
+      }
+    </h3>
+
+    <div class="monto-point">
+      @if (forma() === 'MERCADO_PAGO_QR') {
+        <svg lucideQrCode [strokeWidth]="2"></svg>
+      } @else {
+        <svg lucideCreditCard [strokeWidth]="2"></svg>
+      }
+      <span>{{ monto() | pesos }}</span>
+    </div>
+    <p class="terminal-point">{{ terminal().nombre }}</p>
+
+    @if (cobro(); as c) {
+      @if (c.estado === 'APROBADO') {
+        <p class="estado-point estado-ok">Pago aprobado. Registrando la venta…</p>
+      } @else if (c.enCurso) {
+        <div class="estado-point estado-espera">
+          <span class="indicador" aria-hidden="true"></span>
+          <span>{{ c.motivo }}</span>
+        </div>
+        @if (c.estado === 'REVISAR_EN_POINT') {
+          <p class="ayuda-point">
+            Mercado Pago no pudo confirmar el resultado. Fijate en la pantalla del Point: si dice aprobado, anotá la
+            venta a mano; si no, cancelá y volvé a intentar.
+          </p>
+        } @else {
+          <p class="ayuda-point">
+            {{ forma() === 'MERCADO_PAGO_QR' ? 'Pedile al cliente que escanee el QR de la pantalla del Point con su app.' : 'Pedile al cliente que pase o acerque la tarjeta en el Point.' }}
+          </p>
+        }
+      } @else {
+        <p class="alerta-error">{{ c.motivo ?? 'El cobro no salió.' }}</p>
+      }
+    } @else if (!error()) {
+      <div class="estado-point estado-espera">
+        <span class="indicador" aria-hidden="true"></span>
+        <span>Mandando el cobro al Point…</span>
+      </div>
+    }
+
+    @if (error()) {
+      <p class="alerta-error">{{ error() }}</p>
+    }
+
+    <div class="acciones">
+      @if (enCurso()) {
+        @if (cobro()?.estado === 'REVISAR_EN_POINT' || !enLinea()) {
+          <button type="button" class="btn-limpiar" (click)="confirmarAMano()">Salió aprobado: anotar a mano</button>
+        }
+        <button type="button" class="btn-limpiar" [disabled]="cancelando()" (click)="cancelar()">
+          {{ cancelando() ? 'Cancelando…' : 'Cancelar cobro' }}
+        </button>
+      } @else if (fallido() || sinCrear()) {
+        <button type="button" class="btn-limpiar" (click)="cerrar()">Cerrar</button>
+        <button type="button" class="btn-cobrar" (click)="sinCrear() ? enviar() : reintentar()">Volver a intentar</button>
+      }
+    </div>
+  </div>
+</app-modal>

@@ -38,6 +38,21 @@ public class EmisionFacturasScheduler {
         facturaService.emitir(evento.facturaId());
     }
 
+    /** Un lote manual: de a una y en un solo hilo, para no ocupar el pool @Async con cien tareas
+     * esperando el mismo lock (ver FacturaServiceImpl#emitirManualLote). */
+    @Async
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void alSolicitarLote(FacturaServiceImpl.LoteFacturasSolicitadoEvent evento) {
+        for (Long id : evento.facturaIds()) {
+            try {
+                facturaService.emitir(id);
+            } catch (RuntimeException e) {
+                // Una que falla no frena las demás: queda para emitirPendientes.
+                log.warn("No se pudo emitir la factura ID {} del lote", id, e);
+            }
+        }
+    }
+
     /** Ya se publica después del commit (ver FacturaServiceImpl#solicitarOnline): listener común, en segundo plano. */
     @Async
     @EventListener

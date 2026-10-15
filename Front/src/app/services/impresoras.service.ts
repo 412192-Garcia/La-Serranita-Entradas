@@ -50,7 +50,7 @@ export class ImpresorasService {
       return 'La PC de la entrada está apagada o sin conexión: la factura sólo se puede mandar por mail.';
     }
     const impresora = this.efectiva();
-    if (impresora === null) return 'Elegí la ticketera arriba, en el botón "Ticketera".';
+    if (impresora === null) return 'Elegí la ticketera en el botón "Ticketera".';
     if (!impresora.disponible) {
       return `La ticketera "${impresora.nombre}" está ${impresora.detalle ?? 'apagada o desconectada'}: la factura sólo se puede mandar por mail.`;
     }

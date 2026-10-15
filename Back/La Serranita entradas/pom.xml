@@ -28,6 +28,12 @@
     </scm>
     <properties>
         <java.version>17</java.version>
+        <!-- Número de release (rama release-X.Y.Z que entró a main) y commit: los pasa el CI al
+             armar la imagen (ver .github/workflows/ci.yml y el Dockerfile). Compilando a mano
+             quedan así. Se ven en Sistema > Estado > Servidor. -->
+        <app.release>dev</app.release>
+        <!-- Nunca vacío: build-info no acepta propiedades vacías y el build falla. -->
+        <app.commit>local</app.commit>
     </properties>
     <dependencies>
         <dependency>
@@ -96,6 +102,14 @@
             <version>3.5.3</version>
         </dependency>
 
+        <!-- Firma CMS del pedido de ticket de acceso a WSAA (facturación con ARCA) y lectura de la
+             clave privada en PEM, sea PKCS#1 ("RSA PRIVATE KEY") o PKCS#8 ("PRIVATE KEY") -->
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcpkix-jdk18on</artifactId>
+            <version>1.80</version>
+        </dependency>
+
         <!-- Mercado Pago Java SDK -->
         <dependency>
             <groupId>com.mercadopago</groupId>
@@ -154,6 +168,12 @@
                         <goals>
                             <goal>build-info</goal>
                         </goals>
+                        <configuration>
+                            <additionalProperties>
+                                <release>${app.release}</release>
+                                <commit>${app.commit}</commit>
+                            </additionalProperties>
+                        </configuration>
                     </execution>
                 </executions>
                 <configuration>
