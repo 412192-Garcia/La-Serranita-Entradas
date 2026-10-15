@@ -6,6 +6,8 @@ número y el CI la usa como nota de la Release de GitHub.
 
 ## Sin publicar
 
+## 0.10.0 — 2026-10-15
+
 ### Cobro con Point de Mercado Pago
 - La parte en tarjeta o QR de una venta del POS se cobra en el Point de la boletería, y la venta se
   registra recién cuando el pago queda aprobado. Un pago mixto tarjeta + QR son dos cobros, de a uno.
