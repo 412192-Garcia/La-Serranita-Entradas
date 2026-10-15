@@ -121,10 +121,12 @@ jobs:
             ghcr.io/412192-garcia/la-serranita-caddy:latest
             ${{ steps.version.outputs.release != 'sin-release' && format('ghcr.io/412192-garcia/la-serranita-caddy:{0}', steps.version.outputs.release) || '' }}
 
-      # Tag vX.Y.Z y Release de GitHub. La nota es la sección "## X.Y.Z" de CHANGELOG.md; si no
-      # está, las notas automáticas de GitHub. Sólo para merges de una rama release-X.Y.Z, y si
-      # esa versión no existe ya (re-correr el workflow no la duplica). Los del agente de
-      # impresión siguen siendo agente-vX.Y.Z aparte.
+      # Tag vX.Y.Z y Release de GitHub. La nota sale de CHANGELOG.md: la sección "## X.Y.Z" si
+      # ya existe, o si no la de "## Sin publicar", que además se renombra a "## X.Y.Z — fecha"
+      # (con una "Sin publicar" nueva vacía arriba) en un commit a main. Ese commit lo hace el
+      # token de Actions, así que no vuelve a disparar el workflow. Sin nada en el changelog, las
+      # notas automáticas de GitHub. Sólo para merges de una rama release-X.Y.Z, y si esa versión
+      # no existe ya. Los del agente de impresión siguen siendo agente-vX.Y.Z aparte.
       - name: Tag y Release de GitHub
         if: steps.version.outputs.release != 'sin-release'
         env:
@@ -133,16 +135,42 @@ jobs:
         run: |
           if gh release view "v$VERSION" >/dev/null 2>&1; then
             echo "La release v$VERSION ya existe: no se crea de nuevo."
-          else
-            # Desde "## X.Y.Z" (con o sin fecha) hasta la próxima sección "## ".
-            awk -v v="$VERSION" '
-              /^## / { if (dentro) exit; if ($2 == v) { dentro = 1; next } }
+            exit 0
+          fi
+          seccion() {
+            awk -v v="$1" '
+              /^## / { if (dentro) exit; t = substr($0, 4); sub(/ — .*/, "", t); if (t == v) { dentro = 1; next } }
               dentro { print }
-            ' CHANGELOG.md > notas.md
-            if [ -s notas.md ]; then
-              gh release create "v$VERSION" --target "$GITHUB_SHA" --title "La Serranita $VERSION" --notes-file notas.md
+            ' CHANGELOG.md
+          }
+          seccion "$VERSION" > notas.md
+          renombrar=false
+          if ! grep -q '[^[:space:]]' notas.md; then
+            seccion "Sin publicar" > notas.md
+            grep -q '[^[:space:]]' notas.md && renombrar=true
+          fi
+          if [ "$renombrar" = true ]; then
+            fecha="$(TZ=America/Argentina/Buenos_Aires date +%Y-%m-%d)"
+            awk -v v="$VERSION" -v f="$fecha" '
+              !hecho && $0 == "## Sin publicar" { print; print ""; print "## " v " — " f; hecho = 1; next }
+              { print }
+            ' CHANGELOG.md > CHANGELOG.nuevo && mv CHANGELOG.nuevo CHANGELOG.md
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add CHANGELOG.md
+            git commit -m "Changelog: versión $VERSION"
+            if git push origin HEAD:main; then
+              objetivo="$(git rev-parse HEAD)"
             else
-              echo "CHANGELOG.md no tiene la sección $VERSION: notas automáticas."
-              gh release create "v$VERSION" --target "$GITHUB_SHA" --title "La Serranita $VERSION" --generate-notes
+              echo "::warning::No se pudo subir el CHANGELOG renombrado a main (¿rama protegida?): la Release sale igual."
+              objetivo="$GITHUB_SHA"
             fi
+          else
+            objetivo="$GITHUB_SHA"
+          fi
+          if grep -q '[^[:space:]]' notas.md; then
+            gh release create "v$VERSION" --target "$objetivo" --title "La Serranita $VERSION" --notes-file notas.md
+          else
+            echo "CHANGELOG.md no tiene notas para $VERSION: notas automáticas."
+            gh release create "v$VERSION" --target "$objetivo" --title "La Serranita $VERSION" --generate-notes
           fi
