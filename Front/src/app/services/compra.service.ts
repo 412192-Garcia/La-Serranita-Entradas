@@ -38,6 +38,11 @@ export class CompraService {
   /**
    * Inicia la compra en el backend (crea la compra PENDIENTE + preferencia MP)
    */
+  /** Formas de pago que ofrece hoy la compra online (la reserva en efectivo se apaga en Sistema > Módulos). */
+  opcionesPago(): Observable<{ reservaEfectivo: boolean }> {
+    return this.http.get<{ reservaEfectivo: boolean }>(`${this.apiUrl}/opciones-pago`);
+  }
+
   iniciarCompraConPago(compraRequest: any): Observable<CompraResponseDTO> {
     return this.http.post<CompraResponseDTO>(`${this.apiUrl}/iniciar-pago`, compraRequest);
   }

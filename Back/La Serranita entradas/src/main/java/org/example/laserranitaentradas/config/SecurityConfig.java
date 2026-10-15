@@ -60,6 +60,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/tipos-entrada/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/cupones/codigo/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/compras", "/api/compras/iniciar-pago", "/api/compras/cotizar").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/compras/opciones-pago").permitAll()
                 // {id:\d+} y no {id}: un {id} suelto también matchea /api/compras/buscar (esta regla
                 // gana por ir primero) y dejaba la búsqueda de boletería abierta sin login.
                 .requestMatchers(HttpMethod.GET, "/api/compras/{id:\\d+}", "/api/compras/{id:\\d+}/estado", "/api/compras/codigo/*").permitAll()

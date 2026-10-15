@@ -75,15 +75,25 @@ export class ConteoCierre {
 
     // Cierre nuevo: lo que cobró el Point integrado ya lo sabe el sistema, así que se precarga por
     // separado (tarjeta y QR). El admin suma los cierres de otros posnet o del Point en modo manual.
-    // Sólo si el posnet todavía está vacío: nunca pisa lo que ya se tipeó.
+    // Nunca pisa lo que se tipeó: llena el posnet vacío, o actualiza una precarga anterior que
+    // nadie tocó (se reabrió el cierre más tarde y el Point cobró más, o se devolvió un cobro).
+    // Si el admin borró la precarga, no se vuelve a llenar.
     effect(() => {
       const resumen = this.cobrosPoint();
-      // Una sola vez por resumen: si después el admin borra las filas, no se vuelven a llenar.
-      if (!resumen || resumen === this.resumenAplicado || this.precarga() || (resumen.tarjeta <= 0 && resumen.qr <= 0)) return;
+      if (!resumen || resumen === this.resumenAplicado || this.precarga()) return;
       this.resumenAplicado = resumen;
-      const vacio = untracked(() => [...this.cierresTarjeta(), ...this.cierresQr(), ...this.cierresCombinados()]).every((f) => f.monto === null);
-      if (!vacio) return;
+      const previo = untracked(() => this.precargadoPoint());
+      const filas = untracked(() => [...this.cierresTarjeta(), ...this.cierresQr(), ...this.cierresCombinados()]);
       const fila = (monto: number) => [{ monto: monto > 0 ? monto : null, nota: monto > 0 ? 'Point integrado' : '' }];
+      const intacto =
+        previo !== null &&
+        untracked(() => this.modoPosnet()) === 'SEPARADO' &&
+        JSON.stringify(untracked(() => this.cierresTarjeta())) === JSON.stringify(fila(previo.tarjeta)) &&
+        JSON.stringify(untracked(() => this.cierresQr())) === JSON.stringify(fila(previo.qr)) &&
+        untracked(() => this.cierresCombinados()).every((f) => f.monto === null);
+      const vacioSinPrecarga = previo === null && filas.every((f) => f.monto === null);
+      if (!intacto && !vacioSinPrecarga) return;
+      if (vacioSinPrecarga && resumen.tarjeta <= 0 && resumen.qr <= 0) return;
       this.modoPosnet.set('SEPARADO');
       this.cierresTarjeta.set(fila(resumen.tarjeta));
       this.cierresQr.set(fila(resumen.qr));

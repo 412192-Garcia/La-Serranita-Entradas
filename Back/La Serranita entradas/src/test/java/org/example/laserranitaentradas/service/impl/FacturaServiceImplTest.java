@@ -56,7 +56,8 @@ class FacturaServiceImplTest {
                 comprobanteFacturaService, pdfGenerator, emailService, impresionService, calculoPrecioService, modulos);
         ReflectionTestUtils.setField(service, "puntoVentaBoleteria", 5);
         when(afipClient.estaConfigurado()).thenReturn(true);
-        lenient().when(modulos.activo(org.example.laserranitaentradas.model.entity.Modulo.FACTURACION)).thenReturn(true);
+        // Todos los módulos prendidos salvo que el test diga otra cosa.
+        lenient().when(modulos.activo(any(org.example.laserranitaentradas.model.entity.Modulo.class))).thenReturn(true);
         when(afipClient.getCuit()).thenReturn("20409378472");
         when(facturaRepository.save(any(Factura.class))).thenAnswer(inv -> {
             Factura f = inv.getArgument(0);
@@ -622,7 +623,35 @@ class FacturaServiceImplTest {
         });
         assertThat(captor.getAllValues().get(0).getImporteTotal()).isEqualByComparingTo("60000");
         assertThat(captor.getAllValues().get(1).getConcepto()).isEqualTo(3);
-        verify(eventPublisher, org.mockito.Mockito.times(2)).publishEvent(any(FacturaServiceImpl.FacturaSolicitadaEvent.class));
+        // Un solo evento para todo el lote (no uno por factura, que llenaba el pool @Async).
+        verify(eventPublisher, never()).publishEvent(any(FacturaServiceImpl.FacturaSolicitadaEvent.class));
+        verify(eventPublisher).publishEvent(any(FacturaServiceImpl.LoteFacturasSolicitadoEvent.class));
+    }
+
+    @Test
+    void lote_repetidoConLaMismaClave_devuelveLasYaPedidasSinCrearOtras() {
+        Factura yaPedida = Factura.builder().id(70L).estado(EstadoFactura.PENDIENTE).destino(DestinoFactura.NINGUNO)
+                .puntoVenta(11).tipoComprobante(6).concepto(2).importeTotal(new BigDecimal("30000"))
+                .importeNeto(new BigDecimal("24793.39")).importeIva(new BigDecimal("5206.61")).loteClave("L1").build();
+        when(facturaRepository.findAllByLoteClaveOrderByIdAsc("L1")).thenReturn(List.of(yaPedida));
+        var lote = new org.example.laserranitaentradas.model.dto.FacturaManualLoteDTO(List.of(
+                manual(DestinoFactura.NINGUNO, null, item("ENTRADA", 1, "General", "30000"))), "L1");
+
+        var r = service.emitirManualLote(lote);
+
+        assertThat(r).hasSize(1);
+        verify(facturaRepository, never()).save(any());
+        verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    @Test
+    void emitir_conElModuloApagado_noVaAArcaYQuedaPendiente() {
+        when(modulos.activo(org.example.laserranitaentradas.model.entity.Modulo.FACTURACION)).thenReturn(false);
+
+        service.emitir(1L);
+
+        verify(facturaRepository, never()).findById(any());
+        verifyNoInteractions(wsfe);
     }
 
     @Test
@@ -1075,6 +1104,14 @@ class FacturaServiceImplTest {
         service.alCancelarVenta(Compra.builder().id(1L).build());
 
         verify(impresionService).cancelarTrabajos(10L);
+    }
+
+    @Test
+    void solicitar_conLaFacturacionDeBoleteriaApagada_vendeSinFactura() {
+        when(modulos.activo(org.example.laserranitaentradas.model.entity.Modulo.FACTURACION_BOLETERIA)).thenReturn(false);
+
+        assertThat(service.solicitar(compra("2500", entrada()), pedido(DestinoFactura.IMPRIMIR, null))).isEmpty();
+        verify(facturaRepository, never()).save(any());
     }
 
     @Test

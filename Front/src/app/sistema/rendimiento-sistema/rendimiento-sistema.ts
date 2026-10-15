@@ -1,9 +1,11 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
-import { LucideArrowDown, LucideCircleCheck, LucideRefreshCw } from '@lucide/angular';
+import { LucideCircleCheck, LucideRefreshCw } from '@lucide/angular';
 import { EndpointRendimiento, Rendimiento } from '../../models/sistema';
 import { SistemaService } from '../../services/sistema.service';
 import { Spinner } from '../../shared/spinner/spinner';
+import { ColumnaOrdenable } from '../../shared/columna-ordenable/columna-ordenable';
+import { crearOrdenable } from '../../shared/ordenable';
 
 /** Endpoints con menos requests que esto no se listan por defecto: un promedio de 1 o 2 no dice nada. */
 const MIN_REQUESTS = 5;
@@ -27,7 +29,7 @@ const COLUMNAS: { clave: Orden; titulo: string; ayuda: string }[] = [
  */
 @Component({
   selector: 'app-rendimiento-sistema',
-  imports: [DatePipe, Spinner, LucideRefreshCw, LucideCircleCheck, LucideArrowDown],
+  imports: [DatePipe, Spinner, LucideRefreshCw, LucideCircleCheck, ColumnaOrdenable],
   templateUrl: './rendimiento-sistema.html',
   styleUrl: './rendimiento-sistema.css',
 })
@@ -39,14 +41,30 @@ export class RendimientoSistema implements OnInit {
   error = signal<string | null>(null);
   verTodos = signal(false);
   readonly columnas = COLUMNAS;
-  orden = signal<Orden>('promedioMs');
+  /** El mismo encabezado ordenable que el resto de las tablas (click ordena, otro click invierte). */
+  private readonly orden = crearOrdenable<Orden>('promedioMs');
+  readonly estadoOrden = this.orden.estadoOrden;
+
+  constructor() {
+    // Lo que interesa es lo más lento / lo más usado: arranca de mayor a menor.
+    this.orden.direccionOrden.set('DESC');
+  }
+
+  /** Como en las demás tablas, pero una columna nueva arranca de mayor a menor (en métricas, lo
+   * primero que se busca es el peor). */
+  ordenarColumna(campo: Orden): void {
+    const nueva = this.orden.ordenarPor() !== campo;
+    this.orden.ordenarColumna(campo);
+    if (nueva) this.orden.direccionOrden.set('DESC');
+  }
 
   readonly endpoints = computed(() => {
     const d = this.datos();
     if (!d) return [];
-    const campo = this.orden();
+    const campo = this.orden.ordenarPor();
+    const signo = this.orden.direccionOrden() === 'DESC' ? -1 : 1;
     const lista = this.verTodos() ? d.endpoints : d.endpoints.filter((e) => e.cantidad >= MIN_REQUESTS);
-    return [...lista].sort((a: EndpointRendimiento, b: EndpointRendimiento) => b[campo] - a[campo]);
+    return [...lista].sort((a: EndpointRendimiento, b: EndpointRendimiento) => signo * (a[campo] - b[campo]));
   });
   /** Tiempo del servidor sumado de todos los endpoints (también los ocultos), para el porcentaje. */
   private readonly tiempoTotal = computed(() => this.datos()?.endpoints.reduce((s, e) => s + e.totalMs, 0) ?? 0);

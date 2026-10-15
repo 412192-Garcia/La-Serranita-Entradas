@@ -163,6 +163,8 @@ services:
       BACKUP_DRIVE_REMOTO: ${BACKUP_DRIVE_REMOTO:-}
       # "ecs" = logs en JSON, para mandarlos a Grafana (servicio alloy). Vacío = texto común.
       LOG_FORMATO: ${LOG_FORMATO:-}
+      # Sólo para saber si Grafana está configurado (el envío lo hace el servicio alloy).
+      GRAFANA_PROM_URL: ${GRAFANA_PROM_URL:-}
       ALERTAS_MAIL: ${ALERTAS_MAIL:-}
       ALERTAS_LATIDO_URL: ${ALERTAS_LATIDO_URL:-}
       ALERTAS_RECORDATORIO_HORAS: ${ALERTAS_RECORDATORIO_HORAS:-24}

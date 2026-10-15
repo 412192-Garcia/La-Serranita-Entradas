@@ -136,14 +136,25 @@ export const CONDICIONES_IVA_FACTURA_A: { codigo: number; nombre: string }[] = [
   { codigo: 16, nombre: 'Monotributo Trabajador Independiente Promovido' },
 ];
 
-/** "Factura A" / "Nota de Crédito B" a partir del código de ARCA (1, 3, 6, 8). */
-export function nombreComprobante(tipo: number): string {
-  return `${tipo === 3 || tipo === 8 ? 'Nota de Crédito' : 'Factura'} ${tipo === 1 || tipo === 3 ? 'A' : 'B'}`;
+/** Códigos de comprobante de ARCA que usa el sistema (igual que WsfeService.CBTE_TIPO_* en el backend). */
+export const CBTE_FACTURA_A = 1;
+export const CBTE_NOTA_CREDITO_A = 3;
+export const CBTE_FACTURA_B = 6;
+export const CBTE_NOTA_CREDITO_B = 8;
+
+/** "A" o "B". */
+export function letraComprobante(tipo: number): 'A' | 'B' {
+  return tipo === CBTE_FACTURA_A || tipo === CBTE_NOTA_CREDITO_A ? 'A' : 'B';
 }
 
 /** Nota de crédito (A o B): resta en los totales. */
 export function esNotaDeCredito(tipo: number): boolean {
-  return tipo === 3 || tipo === 8;
+  return tipo === CBTE_NOTA_CREDITO_A || tipo === CBTE_NOTA_CREDITO_B;
+}
+
+/** "Factura A" / "Nota de Crédito B" a partir del código de ARCA (1, 3, 6, 8). */
+export function nombreComprobante(tipo: number): string {
+  return `${esNotaDeCredito(tipo) ? 'Nota de Crédito' : 'Factura'} ${letraComprobante(tipo)}`;
 }
 
 /** CUIT de 11 dígitos con el dígito verificador bien. */

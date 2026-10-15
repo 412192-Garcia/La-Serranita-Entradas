@@ -59,10 +59,23 @@ jobs:
     needs: [backend, frontend]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
-      contents: read
+      # write: para crear el tag y la Release de GitHub de cada versión.
+      contents: write
       packages: write
     steps:
       - uses: actions/checkout@v4
+
+      # El número de versión sale de la rama release-X.Y.Z que se mergeó a main ("Merge pull
+      # request #41 from 412192-Garcia/release-0.9.3"). Un push directo a main queda sin número
+      # y se identifica por el commit.
+      - name: Versión de la release
+        id: version
+        run: |
+          titulo="$(git log -1 --pretty=%s)"
+          release="$(printf '%s' "$titulo" | sed -nE 's#.*release-([0-9][0-9A-Za-z.-]*).*#\1#p')"
+          echo "release=${release:-sin-release}" >> "$GITHUB_OUTPUT"
+          echo "commit=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+          echo "Versión: ${release:-sin-release} ($(git rev-parse --short HEAD))"
 
       - name: Login a GitHub Container Registry
         uses: docker/login-action@v3
@@ -76,14 +89,25 @@ jobs:
         with:
           context: "./Back/La Serranita entradas"
           push: true
-          tags: ghcr.io/412192-garcia/la-serranita-backend:latest
+          # Además de latest, el número de la release: para volver a una versión anterior
+          # alcanza con poner ese tag en el compose (una línea vacía se ignora).
+          tags: |
+            ghcr.io/412192-garcia/la-serranita-backend:latest
+            ${{ steps.version.outputs.release != 'sin-release' && format('ghcr.io/412192-garcia/la-serranita-backend:{0}', steps.version.outputs.release) || '' }}
+          build-args: |
+            APP_RELEASE=${{ steps.version.outputs.release }}
+            APP_COMMIT=${{ steps.version.outputs.commit }}
 
       - name: Build y push — frontend
         uses: docker/build-push-action@v6
         with:
           context: ./Front
           push: true
-          tags: ghcr.io/412192-garcia/la-serranita-frontend:latest
+          # Además de latest, el número de la release: para volver a una versión anterior
+          # alcanza con poner ese tag en el compose (una línea vacía se ignora).
+          tags: |
+            ghcr.io/412192-garcia/la-serranita-frontend:latest
+            ${{ steps.version.outputs.release != 'sin-release' && format('ghcr.io/412192-garcia/la-serranita-frontend:{0}', steps.version.outputs.release) || '' }}
 
       - name: Build y push — caddy
         uses: docker/build-push-action@v6
@@ -91,4 +115,34 @@ jobs:
           context: .
           file: ./Dockerfile.caddy
           push: true
-          tags: ghcr.io/412192-garcia/la-serranita-caddy:latest
+          # Además de latest, el número de la release: para volver a una versión anterior
+          # alcanza con poner ese tag en el compose (una línea vacía se ignora).
+          tags: |
+            ghcr.io/412192-garcia/la-serranita-caddy:latest
+            ${{ steps.version.outputs.release != 'sin-release' && format('ghcr.io/412192-garcia/la-serranita-caddy:{0}', steps.version.outputs.release) || '' }}
+
+      # Tag vX.Y.Z y Release de GitHub. La nota es la sección "## X.Y.Z" de CHANGELOG.md; si no
+      # está, las notas automáticas de GitHub. Sólo para merges de una rama release-X.Y.Z, y si
+      # esa versión no existe ya (re-correr el workflow no la duplica). Los del agente de
+      # impresión siguen siendo agente-vX.Y.Z aparte.
+      - name: Tag y Release de GitHub
+        if: steps.version.outputs.release != 'sin-release'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.release }}
+        run: |
+          if gh release view "v$VERSION" >/dev/null 2>&1; then
+            echo "La release v$VERSION ya existe: no se crea de nuevo."
+          else
+            # Desde "## X.Y.Z" (con o sin fecha) hasta la próxima sección "## ".
+            awk -v v="$VERSION" '
+              /^## / { if (dentro) exit; if ($2 == v) { dentro = 1; next } }
+              dentro { print }
+            ' CHANGELOG.md > notas.md
+            if [ -s notas.md ]; then
+              gh release create "v$VERSION" --target "$GITHUB_SHA" --title "La Serranita $VERSION" --notes-file notas.md
+            else
+              echo "CHANGELOG.md no tiene la sección $VERSION: notas automáticas."
+              gh release create "v$VERSION" --target "$GITHUB_SHA" --title "La Serranita $VERSION" --generate-notes
+            fi
+          fi

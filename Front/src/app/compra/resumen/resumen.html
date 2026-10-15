@@ -115,7 +115,7 @@
             </div>
           </label>
 
-          @if (!datosCompra.esRegalo) {
+          @if (!datosCompra.esRegalo && reservaEfectivo) {
             <label class="opcion-pago-card" [class.seleccionada]="datosCompra.formaPago === 'EFECTIVO_BOLETERIA'">
               <input
                 type="radio"

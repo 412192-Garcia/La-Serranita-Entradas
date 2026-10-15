@@ -47,6 +47,15 @@ public class ManejadorGlobalErrores {
         return ResponseEntity.status(estado).body("No existe.");
     }
 
+    /** Mercado Pago rechazó o no respondió un pedido del Point (token sin permiso para Point, MP caído,
+     * Point mal configurado): es un problema de afuera, no un error del servidor. 502 con el motivo
+     * para mostrarlo en pantalla, y sin ensuciar Sistema > Errores en cada consulta de las tablets. */
+    @ExceptionHandler(org.example.laserranitaentradas.service.point.MercadoPagoPointClient.PointException.class)
+    public ResponseEntity<String> errorDeMercadoPagoPoint(RuntimeException ex) {
+        log.warn("Mercado Pago (Point): {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(ex.getMessage());
+    }
+
     /** Un controller que ya decidió el código HTTP (ej. 401 del agente de impresión con un token
      * inválido): se respeta ese código en vez de convertirlo en un 500. */
     @ExceptionHandler(ResponseStatusException.class)
@@ -81,15 +90,18 @@ public class ManejadorGlobalErrores {
                 .body("Ocurrió un error inesperado (código " + codigo + "). Reintentá en unos minutos; si sigue pasando, avisale al administrador con ese código.");
     }
 
-    /** "Broken pipe", "Connection reset", ClientAbortException...: el otro lado ya no está. */
+    /**
+     * El cliente cortó mientras se le escribía la respuesta. Se reconoce sólo por el tipo con el que
+     * Tomcat (ClientAbortException) y Spring (AsyncRequestNotUsableException) envuelven esa falla, y
+     * no por el texto: un "Connection reset" de la base, del SMTP o de Mercado Pago también es una
+     * IOException con ese mensaje, y es un error del servidor que tiene que quedar registrado y
+     * responderse como 500 (si se contestara vacío, el POS daría la venta por guardada y la sacaría
+     * de la cola).
+     */
     public static boolean esDesconexionDelCliente(Throwable ex) {
         for (Throwable t = ex; t != null; t = t.getCause() == t ? null : t.getCause()) {
             String clase = t.getClass().getSimpleName();
             if (clase.equals("ClientAbortException") || clase.equals("AsyncRequestNotUsableException")) return true;
-            if (t instanceof java.io.IOException && t.getMessage() != null) {
-                String m = t.getMessage().toLowerCase(java.util.Locale.ROOT);
-                if (m.contains("broken pipe") || m.contains("connection reset") || m.contains("connection abort")) return true;
-            }
         }
         return false;
     }

@@ -5,6 +5,7 @@ import { environment } from '../../environments/environment';
 import { ControlFacturacion, DesfaseNumeracion, Factura, FacturaManualItem, FacturaManualPedido, FacturacionPos, PadronContribuyente, TotalesFacturacion, ImpresoraConectada, VentaFactura } from '../models/factura';
 
 const CLAVE_HABILITADA = 'facturacion-habilitada';
+const CLAVE_BOLETERIA = 'facturacion-boleteria';
 
 @Injectable({ providedIn: 'root' })
 export class FacturaService {
@@ -17,13 +18,19 @@ export class FacturaService {
    * tablet arranca sin señal, el selector siga apareciendo igual que antes del corte.
    */
   readonly habilitada = signal<boolean>(this.leerHabilitadaGuardada());
+  /** Facturar las ventas del POS: lo de arriba y además el submódulo Facturación > Boletería prendido. */
+  readonly habilitadaBoleteria = signal<boolean>(this.leerHabilitadaGuardada(CLAVE_BOLETERIA));
 
   actualizarEstadoServicio(): void {
-    this.http.get<{ habilitada: boolean }>(`${this.url}/estado-servicio`).subscribe({
-      next: ({ habilitada }) => {
+    this.http.get<{ habilitada: boolean; boleteria?: boolean }>(`${this.url}/estado-servicio`).subscribe({
+      next: ({ habilitada, boleteria }) => {
+        // Un backend viejo no manda "boleteria": vale lo general.
+        const enBoleteria = boleteria ?? habilitada;
         this.habilitada.set(habilitada);
+        this.habilitadaBoleteria.set(enBoleteria);
         try {
           localStorage.setItem(CLAVE_HABILITADA, String(habilitada));
+          localStorage.setItem(CLAVE_BOLETERIA, String(enBoleteria));
         } catch {
           // Sin storage (modo privado, etc.): sólo se pierde el recuerdo entre sesiones.
         }
@@ -85,9 +92,11 @@ export class FacturaService {
   }
 
   /** Varias facturas manuales de una vez (una por venta), sin entrega. Todo o nada. */
-  emitirManualLote(facturas: FacturaManualItem[][]): Observable<Factura[]> {
+  /** `claveIdempotencia`: la misma para el mismo lote, así reintentarlo no duplica facturas. */
+  emitirManualLote(facturas: FacturaManualItem[][], claveIdempotencia: string): Observable<Factura[]> {
     return this.http.post<Factura[]>(`${this.url}/manual/lote`, {
       facturas: facturas.map((items) => ({ items, destino: 'NINGUNO', email: null, impresora: null })),
+      claveIdempotencia,
     });
   }
 
@@ -136,9 +145,9 @@ export class FacturaService {
     return this.http.get(`${this.url}/exportar?desde=${desde}&hasta=${hasta}`, { responseType: 'blob' });
   }
 
-  private leerHabilitadaGuardada(): boolean {
+  private leerHabilitadaGuardada(clave = CLAVE_HABILITADA): boolean {
     try {
-      return localStorage.getItem(CLAVE_HABILITADA) === 'true';
+      return localStorage.getItem(clave) === 'true';
     } catch {
       return false;
     }

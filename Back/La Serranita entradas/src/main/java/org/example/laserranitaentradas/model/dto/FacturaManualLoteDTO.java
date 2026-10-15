@@ -7,4 +7,9 @@ import java.util.List;
  * ventas que quedaron sin facturar, una factura por venta. Sólo cuentan los ítems de cada una: el
  * lote no se entrega (ni mail ni ticketera), quedan los PDF.
  */
-public record FacturaManualLoteDTO(List<FacturaManualDTO> facturas) {}
+public record FacturaManualLoteDTO(List<FacturaManualDTO> facturas, String claveIdempotencia) {
+
+    public FacturaManualLoteDTO(List<FacturaManualDTO> facturas) {
+        this(facturas, null);
+    }
+}

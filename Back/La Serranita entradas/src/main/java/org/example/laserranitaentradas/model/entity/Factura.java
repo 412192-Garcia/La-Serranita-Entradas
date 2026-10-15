@@ -105,6 +105,12 @@ public class Factura extends BaseEntity {
     @Column(name = "receptor_condicion_iva")
     private Integer receptorCondicionIva;
 
+    /** Sólo en las facturas de un lote manual: la clave que manda el front con el lote. Si el pedido
+     * se repite (se perdió la respuesta y el admin tocó "Facturar" de nuevo), se devuelven las mismas
+     * facturas en vez de pedir el lote otra vez a ARCA. */
+    @Column(name = "lote_clave", length = 64)
+    private String loteClave;
+
     /** Código ARCA del concepto: 1 = productos, 2 = servicios, 3 = ambos. */
     @Column(nullable = false)
     private Integer concepto;

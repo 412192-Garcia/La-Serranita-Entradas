@@ -117,7 +117,8 @@ export class CarritoVenta {
   // ---------- Factura: "Imprimir factura" o "Enviar por mail", una u otra. Mail con el campo
   // vacío = no facturar, sin error. La forma de pago sólo cambia cuál arranca marcada: tarjeta y
   // QR arrancan en Imprimir, efectivo en mail vacío (el cajero ni toca nada). ----------
-  readonly facturacionHabilitada = this.facturaService.habilitada;
+  /** Facturación de boletería (submódulo de Facturación): apagada, el POS no ofrece facturar. */
+  readonly facturacionHabilitada = this.facturaService.habilitadaBoleteria;
   destinoFactura = signal<DestinoFactura>('MAIL');
   emailFactura = signal('');
   /** Ticketeras: compartido con el botón "Ticketera" de la barra, donde se elige (una vez por
@@ -139,7 +140,10 @@ export class CarritoVenta {
     if (this.sinCobro()) return [];
     const partes: ParteCobroPoint[] = [];
     const agregar = (forma: FormaPagoPos | null, monto: number | null) => {
-      if ((forma === 'TARJETA' || forma === 'MERCADO_PAGO_QR') && monto !== null && monto > 0) partes.push({ forma, monto });
+      // En centavos exactos: lo que cobra el Point vuelve de la base con 2 decimales, y una resta
+      // como total − secundaria puede dar 7747.449999999999.
+      if ((forma === 'TARJETA' || forma === 'MERCADO_PAGO_QR') && monto !== null && monto > 0)
+        partes.push({ forma, monto: Math.round(monto * 100) / 100 });
     };
     if (this.pagoMixtoActivo()) {
       agregar(this.formaPago(), this.montoFormaPagoPrincipal());
@@ -161,7 +165,7 @@ export class CarritoVenta {
     return p ? [p] : [];
   });
   /** Lo que la ventana del Point le devuelve al cobro en curso. */
-  private resolverPoint: ((r: CobroPoint | 'manual' | null) => void) | null = null;
+  private resolverPoint: ((r: CobroPoint | null) => void) | null = null;
   /** Cobros que el Point aprobó y todavía no son una venta (la venta se rechazó, se recargó la página...). */
   cobrosSinVenta = computed(() => this.point.cobrosPendientes().filter((c) => c.estado === 'APROBADO' && c.compraId === null));
   /** Qué cobro aprobado paga cada parte de esta venta (misma forma y mismo monto): esas partes no
@@ -169,7 +173,7 @@ export class CarritoVenta {
   private asignacionCobros = computed<(CobroPoint | null)[]>(() => {
     const libres = [...this.cobrosSinVenta()];
     return this.partesPoint().map((parte) => {
-      const i = libres.findIndex((c) => c.formaPago === parte.forma && c.monto === parte.monto);
+      const i = libres.findIndex((c) => c.formaPago === parte.forma && Math.round(c.monto * 100) === Math.round(parte.monto * 100));
       return i >= 0 ? libres.splice(i, 1)[0] : null;
     });
   });
@@ -191,6 +195,8 @@ export class CarritoVenta {
 
   /** Lo que devuelve el backend para el carrito actual; null mientras no haya nada cargado. */
   cotizacion = signal<CotizacionResponse | null>(null);
+  /** Hay una cotización pedida que todavía no volvió: el total en pantalla puede ser el anterior. */
+  cotizando = signal(false);
   private pedidoCotizacion = new Subject<{
     formaPago: FormaPagoPos;
     entradas: LineaVentaPos[];
@@ -376,6 +382,9 @@ export class CarritoVenta {
       !this.faltaCompletarPagoMixto() &&
       !this.faltaElegirPoint() &&
       this.pedidoPoint() === null &&
+      // El Point cobra el total que se ve: con una cotización en camino (cambió la forma de pago o
+      // el descuento) ese total puede ser el anterior, y el backend rechazaría la venta.
+      !(this.cobraConPoint() && this.cotizando()) &&
       // Un cobro aprobado sin venta que no es de este monto: antes de pasar otra tarjeta hay que
       // devolverlo o descartarlo, si no quedaría olvidado.
       !(this.cobraConPoint() && this.cobrosQueSobran().length > 0) &&
@@ -449,8 +458,10 @@ export class CarritoVenta {
       // y recién al elegir Efectivo/Tarjeta/QR se pide la cotización real (promo sólo en efectivo).
       if (formaPago === null || (entradas.length === 0 && articulos.length === 0)) {
         this.cotizacion.set(null);
+        untracked(() => this.cotizando.set(false));
         return;
       }
+      untracked(() => this.cotizando.set(true));
       this.pedidoCotizacion.next({ formaPago, entradas, articulos, descuento, reservaId: this.compraReservada()?.id });
     });
 
@@ -467,7 +478,10 @@ export class CarritoVenta {
         }),
         takeUntilDestroyed()
       )
-      .subscribe((cotizacion) => this.cotizacion.set(cotizacion));
+      .subscribe((cotizacion) => {
+        this.cotizacion.set(cotizacion);
+        this.cotizando.set(false);
+      });
   }
 
   private cotizarSinConexion(
@@ -694,19 +708,19 @@ export class CarritoVenta {
       const paso = partes.length > 1 ? `Parte ${i + 1} de ${partes.length}` : null;
       const r = await this.cobrarParteEnPoint({ monto: partes[i].monto, forma: partes[i].forma, terminal, reanudar: null, paso });
       if (r === null) return; // no salió o se canceló: el carrito queda como estaba
-      if (r !== 'manual') ids.push(r.id);
+      ids.push(r.id);
     }
     await this.registrar(ids);
   }
 
-  private cobrarParteEnPoint(pedido: PedidoPoint): Promise<CobroPoint | 'manual' | null> {
+  private cobrarParteEnPoint(pedido: PedidoPoint): Promise<CobroPoint | null> {
     return new Promise((resolve) => {
       this.resolverPoint = resolve;
       this.pedidoPoint.set(pedido);
     });
   }
 
-  private cerrarPoint(r: CobroPoint | 'manual' | null): void {
+  private cerrarPoint(r: CobroPoint | null): void {
     const pedido = this.pedidoPoint();
     this.pedidoPoint.set(null);
     const resolver = this.resolverPoint;
@@ -721,9 +735,10 @@ export class CarritoVenta {
     this.cerrarPoint(cobro);
   }
 
-  /** El Point no confirmó pero el boletero vio que el pago salió: esa parte va anotada a mano. */
-  onPointAMano(): void {
-    this.cerrarPoint('manual');
+  /** El Point no confirmó pero el boletero vio que el pago salió: la venta se registra con ese
+   * cobro igual (el backend lo acepta en curso), así cuando MP lo apruebe ya es de esta venta. */
+  onPointAMano(cobro: CobroPoint): void {
+    this.cerrarPoint(cobro);
   }
 
   onPointCerrado(): void {

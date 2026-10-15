@@ -47,10 +47,9 @@
         <div class="fila fila-encabezado">
           <span>Endpoint</span>
           @for (c of columnas; track c.clave) {
-            <button type="button" class="orden" [class.activo]="orden() === c.clave" [title]="c.ayuda"
-              [attr.aria-sort]="orden() === c.clave ? 'descending' : null" (click)="orden.set(c.clave)">
+            <button type="button" class="col-ordenable" [title]="c.ayuda" (click)="ordenarColumna(c.clave)">
               {{ c.titulo }}
-              @if (orden() === c.clave) { <svg lucideArrowDown [strokeWidth]="2.5" aria-hidden="true"></svg> }
+              <app-columna-ordenable [estado]="estadoOrden(c.clave)" />
             </button>
           }
         </div>

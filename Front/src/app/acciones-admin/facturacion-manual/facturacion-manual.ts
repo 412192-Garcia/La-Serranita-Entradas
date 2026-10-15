@@ -22,6 +22,7 @@ import {
   cuitValido,
   formatearCuit,
   nombreComprobante,
+  letraComprobante,
   numeroComprobante,
 } from '../../models/factura';
 import { TipoEntrada } from '../../models/tipo-entrada';
@@ -79,6 +80,7 @@ export class FacturacionManual implements OnInit {
   readonly habilitada = this.facturaService.habilitada;
   readonly numeroComprobante = numeroComprobante;
   readonly nombreComprobante = nombreComprobante;
+  readonly letraDe = letraComprobante;
   readonly formatearCuit = formatearCuit;
   readonly condicionesIva = CONDICIONES_IVA_FACTURA_A;
 

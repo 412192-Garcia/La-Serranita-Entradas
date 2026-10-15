@@ -160,6 +160,11 @@ public class FacturaServiceImpl implements FacturaService {
             log.warn("Se pidió factura para la compra ID {} pero la facturación no está configurada (falta el certificado de ARCA)", compra.getId());
             return Optional.empty();
         }
+        if (!modulos.activo(Modulo.FACTURACION_BOLETERIA)) {
+            // Apagada desde Sistema > Módulos (una tablet con la pantalla vieja todavía la ofrecía).
+            log.info("Se pidió factura para la compra ID {} con la facturación de boletería apagada: se vende sin factura", compra.getId());
+            return Optional.empty();
+        }
         // Reintento de la cola offline con la misma venta: ya tiene su factura.
         Optional<Factura> existente = facturaVigente(compra.getId());
         if (existente.isPresent()) {
@@ -401,6 +406,13 @@ public class FacturaServiceImpl implements FacturaService {
 
     @Override
     public void emitir(Long facturaId) {
+        // Con el módulo apagado nada va a ARCA, venga de donde venga (el evento de una venta, una
+        // nota de crédito al cancelar o editar, una compra online): la factura queda PENDIENTE y la
+        // toma emitirPendientes cuando se vuelve a prender.
+        if (!estaHabilitada()) {
+            log.info("Factura ID {} queda pendiente: la facturación está apagada", facturaId);
+            return;
+        }
         lockEmision.lock();
         try {
             Factura factura = facturaRepository.findById(facturaId).orElse(null);
@@ -686,6 +698,9 @@ public class FacturaServiceImpl implements FacturaService {
 
     @Override
     public FacturaResponseDTO reintentar(Long facturaId) {
+        if (!estaHabilitada()) {
+            throw new IllegalStateException("La facturación está apagada (Sistema > Módulos): se reintenta cuando se vuelva a prender");
+        }
         // Sólo ERROR: una ANULADA es de una venta cancelada y reintentarla autorizaría una factura
         // sin su nota de crédito. Se chequea con la fila bloqueada, no antes.
         tx.executeWithoutResult(s -> {
@@ -754,6 +769,17 @@ public class FacturaServiceImpl implements FacturaService {
         if (lote.facturas().size() > MAX_FACTURAS_LOTE) {
             throw new IllegalArgumentException("Máximo " + MAX_FACTURAS_LOTE + " facturas por lote");
         }
+        String clave = lote.claveIdempotencia() == null || lote.claveIdempotencia().isBlank() ? null : lote.claveIdempotencia().trim();
+        if (clave != null) {
+            if (clave.length() > 64) throw new IllegalArgumentException("La clave del lote es demasiado larga");
+            // Un lote ya pedido (se perdió la respuesta y se mandó de nuevo): mismas facturas, nada nuevo a ARCA.
+            facturaRepository.bloquearLote(clave);
+            List<Factura> yaPedidas = facturaRepository.findAllByLoteClaveOrderByIdAsc(clave);
+            if (!yaPedidas.isEmpty()) {
+                log.info("Lote de facturas manuales {} repetido: se devuelven las {} ya pedidas", clave, yaPedidas.size());
+                return yaPedidas.stream().map(f -> toDto(f, Optional.empty())).toList();
+            }
+        }
         List<Factura> armadas = new ArrayList<>();
         for (int i = 0; i < lote.facturas().size(); i++) {
             FacturaManualDTO f = lote.facturas().get(i);
@@ -764,13 +790,20 @@ public class FacturaServiceImpl implements FacturaService {
             }
         }
         List<FacturaResponseDTO> salida = new ArrayList<>();
+        List<Long> ids = new ArrayList<>();
         BigDecimal total = BigDecimal.ZERO;
         for (Factura armada : armadas) {
+            armada.setLoteClave(clave);
             Factura factura = facturaRepository.save(armada);
             total = total.add(factura.getImporteTotal());
-            eventPublisher.publishEvent(new FacturaSolicitadaEvent(factura.getId()));
-            salida.add(toDto(factura));
+            ids.add(factura.getId());
+            // Recién creadas: no tienen trabajos de impresión (no se busca uno por factura).
+            salida.add(toDto(factura, Optional.empty()));
         }
+        // Un solo evento para todo el lote, que se emite de a una en un mismo hilo: con un evento por
+        // factura, cien tareas ocupaban todo el pool @Async (esperando el mismo lock de emisión) y
+        // las facturas del POS y los mails quedaban en fila detrás de ellas.
+        eventPublisher.publishEvent(new LoteFacturasSolicitadoEvent(ids));
         log.info("Lote de {} facturas manuales pedido por {}", armadas.size(), total);
         return salida;
     }
@@ -1017,8 +1050,21 @@ public class FacturaServiceImpl implements FacturaService {
     }
 
     @Override
+    /** Se factura sola cada compra online pagada: configurada y prendida en Sistema > Módulos
+     * (la general y la online). Facturar a mano una compra online (facturarOnlineAhora) no depende
+     * del módulo online: se puede igual con él apagado. */
     public boolean facturacionOnlineActiva() {
-        return puntoVentaOnline() != null && estaHabilitada();
+        return puntoVentaOnline() != null && estaHabilitada() && modulos.activo(Modulo.FACTURACION_ONLINE);
+    }
+
+    @Override
+    public boolean facturacionBoleteriaActiva() {
+        return estaHabilitada() && modulos.activo(Modulo.FACTURACION_BOLETERIA);
+    }
+
+    @Override
+    public boolean puntoVentaOnlineConfigurado() {
+        return puntoVentaOnline() != null;
     }
 
     @Override
@@ -1199,9 +1245,12 @@ public class FacturaServiceImpl implements FacturaService {
     @Override
     @Transactional(readOnly = true)
     public List<Long> idsAlertasFacturacion() {
-        if (!estaHabilitada()) return List.of();
+        if (!afipClient.estaConfigurado()) return List.of();
+        // Con el módulo apagado las pendientes esperan a propósito (no son "trabadas"), pero las que
+        // quedaron en ERROR y el vencimiento del certificado se siguen avisando.
+        boolean apagada = !modulos.activo(Modulo.FACTURACION);
         List<Long> ids = new ArrayList<>(facturaRepository.conProblemas(LocalDateTime.now(ZONA_ARGENTINA).minusMinutes(MINUTOS_PARA_TRABADA))
-                .stream().map(Factura::getId).toList());
+                .stream().filter(f -> !apagada || f.getEstado() == EstadoFactura.ERROR).map(Factura::getId).toList());
         afipClient.vencimientoCertificado().ifPresent(vence -> {
             if (java.time.temporal.ChronoUnit.DAYS.between(LocalDate.now(ZONA_ARGENTINA), vence) <= DIAS_AVISO_CERTIFICADO) ids.add(-1L);
         });
@@ -1269,6 +1318,9 @@ public class FacturaServiceImpl implements FacturaService {
     }
 
     public record FacturaSolicitadaEvent(Long facturaId) {}
+
+    /** Las facturas de un lote manual, para emitirlas una tras otra en un solo hilo. */
+    public record LoteFacturasSolicitadoEvent(List<Long> facturaIds) {}
 
     /** Se aprobó el pago de una compra online: factura y confirmación en segundo plano. */
     public record CompraOnlinePagadaEvent(Long compraId) {}

@@ -22,7 +22,7 @@
       </app-conteo-cierre>
     </div>
 
-    <app-cobros-point-sin-venta [cajaId]="cajaId()" (resumenCargado)="resumenPoint.set($event)" />
+    <app-cobros-point-sin-venta [cajaId]="cajaId()" [refresco]="cajaAbierta()" (resumenCargado)="resumenPoint.set($event)" />
     @if (errorCierre()) {
       <p class="alerta-error">{{ errorCierre() }}</p>
     }

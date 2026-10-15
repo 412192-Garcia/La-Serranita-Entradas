@@ -1,12 +1,19 @@
 package org.example.laserranitaentradas.repository;
 
+import jakarta.persistence.LockModeType;
 import org.example.laserranitaentradas.model.entity.CobroPoint;
+import org.example.laserranitaentradas.model.entity.EstadoCobroPoint;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -20,6 +27,32 @@ public interface CobroPointRepository extends JpaRepository<CobroPoint, Long> {
     @EntityGraph(attributePaths = {"caja", "caja.usuario", "compra"})
     @Query("SELECT c FROM CobroPoint c WHERE c.id = :id")
     Optional<CobroPoint> findConCajaById(@Param("id") Long id);
+
+    /** Para atarlo a una venta (dentro de su transacción): bloquea la fila, así dos ventas que
+     * llegan juntas con el mismo cobro no lo vinculan las dos. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @EntityGraph(attributePaths = {"caja", "compra"})
+    @Query("SELECT c FROM CobroPoint c WHERE c.id = :id")
+    Optional<CobroPoint> findParaVincular(@Param("id") Long id);
+
+    /** La venta a la que está atado ahora, leída de la base (no de la copia en memoria). */
+    @Query("SELECT c.compra.id FROM CobroPoint c WHERE c.id = :id")
+    Optional<Long> compraIdActual(@Param("id") Long id);
+
+    /**
+     * Deja asentado el resultado de una devolución en Mercado Pago en su propia transacción: la
+     * devolución ya pasó y no se deshace, así que tampoco tiene que deshacerse en la base si
+     * después falla la cancelación de la venta. No toca la venta del cobro.
+     */
+    @Modifying
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Query("UPDATE CobroPoint c SET c.estado = :estado, c.detalle = :detalle, c.ultimaConsultaMp = :ahora, "
+            + "c.version = c.version + 1 WHERE c.id = :id")
+    int asentarDevolucion(@Param("id") Long id, @Param("estado") EstadoCobroPoint estado,
+                          @Param("detalle") String detalle, @Param("ahora") LocalDateTime ahora);
+
+    /** Un cobro que se creó sin que MP confirmara la orden, y la orden aparece después (webhook). */
+    Optional<CobroPoint> findByIdAndOrdenIdIsNull(Long id);
 
     List<CobroPoint> findAllByCompraId(Long compraId);
 

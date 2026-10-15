@@ -82,6 +82,12 @@ public interface FacturaService {
     /** Si las compras online se facturan (hay punto de venta online y la facturación está configurada). */
     boolean facturacionOnlineActiva();
 
+    /** Facturar las ventas del POS: facturación configurada y prendida, con el submódulo de boletería. */
+    boolean facturacionBoleteriaActiva();
+
+    /** El servidor tiene el punto de venta de las compras online (AFIP_PUNTO_VENTA_ONLINE). */
+    boolean puntoVentaOnlineConfigurado();
+
     /** Factura ahora una compra online paga que quedó sin factura (ADMIN). */
     FacturaResponseDTO facturarOnlineAhora(Long compraId);
 

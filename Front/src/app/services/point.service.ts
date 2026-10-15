@@ -5,6 +5,7 @@ import { Observable, interval } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { ConectividadService } from './conectividad.service';
 import { ModulosService } from './modulos.service';
+import { SesionService } from './sesion.service';
 
 export interface TerminalPoint {
   /** "MODELO__SERIE", el id de Mercado Pago. */
@@ -62,7 +63,9 @@ export interface ResumenCajaPoint {
 const CLAVE_POINT = 'pos-point';
 /** Elegido a propósito "Sin Point": la tarjeta se cobra en el posnet y se anota a mano. */
 export const SIN_POINT = 'NINGUNO';
-/** Cobros mandados al Point que todavía no terminaron en una venta registrada (sobreviven a recargar la página). */
+/** Cobros mandados al Point que todavía no terminaron en una venta registrada (sobreviven a recargar
+ * la página). Uno por usuario: la tablet se comparte entre turnos, y los cobros de un boletero no
+ * los puede ver ni usar el siguiente (el backend no se los deja consultar ni atar a su venta). */
 const CLAVE_COBROS = 'pos-cobros-point';
 /** Los Points casi no cambian: alcanza con revisar cada tanto. */
 const INTERVALO_MS = 60_000;
@@ -76,6 +79,7 @@ export class PointService {
   private http = inject(HttpClient);
   private conectividad = inject(ConectividadService);
   private modulos = inject(ModulosService);
+  private sesion = inject(SesionService);
   private url = `${environment.apiBase}/interno/point`;
 
   readonly habilitado = this.modulos.pointActivo;
@@ -88,12 +92,15 @@ export class PointService {
   readonly integradas = computed(() => this.terminales().filter((t) => t.integrado));
 
   /** El Point al que se mandan los cobros: el elegido si está integrado; si no hay ninguno
-   * elegido y hay uno solo integrado, ése. Null = la tarjeta se anota a mano. */
+   * elegido y hay uno solo integrado, ése. Null = la tarjeta se anota a mano.
+   *
+   * Si esta tablet eligió un Point y ése dejó de estar integrado (lo pasaron a manual), es null y
+   * no "el único que queda": ése es el de otra boletería, y el cobro le aparecería a otro cliente. */
   readonly efectiva = computed<TerminalPoint | null>(() => {
-    if (!this.habilitado() || this.elegida() === SIN_POINT) return null;
+    const elegida = this.elegida();
+    if (!this.habilitado() || elegida === SIN_POINT) return null;
     const lista = this.integradas();
-    const elegida = lista.find((t) => t.id === this.elegida());
-    if (elegida) return elegida;
+    if (elegida !== null) return lista.find((t) => t.id === elegida) ?? null;
     return lista.length === 1 ? lista[0] : null;
   });
 
@@ -105,8 +112,15 @@ export class PointService {
   /** Se cobra con el Point: módulo prendido, Point elegido y con conexión (sin señal la orden no llega). */
   readonly usable = computed(() => this.efectiva() !== null && this.conectividad.enLinea());
 
-  /** Cobros que el Point aprobó (o que quedaron esperando) y todavía no son una venta registrada. */
-  readonly cobrosPendientes = signal<CobroPoint[]>(this.leerCobros());
+  private readonly usuarioId = computed(() => this.sesion.usuario()?.id ?? null);
+  /** Cambia cada vez que se guardan los cobros, para volver a leerlos. */
+  private readonly cambiosCobros = signal(0);
+  /** Cobros que el Point aprobó (o que quedaron esperando) y todavía no son una venta registrada,
+   * del usuario con la sesión abierta. */
+  readonly cobrosPendientes = computed<CobroPoint[]>(() => {
+    this.cambiosCobros();
+    return this.leerCobros(this.usuarioId());
+  });
 
   constructor() {
     effect(() => {
@@ -192,18 +206,28 @@ export class PointService {
   }
 
   private guardarCobros(lista: CobroPoint[]): void {
-    this.cobrosPendientes.set(lista);
+    const usuarioId = this.usuarioId();
+    if (usuarioId === null) return;
+    const clave = `${CLAVE_COBROS}:${usuarioId}`;
     try {
-      if (lista.length) localStorage.setItem(CLAVE_COBROS, JSON.stringify(lista));
-      else localStorage.removeItem(CLAVE_COBROS);
+      if (lista.length) localStorage.setItem(clave, JSON.stringify(lista));
+      else localStorage.removeItem(clave);
     } catch {
       // Sin storage: el aviso no sobrevive a recargar la página.
+      this.sinStorage.set({ usuarioId, lista });
     }
+    this.cambiosCobros.update((n) => n + 1);
   }
 
-  private leerCobros(): CobroPoint[] {
+  /** Si el navegador no deja guardar, los cobros viven sólo en memoria (hasta recargar). */
+  private readonly sinStorage = signal<{ usuarioId: number; lista: CobroPoint[] } | null>(null);
+
+  private leerCobros(usuarioId: number | null): CobroPoint[] {
+    if (usuarioId === null) return [];
+    const enMemoria = untracked(() => this.sinStorage());
+    if (enMemoria?.usuarioId === usuarioId) return enMemoria.lista;
     try {
-      const crudo = localStorage.getItem(CLAVE_COBROS);
+      const crudo = localStorage.getItem(`${CLAVE_COBROS}:${usuarioId}`);
       return crudo ? (JSON.parse(crudo) as CobroPoint[]) : [];
     } catch {
       return [];

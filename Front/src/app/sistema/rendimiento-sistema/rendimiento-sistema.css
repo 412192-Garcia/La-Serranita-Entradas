@@ -43,14 +43,14 @@ h3 {
 .grilla-endpoints .fila { grid-template-columns: minmax(0, 1fr) 76px 74px 64px 74px 104px 56px 44px 44px; }
 
 .grilla-endpoints .fila > .numero,
-.grilla-endpoints .orden { text-align: right; justify-content: flex-end; }
+.grilla-endpoints .col-ordenable { text-align: right; justify-content: flex-end; }
 
-/* Encabezados que ordenan. */
-.orden {
+/* Encabezados que ordenan: mismo aspecto que .col-ordenable de las tablas de Configuración. */
+.col-ordenable {
   display: inline-flex;
   white-space: nowrap;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
   padding: 0;
   border: none;
   background: none;
@@ -61,9 +61,9 @@ h3 {
   cursor: pointer;
 }
 
-.orden:hover { color: var(--color-text); }
-.orden.activo { color: var(--color-primary-dark); }
-.orden svg { width: 12px; height: 12px; }
+.col-ordenable:hover { color: var(--color-text); }
+.col-ordenable ::ng-deep svg { width: 12px; height: 12px; flex-shrink: 0; }
+.col-ordenable ::ng-deep .icono-orden-inactivo { opacity: 0.35; }
 
 .total {
   display: flex;

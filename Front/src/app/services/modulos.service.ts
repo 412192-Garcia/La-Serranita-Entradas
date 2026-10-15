@@ -3,7 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Observable, tap } from 'rxjs';
 import { environment } from '../../environments/environment';
 
-export type CodigoModulo = 'FACTURACION' | 'POINT';
+export type CodigoModulo = 'FACTURACION' | 'FACTURACION_BOLETERIA' | 'FACTURACION_ONLINE' | 'RESERVA_EFECTIVO' | 'POINT';
 
 export interface EstadoModulo {
   codigo: CodigoModulo;
@@ -14,6 +14,8 @@ export interface EstadoModulo {
   /** El servidor tiene lo que hace falta (certificado, token). Sólo funciona si están las dos cosas. */
   configurado: boolean;
   faltaConfigurar: string | null;
+  /** Módulo del que depende (un submódulo sólo funciona si el suyo también está prendido); null = principal. */
+  padre: CodigoModulo | null;
 }
 
 const CLAVE = 'modulos-sistema';
@@ -34,7 +36,7 @@ export class ModulosService {
 
   funciona(codigo: CodigoModulo): boolean {
     const m = this.modulos().find((x) => x.codigo === codigo);
-    return m !== undefined && m.activo && m.configurado;
+    return m !== undefined && m.activo && m.configurado && (m.padre === null || m.padre === undefined || this.funciona(m.padre));
   }
 
   actualizar(): void {

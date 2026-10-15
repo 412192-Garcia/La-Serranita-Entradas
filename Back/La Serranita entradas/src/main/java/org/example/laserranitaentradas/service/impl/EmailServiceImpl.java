@@ -176,7 +176,7 @@ public class EmailServiceImpl implements EmailService {
             agregarCopia(helper);
             helper.setSubject(asuntoComprobante(compra));
             helper.setText(construirHtmlEmail(compra, comprobante.numeroFormateado()), true);
-            helper.addAttachment("Factura-" + (comprobante.esA() ? "A" : "B") + "-" + comprobante.numeroFormateado() + ".pdf",
+            helper.addAttachment("Factura-" + comprobante.letra() + "-" + comprobante.numeroFormateado() + ".pdf",
                     new ByteArrayResource(pdf), "application/pdf");
             enviarRegistrando(mailSender, message);
         } catch (jakarta.mail.MessagingException | java.io.UnsupportedEncodingException e) {
@@ -289,7 +289,7 @@ public class EmailServiceImpl implements EmailService {
             agregarCopia(helper);
             helper.setSubject("Tu factura " + comprobante.numeroFormateado() + " - La Serranita Parque Recreativo");
             helper.setText(construirHtmlFactura(comprobante), true);
-            helper.addAttachment("Factura-" + (comprobante.esA() ? "A" : "B") + "-" + comprobante.numeroFormateado() + ".pdf",
+            helper.addAttachment("Factura-" + comprobante.letra() + "-" + comprobante.numeroFormateado() + ".pdf",
                     new ByteArrayResource(pdf), "application/pdf");
             enviarRegistrando(casillaFacturas.sender(), message);
         } catch (jakarta.mail.MessagingException | java.io.UnsupportedEncodingException e) {

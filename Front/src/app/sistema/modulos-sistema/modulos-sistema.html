@@ -7,40 +7,60 @@
   }
 
   <ul class="lista-modulos">
-    @for (m of modulos(); track m.codigo) {
-      <li class="modulo" [class.modulo-apagado]="!m.activo">
-        <div class="modulo-texto">
-          <div class="modulo-titulo">
-            <strong>{{ m.nombre }}</strong>
-            <span class="estado-modulo" [class.estado-prendido]="m.activo && m.configurado" [class.estado-incompleto]="m.activo && !m.configurado">
-              {{ !m.activo ? 'Apagado' : m.configurado ? 'Prendido' : 'Prendido, sin configurar' }}
-            </span>
-          </div>
-          <p class="modulo-descripcion">{{ m.descripcion }}</p>
-          @if (m.faltaConfigurar) {
-            <p class="alerta">{{ m.faltaConfigurar }}</p>
-          }
-          @if (confirmandoApagar() === m.codigo) {
-            <p class="confirmar-apagado">
-              ¿Apagar {{ m.nombre.toLowerCase() }}? Tocá de nuevo el interruptor para confirmar.
-              <button type="button" class="btn-accion" (click)="confirmandoApagar.set(null)">No, dejarlo prendido</button>
-            </p>
-          }
-        </div>
-        <button
-          type="button"
-          role="switch"
-          class="interruptor"
-          [class.interruptor-confirmando]="confirmandoApagar() === m.codigo"
-          [attr.aria-checked]="m.activo"
-          [attr.aria-label]="(m.activo ? 'Apagar ' : 'Prender ') + m.nombre"
-          [disabled]="guardando() === m.codigo"
-          (click)="cambiar(m)">
-          <span class="interruptor-perilla"></span>
-        </button>
+    @for (m of principales(); track m.codigo) {
+      <li class="grupo-modulo">
+        <ng-container *ngTemplateOutlet="filaModulo; context: { $implicit: m, padreApagado: false }" />
+        @if (hijos(m.codigo).length) {
+          <ul class="lista-submodulos">
+            @for (h of hijos(m.codigo); track h.codigo) {
+              <li>
+                <ng-container *ngTemplateOutlet="filaModulo; context: { $implicit: h, padreApagado: !m.activo, padre: m }" />
+              </li>
+            }
+          </ul>
+        }
       </li>
     }
   </ul>
+
+  <!-- Una fila: módulo principal o submódulo. Un submódulo con su módulo apagado queda apagado
+       también (sin perder cómo estaba) y su interruptor no se puede tocar. -->
+  <ng-template #filaModulo let-m let-padreApagado="padreApagado" let-padre="padre">
+    <div class="modulo" [class.modulo-apagado]="!m.activo || padreApagado" [class.submodulo]="m.padre">
+      <div class="modulo-texto">
+        <div class="modulo-titulo">
+          <strong>{{ m.nombre }}</strong>
+          <span class="estado-modulo"
+            [class.estado-prendido]="m.activo && m.configurado && !padreApagado"
+            [class.estado-incompleto]="m.activo && !m.configurado && !padreApagado">
+            {{ padreApagado ? 'Apagado con ' + padre.nombre : !m.activo ? 'Apagado' : m.configurado ? 'Prendido' : 'Prendido, sin configurar' }}
+          </span>
+        </div>
+        <p class="modulo-descripcion">{{ m.descripcion }}</p>
+        @if (m.faltaConfigurar && !padreApagado) {
+          <p class="alerta">{{ m.faltaConfigurar }}</p>
+        }
+        @if (confirmandoApagar() === m.codigo) {
+          <p class="confirmar-apagado">
+            ¿Apagar {{ m.nombre.toLowerCase() }}? Tocá de nuevo el interruptor para confirmar.
+            <button type="button" class="btn-accion" (click)="confirmandoApagar.set(null)">No, dejarlo prendido</button>
+          </p>
+        }
+      </div>
+      <button
+        type="button"
+        role="switch"
+        class="interruptor"
+        [class.interruptor-confirmando]="confirmandoApagar() === m.codigo"
+        [attr.aria-checked]="m.activo && !padreApagado"
+        [attr.aria-label]="(m.activo ? 'Apagar ' : 'Prender ') + m.nombre"
+        [title]="padreApagado ? 'Se prende junto con ' + padre.nombre : ''"
+        [disabled]="guardando() === m.codigo || padreApagado"
+        (click)="cambiar(m)">
+        <span class="interruptor-perilla"></span>
+      </button>
+    </div>
+  </ng-template>
   @if (error(); as e) {
     <p class="alerta">{{ e }}</p>
   }

@@ -18,6 +18,9 @@ export class CobrosPointSinVenta {
   private point = inject(PointService);
 
   cajaId = input<number | null>(null);
+  /** Cambia cada vez que se abre el cierre (el detalle de la caja se vuelve a pedir): el modal queda
+   * montado entre aperturas, y sin esto mostraría lo cobrado hasta la primera vez que se abrió. */
+  refresco = input<unknown>(null);
   resumenCargado = output<ResumenCajaPoint | null>();
 
   resumen = signal<ResumenCajaPoint | null>(null);
@@ -27,6 +30,7 @@ export class CobrosPointSinVenta {
   constructor() {
     effect(() => {
       const id = this.cajaId();
+      this.refresco();
       untracked(() => this.cargar(id));
     });
   }

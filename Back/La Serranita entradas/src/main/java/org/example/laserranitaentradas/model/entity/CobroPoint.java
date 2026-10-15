@@ -84,4 +84,14 @@ public class CobroPoint extends BaseEntity {
     /** Última vez que se le preguntó a MP por la orden, para no consultarla en cada pedido del POS. */
     @Column(name = "ultima_consulta_mp")
     private LocalDateTime ultimaConsultaMp;
+
+    /**
+     * El cobro se actualiza desde tres lados a la vez (el webhook, la consulta del POS y la venta
+     * que lo vincula), cada uno con su copia: sin versión, el último en guardar pisaba lo de los
+     * otros (por ejemplo, un webhook lento le volvía a poner id_compra = NULL a un cobro recién
+     * vinculado). Con default en la base para que ddl-auto pueda agregarla a una tabla con filas.
+     */
+    @Version
+    @Column(nullable = false, columnDefinition = "bigint default 0")
+    private Long version;
 }

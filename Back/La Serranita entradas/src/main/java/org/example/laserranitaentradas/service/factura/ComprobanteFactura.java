@@ -1,5 +1,6 @@
 package org.example.laserranitaentradas.service.factura;
 
+import org.example.laserranitaentradas.service.afip.WsfeService;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -129,12 +130,17 @@ public record ComprobanteFactura(
     }
 
     public boolean esNotaDeCredito() {
-        return tipoComprobante == 3 || tipoComprobante == 8;
+        return WsfeService.esNotaDeCredito(tipoComprobante);
+    }
+
+    /** "A" o "B". */
+    public String letra() {
+        return WsfeService.letra(tipoComprobante);
     }
 
     /** Factura A (o su nota de crédito): el IVA va discriminado y los ítems sin IVA. */
     public boolean esA() {
-        return tipoComprobante == 1 || tipoComprobante == 3;
+        return "A".equals(letra());
     }
 
     /** Importe neto gravado: el total menos el IVA. */
@@ -144,7 +150,7 @@ public record ComprobanteFactura(
 
     /** "FACTURA B" / "NOTA DE CRÉDITO A". */
     public String titulo() {
-        return (esNotaDeCredito() ? "NOTA DE CRÉDITO " : "FACTURA ") + (esA() ? "A" : "B");
+        return WsfeService.nombre(tipoComprobante).toUpperCase(java.util.Locale.ROOT);
     }
 
     /** "ORIGINAL (COD. 006)". */

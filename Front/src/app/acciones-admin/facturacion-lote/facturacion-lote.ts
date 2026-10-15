@@ -37,6 +37,10 @@ interface VentaLote {
 const MAX_FACTURAS = 100;
 /** Borrador del lote en esta compu: armar 40 ventas y perderlas por un F5 sería lo peor. */
 const CLAVE_BORRADOR = 'factura-lote-borrador';
+/** Clave de idempotencia del lote armado: se repite si se vuelve a mandar el MISMO lote (se perdió la
+ * respuesta), así el servidor devuelve las facturas ya pedidas en vez de pedirlas otra vez a ARCA.
+ * Cambia cuando el lote cambia o cuando se emitió. */
+const CLAVE_IDEMPOTENCIA = 'factura-lote-clave';
 
 /**
  * Acciones > Facturación manual > En lote: al final del día, las ventas que quedaron sin facturar.
@@ -65,6 +69,7 @@ export class FacturacionLote implements OnInit {
   venta = signal<LineaVenta[]>([]);
   veces = signal(1);
   lote = signal<VentaLote[]>(this.leerBorrador());
+  private claveLote = this.leerClave();
   private proximoId = Math.max(0, ...this.lote().map((v) => v.id)) + 1;
 
   confirmando = signal(false);
@@ -146,6 +151,7 @@ export class FacturacionLote implements OnInit {
       return;
     }
     this.lote.update((l) => [...l, { id: this.proximoId++, lineas: this.venta(), veces }]);
+    this.renovarClave();
     this.venta.set([]);
     this.veces.set(1);
     this.confirmando.set(false);
@@ -154,11 +160,13 @@ export class FacturacionLote implements OnInit {
 
   quitarDelLote(id: number): void {
     this.lote.update((l) => l.filter((v) => v.id !== id));
+    this.renovarClave();
     this.confirmando.set(false);
   }
 
   vaciarLote(): void {
     this.lote.set([]);
+    this.renovarClave();
     this.confirmando.set(false);
   }
 
@@ -178,17 +186,25 @@ export class FacturacionLote implements OnInit {
       const items = v.lineas.filter((l) => this.subtotal(l) > 0).map((l) => ({ tipo: l.tipo, cantidad: l.cantidad, descripcion: l.nombre, subtotal: this.subtotal(l) }));
       for (let i = 0; i < v.veces; i++) facturas.push(items);
     }
-    this.facturaService.emitirManualLote(facturas).subscribe({
+    this.facturaService.emitirManualLote(facturas, this.claveLote).subscribe({
       next: (r) => {
         this.emitiendo.set(false);
         this.confirmando.set(false);
         this.lote.set([]);
+        this.renovarClave();
         this.aviso.set(`${r.length} ${r.length === 1 ? 'factura pedida' : 'facturas pedidas'}: en unos segundos están los PDF en la lista de abajo.`);
         this.emitido.emit(r.length);
       },
       error: (err) => {
         this.emitiendo.set(false);
         this.confirmando.set(false);
+        const status = (err as { status?: number })?.status ?? 0;
+        if (status === 0 || status >= 500) {
+          // Sin respuesta clara: el lote pudo haberse pedido igual. Volver a mandarlo es seguro
+          // (misma clave: el servidor devuelve las ya pedidas, no las duplica).
+          this.error.set('No se pudo confirmar si el lote se pidió. Tocá "Facturar" de nuevo: si ya estaba pedido, no se duplica.');
+          return;
+        }
         this.error.set(this.conVenta(this.mensaje(err, 'No se pudo emitir el lote. No se pidió ninguna factura.')));
       },
     });
@@ -226,6 +242,25 @@ export class FacturacionLote implements OnInit {
   private limpiarMensajes(): void {
     this.error.set(null);
     this.aviso.set(null);
+  }
+
+  private renovarClave(): void {
+    this.claveLote = crypto.randomUUID();
+    try {
+      localStorage.setItem(CLAVE_IDEMPOTENCIA, this.claveLote);
+    } catch {
+      // Sin storage: la clave vale hasta recargar.
+    }
+  }
+
+  private leerClave(): string {
+    try {
+      const guardada = localStorage.getItem(CLAVE_IDEMPOTENCIA);
+      if (guardada) return guardada;
+    } catch {
+      // Sin storage: se usa una nueva.
+    }
+    return crypto.randomUUID();
   }
 
   private leerBorrador(): VentaLote[] {

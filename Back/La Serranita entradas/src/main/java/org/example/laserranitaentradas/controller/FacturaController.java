@@ -42,7 +42,8 @@ public class FacturaController {
     @GetMapping("/estado-servicio")
     @Operation(summary = "Si la facturación está configurada", description = "El POS lo usa para mostrar u ocultar las opciones de factura.")
     public Map<String, Boolean> estadoServicio() {
-        return Map.of("habilitada", facturaService.estaHabilitada(), "online", facturaService.facturacionOnlineActiva());
+        return Map.of("habilitada", facturaService.estaHabilitada(), "boleteria", facturaService.facturacionBoleteriaActiva(),
+                "online", facturaService.facturacionOnlineActiva());
     }
 
     @PostMapping("/compra/{compraId}/online")

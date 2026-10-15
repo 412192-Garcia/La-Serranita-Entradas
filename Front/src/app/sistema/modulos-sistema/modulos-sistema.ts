@@ -1,4 +1,5 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { computed, Component, OnInit, inject, signal } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { LucideRefreshCw } from '@lucide/angular';
@@ -13,7 +14,7 @@ import { PointService, TerminalPoint } from '../../services/point.service';
  */
 @Component({
   selector: 'app-modulos-sistema',
-  imports: [FormsModule, Spinner, LucideRefreshCw],
+  imports: [NgTemplateOutlet, FormsModule, Spinner, LucideRefreshCw],
   templateUrl: './modulos-sistema.html',
   styleUrl: './modulos-sistema.css',
 })
@@ -22,6 +23,12 @@ export class ModulosSistema implements OnInit {
   private point = inject(PointService);
 
   readonly modulos = this.modulosService.modulos;
+  /** Módulos principales; sus submódulos se muestran adentro (ver hijos). */
+  readonly principales = computed(() => this.modulos().filter((m) => !m.padre));
+
+  hijos(codigo: CodigoModulo): EstadoModulo[] {
+    return this.modulos().filter((m) => m.padre === codigo);
+  }
   /** Módulo que se está por apagar: se pide confirmar antes (apagar la facturación no es un toque al pasar). */
   confirmandoApagar = signal<CodigoModulo | null>(null);
   guardando = signal<CodigoModulo | null>(null);

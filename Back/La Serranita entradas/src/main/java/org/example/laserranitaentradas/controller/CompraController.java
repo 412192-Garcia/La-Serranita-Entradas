@@ -7,6 +7,8 @@ import org.example.laserranitaentradas.model.entity.EstadoCompra;
 import org.example.laserranitaentradas.model.entity.FormaPago;
 import org.example.laserranitaentradas.config.UsuarioAutenticado;
 import org.example.laserranitaentradas.service.CompraService;
+import org.example.laserranitaentradas.model.entity.Modulo;
+import org.example.laserranitaentradas.service.ModulosService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -34,15 +36,27 @@ import java.util.stream.Collectors;
 public class CompraController {
 
     private final CompraService compraService;
+    private final ModulosService modulos;
 
-    public CompraController(CompraService compraService) {
+    public CompraController(CompraService compraService, ModulosService modulos) {
         this.compraService = compraService;
+        this.modulos = modulos;
+    }
+
+    /** Qué formas de pago ofrece hoy la compra online (las que se pueden apagar en Sistema > Módulos). */
+    @GetMapping("/opciones-pago")
+    @Operation(summary = "Formas de pago disponibles en la compra online")
+    public Map<String, Boolean> opcionesPago() {
+        return Map.of("reservaEfectivo", modulos.activo(Modulo.RESERVA_EFECTIVO));
     }
 
     @PostMapping("/iniciar-pago")
     @Operation(summary = "Iniciar compra con pago online", description = "Crea la compra en estado PENDIENTE y genera la preferencia de Mercado Pago")
     public ResponseEntity<CompraResponseDTO> iniciarPago(@RequestBody @Parameter(description = "Datos de la compra") CompraRequestDTO compraRequest) throws Exception {
         rechazarFormaPagoSoloInterna(compraRequest);
+        if (compraRequest.getFormaPago() == FormaPago.EFECTIVO_BOLETERIA && !modulos.activo(Modulo.RESERVA_EFECTIVO)) {
+            throw new IllegalArgumentException("Por ahora no se puede reservar para pagar en el parque: elegí pagar online.");
+        }
         CompraResponseDTO response = compraService.iniciarCompraConPago(compraRequest);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }

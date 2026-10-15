@@ -316,11 +316,22 @@ class MonitoreoUnitarioTest {
     @Test
     void desconexionDelCliente_noEsUnError() {
         assertThat(org.example.laserranitaentradas.controller.ManejadorGlobalErrores.esDesconexionDelCliente(
-                new RuntimeException(new java.io.IOException("Broken pipe")))).isTrue();
+                new RuntimeException(new org.apache.catalina.connector.ClientAbortException(
+                        new java.io.IOException("Broken pipe"))))).isTrue();
         assertThat(org.example.laserranitaentradas.controller.ManejadorGlobalErrores.esDesconexionDelCliente(
-                new java.io.IOException("Connection reset by peer"))).isTrue();
+                new org.springframework.web.context.request.async.AsyncRequestNotUsableException("cerrado"))).isTrue();
         assertThat(org.example.laserranitaentradas.controller.ManejadorGlobalErrores.esDesconexionDelCliente(
                 new IllegalStateException("otra cosa"))).isFalse();
+    }
+
+    @Test
+    void connectionResetDelServidor_siEsUnError() {
+        // La base, el SMTP o Mercado Pago cortando la conexión: mismo mensaje, pero es del servidor.
+        assertThat(org.example.laserranitaentradas.controller.ManejadorGlobalErrores.esDesconexionDelCliente(
+                new org.springframework.dao.DataAccessResourceFailureException("I/O error",
+                        new java.net.SocketException("Connection reset")))).isFalse();
+        assertThat(org.example.laserranitaentradas.controller.ManejadorGlobalErrores.esDesconexionDelCliente(
+                new RuntimeException(new java.io.IOException("Broken pipe")))).isFalse();
     }
 
     @Test

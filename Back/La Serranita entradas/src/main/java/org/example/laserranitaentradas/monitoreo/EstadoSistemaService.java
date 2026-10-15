@@ -297,7 +297,9 @@ public class EstadoSistemaService {
         boolean alerta = falloReciente || incidentes > 0;
         return new Tarjeta("mails", "Mails", alerta ? "ALERTA" : "OK",
                 falloReciente ? "El último envío falló" : incidentes > 0 ? "Hubo errores al mandar mails" : "Funcionando",
-                detalles, alerta ? "/acciones" : null);
+                // Un mail que no salió queda como operación rechazada (se reenvía desde ahí); los
+                // errores sueltos, en Errores. Ya no viven en Acciones.
+                detalles, falloReciente ? "/sistema?tab=rechazos" : incidentes > 0 ? "/sistema?tab=errores&area=MAILS" : null);
     }
 
     private Tarjeta impresion() {
@@ -484,7 +486,13 @@ public class EstadoSistemaService {
         detalles.add(latidoUrl.isBlank() ? "Monitor externo: sin latido (falta ALERTAS_LATIDO_URL)" : "Monitor externo: latido cada 5 min");
         BuildProperties b = build.getIfAvailable();
         if (b != null && b.getTime() != null) {
-            detalles.add("Versión: " + b.getVersion() + " (compilada el " + LocalDateTime.ofInstant(b.getTime(), AuditoriaService.ZONA).format(FECHA_HORA) + ")");
+            // La release (release-X.Y.Z mergeada a main) y el commit los pone el CI; la <version>
+            // del pom no se mantiene. Compilado a mano dice "dev".
+            String release = b.get("release");
+            String commit = b.get("commit");
+            detalles.add("Versión: " + (release != null && !release.isBlank() ? release : b.getVersion())
+                    + (commit != null && !commit.isBlank() && !"local".equals(commit) ? " · commit " + commit : "")
+                    + " (compilada el " + LocalDateTime.ofInstant(b.getTime(), AuditoriaService.ZONA).format(FECHA_HORA) + ")");
         }
         return new Tarjeta("servidor", "Servidor", poco ? "ALERTA" : "OK", poco ? "Queda poco espacio en disco" : "Funcionando", detalles, null);
     }

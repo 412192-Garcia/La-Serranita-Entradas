@@ -4,13 +4,14 @@ import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
-import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.net.http.HttpClient;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -54,9 +55,11 @@ public class MercadoPagoPointClient {
 
     private static RestClient restClientConTimeouts() {
         // El boletero está esperando con el cliente adelante: mejor un error rápido que una
-        // pantalla colgada.
-        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
-        requestFactory.setConnectTimeout(Duration.ofSeconds(8));
+        // pantalla colgada. Con el HttpClient del JDK y no con HttpURLConnection
+        // (SimpleClientHttpRequestFactory): ése no sabe mandar PATCH, que es lo que pide MP para
+        // pasar un Point a integrado/manual.
+        HttpClient httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(8)).build();
+        JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
         requestFactory.setReadTimeout(Duration.ofSeconds(20));
         return RestClient.builder().baseUrl(BASE).requestFactory(requestFactory).build();
     }
@@ -70,7 +73,8 @@ public class MercadoPagoPointClient {
 
     /** Estado de una orden con lo que importa de su (único) pago. */
     public record Orden(String id, String status, String statusDetail, String pagoId, String pagoStatus,
-                        String pagoStatusDetail, String medioPago, String tipoMedio, Integer cuotas) {}
+                        String pagoStatusDetail, String medioPago, String tipoMedio, Integer cuotas,
+                        String externalReference) {}
 
     /** Error de Mercado Pago con su código HTTP y el mensaje que devolvió, para mostrarle al boletero. */
     public static class PointException extends RuntimeException {
@@ -83,6 +87,15 @@ public class MercadoPagoPointClient {
 
         public int getStatus() {
             return status;
+        }
+
+        /**
+         * No se sabe si MP hizo lo pedido: se cortó la conexión, venció el tiempo o MP falló de
+         * su lado (5xx). Una orden pedida así puede estar igual en el Point esperando la tarjeta;
+         * un 4xx, en cambio, es un rechazo seguro.
+         */
+        public boolean incierto() {
+            return status >= 500;
         }
     }
 
@@ -158,7 +171,8 @@ public class MercadoPagoPointClient {
         JsonNode medio = pago.path("payment_method");
         return new Orden(texto(r, "id"), texto(r, "status"), texto(r, "status_detail"), texto(pago, "id"),
                 texto(pago, "status"), texto(pago, "status_detail"), texto(medio, "id"), texto(medio, "type"),
-                medio.hasNonNull("installments") ? medio.get("installments").asInt() : null);
+                medio.hasNonNull("installments") ? medio.get("installments").asInt() : null,
+                texto(r, "external_reference"));
     }
 
     private static String texto(JsonNode n, String campo) {
@@ -182,6 +196,9 @@ public class MercadoPagoPointClient {
             throw new PointException(status, mensajeDe(e.getStatusCode(), e.getResponseBodyAsString()));
         } catch (org.springframework.web.client.ResourceAccessException e) {
             throw new PointException(504, "No se pudo contactar a Mercado Pago: " + e.getMessage());
+        } catch (org.springframework.web.client.RestClientException e) {
+            // Respondió 2xx pero con un cuerpo que no se pudo leer: lo pedido puede haber pasado.
+            throw new PointException(502, "Mercado Pago devolvió una respuesta que no se entiende: " + e.getMessage());
         }
     }
 

@@ -303,7 +303,7 @@
               }
               @if (accionAbierta(f, 'anular')) {
                 <div class="form-fila confirmar-anular">
-                  <span>Se emite una nota de crédito {{ f.tipoComprobante === 1 ? 'A' : 'B' }} por {{ f.importeTotal | pesos }}. ¿Anular?</span>
+                  <span>Se emite una nota de crédito {{ letraDe(f.tipoComprobante) }} por {{ f.importeTotal | pesos }}. ¿Anular?</span>
                   <button type="button" class="btn-secundario" (click)="accion.set(null)">No</button>
                   <button type="button" class="btn-primario btn-peligro-lleno" [disabled]="enviandoId() !== null" (click)="anular(f)">
                     {{ enviandoId() === f.id ? 'Anulando…' : 'Sí, anular' }}

@@ -40,8 +40,9 @@ export class CobroPointModal implements OnInit {
   aprobado = output<CobroPoint>();
   /** Se cerró sin cobrar (rechazado, cancelado, vencido). */
   cerrado = output<void>();
-  /** El boletero vio en el Point que el pago salió y lo anota a mano (Point sin respuesta). */
-  anotarAMano = output<void>();
+  /** El boletero vio en el Point que el pago salió y lo anota a mano (Point sin respuesta). Va con
+   * el cobro: la venta lo lleva igual, para que cuando MP lo apruebe no quede como cobrado sin venta. */
+  anotarAMano = output<CobroPoint>();
 
   cobro = signal<CobroPoint | null>(null);
   error = signal<string | null>(null);
@@ -113,8 +114,10 @@ export class CobroPointModal implements OnInit {
   }
 
   confirmarAMano(): void {
+    const c = this.cobro();
+    if (!c) return;
     this.olvidar();
-    this.anotarAMano.emit();
+    this.anotarAMano.emit(c);
   }
 
   private olvidar(): void {

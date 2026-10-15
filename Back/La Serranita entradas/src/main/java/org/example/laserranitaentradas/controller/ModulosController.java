@@ -3,6 +3,7 @@ package org.example.laserranitaentradas.controller;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.example.laserranitaentradas.model.entity.Modulo;
+import org.example.laserranitaentradas.service.FacturaService;
 import org.example.laserranitaentradas.service.ModulosService;
 import org.example.laserranitaentradas.service.afip.ArcaClient;
 import org.example.laserranitaentradas.service.point.MercadoPagoPointClient;
@@ -23,11 +24,14 @@ public class ModulosController {
     private final ModulosService modulos;
     private final ArcaClient arcaClient;
     private final MercadoPagoPointClient pointClient;
+    private final FacturaService facturaService;
 
-    public ModulosController(ModulosService modulos, ArcaClient arcaClient, MercadoPagoPointClient pointClient) {
+    public ModulosController(ModulosService modulos, ArcaClient arcaClient, MercadoPagoPointClient pointClient,
+                             FacturaService facturaService) {
         this.modulos = modulos;
         this.arcaClient = arcaClient;
         this.pointClient = pointClient;
+        this.facturaService = facturaService;
     }
 
     /**
@@ -35,7 +39,7 @@ public class ModulosController {
      * token). Sólo funciona si están las dos cosas.
      */
     public record EstadoModulo(String codigo, String nombre, String descripcion, boolean activo, boolean configurado,
-                               String faltaConfigurar) {}
+                               String faltaConfigurar, String padre) {}
 
     @GetMapping("/api/interno/modulos")
     @Operation(summary = "Módulos y si están prendidos")
@@ -63,8 +67,14 @@ public class ModulosController {
     private EstadoModulo estado(Modulo m) {
         String falta = switch (m) {
             case FACTURACION -> arcaClient.estaConfigurado() ? null : "Falta el certificado de ARCA en el servidor (AFIP_CERT / AFIP_KEY).";
+            // Los submódulos sólo dicen lo propio: el certificado ya lo avisa Facturación.
+            case FACTURACION_BOLETERIA -> null;
+            case FACTURACION_ONLINE -> facturaService.puntoVentaOnlineConfigurado() ? null
+                    : "Falta el punto de venta de las compras online (AFIP_PUNTO_VENTA_ONLINE).";
+            case RESERVA_EFECTIVO -> null;
             case POINT -> pointClient.estaConfigurado() ? null : "Falta el access token de Mercado Pago en el servidor.";
         };
-        return new EstadoModulo(m.name(), m.getNombre(), m.getDescripcion(), modulos.activo(m), falta == null, falta);
+        return new EstadoModulo(m.name(), m.getNombre(), m.getDescripcion(), modulos.activo(m), falta == null, falta,
+                m.getCodigoPadre());
     }
 }

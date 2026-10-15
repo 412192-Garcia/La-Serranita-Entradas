@@ -64,7 +64,7 @@ class CobroPointServiceTest {
     }
 
     private static Orden orden(String status, String pagoStatusDetail) {
-        return new Orden("ORD1", status, status, "PAY1", status, pagoStatusDetail, "visa", "credit_card", 1);
+        return new Orden("ORD1", status, status, "PAY1", status, pagoStatusDetail, "visa", "credit_card", 1, "POINT-50");
     }
 
     private CobroPoint cobro(EstadoCobroPoint estado, String monto) {
@@ -72,9 +72,10 @@ class CobroPointServiceTest {
                 .formaPago(FormaPago.TARJETA).estado(estado).caja(caja).build();
     }
 
-    private static Compra venta(FormaPago forma, String total, FormaPago secundaria, String montoSecundaria) {
+    private Compra venta(FormaPago forma, String total, FormaPago secundaria, String montoSecundaria) {
         Compra c = new Compra();
         c.setId(900L);
+        c.setCaja(caja);
         c.setCodigoReserva("P-1");
         c.setFormaPago(forma);
         c.setMontoTotal(new BigDecimal(total));
@@ -179,7 +180,7 @@ class CobroPointServiceTest {
     @Test
     void vincular_ventaConTarjeta_ataElCobro() {
         CobroPoint c = cobro(EstadoCobroPoint.APROBADO, "15000");
-        when(repository.findById(50L)).thenReturn(Optional.of(c));
+        when(repository.findParaVincular(50L)).thenReturn(Optional.of(c));
         Compra v = venta(FormaPago.TARJETA, "15000", null, null);
 
         service.vincular(java.util.List.of(50L), v);
@@ -190,30 +191,54 @@ class CobroPointServiceTest {
     @Test
     void vincular_pagoMixto_comparaContraLaParteEnTarjeta() {
         CobroPoint principal = cobro(EstadoCobroPoint.APROBADO, "6000");
-        when(repository.findById(50L)).thenReturn(Optional.of(principal));
+        when(repository.findParaVincular(50L)).thenReturn(Optional.of(principal));
         service.vincular(java.util.List.of(50L), venta(FormaPago.TARJETA, "10000", FormaPago.EFECTIVO_BOLETERIA, "4000"));
         assertThat(principal.getCompra()).isNotNull();
 
         CobroPoint secundaria = cobro(EstadoCobroPoint.APROBADO, "4000");
         secundaria.setId(51L);
-        when(repository.findById(51L)).thenReturn(Optional.of(secundaria));
+        when(repository.findParaVincular(51L)).thenReturn(Optional.of(secundaria));
         service.vincular(java.util.List.of(51L), venta(FormaPago.EFECTIVO_BOLETERIA, "10000", FormaPago.TARJETA, "4000"));
         assertThat(secundaria.getCompra()).isNotNull();
     }
 
     @Test
     void vincular_montoDistinto_rechazaLaVenta() {
-        when(repository.findById(50L)).thenReturn(Optional.of(cobro(EstadoCobroPoint.APROBADO, "14000")));
+        when(repository.findParaVincular(50L)).thenReturn(Optional.of(cobro(EstadoCobroPoint.APROBADO, "14000")));
         assertThatThrownBy(() -> service.vincular(java.util.List.of(50L), venta(FormaPago.TARJETA, "15000", null, null)))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("14000");
     }
 
     @Test
-    void vincular_cobroNoAprobado_rechazaLaVenta() {
-        when(repository.findById(50L)).thenReturn(Optional.of(cobro(EstadoCobroPoint.EN_TERMINAL, "15000")));
+    void vincular_cobroRechazado_rechazaLaVenta() {
+        when(repository.findParaVincular(50L)).thenReturn(Optional.of(cobro(EstadoCobroPoint.RECHAZADO, "15000")));
         assertThatThrownBy(() -> service.vincular(java.util.List.of(50L), venta(FormaPago.TARJETA, "15000", null, null)))
                 .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void vincular_cobroEnCursoAnotadoAMano_seAtaIgual() {
+        // "Salió aprobado: anotar a mano": MP todavía no dio el resultado, pero el cobro queda de
+        // esta venta y no aparece después como plata cobrada sin venta.
+        CobroPoint c = cobro(EstadoCobroPoint.REVISAR_EN_POINT, "15000");
+        when(repository.findParaVincular(50L)).thenReturn(Optional.of(c));
+        Compra v = venta(FormaPago.TARJETA, "15000", null, null);
+
+        service.vincular(java.util.List.of(50L), v);
+
+        assertThat(c.getCompra()).isSameAs(v);
+    }
+
+    @Test
+    void vincular_cobroDeOtraCaja_rechaza() {
+        CobroPoint c = cobro(EstadoCobroPoint.APROBADO, "15000");
+        c.setCaja(Caja.builder().id(4L).usuario(new Usuario()).build());
+        when(repository.findParaVincular(50L)).thenReturn(Optional.of(c));
+
+        assertThatThrownBy(() -> service.vincular(java.util.List.of(50L), venta(FormaPago.TARJETA, "15000", null, null)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("otra caja");
     }
 
     @Test
@@ -221,7 +246,7 @@ class CobroPointServiceTest {
         CobroPoint c = cobro(EstadoCobroPoint.APROBADO, "15000");
         Compra v = venta(FormaPago.TARJETA, "15000", null, null);
         c.setCompra(v);
-        when(repository.findById(50L)).thenReturn(Optional.of(c));
+        when(repository.findParaVincular(50L)).thenReturn(Optional.of(c));
 
         service.vincular(java.util.List.of(50L), v);
 
@@ -232,7 +257,7 @@ class CobroPointServiceTest {
 
     @Test
     void vincular_ventaSinTarjeta_rechaza() {
-        when(repository.findById(50L)).thenReturn(Optional.of(cobro(EstadoCobroPoint.APROBADO, "15000")));
+        when(repository.findParaVincular(50L)).thenReturn(Optional.of(cobro(EstadoCobroPoint.APROBADO, "15000")));
         assertThatThrownBy(() -> service.vincular(java.util.List.of(50L), venta(FormaPago.EFECTIVO_BOLETERIA, "15000", null, null)))
                 .isInstanceOf(IllegalArgumentException.class);
     }
@@ -252,9 +277,78 @@ class CobroPointServiceTest {
     @Test
     void devolver_cobroSinVenta_quedaDevuelto() {
         when(repository.findConCajaById(50L)).thenReturn(Optional.of(cobro(EstadoCobroPoint.APROBADO, "15000")));
+        when(client.obtenerOrden("ORD1")).thenReturn(orden("processed", "accredited"));
         when(client.devolverOrden("ORD1", "devolver-k")).thenReturn(orden("refunded", "refunded"));
 
         assertThat(service.devolver(50L, boletero).estado()).isEqualTo(EstadoCobroPoint.DEVUELTO);
+        // Asentado en su propia transacción, sin pasar por el save de la entidad (que podría pisar la venta).
+        verify(repository).asentarDevolucion(eq(50L), eq(EstadoCobroPoint.DEVUELTO), any(), any());
+        verify(repository, never()).save(any(CobroPoint.class));
+    }
+
+    @Test
+    void devolver_ordenYaDevueltaDesdeElPoint_noPideOtraDevolucion() {
+        when(repository.findConCajaById(50L)).thenReturn(Optional.of(cobro(EstadoCobroPoint.APROBADO, "15000")));
+        when(client.obtenerOrden("ORD1")).thenReturn(orden("refunded", "refunded"));
+
+        assertThat(service.devolver(50L, boletero).estado()).isEqualTo(EstadoCobroPoint.DEVUELTO);
+        verify(client, never()).devolverOrden(anyString(), anyString());
+    }
+
+    // ---------- Orden sin confirmar (MP no respondió al crearla) ----------
+
+    @Test
+    void crear_siMercadoPagoNoResponde_quedaEnCursoParaVolverAPedirla() {
+        when(repository.findByClaveIdempotencia("k")).thenReturn(Optional.empty());
+        when(cajaService.getAbiertaOrThrow(7L)).thenReturn(caja);
+        when(client.crearOrden(anyString(), any(), anyString(), anyString(), anyBoolean()))
+                .thenThrow(new PointException(504, "No se pudo contactar a Mercado Pago: timeout"));
+
+        var dto = service.crear(new CobroPointService.CrearCobroRequest("T", new BigDecimal("100"), "k", null), boletero);
+
+        // No es ERROR: la orden puede estar igual en el Point esperando la tarjeta.
+        assertThat(dto.estado()).isEqualTo(EstadoCobroPoint.CREADO);
+        assertThat(dto.enCurso()).isTrue();
+        assertThat(dto.ordenId()).isNull();
+    }
+
+    @Test
+    void consultar_sinOrdenConfirmada_laVuelveAPedirConLaMismaClave() {
+        CobroPoint c = cobro(EstadoCobroPoint.CREADO, "100");
+        c.setOrdenId(null);
+        c.setDetalle(CobroPointService.DETALLE_SIN_CONFIRMAR);
+        when(repository.findConCajaById(50L)).thenReturn(Optional.of(c));
+        when(client.crearOrden(eq("T"), any(), eq("POINT-50"), eq("k"), eq(false))).thenReturn(orden("at_terminal", "at_terminal"));
+
+        var dto = service.consultar(50L, boletero);
+
+        assertThat(dto.ordenId()).isEqualTo("ORD1");
+        assertThat(dto.estado()).isEqualTo(EstadoCobroPoint.EN_TERMINAL);
+    }
+
+    @Test
+    void aviso_deUnaOrdenNoConfirmada_laEncuentraPorLaReferencia() {
+        CobroPoint c = cobro(EstadoCobroPoint.CREADO, "100");
+        c.setOrdenId(null);
+        when(repository.findByOrdenId("ORD1")).thenReturn(Optional.empty());
+        when(client.obtenerOrden("ORD1")).thenReturn(orden("processed", "accredited"));
+        when(repository.findByIdAndOrdenIdIsNull(50L)).thenReturn(Optional.of(c));
+
+        service.actualizarDesdeMercadoPago("ORD1");
+
+        assertThat(c.getOrdenId()).isEqualTo("ORD1");
+        assertThat(c.getEstado()).isEqualTo(EstadoCobroPoint.APROBADO);
+    }
+
+    @Test
+    void aviso_siOtroGuardoElCobroMientrasTanto_noLoPisa() {
+        CobroPoint c = cobro(EstadoCobroPoint.EN_TERMINAL, "100");
+        when(repository.findByOrdenId("ORD1")).thenReturn(Optional.of(c));
+        when(client.obtenerOrden("ORD1")).thenReturn(orden("processed", "accredited"));
+        when(repository.save(any(CobroPoint.class)))
+                .thenThrow(new org.springframework.orm.ObjectOptimisticLockingFailureException(CobroPoint.class, 50L));
+
+        service.actualizarDesdeMercadoPago("ORD1"); // no explota: gana lo ya guardado (la venta vinculada)
     }
 
     // ---------- QR ----------
@@ -284,8 +378,8 @@ class CobroPointServiceTest {
         CobroPoint qr = cobro(EstadoCobroPoint.APROBADO, "4000");
         qr.setId(51L);
         qr.setFormaPago(FormaPago.MERCADO_PAGO_QR);
-        when(repository.findById(50L)).thenReturn(Optional.of(tarjeta));
-        when(repository.findById(51L)).thenReturn(Optional.of(qr));
+        when(repository.findParaVincular(50L)).thenReturn(Optional.of(tarjeta));
+        when(repository.findParaVincular(51L)).thenReturn(Optional.of(qr));
         Compra v = venta(FormaPago.TARJETA, "10000", FormaPago.MERCADO_PAGO_QR, "4000");
 
         service.vincular(java.util.List.of(50L, 51L), v);
@@ -298,7 +392,7 @@ class CobroPointServiceTest {
     void vincular_qrConMontoDeLaTarjeta_rechaza() {
         CobroPoint qr = cobro(EstadoCobroPoint.APROBADO, "6000");
         qr.setFormaPago(FormaPago.MERCADO_PAGO_QR);
-        when(repository.findById(50L)).thenReturn(Optional.of(qr));
+        when(repository.findParaVincular(50L)).thenReturn(Optional.of(qr));
 
         assertThatThrownBy(() -> service.vincular(java.util.List.of(50L), venta(FormaPago.TARJETA, "10000", FormaPago.MERCADO_PAGO_QR, "4000")))
                 .isInstanceOf(IllegalStateException.class)
@@ -313,11 +407,12 @@ class CobroPointServiceTest {
         CobroPoint c = cobro(EstadoCobroPoint.APROBADO, "15000");
         c.setCompra(v);
         when(repository.findAllByCompraId(900L)).thenReturn(java.util.List.of(c));
+        when(client.obtenerOrden("ORD1")).thenReturn(orden("processed", "accredited"));
         when(client.devolverOrden("ORD1", "devolver-k")).thenReturn(orden("refunded", "refunded"));
 
         service.devolverDeVenta(v);
 
-        assertThat(c.getEstado()).isEqualTo(EstadoCobroPoint.DEVUELTO);
+        verify(repository).asentarDevolucion(eq(50L), eq(EstadoCobroPoint.DEVUELTO), any(), any());
     }
 
     @Test
@@ -325,9 +420,24 @@ class CobroPointServiceTest {
         Compra v = venta(FormaPago.TARJETA, "15000", null, null);
         CobroPoint c = cobro(EstadoCobroPoint.APROBADO, "15000");
         when(repository.findAllByCompraId(900L)).thenReturn(java.util.List.of(c));
+        when(client.obtenerOrden("ORD1")).thenReturn(orden("processed", "accredited"));
         when(client.devolverOrden(anyString(), anyString())).thenThrow(new PointException(400, "refund_not_allowed"));
 
         assertThatThrownBy(() -> service.devolverDeVenta(v)).isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void devolverDeVenta_siMercadoPagoNoLaDaPorDevuelta_noSeCancela() {
+        // Tarjetas que sólo se devuelven desde el propio Point: MP toma el pedido pero la orden sigue processed.
+        Compra v = venta(FormaPago.TARJETA, "15000", null, null);
+        CobroPoint c = cobro(EstadoCobroPoint.APROBADO, "15000");
+        when(repository.findAllByCompraId(900L)).thenReturn(java.util.List.of(c));
+        when(client.obtenerOrden("ORD1")).thenReturn(orden("processed", "accredited"));
+        when(client.devolverOrden("ORD1", "devolver-k")).thenReturn(orden("processed", "refund_pending"));
+
+        assertThatThrownBy(() -> service.devolverDeVenta(v))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("propio Point");
     }
 
     @Test

@@ -17,6 +17,14 @@ import java.util.Optional;
 @Repository
 public interface FacturaRepository extends JpaRepository<Factura, Long> {
 
+    /** Las facturas de un lote manual ya pedido (ver Factura.loteClave). */
+    List<Factura> findAllByLoteClaveOrderByIdAsc(String loteClave);
+
+    /** Serializa dos pedidos del mismo lote que llegan juntos (doble toque, reintento): el segundo
+     * espera al commit del primero y encuentra sus facturas. Se libera solo al terminar la transacción. */
+    @Query(value = "SELECT cast(pg_advisory_xact_lock(hashtext(:clave)) as text)", nativeQuery = true)
+    String bloquearLote(@Param("clave") String clave);
+
     /** El último comprobante de ese tipo de la compra (6 = la factura vigente, la más nueva). */
     Optional<Factura> findFirstByCompraIdAndTipoComprobanteOrderByIdDesc(Long compraId, Integer tipoComprobante);
 
