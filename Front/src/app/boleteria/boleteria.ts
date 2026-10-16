@@ -1,4 +1,5 @@
 import { Component, HostListener, inject, OnDestroy, OnInit, signal } from '@angular/core';
+import { ConfirmacionService } from '../shared/confirmacion/confirmacion.service';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { BoleteriaService, Reserva } from '../services/boleteria.service';
@@ -89,6 +90,7 @@ import { FacturaService } from '../services/factura.service';
 })
 export class Boleteria implements OnInit, OnDestroy {
   private boleteriaService = inject(BoleteriaService);
+  private confirmacion = inject(ConfirmacionService);
   private cajaService = inject(CajaService);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
@@ -227,7 +229,7 @@ export class Boleteria implements OnInit, OnDestroy {
     this.errorEdit.set(null);
   }
 
-  guardarEdicion(): void {
+  async guardarEdicion(): Promise<void> {
     const reserva = this.editando();
     if (!reserva || this.guardandoEdit()) return;
 
@@ -236,9 +238,11 @@ export class Boleteria implements OnInit, OnDestroy {
     const dniTitularCambio = !this.esRegaloDe(reserva) && this.formEdit.dni.trim() !== (reserva.cliente?.dni ?? '');
     const dniReceptorCambio = this.esRegaloDe(reserva) && this.formEdit.receptorDni.trim() !== (reserva.receptorDni ?? '');
     if (dniTitularCambio || dniReceptorCambio) {
-      const confirmado = window.confirm(
-        'Estás por cambiar el DNI de esta reserva: es lo que se compara contra el documento real al validar el ingreso. ¿Confirmás?'
-      );
+      const confirmado = await this.confirmacion.pedir({
+        titulo: 'Cambiar el DNI',
+        mensaje: 'Estás por cambiar el DNI de esta reserva: es lo que se compara contra el documento real al validar el ingreso.',
+        aceptar: 'Cambiar el DNI',
+      });
       if (!confirmado) return;
     }
 
@@ -297,12 +301,15 @@ export class Boleteria implements OnInit, OnDestroy {
 
   reembolsandoId = signal<number | null>(null);
 
-  reembolsar(reserva: Reserva, event: MouseEvent): void {
+  async reembolsar(reserva: Reserva, event: MouseEvent): Promise<void> {
     event.stopPropagation();
     this.menuAbiertoId.set(null);
-    const confirmado = window.confirm(
-      `¿Reembolsar la compra #${reserva.codigoReserva} por ${reserva.montoTotal}? Esto devuelve el dinero real a través de Mercado Pago y no se puede deshacer.`
-    );
+    const confirmado = await this.confirmacion.pedir({
+      titulo: 'Reembolsar la compra',
+      mensaje: `Se le devuelve al cliente la compra #${reserva.codigoReserva} por $${reserva.montoTotal} a través de Mercado Pago. No se puede deshacer.`,
+      aceptar: 'Reembolsar',
+      peligro: true,
+    });
     if (!confirmado) return;
 
     this.reembolsandoId.set(reserva.id);

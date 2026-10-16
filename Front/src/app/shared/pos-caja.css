@@ -109,7 +109,7 @@
 
 .stepper-input:focus {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(57, 169, 53, 0.15);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 15%, transparent);
 }
 
 .alerta-error {
@@ -232,7 +232,7 @@
 
 .fila-panel-caja input:focus {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(57, 169, 53, 0.15);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 15%, transparent);
 }
 
 .campo-motivo {
@@ -315,7 +315,7 @@
 
 .campo-apertura input:focus {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(57, 169, 53, 0.15);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 15%, transparent);
 }
 
 /* ---------- Conteo de efectivo billete por billete (apertura y cierre de caja) ---------- */
@@ -349,7 +349,7 @@
 
 .fila-denominacion input:focus {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(57, 169, 53, 0.15);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 15%, transparent);
 }
 
 /* No es un billete real, es la suma de los chicos: se separa un poco del resto de la lista. */
@@ -402,7 +402,7 @@
 .btn-nueva-venta:focus-visible,
 .btn-cant:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(57, 169, 53, 0.35);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 35%, transparent);
 }
 
 /* ---------- Mínimo táctil ----------

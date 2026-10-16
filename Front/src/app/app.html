@@ -1,6 +1,9 @@
 
 <router-outlet />
 
+<!-- Confirmaciones de toda la app (en vez de window.confirm / alert): ver ConfirmacionService. -->
+<app-confirmacion-dialogo />
+
 @if (actualizacionDisponible() && !rutaPublica()) {
   <div class="banner-actualizacion">
     <span>Hay una versión nueva disponible.</span>

@@ -229,7 +229,7 @@
 .btn-modo-descuento:focus-visible,
 .btn-vaciar-carrito:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(57, 169, 53, 0.35);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 35%, transparent);
 }
 
 .btn-forma-pago.activo {
@@ -407,7 +407,7 @@
 
 .bloque-descuento select:focus {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(57, 169, 53, 0.15);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 15%, transparent);
 }
 
 .fila-descuento-manual {
@@ -449,7 +449,7 @@
 
 .fila-descuento-manual input:focus {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(57, 169, 53, 0.15);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 15%, transparent);
 }
 
 .fila-total {
@@ -520,7 +520,7 @@
 
 .bloque-vuelto input:focus {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(57, 169, 53, 0.15);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 15%, transparent);
 }
 
 .vuelto-resultado {
@@ -604,7 +604,7 @@
 
 .btn-destino-factura:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(57, 169, 53, 0.35);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 35%, transparent);
 }
 
 .btn-destino-factura.activo {
@@ -633,7 +633,7 @@
 
 .input-email-factura:focus {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(57, 169, 53, 0.15);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 15%, transparent);
 }
 
 .input-email-factura.input-invalido {

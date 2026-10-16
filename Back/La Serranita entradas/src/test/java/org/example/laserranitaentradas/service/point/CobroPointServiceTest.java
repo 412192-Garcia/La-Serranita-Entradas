@@ -56,6 +56,10 @@ class CobroPointServiceTest {
         usuario.setId(7L);
         caja = Caja.builder().id(3L).usuario(usuario).build();
         lenient().when(modulos.activo(Modulo.POINT)).thenReturn(true);
+        // El Point "T" de los tests está habilitado para las tablets.
+        var habilitado = new org.example.laserranitaentradas.model.entity.TerminalPoint("T", "Boletería");
+        habilitado.setHabilitado(true);
+        lenient().when(terminalRepository.findById("T")).thenReturn(Optional.of(habilitado));
         lenient().when(repository.save(any(CobroPoint.class))).thenAnswer(inv -> {
             CobroPoint c = inv.getArgument(0);
             if (c.getId() == null) c.setId(50L);
@@ -82,6 +86,54 @@ class CobroPointServiceTest {
         c.setFormaPagoSecundaria(secundaria);
         c.setMontoFormaPagoSecundaria(montoSecundaria != null ? new BigDecimal(montoSecundaria) : null);
         return c;
+    }
+
+    // ---------- Terminales ----------
+
+    @Test
+    void terminales_porNombre_yUnPointRecienCambiadoNoDesaparece() {
+        var a = new MercadoPagoPointClient.Terminal("NEWLAND_N950__SERIEB", "PDV", null, null, null);
+        var b = new MercadoPagoPointClient.Terminal("NEWLAND_N950__SERIEA", "PDV", null, null, null);
+        when(client.listarTerminales()).thenReturn(java.util.List.of(a, b));
+        when(terminalRepository.findAll()).thenReturn(java.util.List.of(
+                new org.example.laserranitaentradas.model.entity.TerminalPoint(a.id(), "Boletería 2"),
+                new org.example.laserranitaentradas.model.entity.TerminalPoint(b.id(), "Boletería 1")));
+
+        assertThat(service.terminales(true)).extracting(CobroPointService.TerminalDTO::nombre)
+                .containsExactly("Boletería 1", "Boletería 2");
+
+        // Se pasa A a manual y la lista de MP, por un rato, todavía no la trae.
+        service.cambiarModo(a.id(), "STANDALONE");
+        when(client.listarTerminales()).thenReturn(java.util.List.of(b));
+        var lista = service.terminales(true);
+
+        assertThat(lista).hasSize(2);
+        assertThat(lista).filteredOn(t -> t.id().equals(a.id())).singleElement()
+                .satisfies(t -> assertThat(t.integrado()).isFalse());
+    }
+
+    @Test
+    void lasTablets_sóloVenLosPointsHabilitados() {
+        var a = new MercadoPagoPointClient.Terminal("NEWLAND_N950__SERIEA", "PDV", null, null, null);
+        var b = new MercadoPagoPointClient.Terminal("NEWLAND_N950__SERIEB", "PDV", null, null, null);
+        when(client.listarTerminales()).thenReturn(java.util.List.of(a, b));
+        var tpA = new org.example.laserranitaentradas.model.entity.TerminalPoint(a.id(), "Boletería 1");
+        tpA.setHabilitado(true);
+        when(terminalRepository.findAll()).thenReturn(java.util.List.of(tpA));
+
+        assertThat(service.terminales(true)).hasSize(2);
+        assertThat(service.terminalesHabilitados()).extracting(CobroPointService.TerminalDTO::id).containsExactly(a.id());
+    }
+
+    @Test
+    void crear_conUnPointNoHabilitado_rechaza() {
+        when(repository.findByClaveIdempotencia("k")).thenReturn(Optional.empty());
+        when(terminalRepository.findById("OTRO")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.crear(new CobroPointService.CrearCobroRequest("OTRO", BigDecimal.TEN, "k", null), boletero))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("habilitado");
+        verify(client, never()).crearOrden(anyString(), any(), anyString(), anyString(), anyBoolean());
     }
 
     // ---------- Crear ----------

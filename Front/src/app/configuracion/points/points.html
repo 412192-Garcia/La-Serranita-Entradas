@@ -1,0 +1,81 @@
+<div class="seccion">
+  <div class="tarjeta" data-tour="points">
+    <div class="titulo-con-accion">
+      <h2>Points de Mercado Pago</h2>
+      <button type="button" class="btn-secundario btn-con-icono" [disabled]="cargando()" (click)="cargar()">
+        <svg lucideRefreshCw [strokeWidth]="2"></svg> Actualizar
+      </button>
+    </div>
+    <p class="ayuda">
+      Las tablets sólo ven los Points <strong>habilitados</strong> acá: activá los que se usan en la boletería. Para que un Point
+      reciba los cobros tiene que estar además <strong>integrado</strong> y asociado a una caja (punto de venta) en Mercado Pago,
+      una por Point. Cada tablet elige el suyo en el botón de dispositivos de la pantalla de venta.
+    </p>
+    <p class="ayuda">
+      Si se corta internet en la boletería, las tablets anotan la tarjeta a mano, pero un Point integrado no cobra solo: pasalo a
+      <strong>manual</strong> desde acá (por ejemplo, con el celular) y volvelo a integrado cuando vuelva la señal. Si el Point no
+      toma el cambio, reinicialo.
+    </p>
+    @if (!moduloActivo()) {
+      <p class="ayuda nota">El cobro con Point está apagado (se prende en Sistema &gt; Módulos): las tablets anotan la tarjeta a mano.</p>
+    }
+
+    @if (cargando() && terminales() === null) {
+      <app-spinner />
+    }
+    @if (error(); as e) {
+      <p class="alerta-error">{{ e }}</p>
+    }
+    @if (aviso(); as a) {
+      <p class="mensaje">{{ a }}</p>
+    }
+
+    @if (terminales(); as lista) {
+      @if (lista.length === 0) {
+        <p class="ayuda">No hay Points en la cuenta de Mercado Pago.</p>
+      }
+      <ul class="lista-points">
+        @for (t of lista; track t.id) {
+          <li class="point" [class.point-deshabilitado]="!t.habilitado">
+            <div class="point-datos">
+              <label class="point-nombre">
+                <span class="sr-only">Nombre de {{ t.serie }}</span>
+                <input
+                  type="text"
+                  maxlength="60"
+                  [ngModel]="nombres()[t.id]"
+                  (ngModelChange)="setNombre(t.id, $event)"
+                  (keydown.enter)="nombreCambiado(t) && guardarNombre(t)" />
+              </label>
+              <span class="serie">Serie {{ t.serie }}</span>
+            </div>
+            <span class="modo" [class.modo-integrado]="t.integrado">
+              <span class="modo-punto" aria-hidden="true"></span>
+              {{ t.integrado ? 'Integrado' : 'Manual' }}
+            </span>
+            <div class="point-acciones">
+              <button
+                type="button"
+                role="switch"
+                class="interruptor"
+                [attr.aria-checked]="t.habilitado"
+                [attr.aria-label]="(t.habilitado ? 'Deshabilitar ' : 'Habilitar ') + t.nombre + ' en las tablets'"
+                [title]="t.habilitado ? 'Aparece en las tablets' : 'No aparece en las tablets'"
+                [disabled]="operando() === t.id"
+                (click)="cambiarHabilitado(t)">
+                <span class="interruptor-perilla"></span>
+              </button>
+              <span class="interruptor-texto">{{ t.habilitado ? 'En las tablets' : 'Oculto' }}</span>
+              @if (nombreCambiado(t)) {
+                <button type="button" class="btn-accion" [disabled]="operando() === t.id" (click)="guardarNombre(t)">Guardar nombre</button>
+              }
+              <button type="button" class="btn-accion" [disabled]="operando() === t.id" (click)="cambiarModo(t)">
+                {{ t.integrado ? 'Pasar a manual' : 'Pasar a integrado' }}
+              </button>
+            </div>
+          </li>
+        }
+      </ul>
+    }
+  </div>
+</div>

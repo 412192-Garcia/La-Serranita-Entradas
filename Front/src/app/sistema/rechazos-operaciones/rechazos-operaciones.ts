@@ -1,4 +1,5 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
+import { ConfirmacionService } from '../../shared/confirmacion/confirmacion.service';
 import { FormsModule } from '@angular/forms';
 import { DatePipe } from '@angular/common';
 import { RechazoService, OperacionRechazada, TipoOperacionRechazada } from '../../services/rechazo.service';
@@ -77,6 +78,7 @@ const SUGERENCIA_SIN_CAJA_GUARDADA =
 })
 export class RechazosOperaciones implements OnInit {
   private rechazoService = inject(RechazoService);
+  private confirmacion = inject(ConfirmacionService);
   private boleteriaService = inject(BoleteriaService);
   private facturaService = inject(FacturaService);
 
@@ -276,13 +278,13 @@ export class RechazosOperaciones implements OnInit {
    * solo reabrir/cerrar (ver loteDeLaMismaCaja) en vez de una reapertura por cada uno. Si el
    * rechazo era por otra razón (ej. un dato inválido), el backend simplemente lo rechaza de
    * nuevo con el mismo motivo, así que no hace falta adivinar acá cuándo mostrarlo o no. */
-  reabrirYReintentar(r: OperacionRechazada): void {
+  async reabrirYReintentar(r: OperacionRechazada): Promise<void> {
     const lote = this.loteDeLaMismaCaja(r);
     const mensaje =
       lote.length > 1
-        ? `Esto va a reabrir la caja de origen, aplicar las ${lote.length} operaciones rechazadas de esa caja (ventas, retiros/aportes o entradas), y volver a cerrarla una sola vez con el mismo conteo que ya tenía. ¿Confirmás?`
-        : 'Esto va a reabrir la caja de origen, aplicar la operación rechazada, y volver a cerrarla con el mismo conteo que ya tenía. ¿Confirmás?';
-    const confirmado = window.confirm(mensaje);
+        ? `Esto va a reabrir la caja de origen, aplicar las ${lote.length} operaciones rechazadas de esa caja (ventas, retiros/aportes o entradas), y volver a cerrarla una sola vez con el mismo conteo que ya tenía.`
+        : 'Esto va a reabrir la caja de origen, aplicar la operación rechazada, y volver a cerrarla con el mismo conteo que ya tenía.';
+    const confirmado = await this.confirmacion.pedir({ titulo: 'Reabrir la caja y reintentar', mensaje, aceptar: 'Reabrir y reintentar' });
     if (!confirmado) return;
 
     const ids = lote.map((x) => x.id);

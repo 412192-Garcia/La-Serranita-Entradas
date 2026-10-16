@@ -1,0 +1,16 @@
+<app-modal (cerrar)="cancelado.emit()">
+  <div class="dialogo-confirmacion" role="alertdialog" aria-modal="true" aria-labelledby="titulo-dialogo-confirmacion">
+    <h3 id="titulo-dialogo-confirmacion">{{ titulo() }}</h3>
+    <div class="contenido">
+      <ng-content />
+    </div>
+    <div class="acciones">
+      @if (cancelar()) {
+        <button type="button" class="btn-volver" (click)="cancelado.emit()">{{ cancelar() }}</button>
+      }
+      <button type="button" class="btn-aceptar" [class.btn-peligro]="peligro()" [disabled]="ocupado()" (click)="confirmado.emit()">
+        {{ aceptar() }}
+      </button>
+    </div>
+  </div>
+</app-modal>

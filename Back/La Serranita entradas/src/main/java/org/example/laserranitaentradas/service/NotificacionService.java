@@ -13,6 +13,10 @@ import java.util.List;
  */
 public interface NotificacionService {
 
+    /** De estos refIds, los que ya vio algún usuario (para avisos que no son de una persona en
+     * particular, como la tarjeta Cajas de Sistema > Estado). */
+    java.util.Set<Long> vistosPorAlguien(TipoNotificacion tipo, List<Long> refIds);
+
     /** true si, de los candidatos vigentes, hay algo pendiente de avisarle a este usuario. */
     boolean hayPendientes(TipoNotificacion tipo, List<Long> refIdsActuales, Long usuarioId);
 

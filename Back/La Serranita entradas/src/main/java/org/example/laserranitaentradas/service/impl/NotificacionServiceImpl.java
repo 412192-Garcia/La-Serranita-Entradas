@@ -22,6 +22,12 @@ public class NotificacionServiceImpl implements NotificacionService {
     }
 
     @Override
+    public Set<Long> vistosPorAlguien(TipoNotificacion tipo, List<Long> refIds) {
+        if (refIds == null || refIds.isEmpty()) return Set.of();
+        return Set.copyOf(repository.refIdsVistosPorAlguien(tipo, refIds));
+    }
+
+    @Override
     public boolean hayPendientes(TipoNotificacion tipo, List<Long> refIdsActuales, Long usuarioId) {
         if (refIdsActuales == null || refIdsActuales.isEmpty()) {
             return false;

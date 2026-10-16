@@ -18,6 +18,9 @@
     <button type="button" class="tab" [class.activo]="tab() === 'usuarios'" (click)="tab.set('usuarios')">
       Usuarios
     </button>
+    <button type="button" class="tab" [class.activo]="tab() === 'points'" (click)="tab.set('points')">
+      Points
+    </button>
   </nav>
 
   @if (tab() === 'dias') {
@@ -30,6 +33,8 @@
     <app-configuracion-articulos data-tour="articulos-varios" />
   } @else if (tab() === 'usuarios') {
     <app-configuracion-usuarios data-tour="usuarios" />
+  } @else if (tab() === 'points') {
+    <app-configuracion-points />
   }
 
 </div>

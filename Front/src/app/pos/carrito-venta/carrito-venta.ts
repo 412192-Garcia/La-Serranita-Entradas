@@ -423,6 +423,7 @@ export class CarritoVenta {
         serie: '',
         modo: 'PDV',
         integrado: true,
+        habilitado: true,
       };
       this.pedidoPoint.set({ monto: pendiente.monto, forma: pendiente.formaPago, terminal, reanudar: pendiente, paso: null });
     }

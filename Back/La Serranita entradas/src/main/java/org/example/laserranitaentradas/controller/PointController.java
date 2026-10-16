@@ -25,6 +25,8 @@ import java.util.Map;
 @Tag(name = "Point", description = "Cobros con tarjeta en el Point de Mercado Pago")
 public class PointController {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(PointController.class);
+
     private final CobroPointService service;
 
     public PointController(CobroPointService service) {
@@ -32,9 +34,9 @@ public class PointController {
     }
 
     @GetMapping("/api/interno/point/terminales")
-    @Operation(summary = "Points de la cuenta de Mercado Pago", description = "Para el selector de dispositivos de cada tablet.")
+    @Operation(summary = "Points habilitados para las tablets", description = "Para el selector de dispositivos de cada tablet: sólo los activados en Configuración > Points.")
     public List<TerminalDTO> terminales() {
-        return service.terminales(false);
+        return service.terminalesHabilitados();
     }
 
     @PostMapping("/api/interno/point/cobros")
@@ -64,16 +66,25 @@ public class PointController {
         return service.devolver(id, operador);
     }
 
-    @GetMapping("/api/interno/sistema/point/terminales")
-    @Operation(summary = "Points de la cuenta, recién consultados (SUPERADMIN)")
+    @GetMapping("/api/interno/point/terminales/actualizadas")
+    @Operation(summary = "Points de la cuenta, recién consultados a Mercado Pago (ADMIN, Configuración > Points)")
     public List<TerminalDTO> terminalesActualizadas() {
         return service.terminales(true);
     }
 
-    @PutMapping("/api/interno/sistema/point/terminales/{id}/nombre")
-    @Operation(summary = "Ponerle nombre a un Point (SUPERADMIN)", description = "Vacío = vuelve al nombre por defecto.")
+    @PutMapping("/api/interno/point/terminales/{id}/nombre")
+    @Operation(summary = "Ponerle nombre a un Point (ADMIN, Configuración > Points)", description = "Vacío = vuelve al nombre por defecto.")
     public ResponseEntity<Void> renombrar(@PathVariable String id, @RequestBody Map<String, String> body) {
         service.renombrar(id, body.get("nombre"));
+        return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/api/interno/point/terminales/{id}/habilitado")
+    @Operation(summary = "Habilitar o no un Point para las tablets (ADMIN, Configuración > Points)")
+    public ResponseEntity<Void> habilitar(@PathVariable String id, @RequestBody Map<String, Boolean> body) {
+        Boolean habilitado = body.get("habilitado");
+        if (habilitado == null) throw new IllegalArgumentException("Falta indicar si queda habilitado");
+        service.habilitar(id, habilitado);
         return ResponseEntity.noContent().build();
     }
 
@@ -91,9 +102,11 @@ public class PointController {
         return service.resumenCaja(cajaId);
     }
 
-    /** Mercado Pago caído o el token mal: es un problema del servidor, no del pedido. */
+    /** Mercado Pago caído o el token mal: es un problema de afuera, no del pedido ni del servidor
+     * (por eso no va a Sistema > Errores: un aviso en el log alcanza). */
     @ExceptionHandler(PointException.class)
     public ResponseEntity<String> errorDeMercadoPago(PointException e) {
+        log.warn("Mercado Pago (Point): {}", e.getMessage());
         return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(e.getMessage());
     }
 }

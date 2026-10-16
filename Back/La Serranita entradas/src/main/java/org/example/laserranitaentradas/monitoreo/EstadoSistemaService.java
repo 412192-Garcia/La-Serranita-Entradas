@@ -1,5 +1,7 @@
 package org.example.laserranitaentradas.monitoreo;
 
+import org.example.laserranitaentradas.model.entity.TipoNotificacion;
+import org.example.laserranitaentradas.service.NotificacionService;
 import org.example.laserranitaentradas.model.dto.ControlFacturacionDTO;
 import org.example.laserranitaentradas.model.dto.EstadoSistemaDTO;
 import org.example.laserranitaentradas.model.dto.EstadoSistemaDTO.Tarjeta;
@@ -71,6 +73,7 @@ public class EstadoSistemaService {
     private final AnomaliasVentas anomaliasVentas;
     private final PedidoBackup pedidoBackup;
     private final ModulosService modulos;
+    private final NotificacionService notificacionService;
 
     @Value("${app.backups.dir:/backups}")
     private String carpetaBackups;
@@ -97,7 +100,8 @@ public class EstadoSistemaService {
                                 AuditoriaService auditoriaService, EstadoMails estadoMails, JdbcTemplate jdbc,
                                 ObjectProvider<BuildProperties> build, EstadoTareas estadoTareas,
                                 TerminalesService terminalesService, MetricasRequests metricasRequests,
-                                AnomaliasVentas anomaliasVentas, PedidoBackup pedidoBackup, ModulosService modulos) {
+                                AnomaliasVentas anomaliasVentas, PedidoBackup pedidoBackup, ModulosService modulos,
+                                NotificacionService notificacionService) {
         this.facturaService = facturaService;
         this.facturaRepository = facturaRepository;
         this.compraRepository = compraRepository;
@@ -116,6 +120,7 @@ public class EstadoSistemaService {
         this.anomaliasVentas = anomaliasVentas;
         this.pedidoBackup = pedidoBackup;
         this.modulos = modulos;
+        this.notificacionService = notificacionService;
     }
 
     @Transactional(readOnly = true)
@@ -328,12 +333,22 @@ public class EstadoSistemaService {
             detalles.add("Caja de " + c.getUsuario().getNombre() + " del " + c.getFechaApertura().format(FECHA) + ": "
                     + (d.signum() < 0 ? "faltan " : "sobran ") + pesos(d.abs()));
         }
-        int atrasadas = cajaService.getIdsCajasAtrasadas().size();
-        if (atrasadas > 0) detalles.add(atrasadas + " caja(s) de días anteriores sin cerrar");
-        boolean alerta = !conDiferencia.isEmpty() || atrasadas > 0;
-        if (!alerta) detalles.add("Sin cierres con diferencias de " + pesos(umbralDiferenciaCaja) + " o más en la última semana");
-        return new Tarjeta("cajas", "Cajas", alerta ? "ALERTA" : "OK",
-                !conDiferencia.isEmpty() ? conDiferencia.size() + " cierre(s) con diferencia grande" : atrasadas > 0 ? "Cajas sin cerrar" : "Sin novedades",
+        // Una caja de días anteriores sin cerrar avisa hasta que un admin la ve en Cajas (la misma
+        // marca que apaga la campanita de Cajas). Después sigue figurando acá, pero sin alerta: puede
+        // ser a propósito (una caja que se deja abierta para controlarla otro día) y no tiene sentido
+        // que prenda el punto rojo ni mande el mail todos los días. Una caja atrasada nueva avisa de nuevo.
+        List<Long> atrasadas = cajaService.getIdsCajasAtrasadas();
+        java.util.Set<Long> vistas = notificacionService.vistosPorAlguien(TipoNotificacion.CAJA_ATRASADA, atrasadas);
+        long sinVer = atrasadas.stream().filter(id -> !vistas.contains(id)).count();
+        if (sinVer > 0) detalles.add(sinVer + " caja(s) de días anteriores sin cerrar");
+        if (!vistas.isEmpty()) detalles.add(vistas.size() + " caja(s) de días anteriores sin cerrar, ya vista(s) en Cajas");
+        boolean alerta = !conDiferencia.isEmpty() || sinVer > 0;
+        if (conDiferencia.isEmpty()) detalles.add("Sin cierres con diferencias de " + pesos(umbralDiferenciaCaja) + " o más en la última semana");
+        String estado = alerta ? "ALERTA" : vistas.isEmpty() ? "OK" : "INFO";
+        return new Tarjeta("cajas", "Cajas", estado,
+                !conDiferencia.isEmpty() ? conDiferencia.size() + " cierre(s) con diferencia grande"
+                        : sinVer > 0 ? "Cajas sin cerrar"
+                        : !vistas.isEmpty() ? "Cajas abiertas de otros días (ya vistas)" : "Sin novedades",
                 detalles, "/cajas");
     }
 

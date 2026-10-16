@@ -1,4 +1,5 @@
 import { Component, DestroyRef, ElementRef, HostListener, computed, inject, input, signal } from '@angular/core';
+import { ConfirmacionService } from '../../shared/confirmacion/confirmacion.service';
 import { HttpErrorResponse } from '@angular/common/http';
 import { LucideCheck, LucideCreditCard, LucidePrinter } from '@lucide/angular';
 import { FacturaService } from '../../services/factura.service';
@@ -30,6 +31,7 @@ const GRAVEDAD: EstadoDispositivo[] = ['mal', 'elegir', 'cargando', 'manual', 'o
 })
 export class SelectorDispositivos {
   private facturaService = inject(FacturaService);
+  private confirmacion = inject(ConfirmacionService);
   private host = inject(ElementRef<HTMLElement>);
   readonly impresoras = inject(ImpresorasService);
   readonly point = inject(PointService);
@@ -130,13 +132,16 @@ export class SelectorDispositivos {
   }
 
   /** Integrado ↔ manual. Pasar a manual se confirma: deja de recibir los cobros de TODAS las tablets. */
-  cambiarModo(t: TerminalPoint): void {
+  async cambiarModo(t: TerminalPoint): Promise<void> {
     const modo = t.integrado ? 'STANDALONE' : 'PDV';
     if (
       modo === 'STANDALONE' &&
-      !window.confirm(
-        `¿Pasar "${t.nombre}" a manual? Deja de recibir los cobros de las tablets: se cobra desde el propio Point y la venta se anota a mano. Sirve si se cortó internet en la boletería; cuando vuelva, pasalo de nuevo a integrado.`
-      )
+      !(await this.confirmacion.pedir({
+        titulo: `Pasar "${t.nombre}" a manual`,
+        mensaje:
+          'Deja de recibir los cobros de las tablets: se cobra desde el propio Point y la venta se anota a mano. Sirve si se cortó internet en la boletería; cuando vuelva, pasalo de nuevo a integrado.',
+        aceptar: 'Pasar a manual',
+      }))
     ) {
       return;
     }

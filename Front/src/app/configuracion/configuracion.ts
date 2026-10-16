@@ -5,13 +5,14 @@ import { ConfiguracionTiposEntrada } from './tipos-entrada/tipos-entrada';
 import { ConfiguracionPromociones } from './promociones/promociones';
 import { ConfiguracionArticulos } from './articulos/articulos';
 import { ConfiguracionUsuarios } from './usuarios/usuarios';
+import { ConfiguracionPoints } from './points/points';
 import { CabeceraInterna } from '../shared/cabecera-interna/cabecera-interna';
 import { TourStep } from '../shared/tour/tour';
 
 /** Cada pestaña muestra componentes hijos distintos (el resto ni existe en el DOM), así que
  * el tutorial tiene que cambiar de pasos según la pestaña activa — no hay un único recorrido
  * que sirva para las 4 a la vez. */
-const PASOS_POR_TAB: Record<'dias' | 'descuentos' | 'catalogo' | 'usuarios', TourStep[]> = {
+const PASOS_POR_TAB: Record<'dias' | 'descuentos' | 'catalogo' | 'usuarios' | 'points', TourStep[]> = {
   dias: [
     {
       selector: '[data-tour="horario-general"]',
@@ -60,11 +61,19 @@ const PASOS_POR_TAB: Record<'dias' | 'descuentos' | 'catalogo' | 'usuarios', Tou
       texto: 'Acá creás las cuentas del personal: administradores o boleteros.',
     },
   ],
+  points: [
+    {
+      selector: '[data-tour="points"]',
+      titulo: 'Points de Mercado Pago',
+      texto: 'Los Points de la cuenta de Mercado Pago. "En las tablets" decide cuáles se pueden elegir desde el POS (los demás no aparecen). Además, el nombre que ven las tablets y si están integrados (reciben los cobros de la tablet) o en manual.',
+    },
+  ],
 };
 
 @Component({
   selector: 'app-configuracion',
   imports: [
+    ConfiguracionPoints,
     ConfiguracionDiasHorarios,
     ConfiguracionCupones,
     ConfiguracionTiposEntrada,
@@ -77,6 +86,6 @@ const PASOS_POR_TAB: Record<'dias' | 'descuentos' | 'catalogo' | 'usuarios', Tou
   styleUrl: './configuracion.css',
 })
 export class Configuracion {
-  tab = signal<'dias' | 'descuentos' | 'catalogo' | 'usuarios'>('dias');
+  tab = signal<'dias' | 'descuentos' | 'catalogo' | 'usuarios' | 'points'>('dias');
   pasosTutorial = computed(() => PASOS_POR_TAB[this.tab()]);
 }

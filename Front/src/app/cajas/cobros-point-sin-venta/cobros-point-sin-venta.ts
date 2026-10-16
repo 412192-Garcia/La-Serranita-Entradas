@@ -1,4 +1,5 @@
 import { Component, effect, inject, input, output, signal, untracked } from '@angular/core';
+import { ConfirmacionService } from '../../shared/confirmacion/confirmacion.service';
 import { PesosPipe } from '../../shared/pesos.pipe';
 import { CobroPoint, PointService, ResumenCajaPoint } from '../../services/point.service';
 
@@ -16,6 +17,7 @@ import { CobroPoint, PointService, ResumenCajaPoint } from '../../services/point
 })
 export class CobrosPointSinVenta {
   private point = inject(PointService);
+  private confirmacion = inject(ConfirmacionService);
 
   cajaId = input<number | null>(null);
   /** Cambia cada vez que se abre el cierre (el detalle de la caja se vuelve a pedir): el modal queda
@@ -50,8 +52,14 @@ export class CobrosPointSinVenta {
     });
   }
 
-  devolver(c: CobroPoint): void {
-    if (!window.confirm(`¿Devolverle al cliente el cobro con Point de $${c.monto}? No tiene una venta registrada en esta caja.`)) return;
+  async devolver(c: CobroPoint): Promise<void> {
+    const confirmado = await this.confirmacion.pedir({
+      titulo: 'Devolver el cobro',
+      mensaje: `Se le devuelve al cliente el cobro con Point de $${c.monto}, que no tiene una venta registrada en esta caja.`,
+      aceptar: 'Devolver',
+      peligro: true,
+    });
+    if (!confirmado) return;
     this.devolviendoId.set(c.id);
     this.error.set(null);
     this.point.devolverCobro(c.id).subscribe({

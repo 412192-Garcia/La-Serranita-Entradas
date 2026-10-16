@@ -94,8 +94,15 @@ export class Pos implements OnInit, OnDestroy {
     {
       selector: '[data-tour="carrito"]',
       titulo: 'Venta: cobrar',
-      texto: 'Revisá el resumen, elegí la forma de pago y tocá Cobrar para cerrar la venta. Las reservas "a cobrar en caja" también se cobran acá: las carga la pantalla de Anticipadas, que viene ahora.',
+      texto: 'Revisá el resumen, elegí la forma de pago y tocá Cobrar para cerrar la venta. Con tarjeta o QR y un Point elegido, el botón dice "Cobrar con Point": el monto se manda al Point y la venta se registra sola cuando el pago sale aprobado. Las reservas "a cobrar en caja" también se cobran acá: las carga la pantalla de Anticipadas, que viene ahora.',
       antes: () => this.consultaAnticipada.set(null),
+    },
+    {
+      selector: '[data-tour="dispositivos"]',
+      alternativo: '[data-tour="barra-caja"]',
+      titulo: 'Venta: ticketera y Point',
+      antes: () => this.consultaAnticipada.set(null),
+      texto: 'El botón de dispositivos (aparece cuando hay facturación o cobro con Point) elige la ticketera y el Point de esta tablet; el punto de color dice si están andando. Si se corta internet en la boletería, desde ahí se pasa el Point a manual: se cobra en el propio Point y la venta se anota a mano.',
     },
     {
       selector: '[data-tour="boton-anticipadas"]',

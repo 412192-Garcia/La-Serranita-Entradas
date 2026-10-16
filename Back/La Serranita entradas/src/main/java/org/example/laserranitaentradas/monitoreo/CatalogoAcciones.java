@@ -105,6 +105,7 @@ final class CatalogoAcciones {
             // Sistema
             entry("POST /api/interno/sistema/incidentes/{id}/resolver", new Accion("ERROR_RESUELTO", "Marcó resuelto un error del sistema", "Error")),
             entry("PUT /api/interno/sistema/modulos/{codigo}", new Accion("MODULO_CAMBIADO", "Prendió/apagó un módulo", "Módulo")),
-            entry("PUT /api/interno/sistema/point/terminales/{id}/nombre", new Accion("POINT_RENOMBRADO", "Le cambió el nombre a un Point", "Point")),
+            entry("PUT /api/interno/point/terminales/{id}/nombre", new Accion("POINT_RENOMBRADO", "Le cambió el nombre a un Point", "Point")),
+            entry("PUT /api/interno/point/terminales/{id}/habilitado", new Accion("POINT_HABILITADO", "Habilitó o deshabilitó un Point para las tablets", "Point")),
             entry("PUT /api/interno/point/terminales/{id}/modo", new Accion("POINT_MODO_CAMBIADO", "Cambió el modo de un Point", "Point")));
 }

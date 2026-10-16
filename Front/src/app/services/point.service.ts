@@ -16,6 +16,8 @@ export interface TerminalPoint {
   /** PDV = integrado; STANDALONE = se cobra a mano en el Point. */
   modo: string | null;
   integrado: boolean;
+  /** Se puede elegir desde las tablets (Configuración > Points). Las tablets sólo reciben éstos. */
+  habilitado: boolean;
 }
 
 export type EstadoCobroPoint =
@@ -195,14 +197,20 @@ export class PointService {
     return this.http.put<void>(`${this.url}/terminales/${encodeURIComponent(id)}/modo`, { modo });
   }
 
-  // ---------- Sistema > Módulos (SUPERADMIN) ----------
+  // ---------- Configuración > Points (ADMIN) ----------
 
+  /** La lista recién traída de Mercado Pago (no la de hace hasta 30 s que usan las tablets). */
   terminalesActualizadas(): Observable<TerminalPoint[]> {
-    return this.http.get<TerminalPoint[]>(`${environment.apiBase}/interno/sistema/point/terminales`);
+    return this.http.get<TerminalPoint[]>(`${this.url}/terminales/actualizadas`);
+  }
+
+  /** Que aparezca (o no) en el selector de dispositivos de las tablets. */
+  habilitar(id: string, habilitado: boolean): Observable<void> {
+    return this.http.put<void>(`${this.url}/terminales/${encodeURIComponent(id)}/habilitado`, { habilitado });
   }
 
   renombrar(id: string, nombre: string): Observable<void> {
-    return this.http.put<void>(`${environment.apiBase}/interno/sistema/point/terminales/${encodeURIComponent(id)}/nombre`, { nombre });
+    return this.http.put<void>(`${this.url}/terminales/${encodeURIComponent(id)}/nombre`, { nombre });
   }
 
   private guardarCobros(lista: CobroPoint[]): void {
