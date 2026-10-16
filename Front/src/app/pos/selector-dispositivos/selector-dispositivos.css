@@ -41,7 +41,7 @@
 .btn-dispositivos:focus-visible,
 .opcion:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(57, 169, 53, 0.35);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 35%, transparent);
 }
 
 /* Punto de estado: verde = listo; rojo = apagado / no disponible; ámbar = falta elegir;
@@ -205,7 +205,7 @@
 
 .btn-modo:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(57, 169, 53, 0.35);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 35%, transparent);
 }
 
 .menu-error {

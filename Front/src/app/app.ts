@@ -3,6 +3,7 @@ import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { SwUpdate, VersionReadyEvent } from '@angular/service-worker';
 import { filter } from 'rxjs';
 import { SesionService } from './services/sesion.service';
+import { ConfirmacionDialogo } from './shared/confirmacion/confirmacion-dialogo';
 
 /** Rutas del módulo público (compra de entradas): comparten bundle/injector con el módulo
  *  interno, así que necesitan excluirse a mano — nunca deben pintarse con un tema personalizado. */
@@ -10,7 +11,7 @@ const RUTAS_PUBLICAS = ['/entradas', '/pago-exitoso', '/pago-fallido'];
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet],
+  imports: [RouterOutlet, ConfirmacionDialogo],
   templateUrl: './app.html',
   styleUrl: './app.css'
 })

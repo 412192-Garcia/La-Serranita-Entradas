@@ -221,20 +221,21 @@
 .btn-pagina-dia.activo {
   background-color: var(--color-primary);
   color: #fff;
-  box-shadow: 0 2px 6px rgba(57, 169, 53, 0.35);
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--color-primary) 35%, transparent);
 }
 
-/* La semana de hoy (etiquetada "Hoy") cuando NO es la que se está mirando: anillo tenue para ubicarla de un vistazo. */
+/* La semana actual (etiquetada "Esta semana") cuando NO es la que se está mirando: anillo tenue para ubicarla de un vistazo. */
 .btn-pagina-dia.es-hoy:not(.activo) {
   box-shadow: inset 0 0 0 1.5px var(--color-primary);
   color: var(--color-primary-dark);
 }
 
-/* Ranura de ancho fijo a cada costado de la barra: reserva el lugar del botón "Hoy" esté o
-   no visible, para que aparecer/desaparecer no corra el resto de la barra. */
+/* Ranura de ancho fijo a cada costado de la barra: reserva el lugar del botón "Esta semana"
+   esté o no visible, para que aparecer/desaparecer no corra el resto de la barra. Ancho para
+   "Esta semana" con su flecha. */
 .ranura-volver-hoy {
   flex-shrink: 0;
-  width: 76px;
+  width: 118px;
   display: inline-flex;
   align-items: center;
 }
@@ -242,7 +243,7 @@
 .ranura-volver-hoy-izq { justify-content: flex-start; }
 .ranura-volver-hoy-der { justify-content: flex-end; }
 
-/* Atajo para volver a la semana de hoy; aparece del lado hacia donde hay que ir: a la
+/* Atajo para volver a la semana actual; aparece del lado hacia donde hay que ir: a la
    izquierda si estás mirando semanas futuras, a la derecha si estás en el pasado. */
 .btn-volver-hoy {
   flex-shrink: 0;
@@ -251,10 +252,12 @@
   gap: 1px;
   height: 32px;
   padding: 0 10px;
+  white-space: nowrap;
   border: none;
   border-radius: 999px;
-  background-color: var(--color-primary-light);
-  color: var(--color-primary-dark);
+  /* Mezcla con transparente y texto del tema: se lee igual en temas claros y oscuros. */
+  background-color: color-mix(in srgb, var(--color-primary) 16%, transparent);
+  color: var(--color-text);
   font-size: 0.8rem;
   font-weight: 800;
   font-family: inherit;
@@ -334,7 +337,7 @@
 .btn-volver-hoy:focus-visible,
 .col-ordenable:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(57, 169, 53, 0.35);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 35%, transparent);
 }
 
 @media (max-width: 860px) {

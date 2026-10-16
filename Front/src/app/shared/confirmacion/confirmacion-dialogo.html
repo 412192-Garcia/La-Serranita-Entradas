@@ -1,0 +1,11 @@
+@if (confirmacion.pedido(); as p) {
+  <app-dialogo-confirmacion
+    [titulo]="p.titulo"
+    [aceptar]="p.aceptar || 'Confirmar'"
+    [cancelar]="p.cancelar ?? 'Volver'"
+    [peligro]="!!p.peligro"
+    (confirmado)="confirmacion.responder(true)"
+    (cancelado)="confirmacion.responder(false)">
+    <p>{{ p.mensaje }}</p>
+  </app-dialogo-confirmacion>
+}

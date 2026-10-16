@@ -105,19 +105,19 @@
 }
 </div>
 
-<!-- Cada botón muestra el rango de fechas de esa semana (la de hoy se etiqueta "Hoy" y va con
-     anillo); el botón "Hoy" suelto aparece del lado hacia el que hay que ir (izquierda si mirás
+<!-- Cada botón muestra el rango de fechas de esa semana (la actual se etiqueta "Esta semana" y
+     va con anillo); el botón "Esta semana" suelto aparece del lado hacia el que hay que ir (izquierda si mirás
      semanas futuras, derecha si estás en el pasado). Se repite arriba y abajo de la lista. -->
 <ng-template #paginadorDiasTpl>
   <div class="paginador-dias">
-    <!-- Ranuras de ancho fijo a los costados: el botón "Hoy" entra y sale sin mover el resto de
+    <!-- Ranuras de ancho fijo a los costados: el botón "Esta semana" entra y sale sin mover el resto de
          la barra. Sólo aparece cuando la semana de hoy quedó fuera de la franja visible (a más de
          una semana), porque si está a la vista ya se toca directo. -->
     <span class="ranura-volver-hoy ranura-volver-hoy-izq">
       @if (busqueda.pagina() > busqueda.paginaHoy() + 1) {
         <button type="button" class="btn-volver-hoy" [disabled]="busqueda.buscando()" (click)="busqueda.irAPagina(busqueda.paginaHoy())">
           <svg lucideChevronLeft [strokeWidth]="2.5"></svg>
-          Hoy
+          Esta semana
         </button>
       }
     </span>
@@ -140,7 +140,7 @@
           [title]="busqueda.etiquetaRangoPagina(p)"
           [disabled]="busqueda.buscando()"
           (click)="busqueda.irAPagina(p.indice)">
-          {{ p.indice === busqueda.paginaHoy() ? 'Hoy' : busqueda.etiquetaRangoPagina(p) }}
+          {{ p.indice === busqueda.paginaHoy() ? 'Esta semana' : busqueda.etiquetaRangoPagina(p) }}
         </button>
       } @else {
         <span class="btn-pagina-dia btn-pagina-dia-vacia" aria-hidden="true"></span>
@@ -157,7 +157,7 @@
     <span class="ranura-volver-hoy ranura-volver-hoy-der">
       @if (busqueda.pagina() < busqueda.paginaHoy() - 1) {
         <button type="button" class="btn-volver-hoy" [disabled]="busqueda.buscando()" (click)="busqueda.irAPagina(busqueda.paginaHoy())">
-          Hoy
+          Esta semana
           <svg lucideChevronRight [strokeWidth]="2.5"></svg>
         </button>
       }

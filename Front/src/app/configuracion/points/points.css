@@ -1,0 +1,233 @@
+.titulo-con-accion {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.titulo-con-accion h2 {
+  margin: 0;
+}
+
+.btn-con-icono {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-con-icono svg {
+  width: 16px;
+  height: 16px;
+}
+
+.nota {
+  font-weight: 600;
+}
+
+.lista-points {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.point {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.point-datos {
+  flex: 1;
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.point-nombre input {
+  width: 100%;
+  max-width: 280px;
+  padding: 8px 10px;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-input-bg, var(--color-card-bg));
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.serie {
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+}
+
+/* Integrado / Manual. El fondo es una mezcla con transparente (toma el color de la tarjeta, sea
+   clara u oscura) y el texto usa los colores de texto que el tema ya ajusta al contraste de la
+   tarjeta. Antes usaba --color-border de fondo, que cambia con el borde elegido en el tema, y
+   --color-primary-light, mezclado con blanco: un bloque claro sobre una tarjeta oscura. */
+.modo {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+  color: var(--color-text-secondary);
+  background-color: color-mix(in srgb, var(--color-text-secondary) 12%, transparent);
+}
+
+.modo-punto {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--color-text-muted);
+}
+
+.modo-integrado {
+  color: var(--color-text);
+  background-color: color-mix(in srgb, var(--color-primary) 18%, transparent);
+}
+
+.modo-integrado .modo-punto {
+  background-color: var(--color-primary);
+}
+
+.point-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Deshabilitado: no aparece en las tablets. Se atenúa todo menos los controles. */
+.point-deshabilitado .point-datos,
+.point-deshabilitado .modo {
+  opacity: 0.55;
+}
+
+/* Interruptor "En las tablets" (mismo que el de Sistema > Módulos). */
+.interruptor {
+  position: relative;
+  flex-shrink: 0;
+  width: 44px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background-color: color-mix(in srgb, var(--color-text-secondary) 30%, transparent);
+  cursor: pointer;
+  transition: background-color 0.18s ease;
+}
+
+.interruptor[aria-checked='true'] {
+  background-color: var(--color-primary);
+}
+
+.interruptor:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.interruptor-perilla {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background-color: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: transform 0.18s ease;
+}
+
+.interruptor[aria-checked='true'] .interruptor-perilla {
+  transform: translateX(18px);
+}
+
+.interruptor:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 35%, transparent);
+}
+
+.interruptor-texto {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  margin-right: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .interruptor,
+  .interruptor-perilla {
+    transition: none;
+  }
+}
+
+.btn-accion {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-card-bg);
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-accion:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-text);
+}
+
+.btn-accion:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (pointer: coarse) {
+  .point-nombre input,
+  .btn-accion {
+    min-height: 44px;
+  }
+
+  .interruptor {
+    width: 56px;
+    height: 32px;
+  }
+
+  .interruptor-perilla {
+    width: 26px;
+    height: 26px;
+  }
+
+  .interruptor[aria-checked='true'] .interruptor-perilla {
+    transform: translateX(24px);
+  }
+}

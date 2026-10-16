@@ -38,7 +38,7 @@ const PASOS_POR_TAB: Record<Tab, TourStep[]> = {
     {
       selector: '[data-tour="rendimiento-sistema"]',
       titulo: 'Rendimiento',
-      texto: 'Cuánto tarda cada endpoint de la API desde que arrancó el servidor, y las últimas requests lentas con su id: con ese id se encuentran sus líneas en el log del servidor.',
+      texto: 'Cuánto tarda cada endpoint de la API desde que arrancó el servidor (promedio, p95, máximo y tiempo total, con los errores 4xx y 5xx), y las últimas requests lentas con su id: con ese id se encuentran sus líneas en el log del servidor. Tocá una columna para ordenar por ella.',
     },
   ],
   rechazos: [
@@ -52,12 +52,7 @@ const PASOS_POR_TAB: Record<Tab, TourStep[]> = {
     {
       selector: '[data-tour="modulos-sistema"]',
       titulo: 'Módulos',
-      texto: 'Prendé o apagá partes del sistema, como la facturación o el cobro con Point. Apagar pide confirmar con un segundo toque.',
-    },
-    {
-      selector: '[data-tour="points-sistema"]',
-      titulo: 'Points de Mercado Pago',
-      texto: 'Los Points de la cuenta: el nombre que ven las tablets y si están integrados (reciben los cobros de la tablet) o en manual.',
+      texto: 'Prendé o apagá partes del sistema: la facturación (con sus partes de boletería y de compras online, que se apagan por separado), las reservas a pagar en el parque y el cobro con Point. Apagar pide confirmar con un segundo toque. Los Points en sí se manejan en Configuración > Points.',
     },
   ],
 };

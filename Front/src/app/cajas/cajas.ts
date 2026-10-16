@@ -1,4 +1,5 @@
 import { Component, OnInit, inject, signal, viewChild } from '@angular/core';
+import { DialogoConfirmacion } from '../shared/confirmacion/dialogo-confirmacion';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CajaService, Caja, CajaAbierta, CajaCerrada } from '../services/caja.service';
@@ -25,7 +26,7 @@ const CAJAS_CERRADAS_POR_PAGINA = 20;
 import { FacturaService } from '../services/factura.service';
 @Component({
   selector: 'app-configuracion-cajas',
-  imports: [FormsModule, PesosPipe, DatePipe, CabeceraInterna, Spinner, CierreCajaModal, CobrosPointSinVenta, ResumenCierre, Modal, CajaOperaciones, ColumnaOrdenable],
+  imports: [DialogoConfirmacion, FormsModule, PesosPipe, DatePipe, CabeceraInterna, Spinner, CierreCajaModal, CobrosPointSinVenta, ResumenCierre, Modal, CajaOperaciones, ColumnaOrdenable],
   templateUrl: './cajas.html',
   styleUrls: ['../configuracion/configuracion-shared.css', './cajas.css'],
 })
@@ -164,7 +165,7 @@ export class ConfiguracionCajas implements OnInit {
       selector: 'app-cierre-caja-modal [data-tour="conteo-posnet"]',
       alternativo: '[data-tour="cajas-abiertas"]',
       titulo: 'Cerrar: el posnet',
-      texto: 'Cargá lo que dio el cierre del posnet. "Juntos" si tarjeta y QR salieron en un solo comprobante, "Por separado" si no. Podés sumar varios cierres, cada uno con su nota.',
+      texto: 'Cargá lo que dio el cierre del posnet. "Juntos" si tarjeta y QR salieron en un solo comprobante, "Por separado" si no. Podés sumar varios cierres, cada uno con su nota. Lo cobrado con el Point integrado ya viene cargado (nota "Point integrado"), y abajo se avisa si quedó algún cobro con Point sin venta, para devolverlo.',
       antes: () => this.tutorialAbrirCierre(),
     },
     {
@@ -426,7 +427,7 @@ export class ConfiguracionCajas implements OnInit {
 
   /** Caja "sin control" (vender sin abrir caja): no hay nada que contar, así que se cierra ya
    * mismo sin pasar por el modal de conteo — mismo resultado que el job de medianoche. Antes
-   * pide confirmación (con un modal propio, no window.confirm) porque es instantáneo y no da
+   * pide confirmación (con el diálogo de la app, DialogoConfirmacion) porque es instantáneo y no da
    * lugar a revisar nada antes de cerrar. */
   cerrandoSinControlId = signal<number | null>(null);
   /** Id de la caja para la que se está mostrando el modal de confirmación; null = cerrado. */

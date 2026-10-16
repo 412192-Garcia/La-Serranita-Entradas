@@ -6,6 +6,28 @@ número y el CI la usa como nota de la Release de GitHub.
 
 ## Sin publicar
 
+- Sistema > Estado > Cajas: una caja de otro día que se dejó abierta a propósito deja de alertar
+  (punto rojo y mail diario) en cuanto un admin la ve en Cajas. Sigue figurando en la tarjeta como
+  información; si queda otra caja atrasada nueva, vuelve a avisar.
+- **Configuración > Points**: cada Point tiene un interruptor "En las tablets". Las tablets sólo
+  ven los habilitados, así el boletero no elige Points que no se usan. Arrancan todos ocultos: hay
+  que habilitar los de la boletería después de actualizar.
+- Se sacaron las ventanas nativas del navegador (confirmaciones y avisos): cancelar una venta,
+  devolver un cobro, reembolsar, cambiar un DNI, pasar un Point a manual, etc. ahora preguntan con
+  un diálogo propio de la app, con su estilo y colores.
+- Control de accesos: el botón de la semana actual dice **"Esta semana"** en vez de "Hoy" (abarca
+  toda la semana, no sólo el día).
+- Las sombras y resaltados que eran verdes fijos ahora siguen el color del tema elegido.
+- La lista de Points de Mercado Pago pasa de Sistema > Módulos a **Configuración > Points**, donde
+  la ve el admin del parque. Prender o apagar el cobro con Point sigue en Sistema > Módulos.
+- Los Points se listan por nombre (antes cambiaban de orden en cada consulta) y un Point recién
+  pasado a manual o integrado ya no desaparece de la lista hasta volver a actualizar.
+- Las etiquetas Integrado/Manual y las de estado de los módulos se leen bien con cualquier tema de
+  colores (antes se perdían con temas oscuros o con un color de borde fuerte).
+- Los avisos de Mercado Pago que no se pueden validar (copias en formato viejo de un pago, o
+  avisos de otra cuenta de MP que tiene configurada la URL del parque) se ignoran respondiendo OK:
+  Mercado Pago deja de reintentarlos y no ensucian Rendimiento. El log dice de qué cuenta vienen.
+
 ## 0.10.0 — 2026-10-15
 
 ### Cobro con Point de Mercado Pago

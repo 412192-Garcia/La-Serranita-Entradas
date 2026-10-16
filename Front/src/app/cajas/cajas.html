@@ -158,17 +158,15 @@
   </div>
 
   @if (confirmandoCierreSinControlId(); as id) {
-    <app-modal (cerrar)="confirmandoCierreSinControlId.set(null)">
-      <div class="dialogo-confirmacion">
-        <h3>Cerrar esta caja</h3>
-        <p>Esta caja no requiere ningun ingreso de cierre.</p>
-        <app-cobros-point-sin-venta [cajaId]="id" />
-        <div class="acciones-dialogo-confirmacion">
-          <button type="button" class="btn-limpiar" (click)="confirmandoCierreSinControlId.set(null)">Cancelar</button>
-          <button type="button" class="btn-primario" (click)="confirmarCierreSinControl()">Cerrar caja</button>
-        </div>
-      </div>
-    </app-modal>
+    <app-dialogo-confirmacion
+      titulo="Cerrar esta caja"
+      aceptar="Cerrar caja"
+      cancelar="Cancelar"
+      (confirmado)="confirmarCierreSinControl()"
+      (cancelado)="confirmandoCierreSinControlId.set(null)">
+      <p>Esta caja no requiere ningún ingreso de cierre.</p>
+      <app-cobros-point-sin-venta [cajaId]="id" />
+    </app-dialogo-confirmacion>
   }
 
   <!-- Se mantiene siempre montado (oculto con CSS, no @if): así "Cancelar" nunca borra los

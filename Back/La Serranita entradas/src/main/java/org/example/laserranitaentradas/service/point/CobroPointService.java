@@ -60,6 +60,10 @@ public class CobroPointService {
     private final CajaService cajaService;
 
     private volatile List<Terminal> terminalesCache;
+    /** Modo pedido hace poco, que manda sobre lo que diga MP mientras su lista se pone al día. */
+    private record ModoReciente(String modo, LocalDateTime hasta) {}
+    private final Map<String, ModoReciente> modosRecientes = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final Duration MODO_RECIENTE = Duration.ofMinutes(2);
     private volatile LocalDateTime terminalesCacheHasta = LocalDateTime.MIN;
 
     public CobroPointService(CobroPointRepository repository, TerminalPointRepository terminalRepository,
@@ -71,7 +75,8 @@ public class CobroPointService {
         this.cajaService = cajaService;
     }
 
-    public record TerminalDTO(String id, String nombre, String serie, String modo, boolean integrado) {}
+    /** habilitado: se puede elegir desde las tablets (se activa en Configuración > Points). */
+    public record TerminalDTO(String id, String nombre, String serie, String modo, boolean integrado, boolean habilitado) {}
 
     public record CobroPointDTO(Long id, String ordenId, String terminalId, BigDecimal monto, FormaPago formaPago,
                                 EstadoCobroPoint estado, boolean enCurso, String detalle, String motivo, String tipoMedio,
@@ -87,35 +92,58 @@ public class CobroPointService {
 
     /** Los Points de la cuenta, con el nombre que se les puso acá. */
     public List<TerminalDTO> terminales(boolean refrescar) {
-        // Copia local: cambiarModo puede vaciar la caché mientras tanto.
+        // Copia local: cambiarModo puede reemplazar la caché mientras tanto.
         List<Terminal> lista = terminalesCache;
         if (refrescar || lista == null || LocalDateTime.now().isAfter(terminalesCacheHasta)) {
-            lista = client.listarTerminales();
+            lista = conModosRecientes(client.listarTerminales(), lista);
             terminalesCache = lista;
             terminalesCacheHasta = LocalDateTime.now().plus(VIGENCIA_TERMINALES);
         }
         Map<String, String> nombres = new java.util.HashMap<>();
-        terminalRepository.findAll().forEach(t -> nombres.put(t.getId(), t.getNombre()));
+        Set<String> habilitados = new java.util.HashSet<>();
+        terminalRepository.findAll().forEach(t -> {
+            nombres.put(t.getId(), t.getNombre());
+            if (t.isHabilitado()) habilitados.add(t.getId());
+        });
+        // Por nombre: MP los devuelve en cualquier orden y cambiaban de lugar en cada consulta.
         return lista.stream().map(t -> {
             String serie = serie(t.id());
-            String nombre = nombres.getOrDefault(t.id(), "Point " + serie.substring(Math.max(0, serie.length() - 6)));
-            return new TerminalDTO(t.id(), nombre, serie, t.modo(), "PDV".equals(t.modo()));
-        }).toList();
+            String nombre = nombres.getOrDefault(t.id(), nombrePorDefecto(serie));
+            return new TerminalDTO(t.id(), nombre, serie, t.modo(), "PDV".equals(t.modo()), habilitados.contains(t.id()));
+        }).sorted(java.util.Comparator.comparing(TerminalDTO::nombre, String.CASE_INSENSITIVE_ORDER)
+                .thenComparing(TerminalDTO::serie)).toList();
     }
 
+    /** Los que se pueden elegir desde las tablets (los demás de la cuenta no aparecen en el POS). */
+    public List<TerminalDTO> terminalesHabilitados() {
+        return terminales(false).stream().filter(TerminalDTO::habilitado).toList();
+    }
+
+    /** Vacío = vuelve al nombre por defecto ("Point " + el final de la serie). */
     public void renombrar(String terminalId, String nombre) {
         String limpio = nombre == null ? "" : nombre.strip();
-        if (limpio.isEmpty()) {
-            terminalRepository.deleteById(terminalId);
-            return;
-        }
         if (limpio.length() > 60) {
             throw new IllegalArgumentException("El nombre puede tener hasta 60 caracteres");
         }
-        TerminalPoint t = terminalRepository.findById(terminalId).orElseGet(() -> new TerminalPoint(terminalId, limpio));
-        AuditoriaContexto.cambio("Nombre", t.getNombre().equals(limpio) ? null : t.getNombre(), limpio);
-        t.setNombre(limpio);
+        String nuevo = limpio.isEmpty() ? nombrePorDefecto(serie(terminalId)) : limpio;
+        TerminalPoint t = terminalRepository.findById(terminalId).orElseGet(() -> new TerminalPoint(terminalId, nuevo));
+        AuditoriaContexto.cambio("Nombre", t.getNombre().equals(nuevo) ? null : t.getNombre(), nuevo);
+        t.setNombre(nuevo);
         terminalRepository.save(t);
+    }
+
+    /** Que se pueda elegir (o no) desde las tablets. */
+    public void habilitar(String terminalId, boolean habilitado) {
+        TerminalPoint t = terminalRepository.findById(terminalId)
+                .orElseGet(() -> new TerminalPoint(terminalId, nombrePorDefecto(serie(terminalId))));
+        AuditoriaContexto.cambio("Disponible en las tablets", t.isHabilitado() ? "Sí" : "No", habilitado ? "Sí" : "No");
+        t.setHabilitado(habilitado);
+        terminalRepository.save(t);
+        log.info("Point {} {} para las tablets", terminalId, habilitado ? "habilitado" : "deshabilitado");
+    }
+
+    private static String nombrePorDefecto(String serie) {
+        return "Point " + serie.substring(Math.max(0, serie.length() - 6));
     }
 
     /** PDV = integrado (sólo cobra lo que manda la tablet); STANDALONE = se cobra a mano en el Point. */
@@ -133,7 +161,14 @@ public class CobroPointService {
                 default -> e.getMessage();
             });
         }
-        terminalesCache = null;
+        // Se actualiza en la caché en vez de tirarla: la lista de MP tarda en reflejar el cambio, y
+        // pedirla enseguida devolvía el Point con el modo viejo, o directamente sin él.
+        List<Terminal> lista = terminalesCache;
+        if (lista != null) {
+            terminalesCache = lista.stream().map(t -> t.id().equals(terminalId)
+                    ? new Terminal(t.id(), modo, t.posId(), t.storeId(), t.externalPosId()) : t).toList();
+        }
+        modosRecientes.put(terminalId, new ModoReciente(modo, LocalDateTime.now().plus(MODO_RECIENTE)));
         log.info("Point {} pasado a modo {}", terminalId, modo);
     }
 
@@ -141,6 +176,31 @@ public class CobroPointService {
     static String serie(String terminalId) {
         int i = terminalId.indexOf("__");
         return i >= 0 ? terminalId.substring(i + 2) : terminalId;
+    }
+
+    /**
+     * Lo que trae MP, corregido con los Points cuyo modo se cambió desde acá hace poco: la lista de
+     * MP tarda en ponerse al día y, mientras tanto, muestra el modo viejo o directamente no incluye
+     * ese Point (en la pantalla "desaparecía" hasta actualizar de nuevo).
+     */
+    List<Terminal> conModosRecientes(List<Terminal> deMp, List<Terminal> anterior) {
+        LocalDateTime ahora = LocalDateTime.now();
+        modosRecientes.values().removeIf(m -> ahora.isAfter(m.hasta()));
+        if (modosRecientes.isEmpty()) return deMp;
+        List<Terminal> resultado = new java.util.ArrayList<>(deMp.stream().map(t -> {
+            ModoReciente m = modosRecientes.get(t.id());
+            return m == null ? t : new Terminal(t.id(), m.modo(), t.posId(), t.storeId(), t.externalPosId());
+        }).toList());
+        if (anterior != null) {
+            Set<String> enMp = deMp.stream().map(Terminal::id).collect(java.util.stream.Collectors.toSet());
+            for (Terminal t : anterior) {
+                ModoReciente m = modosRecientes.get(t.id());
+                if (m != null && !enMp.contains(t.id())) {
+                    resultado.add(new Terminal(t.id(), m.modo(), t.posId(), t.storeId(), t.externalPosId()));
+                }
+            }
+        }
+        return resultado;
     }
 
     // ---------- Cobros ----------
@@ -160,6 +220,9 @@ public class CobroPointService {
         }
         if (pedido.terminalId() == null || pedido.terminalId().isBlank()) {
             throw new IllegalArgumentException("Elegí el Point en Dispositivos");
+        }
+        if (!terminalRepository.findById(pedido.terminalId()).map(TerminalPoint::isHabilitado).orElse(false)) {
+            throw new IllegalArgumentException("Ese Point no está habilitado para cobrar desde las tablets (Configuración > Points)");
         }
         if (pedido.monto() == null || pedido.monto().signum() <= 0) {
             throw new IllegalArgumentException("El monto a cobrar tiene que ser mayor a cero");

@@ -90,6 +90,10 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/interno/caja/cerradas/boleteros").hasRole("ADMIN")
                 // Lo cobrado con el Point en una caja: es un total "esperado", como los del cierre.
                 .requestMatchers(HttpMethod.GET, "/api/interno/point/caja/*/resumen").hasRole("ADMIN")
+                // Configuración > Points: la lista recién traída de MP y el nombre de cada Point. El
+                // modo (integrado/manual) lo puede cambiar cualquiera, desde Dispositivos en el POS.
+                .requestMatchers(HttpMethod.GET, "/api/interno/point/terminales/actualizadas").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.PUT, "/api/interno/point/terminales/*/nombre", "/api/interno/point/terminales/*/habilitado").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/api/interno/compras/*/cancelar-venta").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/api/interno/compras/*/editar-venta").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/interno/compras/caja/*/venta-pos").hasRole("ADMIN")

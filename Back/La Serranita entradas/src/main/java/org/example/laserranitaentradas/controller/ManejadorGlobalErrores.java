@@ -47,15 +47,6 @@ public class ManejadorGlobalErrores {
         return ResponseEntity.status(estado).body("No existe.");
     }
 
-    /** Mercado Pago rechazó o no respondió un pedido del Point (token sin permiso para Point, MP caído,
-     * Point mal configurado): es un problema de afuera, no un error del servidor. 502 con el motivo
-     * para mostrarlo en pantalla, y sin ensuciar Sistema > Errores en cada consulta de las tablets. */
-    @ExceptionHandler(org.example.laserranitaentradas.service.point.MercadoPagoPointClient.PointException.class)
-    public ResponseEntity<String> errorDeMercadoPagoPoint(RuntimeException ex) {
-        log.warn("Mercado Pago (Point): {}", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(ex.getMessage());
-    }
-
     /** Un controller que ya decidió el código HTTP (ej. 401 del agente de impresión con un token
      * inválido): se respeta ese código en vez de convertirlo en un 500. */
     @ExceptionHandler(ResponseStatusException.class)

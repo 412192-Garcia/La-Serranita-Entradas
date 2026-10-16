@@ -81,10 +81,20 @@ echo "    Commit a deployar: $(git log -1 --format='%h  %s  (%an, %ar)' "$SHA")"
 
 if [ "$ESPERAR_CI" = 1 ]; then
   PASO="esperar el CI"
-  echo "==> Esperando el CI de ${SHA:0:7} (publica las imágenes que va a bajar el VPS)..."
+  # El commit "Changelog: versión X.Y.Z" lo hace el bot de Actions al publicar una release, y esos
+  # commits no disparan workflows: no tiene CI propio. Las imágenes las publicó el CI del commit
+  # anterior (el merge de la release), así que se espera ése. Sólo si el commit no toca otra cosa.
+  SHA_CI="$SHA"
+  while [ "$(git diff-tree --no-commit-id --name-only -r "$SHA_CI")" = "CHANGELOG.md" ]; do
+    SHA_CI="$(git rev-parse "$SHA_CI^")"
+  done
+  if [ "$SHA_CI" != "$SHA" ]; then
+    echo "    ${SHA:0:7} sólo cambia el CHANGELOG: se espera el CI de ${SHA_CI:0:7}, que publicó las imágenes."
+  fi
+  echo "==> Esperando el CI de ${SHA_CI:0:7} (publica las imágenes que va a bajar el VPS)..."
   inicio=$(date +%s)
   while :; do
-    estado="$(curl -fsS "$REPO_API/actions/runs?head_sha=$SHA&per_page=20" 2>/dev/null | python -c '
+    estado="$(curl -fsS "$REPO_API/actions/runs?head_sha=$SHA_CI&per_page=20" 2>/dev/null | python -c '
 import sys, json
 runs = [r for r in json.load(sys.stdin).get("workflow_runs", []) if r.get("name") == "CI"]
 if not runs: print("sin-run")

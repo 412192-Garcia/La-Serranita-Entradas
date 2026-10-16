@@ -1,4 +1,5 @@
 import { Component, inject, input, output, signal } from '@angular/core';
+import { ConfirmacionService } from '../../shared/confirmacion/confirmacion.service';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Caja, CajaService, IngresoEntradas, TipoMovimientoEntradas } from '../../services/caja.service';
@@ -15,6 +16,7 @@ import { SeleccionarAlFocoDirective } from '../../shared/seleccionar-al-foco.dir
 export class IngresoEntradasModal {
   private pendientes = inject(OperacionesPendientesService);
   private cajaService = inject(CajaService);
+  private confirmacion = inject(ConfirmacionService);
 
   ingresos = input<IngresoEntradas[]>([]);
   /** Entradas físicas que el boletero tiene ahora (inicial + ingresos netos hasta este momento):
@@ -65,9 +67,11 @@ export class IngresoEntradasModal {
     }
     if (tipo === 'RETIRO' && cantidad > this.stockActual()) {
       const resultante = this.stockActual() - cantidad;
-      const sigue = window.confirm(
-        `Tenés ${this.stockActual()} entradas y estás por retirar ${cantidad}: el conteo va a quedar en ${resultante}. ¿Confirmás igual?`
-      );
+      const sigue = await this.confirmacion.pedir({
+        titulo: 'Retirar más entradas de las que hay',
+        mensaje: `Tenés ${this.stockActual()} entradas y estás por retirar ${cantidad}: el conteo va a quedar en ${resultante}.`,
+        aceptar: 'Retirar igual',
+      });
       if (!sigue) return;
     }
     this.registrando.set(true);

@@ -177,7 +177,7 @@ export class ReservasBusqueda implements OnDestroy {
   // y arma una página por cada semana que tenga al menos un día con compras (`paginasDias`).
   // El rango de una página es fijo (no se corre porque entró o salió una reserva); la semana
   // que contiene "hoy" (`paginaHoy`) es el punto de partida y queda marcada, y hay un botón
-  // "Hoy" para volver desde cualquier lado.
+  // "Esta semana" para volver desde cualquier lado.
   private diasConActividad = signal<string[]>([]);
 
   /** Una página por cada semana calendario (lunes–domingo) con al menos un día con compras.

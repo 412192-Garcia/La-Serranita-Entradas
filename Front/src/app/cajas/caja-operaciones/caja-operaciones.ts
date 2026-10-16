@@ -1,4 +1,5 @@
 import { Component, OnInit, computed, inject, input, output, signal } from '@angular/core';
+import { ConfirmacionService } from '../../shared/confirmacion/confirmacion.service';
 import { DatePipe, NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CajaDetalleAbierta, CajaService, OperacionCaja, etiquetaTipoOperacion } from '../../services/caja.service';
@@ -59,6 +60,7 @@ import { FacturaService } from '../../services/factura.service';
 })
 export class CajaOperaciones implements OnInit {
   private cajaService = inject(CajaService);
+  private confirmacion = inject(ConfirmacionService);
   private boleteriaService = inject(BoleteriaService);
   private tipoEntradaService = inject(TipoEntradaService);
   private articuloVarioService = inject(ArticuloVarioService);
@@ -169,9 +171,16 @@ export class CajaOperaciones implements OnInit {
     });
   }
 
-  cancelar(op: OperacionCaja): void {
+  async cancelar(op: OperacionCaja): Promise<void> {
     if (op.compraId === null) return;
-    if (!window.confirm(`¿Cancelar esta venta (${op.detalle})? Deja de contar para el cupo diario, la caja y los reportes. Si estaba facturada, se emite una nota de crédito por el total. Si se cobró con el Point, se le devuelve el pago al cliente.`)) return;
+    const confirmado = await this.confirmacion.pedir({
+      titulo: 'Cancelar la venta',
+      mensaje: `${op.detalle}\n\nDeja de contar para el cupo diario, la caja y los reportes. Si estaba facturada, se emite una nota de crédito por el total. Si se cobró con el Point, se le devuelve el pago al cliente.`,
+      aceptar: 'Cancelar la venta',
+      cancelar: 'No, dejarla',
+      peligro: true,
+    });
+    if (!confirmado) return;
     this.cancelandoId.set(op.compraId);
     this.boleteriaService.cancelarVenta(op.compraId).subscribe({
       next: () => {
@@ -181,7 +190,7 @@ export class CajaOperaciones implements OnInit {
       },
       error: (err) => {
         console.error('Error al cancelar la venta:', err);
-        window.alert(typeof err?.error === 'string' ? err.error : 'No se pudo cancelar la venta. Reintentá.');
+        void this.confirmacion.avisar('No se pudo cancelar la venta', typeof err?.error === 'string' && err.error ? err.error : 'Reintentá en un rato.');
         this.cancelandoId.set(null);
       },
     });
