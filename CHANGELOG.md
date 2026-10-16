@@ -6,6 +6,8 @@ número y el CI la usa como nota de la Release de GitHub.
 
 ## Sin publicar
 
+## 0.10.1 — 2026-10-16
+
 - Sistema > Estado > Cajas: una caja de otro día que se dejó abierta a propósito deja de alertar
   (punto rojo y mail diario) en cuanto un admin la ve en Cajas. Sigue figurando en la tarjeta como
   información; si queda otra caja atrasada nueva, vuelve a avisar.
