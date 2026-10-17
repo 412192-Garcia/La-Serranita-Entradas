@@ -1,4 +1,5 @@
 import { Component, OnInit, computed, inject, input, output, signal } from '@angular/core';
+import { ToastService } from '../../shared/toast/toast.service';
 import { ConfirmacionService } from '../../shared/confirmacion/confirmacion.service';
 import { DatePipe, NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -61,6 +62,7 @@ import { FacturaService } from '../../services/factura.service';
 export class CajaOperaciones implements OnInit {
   private cajaService = inject(CajaService);
   private confirmacion = inject(ConfirmacionService);
+  private toast = inject(ToastService);
   private boleteriaService = inject(BoleteriaService);
   private tipoEntradaService = inject(TipoEntradaService);
   private articuloVarioService = inject(ArticuloVarioService);
@@ -190,7 +192,7 @@ export class CajaOperaciones implements OnInit {
       },
       error: (err) => {
         console.error('Error al cancelar la venta:', err);
-        void this.confirmacion.avisar('No se pudo cancelar la venta', typeof err?.error === 'string' && err.error ? err.error : 'Reintentá en un rato.');
+        this.toast.error(typeof err?.error === 'string' && err.error ? err.error : 'No se pudo cancelar la venta. Reintentá en un rato.');
         this.cancelandoId.set(null);
       },
     });

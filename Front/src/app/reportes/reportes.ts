@@ -22,12 +22,12 @@ const PASOS_RESUMEN: TourStep[] = [
   {
     selector: '[data-tour="kpis-reportes"]',
     titulo: 'Números principales',
-    texto: 'Recaudación total, anticipada, en puerta y personas que entraron, para el rango elegido.',
+    texto: 'Recaudación total, anticipada (reservas hechas de antemano), en puerta y entradas vendidas, para el rango elegido.',
   },
   {
     selector: '[data-tour="graficos-reportes"]',
     titulo: 'Gráficos y desgloses',
-    texto: 'Más abajo hay gráficos con el detalle: afluencia diaria, desglose por tipo, forma de pago, horarios y más.',
+    texto: 'Más abajo hay gráficos con el detalle: afluencia diaria, desglose por tipo, forma de pago, boletería contra anticipadas, horarios y más.',
   },
   {
     selector: '[data-tour="ranking-boleteros"]',

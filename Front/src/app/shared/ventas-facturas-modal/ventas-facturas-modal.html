@@ -111,11 +111,6 @@
               }
             }
 
-            @if (aviso(); as a) {
-              @if (a.compraId === v.compraId) {
-                <p class="aviso" [class.aviso-error]="a.error" role="status">{{ a.texto }}</p>
-              }
-            }
           </li>
         }
       </ul>

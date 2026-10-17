@@ -1,4 +1,5 @@
 import { Component, DestroyRef, OnInit, inject, input, output, signal } from '@angular/core';
+import { ToastService } from '../../shared/toast/toast.service';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -45,6 +46,7 @@ type Accion = { compraId: number; tipo: 'mail' | 'facturar' };
 })
 export class VentasFacturasModal implements OnInit {
   private facturaService = inject(FacturaService);
+  private toast = inject(ToastService);
   private destroyRef = inject(DestroyRef);
   readonly impresoras = inject(ImpresorasService);
   readonly enLinea = inject(ConectividadService).enLinea;
@@ -64,7 +66,6 @@ export class VentasFacturasModal implements OnInit {
   /** compraId de la fila con un pedido en curso (reimprimir, mandar, facturar...). */
   enviando = signal<number | null>(null);
   /** Resultado del último pedido, debajo de su fila. */
-  aviso = signal<{ compraId: number; texto: string; error: boolean } | null>(null);
 
   private refresco: Subscription | null = null;
   private refrescosHechos = 0;
@@ -79,7 +80,6 @@ export class VentasFacturasModal implements OnInit {
   cargar(): void {
     this.cargando.set(true);
     this.errorCarga.set(null);
-    this.aviso.set(null);
     this.refrescosHechos = 0;
     this.facturaService
       .ventasDeCaja(this.cajaId())
@@ -120,7 +120,6 @@ export class VentasFacturasModal implements OnInit {
     }
     this.accion.set({ compraId: v.compraId, tipo });
     this.email.set(v.factura?.email ?? '');
-    this.aviso.set(null);
   }
 
   abierta(v: VentaFactura, tipo: Accion['tipo']): boolean {
@@ -168,25 +167,24 @@ export class VentasFacturasModal implements OnInit {
       },
       error: (err) => {
         pestana?.close();
-        this.aviso.set({ compraId: v.compraId, texto: this.mensaje(err, 'No se pudo abrir el PDF.'), error: true });
+        this.toast.error(this.mensaje(err, 'No se pudo abrir el PDF.'));
       },
     });
   }
 
   private pedir(v: VentaFactura, pedido: Observable<unknown>, ok: string): void {
     this.enviando.set(v.compraId);
-    this.aviso.set(null);
     pedido.pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: () => {
         this.enviando.set(null);
         this.accion.set(null);
-        this.aviso.set({ compraId: v.compraId, texto: ok, error: false });
+        this.toast.exito(ok);
         this.refrescosHechos = 0;
         this.recargarSilencioso();
       },
       error: (err) => {
         this.enviando.set(null);
-        this.aviso.set({ compraId: v.compraId, texto: this.mensaje(err, 'No se pudo completar.'), error: true });
+        this.toast.error(this.mensaje(err, 'No se pudo completar.'));
       },
     });
   }

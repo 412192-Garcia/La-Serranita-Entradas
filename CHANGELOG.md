@@ -6,6 +6,27 @@ número y el CI la usa como nota de la Release de GitHub.
 
 ## Sin publicar
 
+- Control de facturas: los textos del estado sin certificado y de la numeración ya no hablan del
+  "CUIT de prueba" de AfipSDK, que no existe más.
+- Avisos de Mercado Pago: los del formato viejo (que nunca validan) se siguen ignorando sin error;
+  los del formato nuevo que no validan vuelven a rechazarse y quedan avisados en el log con la
+  cuenta de MP de la que vienen, para detectar un secreto mal configurado o una cuenta ajena.
+- Avisos tipo **toast** (abajo a la derecha, abajo al centro en el celular, se van solos): el
+  resultado de una acción ya no aparece como un texto dentro de la pantalla, a veces lejos del botón.
+  Lo usan los Points, la facturación manual y en lote, el control de facturas, las ventanas de
+  facturas de una venta o de una caja, el reenvío de mails en Control de accesos, el horario
+  general, el cambio de contraseña y la cancelación de ventas.
+- Reportes > Compras por estado: ahora aparecen las compras canceladas, reembolsadas y con pago
+  pendiente (antes salían siempre en 0). Cuentan si se crearon en el período o si su día de visita
+  cae en el período; no suman en recaudación ni en ningún otro total.
+- Reportes: lo pagado con Mercado Pago cuenta el día en que se aprobó el pago (antes, el día en que
+  se armó la compra; un checkout de las 23:58 pagado a las 00:05 caía el día anterior).
+- Reportes: la torta "Recaudación por forma de pago" aplica los ajustes de caja hechos al revisar los
+  cierres (por ejemplo, una venta anotada en efectivo que fue con tarjeta). La recaudación total no
+  cambia.
+- Reportes: la tarjeta Facturado incluye y nombra también las Factura A, y se corrigieron textos de
+  ayuda que no describían bien lo que mostraban (recaudación anticipada, ventas por origen).
+
 ## 0.10.1 — 2026-10-16
 
 - Sistema > Estado > Cajas: una caja de otro día que se dejó abierta a propósito deja de alertar

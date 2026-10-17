@@ -1,4 +1,5 @@
 import { Component, HostListener, inject, OnDestroy, OnInit, signal } from '@angular/core';
+import { ToastService } from '../shared/toast/toast.service';
 import { ConfirmacionService } from '../shared/confirmacion/confirmacion.service';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -90,6 +91,7 @@ import { FacturaService } from '../services/factura.service';
 })
 export class Boleteria implements OnInit, OnDestroy {
   private boleteriaService = inject(BoleteriaService);
+  private toast = inject(ToastService);
   private confirmacion = inject(ConfirmacionService);
   private cajaService = inject(CajaService);
   private route = inject(ActivatedRoute);
@@ -264,23 +266,21 @@ export class Boleteria implements OnInit, OnDestroy {
   }
 
   reenviandoId = signal<number | null>(null);
-  avisoReenvio = signal<string | null>(null);
 
   reenviarMail(reserva: Reserva, event: MouseEvent): void {
     event.stopPropagation();
     this.menuAbiertoId.set(null);
     this.reenviandoId.set(reserva.id);
-    this.avisoReenvio.set(null);
 
     this.boleteriaService.reenviarMail(reserva.id).subscribe({
       next: () => {
         this.reenviandoId.set(null);
-        this.avisoReenvio.set(`Mail reenviado (compra #${reserva.codigoReserva}).`);
+        this.toast.exito(`Mail reenviado (compra #${reserva.codigoReserva}).`);
       },
       error: (err) => {
         console.error('Error al reenviar el mail:', err);
         this.reenviandoId.set(null);
-        this.avisoReenvio.set(typeof err?.error === 'string' ? err.error : 'No se pudo reenviar el mail.');
+        this.toast.error(typeof err?.error === 'string' && err.error ? err.error : 'No se pudo reenviar el mail.');
       },
     });
   }

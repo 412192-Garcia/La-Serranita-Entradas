@@ -108,9 +108,6 @@
     }
   </div>
 
-  @if (avisoReenvio()) {
-    <p class="aviso-reenvio">{{ avisoReenvio() }}</p>
-  }
 
   <app-listado-reservas [menu]="menuTpl" (cobrar)="busqueda.cobrarYValidar($event)" />
 

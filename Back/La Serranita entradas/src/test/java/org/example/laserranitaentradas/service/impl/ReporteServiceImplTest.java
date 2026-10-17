@@ -51,6 +51,7 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class ReporteServiceImplTest {
 
+    @Mock private org.example.laserranitaentradas.repository.AjusteCajaRepository ajusteCajaRepository;
     @Mock private CompraRepository compraRepository;
     @Mock private TipoEntradaRepository tipoEntradaRepository;
     @Mock private CajaRepository cajaRepository;
@@ -68,7 +69,7 @@ class ReporteServiceImplTest {
     @BeforeEach
     void setUp() {
         service = new ReporteServiceImpl(compraRepository, tipoEntradaRepository, cajaRepository, retiroCajaRepository,
-                cajaService, calculoPrecioService, facturaRepository);
+                cajaService, calculoPrecioService, facturaRepository, ajusteCajaRepository);
         lenient().when(tipoEntradaRepository.findAll()).thenReturn(List.of());
         lenient().when(cajaRepository.findAllByFechaCierreBetweenOrderByFechaCierreDesc(any(), any())).thenReturn(List.of());
         lenient().when(cajaRepository.findIdsDeshabilitadas()).thenReturn(List.of());
@@ -165,6 +166,66 @@ class ReporteServiceImplTest {
         assertThat(soloDomingo.getPersonasIngresadas()).isEqualTo(2);
         assertThat(pasesReservados(soloDomingo, domingo)).isZero();
         assertThat(pasesValidados(soloDomingo, domingo)).isEqualTo(2);
+    }
+
+    @Test
+    void generarResumen_ajusteDeCaja_reubicaEntreFormasDePago_sinCambiarElTotal() {
+        Compra efectivo = ventaPuerta("10000", FormaPago.EFECTIVO_BOLETERIA, DIA);
+        stubReporte(efectivo);
+        // En el cierre se corrigió: esos $10.000 en realidad fueron con tarjeta.
+        var caja = org.example.laserranitaentradas.model.entity.Caja.builder().id(5L).build();
+        var ajuste = org.example.laserranitaentradas.model.entity.AjusteCaja.builder().caja(caja)
+                .formaOrigen(FormaPago.EFECTIVO_BOLETERIA).formaDestino(FormaPago.TARJETA)
+                .monto(new BigDecimal("10000")).cantidadVentas(1).build();
+        when(ajusteCajaRepository.findAllDeCajasAbiertasEntre(any(), any())).thenReturn(List.of(ajuste));
+
+        ReporteResumenDTO resumen = service.generarResumen(DIA, DIA);
+
+        assertThat(montoForma(resumen, FormaPago.EFECTIVO_BOLETERIA)).isEqualByComparingTo("0");
+        assertThat(montoForma(resumen, FormaPago.TARJETA)).isEqualByComparingTo("10000");
+        assertThat(resumen.getRecaudacionTotal()).isEqualByComparingTo("10000");
+    }
+
+    private static BigDecimal montoForma(ReporteResumenDTO r, FormaPago forma) {
+        return r.getRecaudacionPorFormaPago().stream().filter(f -> f.getFormaPago() == forma).findFirst().orElseThrow().getMonto();
+    }
+
+    @Test
+    void generarResumen_mercadoPago_recaudacionAlDiaDelPago_noAlDeLaCompra() {
+        // Checkout armado un día y pagado al siguiente: la plata entró el día del pago.
+        Compra pagadaAlOtroDia = mpAprobada("8000", DIA.minusDays(1), DIA.plusDays(3));
+        pagadaAlOtroDia.setFechaPago(DIA.atTime(0, 10));
+
+        stubReporte(pagadaAlOtroDia);
+
+        assertThat(service.generarResumen(DIA, DIA).getRecaudacionTotal()).isEqualByComparingTo("8000");
+        assertThat(service.generarResumen(DIA.minusDays(1), DIA.minusDays(1)).getRecaudacionTotal()).isEqualByComparingTo("0");
+    }
+
+    @Test
+    void generarResumen_comprasPorEstado_incluyeCanceladasReembolsadasYPendientes_sinSumarPlata() {
+        Compra cancelada = mpAprobada("5000", DIA, DIA.plusDays(5));
+        cancelada.setEstado(EstadoCompra.CANCELADO);
+        Compra reembolsada = mpAprobada("7000", DIA.minusDays(10), DIA);
+        reembolsada.setEstado(EstadoCompra.REEMBOLSADA);
+        Compra pendiente = mpAprobada("3000", DIA, DIA.plusDays(2));
+        pendiente.setEstado(EstadoCompra.PENDIENTE_PAGO);
+        Compra pagada = mpAprobada("9000", DIA, DIA.plusDays(2));
+
+        stubReporte(cancelada, reembolsada, pendiente, pagada);
+
+        ReporteResumenDTO resumen = service.generarResumen(DIA, DIA);
+        java.util.Map<EstadoCompra, Long> porEstado = resumen.getComprasPorEstado().stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        org.example.laserranitaentradas.model.dto.ComprasPorEstadoDTO::getEstado,
+                        org.example.laserranitaentradas.model.dto.ComprasPorEstadoDTO::getCantidad));
+        // Creada en el rango (cancelada, pendiente) o con la visita en el rango (reembolsada).
+        assertThat(porEstado.get(EstadoCompra.CANCELADO)).isEqualTo(1);
+        assertThat(porEstado.get(EstadoCompra.REEMBOLSADA)).isEqualTo(1);
+        assertThat(porEstado.get(EstadoCompra.PENDIENTE_PAGO)).isEqualTo(1);
+        assertThat(porEstado.get(EstadoCompra.APROBADO)).isEqualTo(1);
+        // Pero la plata sigue siendo sólo la de la compra pagada.
+        assertThat(resumen.getRecaudacionTotal()).isEqualByComparingTo("9000");
     }
 
     @Test

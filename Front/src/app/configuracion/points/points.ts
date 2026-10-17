@@ -1,4 +1,5 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
+import { ToastService } from '../../shared/toast/toast.service';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { LucideRefreshCw } from '@lucide/angular';
@@ -20,6 +21,7 @@ import { PointService, TerminalPoint } from '../../services/point.service';
 export class ConfiguracionPoints implements OnInit {
   private point = inject(PointService);
   private modulos = inject(ModulosService);
+  private toast = inject(ToastService);
 
   /** Cobro con Point prendido en Sistema > Módulos (y con token en el servidor). */
   readonly moduloActivo = this.modulos.pointActivo;
@@ -27,7 +29,6 @@ export class ConfiguracionPoints implements OnInit {
   terminales = signal<TerminalPoint[] | null>(null);
   cargando = signal(false);
   error = signal<string | null>(null);
-  aviso = signal<string | null>(null);
   /** Nombre que se está editando, por id de Point. */
   nombres = signal<Record<string, string>>({});
   operando = signal<string | null>(null);
@@ -104,17 +105,16 @@ export class ConfiguracionPoints implements OnInit {
 
   private operar(t: TerminalPoint, pedido: ReturnType<PointService['renombrar']>, aviso: string, alTerminar: () => void): void {
     this.operando.set(t.id);
-    this.aviso.set(null);
     this.error.set(null);
     pedido.subscribe({
       next: () => {
         this.operando.set(null);
-        this.aviso.set(aviso);
+        this.toast.exito(aviso);
         alTerminar();
       },
       error: (err) => {
         this.operando.set(null);
-        this.error.set(this.mensaje(err, 'No se pudo hacer el cambio.'));
+        this.toast.error(this.mensaje(err, 'No se pudo hacer el cambio.'));
       },
     });
   }

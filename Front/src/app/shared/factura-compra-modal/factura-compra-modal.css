@@ -177,12 +177,6 @@
   gap: 6px;
 }
 
-.aviso {
-  margin: 0;
-  font-size: 0.82rem;
-  color: var(--color-primary-dark);
-}
-
 @media (pointer: coarse) {
   .btn-icono { width: 44px; height: 44px; }
   .btn-accion, .btn-primario, .btn-secundario, .form-fila input { min-height: 44px; }

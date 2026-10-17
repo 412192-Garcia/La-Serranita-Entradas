@@ -69,27 +69,25 @@ class PagoControllerTest {
     }
 
     @Test
-    void conSecretoYSinHeaderDeFirma_seIgnora() {
+    void conSecretoYSinHeaderDeFirma_rechaza401() {
         configurarSecreto(SECRETO);
 
         ResponseEntity<Void> respuesta = controller.recibirWebhook(
                 "payment", null, "123456789", null, null, "req-1", null, request);
 
-        // 200 para que MP no lo reintente, pero sin procesar nada.
-        assertThat(respuesta.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(respuesta.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
         verify(compraService, never()).confirmarPagoMercadoPago(any());
     }
 
     @Test
-    void conSecretoYFirmaConValorIncorrecto_seIgnora() {
+    void conSecretoYFirmaConValorIncorrecto_rechaza401() {
         configurarSecreto(SECRETO);
         String xSignature = "ts=1700000000,v1=" + "0".repeat(64);
 
         ResponseEntity<Void> respuesta = controller.recibirWebhook(
                 "payment", null, "123456789", null, xSignature, "req-1", null, request);
 
-        // 200 para que MP no lo reintente, pero sin procesar nada.
-        assertThat(respuesta.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(respuesta.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
         verify(compraService, never()).confirmarPagoMercadoPago(any());
     }
 
@@ -101,6 +99,19 @@ class PagoControllerTest {
 
         ResponseEntity<Void> respuesta = controller.recibirWebhook(
                 "payment", null, "123456789", null, xSignature, "req-1", null, request);
+
+        assertThat(respuesta.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        verify(compraService, never()).confirmarPagoMercadoPago(any());
+    }
+
+    @Test
+    void formatoViejoSinFirmaValida_seIgnoraCon200() {
+        // IPN (?topic=payment&id=...): MP lo manda además del aviso nuevo y nunca valida la firma.
+        configurarSecreto(SECRETO);
+        String xSignature = "ts=1700000000,v1=" + "0".repeat(64);
+
+        ResponseEntity<Void> respuesta = controller.recibirWebhook(
+                null, "payment", null, "123456789", xSignature, "req-1", null, request);
 
         // 200 para que MP no lo reintente, pero sin procesar nada.
         assertThat(respuesta.getStatusCode()).isEqualTo(HttpStatus.OK);
@@ -148,8 +159,7 @@ class PagoControllerTest {
         ResponseEntity<Void> respuesta = controller.recibirWebhook(
                 "payment", null, "123456789", null, xSignature, "req-1", null, request);
 
-        // 200 para que MP no lo reintente, pero sin procesar nada.
-        assertThat(respuesta.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(respuesta.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
     }
 
     @Test
@@ -163,8 +173,7 @@ class PagoControllerTest {
         ResponseEntity<Void> respuesta = controller.recibirWebhook(
                 "payment", null, "123456789", null, xSignature, "req-distinto", null, request);
 
-        // 200 para que MP no lo reintente, pero sin procesar nada.
-        assertThat(respuesta.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(respuesta.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
         verify(compraService, never()).confirmarPagoMercadoPago(any());
     }
 

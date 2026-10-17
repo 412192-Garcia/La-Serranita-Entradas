@@ -18,6 +18,11 @@ public interface AjusteCajaRepository extends JpaRepository<AjusteCaja, Long> {
 
     Optional<AjusteCaja> findByIdAndCajaId(Long id, Long cajaId);
 
+    /** Ajustes de las cajas abiertas en el rango (con la caja ya cargada), para el reporte. */
+    @Query("SELECT a FROM AjusteCaja a JOIN FETCH a.caja c WHERE c.fechaApertura >= :desde AND c.fechaApertura < :hasta")
+    List<AjusteCaja> findAllDeCajasAbiertasEntre(@Param("desde") java.time.LocalDateTime desde,
+                                                 @Param("hasta") java.time.LocalDateTime hasta);
+
     /** [idCaja, neto de ajustes hacia esas formas] por caja, en lote: lo que entró (formaDestino) menos lo que salió (formaOrigen). */
     @Query("SELECT a.caja.id, " +
             "COALESCE(SUM(CASE WHEN a.formaDestino IN :formas THEN a.monto ELSE 0 END), 0) - " +

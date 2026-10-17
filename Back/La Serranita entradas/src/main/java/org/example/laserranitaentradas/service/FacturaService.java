@@ -65,7 +65,7 @@ public interface FacturaService {
 
     /**
      * Compara el último número de cada punto de venta en uso (facturas y notas de crédito) con el de
-     * ARCA. Sólo en producción: en homologación el CUIT de prueba es compartido y nunca coincide.
+     * ARCA. Sólo en producción: en homologación los comprobantes son de prueba.
      * Corre todas las noches y a pedido; el resultado queda para controlFacturacion.
      */
     java.util.List<org.example.laserranitaentradas.model.dto.ControlFacturacionDTO.Desfase> controlarNumeracion();

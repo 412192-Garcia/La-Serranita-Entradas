@@ -1,4 +1,5 @@
 import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import { ToastService } from '../../shared/toast/toast.service';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -34,6 +35,7 @@ const DIAS_AVISO_CERTIFICADO = 30;
 })
 export class ControlFacturas implements OnInit {
   private facturaService = inject(FacturaService);
+  private toast = inject(ToastService);
   private destroyRef = inject(DestroyRef);
 
   readonly numeroComprobante = numeroComprobante;
@@ -46,7 +48,6 @@ export class ControlFacturas implements OnInit {
   controlando = signal(false);
   reintentandoId = signal<number | null>(null);
   reintentandoTodas = signal(false);
-  aviso = signal<{ texto: string; error: boolean } | null>(null);
 
   desde = signal(aFechaISO(new Date(new Date().getFullYear(), new Date().getMonth(), 1)));
   hasta = signal(aFechaISO(new Date()));
@@ -96,34 +97,31 @@ export class ControlFacturas implements OnInit {
 
   controlarAhora(): void {
     this.controlando.set(true);
-    this.aviso.set(null);
     this.facturaService.controlarNumeracion().subscribe({
       next: (desfases) => {
         this.controlando.set(false);
-        this.aviso.set(desfases.length
-          ? { texto: 'La numeración no coincide con ARCA: revisá los puntos de venta marcados.', error: true }
-          : { texto: 'Numeración controlada: coincide con ARCA.', error: false });
+        if (desfases.length) this.toast.error('La numeración no coincide con ARCA: revisá los puntos de venta marcados.');
+        else this.toast.exito('Numeración controlada: coincide con ARCA.');
         this.cargar();
       },
       error: (err) => {
         this.controlando.set(false);
-        this.aviso.set({ texto: this.mensaje(err, 'No se pudo controlar la numeración.'), error: true });
+        this.toast.error(this.mensaje(err, 'No se pudo controlar la numeración.'));
       },
     });
   }
 
   reintentar(facturaId: number): void {
     this.reintentandoId.set(facturaId);
-    this.aviso.set(null);
     this.facturaService.reintentar(facturaId).subscribe({
       next: () => {
         this.reintentandoId.set(null);
-        this.aviso.set({ texto: 'Se vuelve a intentar: en unos segundos se actualiza.', error: false });
+        this.toast.exito('Se vuelve a intentar: en unos segundos se actualiza.');
         setTimeout(() => this.cargar(), 3000);
       },
       error: (err) => {
         this.reintentandoId.set(null);
-        this.aviso.set({ texto: this.mensaje(err, 'No se pudo reintentar.'), error: true });
+        this.toast.error(this.mensaje(err, 'No se pudo reintentar.'));
       },
     });
   }
@@ -133,7 +131,6 @@ export class ControlFacturas implements OnInit {
     const ids = (this.control()?.problemas ?? []).filter((p) => p.factura.estado === 'ERROR').map((p) => p.factura.id);
     if (!ids.length) return;
     this.reintentandoTodas.set(true);
-    this.aviso.set(null);
     let pendientes = ids.length;
     let fallidas = 0;
     for (const id of ids) {
@@ -147,9 +144,8 @@ export class ControlFacturas implements OnInit {
   private terminarUna(pendientes: number, fallidas: number, total: number): void {
     if (pendientes > 0) return;
     this.reintentandoTodas.set(false);
-    this.aviso.set(fallidas
-      ? { texto: `Se reintentaron ${total - fallidas} de ${total}; ${fallidas} no se pudieron reintentar.`, error: true }
-      : { texto: `Se reintentaron ${total}: en unos segundos se actualiza.`, error: false });
+    if (fallidas) this.toast.error(`Se reintentaron ${total - fallidas} de ${total}; ${fallidas} no se pudieron reintentar.`);
+    else this.toast.exito(`Se reintentaron ${total}: en unos segundos se actualiza.`);
     setTimeout(() => this.cargar(), 3000);
   }
 

@@ -31,7 +31,7 @@
             }
           } @else {
             <strong>Sin certificado</strong>
-            <span class="secundario">Homologación (pruebas) con el CUIT de prueba.</span>
+            <span class="secundario">La facturación está apagada: falta el certificado y la clave de ARCA en el servidor.</span>
           }
         </div>
 
@@ -40,7 +40,7 @@
           <span class="indicador-titulo"><svg lucideFileText [strokeWidth]="2"></svg> Numeración contra ARCA</span>
           @if (!c.numeracionControlada) {
             <strong>No se controla</strong>
-            <span class="secundario">Sólo en producción (en pruebas el CUIT es compartido).</span>
+            <span class="secundario">Sólo en producción (en homologación los comprobantes son de prueba).</span>
           } @else if (c.desfases.length > 0) {
             <strong class="texto-error">No coincide</strong>
             @for (d of c.desfases; track d.puntoVenta + '-' + d.tipoComprobante) {
@@ -75,9 +75,6 @@
         </div>
       </div>
 
-      @if (aviso(); as a) {
-        <p class="aviso-ok" [class.alerta]="a.error" role="status">{{ a.texto }}</p>
-      }
 
       @if (c.problemas.length > 0) {
         <div class="titulo-con-accion problemas-titulo">

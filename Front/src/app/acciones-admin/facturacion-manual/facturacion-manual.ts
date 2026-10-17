@@ -1,4 +1,5 @@
 import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import { ToastService } from '../../shared/toast/toast.service';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -72,6 +73,7 @@ const MAX_REFRESCOS = 24;
 })
 export class FacturacionManual implements OnInit {
   private facturaService = inject(FacturaService);
+  private toast = inject(ToastService);
   private tipoEntradaService = inject(TipoEntradaService);
   private articuloVarioService = inject(ArticuloVarioService);
   private destroyRef = inject(DestroyRef);
@@ -113,7 +115,6 @@ export class FacturacionManual implements OnInit {
   confirmando = signal(false);
   emitiendo = signal(false);
   errorForm = signal<string | null>(null);
-  avisoForm = signal<string | null>(null);
 
   manuales = signal<Factura[]>([]);
   cargandoLista = signal(true);
@@ -122,7 +123,6 @@ export class FacturacionManual implements OnInit {
   accion = signal<{ id: number; tipo: 'mail' | 'anular' } | null>(null);
   emailFila = signal('');
   enviandoId = signal<number | null>(null);
-  avisoFila = signal<{ id: number; texto: string; error: boolean } | null>(null);
 
   private refresco: Subscription | null = null;
   private refrescosHechos = 0;
@@ -284,7 +284,6 @@ export class FacturacionManual implements OnInit {
 
   pedirConfirmacion(): void {
     this.errorForm.set(null);
-    this.avisoForm.set(null);
     if (this.formularioValido()) this.confirmando.set(true);
   }
 
@@ -318,7 +317,7 @@ export class FacturacionManual implements OnInit {
           this.domicilio.set('');
           this.padron.set(null);
           this.autocompletado = null;
-          this.avisoForm.set(
+          this.toast.exito(
             destino === 'IMPRIMIR' ? 'Factura pedida: sale por la ticketera en unos segundos.'
               : destino === 'MAIL' ? 'Factura pedida: se manda por mail en unos segundos.'
                 : 'Factura pedida: en unos segundos está el PDF en la lista de abajo.');
@@ -392,7 +391,6 @@ export class FacturacionManual implements OnInit {
     const a = this.accion();
     this.accion.set(a?.id === f.id && a.tipo === tipo ? null : { id: f.id, tipo });
     this.emailFila.set(f.email ?? '');
-    this.avisoFila.set(null);
   }
 
   accionAbierta(f: Factura, tipo: 'mail' | 'anular'): boolean {
@@ -426,25 +424,24 @@ export class FacturacionManual implements OnInit {
       },
       error: (err) => {
         pestana?.close();
-        this.avisoFila.set({ id: f.id, texto: this.mensaje(err, 'No se pudo abrir el PDF.'), error: true });
+        this.toast.error(this.mensaje(err, 'No se pudo abrir el PDF.'));
       },
     });
   }
 
   private pedir(f: Factura, pedido: Observable<unknown>, ok: string): void {
     this.enviandoId.set(f.id);
-    this.avisoFila.set(null);
     pedido.pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: () => {
         this.enviandoId.set(null);
         this.accion.set(null);
-        this.avisoFila.set({ id: f.id, texto: ok, error: false });
+        this.toast.exito(ok);
         this.refrescosHechos = 0;
         this.cargarLista(false);
       },
       error: (err) => {
         this.enviandoId.set(null);
-        this.avisoFila.set({ id: f.id, texto: this.mensaje(err, 'No se pudo completar.'), error: true });
+        this.toast.error(this.mensaje(err, 'No se pudo completar.'));
       },
     });
   }

@@ -1,4 +1,5 @@
 import { Component, DestroyRef, OnInit, inject, input, output, signal } from '@angular/core';
+import { ToastService } from '../../shared/toast/toast.service';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Observable, Subscription, timer } from 'rxjs';
@@ -36,6 +37,7 @@ const MAX_REFRESCOS = 24;
 })
 export class FacturaCompraModal implements OnInit {
   private facturaService = inject(FacturaService);
+  private toast = inject(ToastService);
   private destroyRef = inject(DestroyRef);
 
   reserva = input.required<Reserva>();
@@ -50,7 +52,6 @@ export class FacturaCompraModal implements OnInit {
   accion = signal<'mail' | 'anular' | 'facturar' | null>(null);
   email = signal('');
   enviando = signal(false);
-  aviso = signal<{ texto: string; error: boolean } | null>(null);
 
   private refresco: Subscription | null = null;
   private refrescosHechos = 0;
@@ -124,7 +125,6 @@ export class FacturaCompraModal implements OnInit {
 
   abrir(accion: 'mail' | 'anular' | 'facturar'): void {
     this.accion.set(this.accion() === accion ? null : accion);
-    this.aviso.set(null);
   }
 
   mandarPorMail(): void {
@@ -170,25 +170,24 @@ export class FacturaCompraModal implements OnInit {
       },
       error: (err) => {
         pestana?.close();
-        this.aviso.set({ texto: this.mensaje(err, 'No se pudo abrir el PDF.'), error: true });
+        this.toast.error(this.mensaje(err, 'No se pudo abrir el PDF.'));
       },
     });
   }
 
   private pedir(pedido: Observable<unknown>, ok: string): void {
     this.enviando.set(true);
-    this.aviso.set(null);
     pedido.pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: () => {
         this.enviando.set(false);
         this.accion.set(null);
-        this.aviso.set({ texto: ok, error: false });
+        this.toast.exito(ok);
         this.refrescosHechos = 0;
         this.cargar(false);
       },
       error: (err) => {
         this.enviando.set(false);
-        this.aviso.set({ texto: this.mensaje(err, 'No se pudo completar.'), error: true });
+        this.toast.error(this.mensaje(err, 'No se pudo completar.'));
       },
     });
   }

@@ -59,12 +59,6 @@
   font-size: 0.85rem;
 }
 
-.aviso-ok {
-  margin: 10px 0 0;
-  font-size: 0.85rem;
-  color: var(--color-primary-dark);
-}
-
 /* ---------- tipo de factura y receptor ---------- */
 .tipo-factura {
   display: flex;
@@ -443,12 +437,6 @@
 .confirmar-anular span {
   flex: 1;
   font-size: 0.85rem;
-}
-
-.aviso-fila {
-  margin: 0;
-  font-size: 0.8rem;
-  color: var(--color-primary-dark);
 }
 
 /* ---------- angosto: cada renglón en dos filas ---------- */

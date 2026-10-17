@@ -1,4 +1,5 @@
 import { Component, OnInit, computed, effect, inject, output, signal } from '@angular/core';
+import { ToastService } from '../../shared/toast/toast.service';
 import { FormsModule } from '@angular/forms';
 import { LucideMinus, LucidePlus, LucideTrash2 } from '@lucide/angular';
 import { FacturaManualItem } from '../../models/factura';
@@ -56,6 +57,7 @@ const CLAVE_IDEMPOTENCIA = 'factura-lote-clave';
 })
 export class FacturacionLote implements OnInit {
   private facturaService = inject(FacturaService);
+  private toast = inject(ToastService);
   private tipoEntradaService = inject(TipoEntradaService);
   private articuloVarioService = inject(ArticuloVarioService);
 
@@ -75,7 +77,6 @@ export class FacturacionLote implements OnInit {
   confirmando = signal(false);
   emitiendo = signal(false);
   error = signal<string | null>(null);
-  aviso = signal<string | null>(null);
 
   totalVenta = computed(() => this.totalDe(this.venta()));
   /** Los renglones sin cargo (un menor gratis) se pueden sumar para que la venta se lea como fue,
@@ -192,7 +193,7 @@ export class FacturacionLote implements OnInit {
         this.confirmando.set(false);
         this.lote.set([]);
         this.renovarClave();
-        this.aviso.set(`${r.length} ${r.length === 1 ? 'factura pedida' : 'facturas pedidas'}: en unos segundos están los PDF en la lista de abajo.`);
+        this.toast.exito(`${r.length} ${r.length === 1 ? 'factura pedida' : 'facturas pedidas'}: en unos segundos están los PDF en la lista de abajo.`);
         this.emitido.emit(r.length);
       },
       error: (err) => {
@@ -241,7 +242,6 @@ export class FacturacionLote implements OnInit {
 
   private limpiarMensajes(): void {
     this.error.set(null);
-    this.aviso.set(null);
   }
 
   private renovarClave(): void {
