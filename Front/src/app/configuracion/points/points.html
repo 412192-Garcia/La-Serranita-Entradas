@@ -26,9 +26,6 @@
     @if (error(); as e) {
       <p class="alerta-error">{{ e }}</p>
     }
-    @if (aviso(); as a) {
-      <p class="mensaje">{{ a }}</p>
-    }
 
     @if (terminales(); as lista) {
       @if (lista.length === 0) {

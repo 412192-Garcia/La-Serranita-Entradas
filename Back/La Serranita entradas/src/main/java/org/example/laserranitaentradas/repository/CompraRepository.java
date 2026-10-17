@@ -109,7 +109,8 @@ public interface CompraRepository extends JpaRepository<Compra, Long>, JpaSpecif
     @Query("SELECT c FROM Compra c WHERE " +
             "(c.fechaVisita >= :desde AND c.fechaVisita <= :hasta) " +
             "OR (c.fechaCreacion >= :desdeDt AND c.fechaCreacion < :hastaDt) " +
-            "OR (c.fechaValidacion >= :desdeDt AND c.fechaValidacion < :hastaDt)")
+            "OR (c.fechaValidacion >= :desdeDt AND c.fechaValidacion < :hastaDt) " +
+            "OR (c.fechaPago >= :desdeDt AND c.fechaPago < :hastaDt)")
     List<Compra> findParaReporte(@Param("desde") LocalDate desde, @Param("hasta") LocalDate hasta,
                                  @Param("desdeDt") LocalDateTime desdeDt, @Param("hastaDt") LocalDateTime hastaDt);
 

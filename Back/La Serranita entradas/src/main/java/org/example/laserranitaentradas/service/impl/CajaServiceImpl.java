@@ -196,7 +196,12 @@ public class CajaServiceImpl implements CajaService {
             throw new IllegalStateException("Esta caja ya está cerrada");
         }
         if (!Boolean.TRUE.equals(caja.getControlOmitido())) {
-            throw new IllegalStateException("Esta caja no es \"sin control\": cerrala desde el flujo normal, con su conteo.");
+            // Una caja normal que se cierra sin conteo (ej. quedó abierta el domingo y el sábado
+            // siguiente ya no se tiene el cierre): pasa a "sin control", así no registra un faltante
+            // o sobrante inventado y en Cajas/Reportes figura con "—". Queda en el historial.
+            caja.setControlOmitido(true);
+            org.example.laserranitaentradas.monitoreo.AuditoriaContexto.detalle(
+                    "Caja con control cerrada sin conteo (efectivo inicial $" + caja.getMontoInicial().stripTrailingZeros().toPlainString() + ")");
         }
         cerrarSinControl(caja);
         return toDto(caja);

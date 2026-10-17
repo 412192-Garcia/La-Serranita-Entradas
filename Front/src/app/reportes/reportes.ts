@@ -22,18 +22,18 @@ const PASOS_RESUMEN: TourStep[] = [
   {
     selector: '[data-tour="kpis-reportes"]',
     titulo: 'Números principales',
-    texto: 'Recaudación total, anticipada, en puerta y personas que entraron, para el rango elegido.',
+    texto: 'Recaudación total, anticipada (reservas hechas de antemano), en puerta y entradas vendidas, para el rango elegido.',
   },
   {
     selector: '[data-tour="graficos-reportes"]',
     titulo: 'Gráficos y desgloses',
-    texto: 'Más abajo hay gráficos con el detalle: afluencia diaria, desglose por tipo, forma de pago, horarios y más.',
+    texto: 'Más abajo hay gráficos con el detalle: afluencia diaria, desglose por tipo, forma de pago, boletería contra anticipadas, horarios y más.',
   },
   {
     selector: '[data-tour="ranking-boleteros"]',
     alternativo: '[data-tour="kpis-reportes"]',
     titulo: 'Ranking de boleteros',
-    texto: 'Lo acumulado por boletero en las cajas cerradas del rango (por la fecha de cierre de la caja): turnos, efectivo vendido en puerta, retiros y las diferencias de efectivo y de posnet. Sirve para ver quién suele tener faltantes. Para revisar o corregir un turno puntual, está la pantalla de Cajas.',
+    texto: 'Lo acumulado por boletero en las cajas cerradas del rango (por el día en que se abrió cada caja, que es el de sus ventas): turnos, efectivo vendido en puerta, retiros y las diferencias de efectivo y de posnet. Sirve para ver quién suele tener faltantes. Para revisar o corregir un turno puntual, está la pantalla de Cajas.',
   },
 ];
 

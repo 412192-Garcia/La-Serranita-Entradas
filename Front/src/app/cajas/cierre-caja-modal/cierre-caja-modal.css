@@ -35,3 +35,18 @@
   color: var(--color-text);
 }
 
+
+/* Caja atrasada sin conteo posible: salida alternativa, discreta para no competir con "Confirmar cierre". */
+.sin-controlar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin: 12px 0;
+  padding: 10px 12px;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+}

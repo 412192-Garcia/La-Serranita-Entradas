@@ -27,6 +27,8 @@ import org.example.laserranitaentradas.model.entity.Promocion;
 import org.example.laserranitaentradas.model.entity.Tipo;
 import org.example.laserranitaentradas.model.entity.TipoEntrada;
 import org.example.laserranitaentradas.model.entity.TipoMovimientoCaja;
+import org.example.laserranitaentradas.model.entity.AjusteCaja;
+import org.example.laserranitaentradas.repository.AjusteCajaRepository;
 import org.example.laserranitaentradas.repository.CajaRepository;
 import org.example.laserranitaentradas.repository.CompraRepository;
 import org.example.laserranitaentradas.repository.RetiroCajaRepository;
@@ -114,11 +116,12 @@ public class ReporteServiceImpl implements ReporteService {
     private final CajaService cajaService;
     private final CalculoPrecioService calculoPrecioService;
     private final FacturaRepository facturaRepository;
+    private final AjusteCajaRepository ajusteCajaRepository;
 
     public ReporteServiceImpl(CompraRepository compraRepository, TipoEntradaRepository tipoEntradaRepository,
                               CajaRepository cajaRepository, RetiroCajaRepository retiroCajaRepository,
                               CajaService cajaService, CalculoPrecioService calculoPrecioService,
-                              FacturaRepository facturaRepository) {
+                              FacturaRepository facturaRepository, AjusteCajaRepository ajusteCajaRepository) {
         this.compraRepository = compraRepository;
         this.tipoEntradaRepository = tipoEntradaRepository;
         this.cajaRepository = cajaRepository;
@@ -126,6 +129,7 @@ public class ReporteServiceImpl implements ReporteService {
         this.cajaService = cajaService;
         this.calculoPrecioService = calculoPrecioService;
         this.facturaRepository = facturaRepository;
+        this.ajusteCajaRepository = ajusteCajaRepository;
     }
 
     @Override
@@ -235,10 +239,12 @@ public class ReporteServiceImpl implements ReporteService {
             // La venta de puerta es lo único que nunca fue una reserva anticipada.
             boolean esBoleteria = compra.getEstado() == EstadoCompra.VENDIDO_EN_PUERTA;
 
-            // Día de cobro: Mercado Pago se paga al comprar; efectivo/tarjeta/QR se cobran en la
-            // puerta, al validar (sin validar, no entró plata).
+            // Día de cobro: Mercado Pago, cuando se aprobó el pago (fechaPago; las compras de antes
+            // de guardarla no la tienen y van por el día en que se compró, que casi siempre es el
+            // mismo); efectivo/tarjeta/QR se cobran en la puerta, al validar (sin validar, no entró plata).
+            LocalDateTime momentoPagoOnline = compra.getFechaPago() != null ? compra.getFechaPago() : compra.getFechaCreacion();
             LocalDate diaCobro = esMercadoPago
-                    ? compra.getFechaCreacion().toLocalDate()
+                    ? momentoPagoOnline.toLocalDate()
                     : (compra.getFechaValidacion() != null ? compra.getFechaValidacion().toLocalDate() : null);
             boolean cuentaRecaudacion = enRango(diaCobro, desde, hasta)
                     && ESTADOS_COBRADOS.contains(compra.getEstado());
@@ -256,7 +262,16 @@ public class ReporteServiceImpl implements ReporteService {
             boolean cuentaCompra = enRango(compra.getFechaCreacion().toLocalDate(), desde, hasta)
                     && ESTADOS_VENDIDOS.contains(compra.getEstado());
 
-            if (!cuentaRecaudacion && !cuentaIngreso && !cuentaDemanda && !cuentaCompra) {
+            // "Compras por estado" muestra también las que no son una venta (pago pendiente,
+            // cancelada, reembolsada): ésas no cuentan en ninguna métrica de arriba, que sólo miran
+            // compras cobradas o vendidas, así que van por su día de creación o de visita. Sin esto
+            // el gráfico siempre las mostraba en 0.
+            boolean cuentaEstado = cuentaRecaudacion || cuentaIngreso || cuentaDemanda || cuentaCompra
+                    || (!ESTADOS_VENDIDOS.contains(compra.getEstado())
+                        && (enRango(compra.getFechaCreacion().toLocalDate(), desde, hasta)
+                            || enRango(compra.getFechaVisita(), desde, hasta)));
+
+            if (!cuentaEstado) {
                 // El prefiltro la trajo por una fecha que en realidad cae fuera del rango exacto.
                 continue;
             }
@@ -313,8 +328,8 @@ public class ReporteServiceImpl implements ReporteService {
                 cantidadPorOrigen.merge(origen, 1L, Long::sum);
                 montoPorOrigen.merge(origen, compra.getMontoTotal(), BigDecimal::add);
 
-                // Hora del cobro: para MP la del checkout, para el resto la del cobro en puerta.
-                LocalDateTime momentoCobro = esMercadoPago ? compra.getFechaCreacion() : compra.getFechaValidacion();
+                // Hora del cobro: para MP la del pago, para el resto la del cobro en puerta.
+                LocalDateTime momentoCobro = esMercadoPago ? momentoPagoOnline : compra.getFechaValidacion();
                 ClaveHora claveHora = new ClaveHora(momentoCobro.getDayOfWeek(), momentoCobro.getHour());
                 if (esBoleteria) {
                     cantidadComprasBoleteriaPorHora.merge(claveHora, 1L, Long::sum);
@@ -480,13 +495,33 @@ public class ReporteServiceImpl implements ReporteService {
         List<DesgloseTipoEntradaDTO> desgloseExtras = ordenarPorNombre(extrasPorId,
                 cantidadAnticipadaPorExtra, montoAnticipadaPorExtra, cantidadBoleteriaPorExtra, montoBoleteriaPorExtra);
 
+        // Ajustes de caja (Cajas > resumen del cierre, modo revisión): el admin corrigió en qué
+        // forma de pago se cobró algo sin tocar las compras ("se anotó en efectivo y fue con
+        // tarjeta", una venta duplicada, una que faltó). Se aplican a la torta por forma de pago,
+        // que si no seguiría mostrando lo que se tocó por error en el POS. Van al día en que se
+        // abrió la caja (el de sus ventas) y no cuentan los de cajas deshabilitadas. La
+        // Recaudación total no cambia: es la suma de las compras.
+        for (AjusteCaja ajuste : ajusteCajaRepository.findAllDeCajasAbiertasEntre(desdeDt, hastaDt)) {
+            if (cajasDeshabilitadas.contains(ajuste.getCaja().getId())) continue;
+            if (ajuste.getFormaOrigen() != null) {
+                montoPorFormaPago.merge(ajuste.getFormaOrigen(), ajuste.getMonto().negate(), BigDecimal::add);
+                cantidadPorFormaPago.merge(ajuste.getFormaOrigen(), (long) -ajuste.getCantidadVentas(), Long::sum);
+            }
+            if (ajuste.getFormaDestino() != null) {
+                montoPorFormaPago.merge(ajuste.getFormaDestino(), ajuste.getMonto(), BigDecimal::add);
+                cantidadPorFormaPago.merge(ajuste.getFormaDestino(), (long) ajuste.getCantidadVentas(), Long::sum);
+            }
+        }
+
         List<RecaudacionPorFormaPagoDTO> recaudacionPorFormaPago = new ArrayList<>();
         for (FormaPago formaPago : FormaPago.values()) {
+            // Nunca negativo: un ajuste de una venta cobrada fuera del rango podría restar más de
+            // lo que esa forma juntó en el rango.
             recaudacionPorFormaPago.add(new RecaudacionPorFormaPagoDTO(
                     formaPago,
                     formaPago.getDescripcion(),
-                    cantidadPorFormaPago.getOrDefault(formaPago, 0L),
-                    montoPorFormaPago.getOrDefault(formaPago, BigDecimal.ZERO)));
+                    Math.max(0L, cantidadPorFormaPago.getOrDefault(formaPago, 0L)),
+                    montoPorFormaPago.getOrDefault(formaPago, BigDecimal.ZERO).max(BigDecimal.ZERO)));
         }
 
         List<ComprasPorEstadoDTO> comprasPorEstado = new ArrayList<>();
@@ -518,9 +553,10 @@ public class ReporteServiceImpl implements ReporteService {
                     montoPorOrigen.getOrDefault(origen, BigDecimal.ZERO)));
         }
 
-        // Las cajas se filtran por cuándo se cerraron, no por fechaVisita: es un concepto
-        // de turno de trabajo, no de día de visita del parque.
-        List<Caja> cajasCerradas = cajaRepository.findAllByFechaCierreBetweenOrderByFechaCierreDesc(
+        // Las cajas van por el día del turno (cuándo se abrieron), no por cuándo se cerraron ni por
+        // fechaVisita: una caja que se dejó abierta el domingo y se cerró el sábado siguiente es del
+        // domingo, que es cuando se cobraron sus ventas (y donde las cuenta la recaudación).
+        List<Caja> cajasCerradas = cajaRepository.findAllByFechaAperturaBetweenAndFechaCierreIsNotNullOrderByFechaAperturaDesc(
                 desde.atStartOfDay(), hasta.atTime(LocalTime.MAX));
 
         List<CajaResumenReporteDTO> cajas = new ArrayList<>();

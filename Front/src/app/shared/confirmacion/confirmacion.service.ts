@@ -12,9 +12,10 @@ export interface PedidoConfirmacion {
 }
 
 /**
- * Diálogo de confirmación de la app, en lugar de window.confirm / window.alert: ésos son
- * ventanas del navegador, sin el estilo ni el tema de la app, y en la tablet del POS (PWA) se
- * ven como un error del sistema. Lo muestra ConfirmacionDialogo, montado una sola vez en App.
+ * Diálogo de confirmación de la app, en lugar de window.confirm: ése es
+ * una ventana del navegador, sin el estilo ni el tema de la app, y en la tablet del POS (PWA) se
+ * ve como un error del sistema. Para avisar algo que ya pasó (lo que era window.alert) está
+ * ToastService. Lo muestra ConfirmacionDialogo, montado una sola vez en App.
  *
  *   if (!(await this.confirmacion.pedir({ titulo: 'Cancelar venta', mensaje: '...', peligro: true }))) return;
  */
@@ -29,13 +30,6 @@ export class ConfirmacionService {
     this.resolver?.(false);
     this.pedido.set(pedido);
     return new Promise<boolean>((resolve) => (this.resolver = resolve));
-  }
-
-  /** Sólo un aviso, con un único botón (lo que antes era window.alert). */
-  async avisar(titulo: string, mensaje: string): Promise<void> {
-    this.resolver?.(false);
-    this.pedido.set({ titulo, mensaje, aceptar: 'Entendido', cancelar: '' });
-    await new Promise<boolean>((resolve) => (this.resolver = resolve));
   }
 
   responder(ok: boolean): void {

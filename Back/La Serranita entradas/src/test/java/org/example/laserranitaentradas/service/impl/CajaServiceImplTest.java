@@ -197,6 +197,27 @@ class CajaServiceImplTest {
     }
 
     @Test
+    void cerrarSinControlPorId_deUnaCajaNormalAtrasada_laPasaASinControlSinDiferenciaYConCierreDeAhora() {
+        // Quedó abierta el domingo y el sábado ya no se tiene el conteo: se cierra sin inventar números.
+        Caja caja = cajaAbierta(5L, "5000", 50);
+        caja.setFechaApertura(LocalDateTime.now().minusDays(6));
+        when(cajaRepository.findById(5L)).thenReturn(Optional.of(caja));
+        when(compraRepository.findAllByCajaId(5L)).thenReturn(List.of());
+        lenient().when(retiroCajaRepository.findAllByCajaIdOrderByFechaAsc(any())).thenReturn(List.of());
+        LocalDateTime antes = LocalDateTime.now();
+
+        service.cerrarSinControlPorId(5L);
+
+        assertThat(caja.getControlOmitido()).isTrue();
+        assertThat(caja.getDiferencia()).isEqualByComparingTo("0");
+        assertThat(caja.getMontoContado()).isEqualByComparingTo(caja.getMontoEsperado());
+        assertThat(caja.getEntradasFisicasRestantes()).isNull();
+        // La fecha de cierre es el momento real del cierre; el día del turno sigue siendo la apertura.
+        assertThat(caja.getFechaCierre()).isAfterOrEqualTo(antes);
+        verify(cajaRepository).save(caja);
+    }
+
+    @Test
     void registrarRetiro_conMontoCero_rechaza() {
         assertThatThrownBy(() -> service.registrarRetiro(USUARIO_ID, BigDecimal.ZERO, "motivo", null, null, null))
                 .isInstanceOf(IllegalArgumentException.class);

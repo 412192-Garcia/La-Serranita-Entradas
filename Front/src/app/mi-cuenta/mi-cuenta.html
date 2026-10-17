@@ -42,9 +42,6 @@
       @if (error()) {
         <p class="alerta-error">{{ error() }}</p>
       }
-      @if (mensaje()) {
-        <p class="mensaje">{{ mensaje() }}</p>
-      }
 
       <form (ngSubmit)="cambiarPassword()">
         <label>

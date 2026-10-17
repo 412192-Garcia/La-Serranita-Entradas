@@ -219,9 +219,6 @@
     @if (errorForm(); as error) {
       <p class="alerta">{{ error }}</p>
     }
-    @if (avisoForm(); as aviso) {
-      <p class="aviso-ok" role="status">{{ aviso }}</p>
-    }
   </div>
   }
 
@@ -312,11 +309,6 @@
               }
             }
 
-            @if (avisoFila(); as a) {
-              @if (a.id === f.id) {
-                <p class="aviso-fila" [class.texto-error]="a.error" role="status">{{ a.texto }}</p>
-              }
-            }
           </li>
         }
       </ul>

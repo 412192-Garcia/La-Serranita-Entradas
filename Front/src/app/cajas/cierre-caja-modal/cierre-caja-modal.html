@@ -23,6 +23,12 @@
     </div>
 
     <app-cobros-point-sin-venta [cajaId]="cajaId()" [refresco]="cajaAbierta()" (resumenCargado)="resumenPoint.set($event)" />
+    @if (atrasada()) {
+      <div class="sin-controlar">
+        <span>¿Ya no se tiene el conteo de esta caja de otro día? Se puede cerrar sin contar nada.</span>
+        <button type="button" class="btn-secundario-caja" (click)="cerrarSinControl.emit()">Cerrar sin controlar</button>
+      </div>
+    }
     @if (errorCierre()) {
       <p class="alerta-error">{{ errorCierre() }}</p>
     }

@@ -1,4 +1,5 @@
 import { Component, computed, inject, signal } from '@angular/core';
+import { ToastService } from '../shared/toast/toast.service';
 import { FormsModule } from '@angular/forms';
 import { LucideUser } from '@lucide/angular';
 import { UsuarioService } from '../services/usuario.service';
@@ -46,6 +47,7 @@ const FOTO_LADO_PX = 200;
 })
 export class MiCuenta {
   private usuarioService = inject(UsuarioService);
+  private toast = inject(ToastService);
   private sesion = inject(SesionService);
   private theme = inject(ThemeService);
 
@@ -62,7 +64,6 @@ export class MiCuenta {
   passwordConfirmar = signal('');
   guardando = signal(false);
   error = signal<string | null>(null);
-  mensaje = signal<string | null>(null);
 
   // ---------- Apariencia: paletas prearmadas + color libre "a tu propio riesgo" ----------
   readonly paletasPrimario = PALETAS_PREARMADAS;
@@ -95,7 +96,6 @@ export class MiCuenta {
     const nueva = this.passwordNueva();
     const confirmar = this.passwordConfirmar();
 
-    this.mensaje.set(null);
 
     if (!actual || !nueva || !confirmar) {
       this.error.set('Completá los tres campos.');
@@ -116,7 +116,7 @@ export class MiCuenta {
     this.usuarioService.cambiarMiPassword(actual, nueva).subscribe({
       next: () => {
         this.guardando.set(false);
-        this.mensaje.set('Contraseña actualizada.');
+        this.toast.exito('Contraseña actualizada.');
         this.passwordActual.set('');
         this.passwordNueva.set('');
         this.passwordConfirmar.set('');

@@ -4,6 +4,9 @@
 <!-- Confirmaciones de toda la app (en vez de window.confirm / alert): ver ConfirmacionService. -->
 <app-confirmacion-dialogo />
 
+<!-- Avisos cortos de toda la app ("Mail reenviado", "Horario guardado"): ver ToastService. -->
+<app-toast-host />
+
 @if (actualizacionDisponible() && !rutaPublica()) {
   <div class="banner-actualizacion">
     <span>Hay una versión nueva disponible.</span>

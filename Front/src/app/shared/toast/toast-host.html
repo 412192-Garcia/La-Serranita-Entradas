@@ -1,0 +1,18 @@
+<!-- aria-live: los lectores de pantalla leen cada aviso al aparecer, sin mover el foco. -->
+<div class="contenedor-toasts" aria-live="polite" aria-atomic="false">
+  @for (t of toast.toasts(); track t.id) {
+    <div class="toast" [class.toast-exito]="t.tipo === 'exito'" [class.toast-error]="t.tipo === 'error'" [attr.role]="t.tipo === 'error' ? 'alert' : 'status'">
+      <span class="toast-icono" aria-hidden="true">
+        @switch (t.tipo) {
+          @case ('exito') { <svg lucideCircleCheck [strokeWidth]="2.25"></svg> }
+          @case ('error') { <svg lucideCircleAlert [strokeWidth]="2.25"></svg> }
+          @default { <svg lucideInfo [strokeWidth]="2.25"></svg> }
+        }
+      </span>
+      <span class="toast-texto">{{ t.texto }}</span>
+      <button type="button" class="toast-cerrar" aria-label="Cerrar aviso" (click)="toast.cerrar(t.id)">
+        <svg lucideX [strokeWidth]="2.25"></svg>
+      </button>
+    </div>
+  }
+</div>

@@ -40,7 +40,7 @@
         } @else {
           <p class="kpi-numero kpi-numero-secundario">—</p>
         }
-        <p class="ayuda">Cobrado por reservas online</p>
+        <p class="ayuda">Reservas hechas de antemano: pagadas online o cobradas al llegar al parque</p>
       </div>
       <div>
         <h2>Recaudación en puerta</h2>
@@ -130,7 +130,7 @@
 
   <div class="tarjeta" [class.oculta]="!resumen()">
     <h2>Recaudación por forma de pago</h2>
-    <p class="ayuda">Solo compras aprobadas o ya validadas.</p>
+    <p class="ayuda">Solo compras aprobadas o ya validadas, con los ajustes de caja hechos al revisar los cierres (por ejemplo, una venta anotada en efectivo que fue con tarjeta).</p>
     <div class="grafico-contenedor grafico-torta">
       <canvas #formaPagoCanvas></canvas>
     </div>
@@ -138,7 +138,7 @@
 
   <div class="tarjeta" [class.oculta]="!resumen()">
     <h2>Compras por estado</h2>
-    <p class="ayuda">Todas las compras del rango, incluidas las pendientes y canceladas.</p>
+    <p class="ayuda">Todas las compras del rango, incluidas las de pago pendiente, canceladas y reembolsadas.</p>
     <div class="grafico-contenedor grafico-torta">
       <canvas #estadoCanvas></canvas>
     </div>
@@ -146,7 +146,7 @@
 
   <div class="tarjeta" [class.oculta]="!resumen()">
     <h2>Boletería vs. anticipada</h2>
-    <p class="ayuda">Cuánto se cobró en la puerta contra reservas hechas de antemano.</p>
+    <p class="ayuda">Cuánto se cobró por ventas en la puerta contra lo cobrado por reservas hechas de antemano (online o pagadas al llegar).</p>
     <div class="grafico-contenedor grafico-torta">
       <canvas #origenCanvas></canvas>
     </div>
@@ -282,7 +282,7 @@
 
     <div class="tarjeta tarjeta-ancha" data-tour="ranking-boleteros">
       <h2>Ranking de boleteros</h2>
-      <p class="ayuda">Desempeño acumulado por boletero en las cajas cerradas del rango (por la fecha de cierre de la caja): turnos trabajados, efectivo vendido en puerta, retiros y las diferencias de efectivo y de posnet (tarjeta + QR). Las cajas sin control no suman a las diferencias.</p>
+      <p class="ayuda">Desempeño acumulado por boletero en las cajas cerradas del rango (por el día en que se abrió cada caja, que es el de sus ventas): turnos trabajados, efectivo vendido en puerta, retiros y las diferencias de efectivo y de posnet (tarjeta + QR). Las cajas sin control no suman a las diferencias.</p>
       @if (rankingBoleteros(r).length === 0) {
         <p class="ayuda">No se cerró ninguna caja en este rango.</p>
       } @else {
@@ -321,10 +321,10 @@
     @if (mostrarFacturado(r)) {
       <div class="tarjeta">
         <h2>Facturado</h2>
-        <p class="ayuda">Facturas B con CAE menos notas de crédito, por fecha de emisión.</p>
+        <p class="ayuda">Facturas (A y B) con CAE menos notas de crédito, por fecha de emisión.</p>
         <p class="kpi-numero kpi-numero-secundario">{{ r.totalFacturado | pesos }}</p>
         <p class="ayuda">
-          {{ r.cantidadFacturas | number }} factura{{ r.cantidadFacturas === 1 ? '' : 's' }} B
+          {{ r.cantidadFacturas | number }} factura{{ r.cantidadFacturas === 1 ? '' : 's' }}
           @if (r.cantidadNotasCredito > 0) {
             · {{ r.cantidadNotasCredito | number }} nota{{ r.cantidadNotasCredito === 1 ? '' : 's' }} de crédito
           }

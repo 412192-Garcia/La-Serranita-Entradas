@@ -207,14 +207,6 @@
   border: 1.5px solid var(--color-border);
 }
 
-.aviso {
-  margin: 0;
-  font-size: 0.8rem;
-  color: var(--color-primary-dark);
-}
-
-.aviso-error { color: var(--color-danger-dark); }
-
 @media (pointer: coarse) {
   .btn-icono { width: 44px; height: 44px; }
   .btn-accion, .btn-confirmar, .form-mail input { min-height: 44px; }

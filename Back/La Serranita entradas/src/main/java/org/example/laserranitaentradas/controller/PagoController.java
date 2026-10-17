@@ -56,19 +56,25 @@ public class PagoController {
 
         String idParaFirma = dataId != null ? dataId : id;
         if (!firmaValida(xSignature, xRequestId, idParaFirma)) {
-            // No se procesa, pero se responde 200: con un error MP lo reintenta durante horas. Llegan
-            // dos clases de avisos así, y ninguna es un problema:
-            // - copias en formato viejo (topic=payment / topic=merchant_order) de un pago nuestro, que
-            //   MP firma de otra forma: el aviso nuevo (type=payment, firmado con data.id) ya lo confirmó;
-            // - avisos de OTRA cuenta de MP que tiene esta URL configurada (ej. la de prueba que se usó
-            //   al principio): user_id dice de qué cuenta vienen, para encontrarla y sacarle la URL.
-            // Un aviso falso tampoco podría hacer daño: el pago siempre se trae de la API con nuestro token.
             Object cuenta = payload != null ? payload.get("user_id") : null;
-            log.info("Aviso de Mercado Pago con firma inválida o faltante, ignorado: type={}, topic={}, id={}, "
-                            + "cuenta MP (user_id) {}, x-signature {}, IP {}",
-                    type, topic, idParaFirma, cuenta != null ? cuenta : "?",
-                    xSignature != null ? "presente" : "ausente", request.getRemoteAddr());
-            return ResponseEntity.ok().build();
+            if (type == null && topic != null) {
+                // Formato viejo (IPN: ?topic=payment|merchant_order&id=...): MP lo manda además del
+                // aviso nuevo por cada pago, firmado de otra forma, así que nunca valida. No es un
+                // problema (el aviso nuevo, type=payment firmado con data.id, ya confirma el pago):
+                // se ignora con 200, porque con un error MP lo reintenta durante horas.
+                log.debug("Aviso de Mercado Pago en formato viejo ignorado: topic={}, id={}, cuenta MP (user_id) {}",
+                        topic, idParaFirma, cuenta != null ? cuenta : "?");
+                return ResponseEntity.ok().build();
+            }
+            // Formato nuevo (type=...) que no valida: o MP_WEBHOOK_SECRET no es el de la aplicación
+            // que manda los avisos, o vienen de OTRA cuenta de MP que tiene esta URL configurada
+            // (user_id dice cuál, para encontrarla y sacarle la URL). Las dos cosas hay que
+            // arreglarlas: 401 y aviso en el log, para que se note.
+            log.warn("Notificación de Mercado Pago con firma inválida o faltante: type={}, id={}, cuenta MP (user_id) {}, "
+                            + "x-signature {}, x-request-id {}, IP {}",
+                    type, idParaFirma, cuenta != null ? cuenta : "?", xSignature != null ? "presente" : "ausente",
+                    xRequestId != null ? "presente" : "ausente", request.getRemoteAddr());
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
         try {

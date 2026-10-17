@@ -1,4 +1,5 @@
 import { Component, OnInit, inject, signal, computed, effect } from '@angular/core';
+import { ToastService } from '../../shared/toast/toast.service';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { forkJoin } from 'rxjs';
@@ -24,6 +25,7 @@ interface CeldaMes {
 })
 export class ConfiguracionDiasHorarios implements OnInit {
   private configuracionService = inject(ConfiguracionService);
+  private toast = inject(ToastService);
 
   readonly nombresDias = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 
@@ -103,12 +105,12 @@ export class ConfiguracionDiasHorarios implements OnInit {
       .actualizarHorarioGeneral(this.horaAperturaGeneral(), this.horaCierreGeneral(), minutos)
       .subscribe({
         next: () => {
-          this.mensajeHorarioGeneral.set('Horario general actualizado.');
+          this.toast.exito('Horario general guardado.');
           this.guardandoHorarioGeneral.set(false);
         },
         error: (err) => {
           console.error('Error al guardar el horario general:', err);
-          this.mensajeHorarioGeneral.set('No se pudo guardar el horario general.');
+          this.toast.error('No se pudo guardar el horario general.');
           this.guardandoHorarioGeneral.set(false);
         },
       });
