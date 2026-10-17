@@ -6,6 +6,8 @@ número y el CI la usa como nota de la Release de GitHub.
 
 ## Sin publicar
 
+## 0.10.2 — 2026-10-16
+
 - Control de facturas: los textos del estado sin certificado y de la numeración ya no hablan del
   "CUIT de prueba" de AfipSDK, que no existe más.
 - Avisos de Mercado Pago: los del formato viejo (que nunca validan) se siguen ignorando sin error;
