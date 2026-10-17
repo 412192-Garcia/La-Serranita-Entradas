@@ -33,7 +33,7 @@ const PASOS_RESUMEN: TourStep[] = [
     selector: '[data-tour="ranking-boleteros"]',
     alternativo: '[data-tour="kpis-reportes"]',
     titulo: 'Ranking de boleteros',
-    texto: 'Lo acumulado por boletero en las cajas cerradas del rango (por la fecha de cierre de la caja): turnos, efectivo vendido en puerta, retiros y las diferencias de efectivo y de posnet. Sirve para ver quién suele tener faltantes. Para revisar o corregir un turno puntual, está la pantalla de Cajas.',
+    texto: 'Lo acumulado por boletero en las cajas cerradas del rango (por el día en que se abrió cada caja, que es el de sus ventas): turnos, efectivo vendido en puerta, retiros y las diferencias de efectivo y de posnet. Sirve para ver quién suele tener faltantes. Para revisar o corregir un turno puntual, está la pantalla de Cajas.',
   },
 ];
 

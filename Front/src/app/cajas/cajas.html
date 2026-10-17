@@ -159,12 +159,19 @@
 
   @if (confirmandoCierreSinControlId(); as id) {
     <app-dialogo-confirmacion
-      titulo="Cerrar esta caja"
-      aceptar="Cerrar caja"
+      [titulo]="cierreSinControlDeCajaNormal() ? 'Cerrar sin controlar' : 'Cerrar esta caja'"
+      [aceptar]="cierreSinControlDeCajaNormal() ? 'Cerrar sin controlar' : 'Cerrar caja'"
       cancelar="Cancelar"
       (confirmado)="confirmarCierreSinControl()"
-      (cancelado)="confirmandoCierreSinControlId.set(null)">
-      <p>Esta caja no requiere ningún ingreso de cierre.</p>
+      (cancelado)="cancelarCierreSinControl()">
+      @if (cierreSinControlDeCajaNormal()) {
+        <p>
+          Se cierra sin contar el efectivo ni el posnet ni el talonario: no se registra ningún faltante ni sobrante y en
+          Cajas cerradas y Reportes figura como "sin control". Las ventas no cambian. Queda en el historial quién la cerró.
+        </p>
+      } @else {
+        <p>Esta caja no requiere ningún ingreso de cierre.</p>
+      }
       <app-cobros-point-sin-venta [cajaId]="id" />
     </app-dialogo-confirmacion>
   }
@@ -175,6 +182,8 @@
     [class.oculto]="!mostrarCierre()"
     [cajaId]="cajaIdCierre()"
     [cajaAbierta]="cajaCierreDetalle()"
+    [atrasada]="cierreDeCajaAtrasada()"
+    (cerrarSinControl)="pedirCierreSinControlDesdeCierre()"
     (cajaCerrada)="onCajaCerrada($event)"
     (cajaActualizada)="onCajaActualizadaCierre($event)"
     (cerrar)="mostrarCierre.set(false)" />

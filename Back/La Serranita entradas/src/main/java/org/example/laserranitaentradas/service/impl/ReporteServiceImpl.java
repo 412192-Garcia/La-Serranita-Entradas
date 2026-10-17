@@ -553,9 +553,10 @@ public class ReporteServiceImpl implements ReporteService {
                     montoPorOrigen.getOrDefault(origen, BigDecimal.ZERO)));
         }
 
-        // Las cajas se filtran por cuándo se cerraron, no por fechaVisita: es un concepto
-        // de turno de trabajo, no de día de visita del parque.
-        List<Caja> cajasCerradas = cajaRepository.findAllByFechaCierreBetweenOrderByFechaCierreDesc(
+        // Las cajas van por el día del turno (cuándo se abrieron), no por cuándo se cerraron ni por
+        // fechaVisita: una caja que se dejó abierta el domingo y se cerró el sábado siguiente es del
+        // domingo, que es cuando se cobraron sus ventas (y donde las cuenta la recaudación).
+        List<Caja> cajasCerradas = cajaRepository.findAllByFechaAperturaBetweenAndFechaCierreIsNotNullOrderByFechaAperturaDesc(
                 desde.atStartOfDay(), hasta.atTime(LocalTime.MAX));
 
         List<CajaResumenReporteDTO> cajas = new ArrayList<>();

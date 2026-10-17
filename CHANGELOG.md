@@ -26,6 +26,12 @@ número y el CI la usa como nota de la Release de GitHub.
   cambia.
 - Reportes: la tarjeta Facturado incluye y nombra también las Factura A, y se corrigieron textos de
   ayuda que no describían bien lo que mostraban (recaudación anticipada, ventas por origen).
+- Cajas: una caja atrasada (de un día anterior) se puede **cerrar sin controlar** desde la ventana
+  de cierre cuando ya no se tiene su conteo. No registra faltante ni sobrante, figura como "sin control" y queda en el
+  historial quién la cerró. La fecha de cierre es el momento en que se cerró.
+- Reportes: las cajas cerradas (faltantes/sobrantes y ranking de boleteros) cuentan el día en que se
+  abrió la caja, que es el de sus ventas (antes, el día en que se cerró: una caja del domingo cerrada
+  el sábado caía en el sábado).
 
 ## 0.10.1 — 2026-10-16
 

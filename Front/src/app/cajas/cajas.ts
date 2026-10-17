@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, viewChild } from '@angular/core';
+import { Component, OnInit, computed, inject, signal, viewChild } from '@angular/core';
 import { DialogoConfirmacion } from '../shared/confirmacion/dialogo-confirmacion';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -130,7 +130,7 @@ export class ConfiguracionCajas implements OnInit {
     {
       selector: '[data-tour="cajas-abiertas"]',
       titulo: 'Cajas abiertas ahora',
-      texto: 'Los turnos en curso: quién abrió, con cuánto arrancó, cuánto lleva vendido y cuántas entradas. Una caja marcada "Atrasada" quedó abierta de un día anterior y hace falta cerrarla; si además tiene un puntito rojo, es la que prendió el aviso del menú y todavía no habías visto (se apaga al abrir su detalle). Tocá una fila para ver su detalle.',
+      texto: 'Los turnos en curso: quién abrió, con cuánto arrancó, cuánto lleva vendido y cuántas entradas. Una caja marcada "Atrasada" quedó abierta de un día anterior y hace falta cerrarla (si ya no se tiene el conteo, dentro de "Cerrar caja" está "Cerrar sin controlar", que la cierra sin registrar faltante ni sobrante); si además tiene un puntito rojo, es la que prendió el aviso del menú y todavía no habías visto (se apaga al abrir su detalle). Tocá una fila para ver su detalle.',
       antes: () => this.tutorialCerrarCierre(),
     },
     {
@@ -433,18 +433,56 @@ export class ConfiguracionCajas implements OnInit {
   /** Id de la caja para la que se está mostrando el modal de confirmación; null = cerrado. */
   confirmandoCierreSinControlId = signal<number | null>(null);
 
+  /** La caja que se está por cerrar sin conteo es una caja normal (con conteo), no una "sin control". */
+  cierreSinControlDeCajaNormal = computed(() => {
+    const id = this.confirmandoCierreSinControlId();
+    const caja = this.cajasAbiertas().find((c) => c.id === id);
+    return caja !== undefined && !caja.controlOmitido;
+  });
+
   pedirConfirmacionCierreSinControl(cajaId: number): void {
     this.confirmandoCierreSinControlId.set(cajaId);
+  }
+
+  /** La caja del modal de cierre es de un día anterior: el modal ofrece cerrarla sin controlar. */
+  cierreDeCajaAtrasada = computed(() => {
+    const caja = this.cajasAbiertas().find((c) => c.id === this.cajaIdCierre());
+    return caja !== undefined && this.esAtrasada(caja);
+  });
+  /** La confirmación de "Cerrar sin controlar" se pidió desde el modal de cierre (que queda oculto mientras tanto). */
+  private sinControlDesdeCierre = false;
+
+  /** Desde el modal de cierre de una caja atrasada que ya no se puede contar: se cierra sin conteo,
+   * como una "sin control", en vez de cargar números inventados. */
+  pedirCierreSinControlDesdeCierre(): void {
+    const cajaId = this.cajaIdCierre();
+    if (cajaId === null) return;
+    this.sinControlDesdeCierre = true;
+    this.mostrarCierre.set(false);
+    this.pedirConfirmacionCierreSinControl(cajaId);
+  }
+
+  cancelarCierreSinControl(): void {
+    this.confirmandoCierreSinControlId.set(null);
+    // Vuelve al modal de cierre tal como estaba (sigue montado: no se pierde lo cargado).
+    if (this.sinControlDesdeCierre) this.mostrarCierre.set(true);
+    this.sinControlDesdeCierre = false;
   }
 
   confirmarCierreSinControl(): void {
     const cajaId = this.confirmandoCierreSinControlId();
     if (cajaId === null) return;
     this.confirmandoCierreSinControlId.set(null);
+    const desdeCierre = this.sinControlDesdeCierre;
+    this.sinControlDesdeCierre = false;
     this.cerrandoSinControlId.set(cajaId);
     this.cajaService.cerrarSinControl(cajaId).subscribe({
       next: (c) => {
         this.cerrandoSinControlId.set(null);
+        if (desdeCierre) {
+          this.cajaIdCierre.set(null);
+          this.cajaCierreDetalle.set(null);
+        }
         this.cargarCajasAbiertas();
         this.cargar();
         this.cajaRecienCerrada.set(c);
@@ -452,6 +490,8 @@ export class ConfiguracionCajas implements OnInit {
       error: (err) => {
         console.error('Error al cerrar la caja sin control:', err);
         this.cerrandoSinControlId.set(null);
+        // Que no quede todo cerrado sin explicación: vuelve al modal de cierre.
+        if (desdeCierre) this.mostrarCierre.set(true);
       },
     });
   }

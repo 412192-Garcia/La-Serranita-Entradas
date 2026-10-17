@@ -23,9 +23,11 @@ public interface CajaRepository extends JpaRepository<Caja, Long>, JpaSpecificat
      * findBy...Optional, esto no rompe si hay más de una fila. */
     List<Caja> findAllByUsuarioIdAndFechaCierreIsNull(Long usuarioId);
 
-    /** Cajas ya cerradas dentro del rango, para el reporte de faltantes/sobrantes por turno — la más reciente primero.
-     * Incluye las deshabilitadas: el reporte las filtra en memoria (ver ReporteServiceImpl) para no cambiar este OrderBy. */
-    List<Caja> findAllByFechaCierreBetweenOrderByFechaCierreDesc(LocalDateTime desde, LocalDateTime hasta);
+    /** Cajas ya cerradas cuyo turno (día de apertura) cae en el rango, para el reporte de
+     * faltantes/sobrantes por turno — la más reciente primero. Por apertura y no por cierre: una
+     * caja que quedó abierta el domingo y se cerró el sábado siguiente es del domingo, igual que
+     * sus ventas. Incluye las deshabilitadas: el reporte las filtra en memoria (ver ReporteServiceImpl). */
+    List<Caja> findAllByFechaAperturaBetweenAndFechaCierreIsNotNullOrderByFechaAperturaDesc(LocalDateTime desde, LocalDateTime hasta);
 
     /** Nombres ("nombre apellido", el mismo texto que CajaResumenReporteDTO) de los boleteros con al
      * menos una caja cerrada y habilitada, en orden alfabético: son los chips del filtro de "Cajas

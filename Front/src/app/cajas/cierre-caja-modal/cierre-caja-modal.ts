@@ -26,9 +26,13 @@ export class CierreCajaModal {
   cajaId = input<number | null>(null);
   /** Detalle de esa misma caja abierta (vía obtenerDetalle): para saber si hubo ventas en dólares y qué movimientos ya tiene cargados. */
   cajaAbierta = input<Caja | null>(null);
+  /** Es de un día anterior: si ya no se tiene su conteo, se puede cerrar sin controlar. */
+  atrasada = input(false);
 
   cajaCerrada = output<Caja>();
   cerrar = output<void>();
+  /** Pide cerrarla sin conteo: la confirmación y el cierre los hace el padre (Cajas). */
+  cerrarSinControl = output<void>();
   /** Se emite cuando se agrega un retiro/aporte sin llegar a cerrar: el padre tiene que refrescar cajaAbierta para que el listado de movimientos y el total se vean al día. */
   cajaActualizada = output<Caja>();
 

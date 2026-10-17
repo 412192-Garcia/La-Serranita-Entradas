@@ -71,7 +71,7 @@ class ReporteServiceImplTest {
         service = new ReporteServiceImpl(compraRepository, tipoEntradaRepository, cajaRepository, retiroCajaRepository,
                 cajaService, calculoPrecioService, facturaRepository, ajusteCajaRepository);
         lenient().when(tipoEntradaRepository.findAll()).thenReturn(List.of());
-        lenient().when(cajaRepository.findAllByFechaCierreBetweenOrderByFechaCierreDesc(any(), any())).thenReturn(List.of());
+        lenient().when(cajaRepository.findAllByFechaAperturaBetweenAndFechaCierreIsNotNullOrderByFechaAperturaDesc(any(), any())).thenReturn(List.of());
         lenient().when(cajaRepository.findIdsDeshabilitadas()).thenReturn(List.of());
         lenient().when(cajaService.diferenciaPosnetPorCaja(any())).thenReturn(java.util.Map.of());
         // Sin descuento por grupo salvo que un test lo pise explícitamente: el desglose por tipo
