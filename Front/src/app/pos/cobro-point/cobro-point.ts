@@ -104,6 +104,8 @@ export class CobroPointModal implements OnInit {
     this.clave = crypto.randomUUID();
     this.cobro.set(null);
     this.cancelacionPedida.set(false);
+    // Un error viejo (ej. falló "Cancelar cobro") taparía la elección de débito o crédito.
+    this.error.set(null);
     // Con tarjeta se vuelve a preguntar: puede que haya fallado por haber elegido la equivocada.
     if (this.forma() === 'TARJETA') {
       this.tipoTarjeta.set(null);

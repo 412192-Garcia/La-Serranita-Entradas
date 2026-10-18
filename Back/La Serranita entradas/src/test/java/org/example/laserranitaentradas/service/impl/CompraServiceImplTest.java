@@ -1084,7 +1084,8 @@ class CompraServiceImplTest {
                 .id(1L).nombre("General").tipo(org.example.laserranitaentradas.model.entity.Tipo.ENTRADA)
                 .obligatorio(true).precio(new java.math.BigDecimal("100")).maximoPorDia(maximoPorDia).build();
         when(tipoEntradaService.findById(1L)).thenReturn(Optional.of(tipo));
-        when(diaAperturaService.getAbiertoByDate(any())).thenReturn(true);
+        // lenient: un regalo (sin fecha) no pregunta si el día está abierto.
+        lenient().when(diaAperturaService.getAbiertoByDate(any())).thenReturn(true);
 
         List<Compra> yaExistentes = yaVendidos == 0 ? List.of() : List.of(Compra.builder()
                 .id(999L).estado(EstadoCompra.APROBADO)
@@ -1231,6 +1232,45 @@ class CompraServiceImplTest {
 
         assertThat(resultado).isNotSameAs(precioViejo);
         assertThat(resultado.getMontoTotal()).isEqualByComparingTo("100");
+    }
+
+    @Test
+    void create_checkoutPendienteConElMismoMailPeroOtroDni_creaUnaCompraNueva() {
+        // Una familia que comparte el mail: el checkout de uno no se le puede pasar al otro.
+        CompraRequestDTO request = reintentoDeSantiago(pedidoConTope(10, 2, 0), "familia@gmail.com");
+        Compra deSuHermana = checkoutPendienteDe("99888777", "familia@gmail.com", request.getFecha(), 2, "100");
+        when(compraRepository.findCheckoutsPendientesDesde(any())).thenReturn(List.of(deSuHermana));
+
+        Compra resultado = service.create(request);
+
+        assertThat(resultado).isNotSameAs(deSuHermana);
+        assertThat(deSuHermana.getCliente().getDni()).isEqualTo("99888777");
+    }
+
+    @Test
+    void create_reintentoDeUnRegalo_reusaElClienteDeLaCompraEnVezDeCrearOtro() {
+        CompraRequestDTO request = pedidoConTope(null, 2, 0);
+        request.setFecha(null);
+        var comprador = new org.example.laserranitaentradas.model.dto.ClienteDTO();
+        comprador.setNombre("Santiago");
+        comprador.setApellido("Larraya");
+        comprador.setEmail("santiago@gmail.com");
+        request.setCliente(comprador);
+        var receptor = new org.example.laserranitaentradas.model.dto.ReceptorRegaloDTO();
+        receptor.setNombre("Ana");
+        receptor.setEmail("ana@gmail.com");
+        receptor.setDni("40111222");
+        request.setReceptor(receptor);
+        Compra pendiente = checkoutPendienteDe(null, "santiago@gmail.com", null, 2, "100");
+        pendiente.setReceptorDni("40111222");
+        when(compraRepository.findCheckoutsPendientesDesde(any())).thenReturn(List.of(pendiente));
+
+        Compra resultado = service.create(request);
+
+        assertThat(resultado).isSameAs(pendiente);
+        assertThat(resultado.isReusada()).isTrue();
+        assertThat(resultado.getCliente().getId()).isEqualTo(7L);
+        verify(clienteService, never()).create(any());
     }
 
     @Test
@@ -1500,6 +1540,58 @@ class CompraServiceImplTest {
         // restándole uno a la entidad cargada (eso pisaba el consumo de otra compra).
         verify(cuponService).liberarUso(9L);
         verify(cuponService, never()).update(any());
+    }
+
+    @Test
+    void iniciarCompraConPago_reusadaYFallaMercadoPago_noLaCancelaNiDevuelveElCupon() throws Exception {
+        // Ya tiene el link del intento anterior: puede estar pagando con ése.
+        Compra reusada = checkoutPendiente(77L);
+        reusada.setReusada(true);
+        CompraServiceImpl espia = org.mockito.Mockito.spy(service);
+        org.mockito.Mockito.doReturn(List.of()).when(espia).buscarPagosEnMercadoPago(any());
+        when(autoReferencia.create(any())).thenReturn(reusada);
+        when(mercadoPagoEstrategia.procesarPago(reusada)).thenThrow(new RuntimeException("Mercado Pago no responde"));
+
+        assertThatThrownBy(() -> espia.iniciarCompraConPago(new CompraRequestDTO()))
+                .hasMessageContaining("Mercado Pago no responde");
+
+        assertThat(reusada.getEstado()).isEqualTo(EstadoCompra.PENDIENTE_PAGO);
+        verify(cuponService, never()).liberarUso(any());
+        verify(compraRepository, never()).save(any());
+    }
+
+    @Test
+    void iniciarCompraConPago_reusadaConUnPagoEnProceso_noDaOtroLink() throws Exception {
+        Compra reusada = checkoutPendiente(78L);
+        reusada.setReusada(true);
+        CompraServiceImpl espia = org.mockito.Mockito.spy(service);
+        var enProceso = pagoConEstado(903L, "in_process", "pending_contingency", "visa");
+        org.mockito.Mockito.doReturn(List.of(enProceso)).when(espia).buscarPagosEnMercadoPago(any());
+        when(autoReferencia.create(any())).thenReturn(reusada);
+
+        assertThatThrownBy(() -> espia.iniciarCompraConPago(new CompraRequestDTO()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("pago en proceso");
+
+        verify(mercadoPagoEstrategia, never()).procesarPago(any());
+    }
+
+    @Test
+    void iniciarCompraConPago_reusadaYaPaga_laConfirmaEnVezDeCobrarDeNuevo() throws Exception {
+        Compra reusada = checkoutPendiente(79L);
+        reusada.setReusada(true);
+        CompraServiceImpl espia = org.mockito.Mockito.spy(service);
+        var pago = pagoAprobado(556L, "34300", java.time.LocalDateTime.now());
+        org.mockito.Mockito.doReturn(List.of(pago)).when(espia).buscarPagosEnMercadoPago(any());
+        when(autoReferencia.create(any())).thenReturn(reusada);
+        when(compraRepository.findById(79L)).thenReturn(Optional.of(reusada));
+        when(compraRepository.aprobarSiSigueSinPagar(79L, "556")).thenReturn(1);
+
+        assertThatThrownBy(() -> espia.iniciarCompraConPago(new CompraRequestDTO()))
+                .hasMessageContaining("ya se acreditó");
+
+        assertThat(reusada.getEstado()).isEqualTo(EstadoCompra.APROBADO);
+        verify(mercadoPagoEstrategia, never()).procesarPago(any());
     }
 
     @Test

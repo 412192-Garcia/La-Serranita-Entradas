@@ -14,4 +14,6 @@ export interface TipoEntrada {
   orden: number | null;
   /** Si es true, sólo se puede vender desde el POS (boletería) — no aparece en la compra pública online. */
   soloPos: boolean;
+  /** Si es true, el POS muestra la grilla de cantidad de un toque (1 a 10 y "10+") para este tipo. */
+  accesosRapidos: boolean;
 }

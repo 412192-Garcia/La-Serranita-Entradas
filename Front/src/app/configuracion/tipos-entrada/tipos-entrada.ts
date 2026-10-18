@@ -123,6 +123,7 @@ export class ConfiguracionTiposEntrada implements OnInit {
   obligatorioTipo = signal(false);
   entregaEntradaTipo = signal(false);
   soloPosTipo = signal(false);
+  accesosRapidosTipo = signal(false);
   maximoPorDiaTipo = signal<number | null>(null);
   guardandoTipo = signal(false);
 
@@ -169,6 +170,7 @@ export class ConfiguracionTiposEntrada implements OnInit {
     this.obligatorioTipo.set(t.obligatorio);
     this.entregaEntradaTipo.set(t.entregaEntrada);
     this.soloPosTipo.set(t.soloPos);
+    this.accesosRapidosTipo.set(t.accesosRapidos ?? false);
     this.maximoPorDiaTipo.set(t.maximoPorDia ?? null);
     this.errorTipos.set(null);
     this.cancelarEdicionDescuento();
@@ -183,6 +185,7 @@ export class ConfiguracionTiposEntrada implements OnInit {
     this.obligatorioTipo.set(false);
     this.entregaEntradaTipo.set(false);
     this.soloPosTipo.set(false);
+    this.accesosRapidosTipo.set(false);
     this.maximoPorDiaTipo.set(null);
     this.errorTipos.set(null);
     this.cancelarEdicionDescuento();
@@ -205,6 +208,7 @@ export class ConfiguracionTiposEntrada implements OnInit {
       obligatorio: this.categoriaTipo() === 'ENTRADA' ? this.obligatorioTipo() : false,
       entregaEntrada: this.categoriaTipo() === 'ENTRADA' ? this.entregaEntradaTipo() : false,
       soloPos: this.soloPosTipo(),
+      accesosRapidos: this.accesosRapidosTipo(),
       maximoPorDia: this.maximoPorDiaTipo(),
       activo: true,
     };

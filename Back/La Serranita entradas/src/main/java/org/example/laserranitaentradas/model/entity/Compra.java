@@ -149,6 +149,11 @@ public class Compra extends BaseEntity {
     @Column(name = "cancelada_por", length = 100)
     private String canceladaPor;
 
+    /** No se guarda: true cuando create() devolvió un checkout pendiente reusado en vez de una
+     * compra nueva. Esa compra ya tiene un link de pago vigente del intento anterior. */
+    @Transient
+    private boolean reusada;
+
     /**
      * Turno de caja en el que se cobró (venta de puerta o cobro de una reserva en
      * efectivo). Null en las compras online: esas nunca pasan efectivo por una caja.

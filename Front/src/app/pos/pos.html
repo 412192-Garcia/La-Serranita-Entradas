@@ -120,7 +120,6 @@
               data-tour="catalogo"
               [entradas]="tiposEntrada()"
               [cantidades]="cantidades()"
-              [descuentosEfectivo]="descuentosEfectivo()"
               (cantidadesChange)="cantidades.set($event)" />
 
             <app-agregar-articulo data-tour="agregar-articulo" [catalogo]="articulosCatalogo()" (articuloAgregado)="onArticuloAgregado($event)" />

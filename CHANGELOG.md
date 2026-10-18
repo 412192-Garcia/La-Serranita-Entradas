@@ -6,6 +6,12 @@ número y el CI la usa como nota de la Release de GitHub.
 
 ## Sin publicar
 
+- POS: los botones de cantidad de un toque (1 a 10 y "10+") ya no son sólo del Pase General.
+  Cada tipo de entrada tiene la opción "Accesos rápidos en boletería" en Configuración > Tipos de
+  entrada (ej. para el pase de menores). Antes salían para los tipos con precios por grupo
+  cargados. En una base existente hay que correr `scripts/accesos-rapidos-tipos-entrada.sql` una
+  vez, después de subir el back, para que el General (y cualquier tipo con precios por grupo) los
+  siga teniendo.
 - Módulo interno en el celular:
   - Sistema > Rendimiento: los botones para ordenar ya no se pisan entre sí y en cada tarjeta el
     nombre de cada dato queda a la izquierda y el valor a la derecha.
@@ -69,6 +75,10 @@ número y el CI la usa como nota de la Release de GitHub.
   la misma fecha, entradas y cupón dentro de los 30 minutos, se reusa la compra que quedó sin
   pagar en vez de crear otra. No aparta otra vez el cupo del día ni gasta otro uso del cupón. El
   link de pago vence a las 3 horas de creada la compra, junto con la cancelación automática.
+  Dos personas con distinto DNI y el mismo mail (una familia) no comparten la compra. Si con el
+  link anterior ya pagó, se confirma la reserva en vez de darle otro link; si el pago está en
+  proceso, se le pide esperar. Si Mercado Pago falla al dar el link nuevo, la compra no se
+  cancela (el link anterior sigue sirviendo). En un regalo, el reintento no crea otro cliente.
 - Reportes > Cancelaciones: cuántas compras se cancelaron en el rango y por qué, con el detalle de
   cada una (qué pasó, quién y monto).
   **Después del primer arranque del backend nuevo:** correr

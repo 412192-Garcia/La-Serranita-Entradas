@@ -274,12 +274,23 @@ public class CompraServiceImpl implements CompraService {
     public CompraResponseDTO iniciarCompraConPago(CompraRequestDTO compraRequest) throws Exception {
 
         Compra compraGuardada = self.create(compraRequest);
+        if (compraGuardada.isReusada()) {
+            verificarSinPagoEnCurso(compraGuardada);
+        }
 
         PagoService estrategia = resolverEstrategia(compraGuardada.getFormaPago());
         PagoResponseDTO respuestaPago;
         try {
             respuestaPago = estrategia.procesarPago(compraGuardada);
         } catch (Exception e) {
+            if (compraGuardada.isReusada()) {
+                // Reusada: el cliente ya tiene el link del intento anterior y puede estar pagando
+                // con él, así que no se cancela ni se le devuelve el cupón. Si no paga, la limpia
+                // el barrido de checkouts abandonados como a cualquier otra.
+                log.warn("No se pudo generar un link nuevo para el checkout reusado {} (compra ID {}): queda pendiente",
+                        compraGuardada.getCodigoReserva(), compraGuardada.getId(), e);
+                throw e;
+            }
             // Se libera el cupón y el lugar del día en vez de esperar las 3 h del barrido
             // (antes, con todo en una transacción, el rollback lo hacía solo).
             //
@@ -310,6 +321,41 @@ public class CompraServiceImpl implements CompraService {
         return dto;
     }
 
+
+    /**
+     * Antes de darle un link nuevo a un checkout reusado, se fija si con el link anterior ya pagó
+     * o tiene un pago en proceso (pasa justo cuando la ventana se bloqueó o se cerró después de
+     * pagar y el webhook todavía no llegó). Sin esto el cliente paga dos veces la misma compra.
+     * Si ya está paga se confirma; en los dos casos se corta con un mensaje en vez del link.
+     *
+     * Si no se le puede preguntar a Mercado Pago, se sigue con el link nuevo: es lo mismo que
+     * pasaba antes del reuso, y el pago de más igual queda avisado (ver confirmarPagoMercadoPago).
+     */
+    private void verificarSinPagoEnCurso(Compra compra) {
+        List<Payment> pagos;
+        try {
+            pagos = buscarPagosEnMercadoPago(compra).stream()
+                    .filter(p -> esPosteriorALaCompra(p, compra))
+                    .toList();
+        } catch (MPException | MPApiException | RuntimeException e) {
+            log.warn("No se pudo ver en Mercado Pago si el checkout reusado {} ya tiene un pago: se sigue con un link nuevo",
+                    compra.getCodigoReserva(), e);
+            return;
+        }
+        Optional<List<Long>> cubren = pagosQueCubren(compra, pagos);
+        if (cubren.isPresent()) {
+            self.confirmarAprobado(compra.getId(), cubren.get(), ConfirmacionPago.VERIFICACION);
+            throw new IllegalStateException("El pago de tu reserva #" + compra.getCodigoReserva()
+                    + " ya se acreditó: no hace falta pagar de nuevo. Te mandamos la confirmación por mail.");
+        }
+        if (pagos.stream().anyMatch(p -> PAGO_EN_PROCESO.contains(p.getStatus()))) {
+            throw new IllegalStateException("Ya hay un pago en proceso para tu reserva #" + compra.getCodigoReserva()
+                    + ". Esperá unos minutos a que Mercado Pago lo confirme (te llega por mail) antes de volver a pagar.");
+        }
+    }
+
+    /** Estados de un pago de Mercado Pago que todavía pueden terminar aprobados. */
+    private static final Set<String> PAGO_EN_PROCESO = Set.of("pending", "in_process", "authorized");
 
     /**
      * Cancela una compra que se creó pero cuyo pago nunca llegó a iniciarse, y le devuelve al
@@ -450,15 +496,13 @@ public class CompraServiceImpl implements CompraService {
                         + (mejorCandidato.getApellido() != null ? " " + mejorCandidato.getApellido() : "")
                         + "\". Si sos la misma persona, confirmá para continuar.");
             }
-        } else if (receptorNombre != null && clienteDTO != null && !esBlanco(clienteDTO.getNombre())) {
-            // Regalo: a quien compra no se le pide DNI (el que entra es el receptor, con el suyo).
-            // Igual se guarda como cliente para no perder su nombre (listados, búsqueda, mails);
-            // sin DNI no hay con quién deduplicarlo, así que es siempre un registro nuevo.
-            cliente = clienteService.create(Cliente.builder()
-                    .nombre(clienteDTO.getNombre())
-                    .apellido(clienteDTO.getApellido())
-                    .build());
         }
+        // Regalo: a quien compra no se le pide DNI (el que entra es el receptor, con el suyo).
+        // Igual se guarda como cliente para no perder su nombre (listados, búsqueda, mails). Se
+        // da de alta más abajo, después de ver si es un reintento: si no, cada "Pagar" dejaba un
+        // cliente nuevo sin compras.
+        boolean compradorDeRegaloSinDni = cliente == null && receptorNombre != null
+                && clienteDTO != null && !esBlanco(clienteDTO.getNombre());
 
         String contactEmail = clienteDTO != null ? clienteDTO.getEmail() : null;
         String contactPhone = clienteDTO != null ? clienteDTO.getTelefono() : null;
@@ -473,6 +517,22 @@ public class CompraServiceImpl implements CompraService {
                 ? buscarCheckoutReutilizable(cliente, contactEmail, fechaVisita, receptorDni,
                         compraRequest.getCuponCodigo(), compraRequest.getEntradas()).orElse(null)
                 : null;
+
+        if (compradorDeRegaloSinDni) {
+            // Sin DNI no hay con quién deduplicarlo: en un reintento se reusa el de la compra
+            // pendiente (con el nombre corregido si cambió); si no, es un registro nuevo.
+            Cliente previo = checkoutAReusar != null ? checkoutAReusar.getCliente() : null;
+            if (previo != null && previo.getDni() == null) {
+                previo.setNombre(clienteDTO.getNombre());
+                previo.setApellido(clienteDTO.getApellido());
+                cliente = previo;
+            } else {
+                cliente = clienteService.create(Cliente.builder()
+                        .nombre(clienteDTO.getNombre())
+                        .apellido(clienteDTO.getApellido())
+                        .build());
+            }
+        }
 
         // El cupón se valida en dos pasos a propósito. Acá se lee sólo para poder devolver un
         // mensaje que diga QUÉ pasa (agotado / vencido / inexistente), que es lo que ve el
@@ -523,6 +583,7 @@ public class CompraServiceImpl implements CompraService {
                 checkoutAReusar.setReceptorTelefono(receptorTelefono);
                 log.info("Se reusa el checkout pendiente {} (compra ID {}) en vez de crear otra compra igual",
                         checkoutAReusar.getCodigoReserva(), checkoutAReusar.getId());
+                checkoutAReusar.setReusada(true);
                 return compraRepository.save(checkoutAReusar);
             }
             // Cambió el precio: compra nueva, y el cupo se vuelve a medir contando también la pendiente.
@@ -636,9 +697,12 @@ public class CompraServiceImpl implements CompraService {
                 .max(Comparator.comparing(Compra::getFechaCreacion));
     }
 
+    /** Con DNI de algún lado manda el DNI: dos personas pueden compartir un mail (una familia) y
+     * no se le puede pasar a una el checkout de la otra. El mail sólo identifica cuando ninguna de
+     * las dos tiene DNI, que es el caso de quien compra un regalo. */
     private static boolean esLaMismaPersona(Compra compra, String dni, String contactEmail) {
         String dniCompra = compra.getCliente() != null ? compra.getCliente().getDni() : null;
-        if (dni != null && dni.equals(dniCompra)) return true;
+        if (dni != null || dniCompra != null) return dni != null && dni.equals(dniCompra);
         return contactEmail != null && !contactEmail.isBlank() && contactEmail.trim().equalsIgnoreCase(
                 compra.getContactEmail() != null ? compra.getContactEmail().trim() : null);
     }
