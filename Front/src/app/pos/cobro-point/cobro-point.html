@@ -17,7 +17,9 @@
     </div>
     <p class="terminal-point">{{ terminal().nombre }}</p>
 
-    @if (cobro(); as c) {
+    @if (eligiendoTarjeta()) {
+      <p class="ayuda-point">¿La tarjeta del cliente es de débito o de crédito?</p>
+    } @else if (cobro(); as c) {
       @if (c.estado === 'APROBADO') {
         <p class="estado-point estado-ok">Pago aprobado. Registrando la venta…</p>
       } @else if (c.enCurso) {
@@ -50,12 +52,16 @@
     }
 
     <div class="acciones">
-      @if (enCurso()) {
+      @if (eligiendoTarjeta()) {
+        <button type="button" class="btn-limpiar" (click)="cerrar()">Cancelar</button>
+        <button type="button" class="btn-cobrar" (click)="elegirTarjeta('DEBITO')">Débito</button>
+        <button type="button" class="btn-cobrar" (click)="elegirTarjeta('CREDITO')">Crédito</button>
+      } @else if (enCurso()) {
         @if (cobro()?.estado === 'REVISAR_EN_POINT' || !enLinea()) {
           <button type="button" class="btn-limpiar" (click)="confirmarAMano()">Salió aprobado: anotar a mano</button>
         }
-        <button type="button" class="btn-limpiar" [disabled]="cancelando()" (click)="cancelar()">
-          {{ cancelando() ? 'Cancelando…' : 'Cancelar cobro' }}
+        <button type="button" class="btn-limpiar" [disabled]="cancelando() || cancelacionPedida()" (click)="cancelar()">
+          {{ cancelando() ? 'Cancelando…' : cancelacionPedida() ? 'Cancelación pedida' : 'Cancelar cobro' }}
         </button>
       } @else if (fallido() || sinCrear()) {
         <button type="button" class="btn-limpiar" (click)="cerrar()">Cerrar</button>

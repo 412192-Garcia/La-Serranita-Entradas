@@ -80,4 +80,15 @@ public class TipoEntrada extends BaseEntity {
     @Builder.Default
     private Boolean soloPos = false;
 
+    /**
+     * Si es true, el POS muestra para este tipo la grilla de cantidad de un toque (1 a 10 y
+     * "10+") en vez del +/- simple: para los tipos que se venden en grupo (ej. Pase General,
+     * pase de menores). Sin nullable=false a propósito, mismo motivo que entregaEntrada/orden.
+     * Se trata como false si es null; en una base existente, scripts/accesos-rapidos-tipos-entrada.sql
+     * lo completa para los tipos que ya los tenían.
+     */
+    @Column(name = "accesos_rapidos")
+    @Builder.Default
+    private Boolean accesosRapidos = false;
+
 }

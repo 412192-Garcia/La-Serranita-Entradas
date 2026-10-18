@@ -8,26 +8,36 @@
   [class.fila-saliendo]="busqueda.saliendoIds().has(r.id)">
 
   <div class="col-titular celda-titular">
-    <!-- Las ventas de puerta son anónimas: no hay titular ni contacto que mostrar. -->
-    @if (r.cliente; as cliente) {
+    <!-- Regalo (fechaVisita null + receptor): quien compró no es quien viene a usarlo. El
+         titular de la fila es el receptor (a quien se le pide el DNI en la puerta) y quien
+         compró queda como dato secundario. -->
+    @if (!r.fechaVisita && (r.receptorNombre || r.receptorDni)) {
+      <strong>{{ r.receptorNombre || 'Quien recibe el regalo' }}</strong>
+      <span class="titular-contacto">
+        @if (r.receptorDni) {
+          <span class="titular-dni">DNI {{ r.receptorDni }}</span>
+        }
+        @if (r.receptorEmail) {
+          <span class="titular-email">{{ r.receptorEmail }}</span>
+        }
+      </span>
+      <span class="titular-regalo-de">
+        <svg lucideGift class="icono-regalo" [strokeWidth]="2"></svg>
+        Regalo{{ r.cliente ? ' de ' + r.cliente.nombre + ' ' + r.cliente.apellido : '' }}
+      </span>
+    } @else if (r.cliente; as cliente) {
       <strong>{{ cliente.nombre }} {{ cliente.apellido }}</strong>
       <span class="titular-contacto">
-        <span class="titular-dni">DNI {{ cliente.dni }}</span>
+        @if (cliente.dni) {
+          <span class="titular-dni">DNI {{ cliente.dni }}</span>
+        }
         @if (r.contactEmail) {
           <span class="titular-email">{{ r.contactEmail }}</span>
         }
       </span>
     } @else {
+      <!-- Las ventas de puerta son anónimas: no hay titular ni contacto que mostrar. -->
       <strong class="titular-anonimo">Venta en boletería</strong>
-    }
-    <!-- Regalo (fechaVisita null): quien compró no es quien va a venir a usarlo, así que
-         el dato que el boletero necesita para validar identidad en la puerta es el del
-         receptor, no el del comprador de arriba. -->
-    @if (!r.fechaVisita && (r.receptorNombre || r.receptorDni)) {
-      <span class="titular-receptor">
-        Para {{ r.receptorNombre || 'quien lo reciba' }}
-        @if (r.receptorDni) { · DNI {{ r.receptorDni }} }
-      </span>
     }
     @if (v.pases.length || v.extras.length) {
       <div class="titular-detalle">

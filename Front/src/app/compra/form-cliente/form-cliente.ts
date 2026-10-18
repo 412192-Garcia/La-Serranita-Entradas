@@ -63,7 +63,8 @@ export class FormCliente implements OnInit, OnChanges {
   cargando: boolean = false;
 
   @Input() datosPrevios: any = null;
-  /** Cuando es un regalo, se piden también los datos de quien lo recibe (para avisarle por mail). */
+  /** Cuando es un regalo, se piden primero los datos de quien lo recibe (entra con su DNI y se le
+   * avisa por mail) y de quien compra sólo el contacto, sin DNI. */
   @Input() esRegalo: boolean = false;
   @Input() datosPreviosReceptor: any = null;
 
@@ -82,10 +83,11 @@ export class FormCliente implements OnInit, OnChanges {
     this.formGroup = this.fb.group({
       nombre: ['', [Validators.required, Validators.minLength(2)]],
       apellido: ['', [Validators.required, Validators.minLength(2)]],
-      dni: ['', [Validators.required, dniValidator]],
+      // Validators en actualizarValidadoresReceptor: en un regalo no se pide.
+      dni: [''],
       // El DNI es lo que valida el ingreso al parque: pedirlo dos veces (como una
       // contraseña) atrapa errores de tipeo antes de que lleguen a generar la reserva.
-      dniConfirmacion: ['', [Validators.required, confirmacionDniValidator]],
+      dniConfirmacion: [''],
       email: ['', [Validators.required, Validators.email]],
       // Libre: el backend lo parte en código de área y número para Mercado Pago.
       telefono: ['', [Validators.required, telefonoValidator]],
@@ -136,8 +138,16 @@ export class FormCliente implements OnInit, OnChanges {
 
   /** Los campos del receptor sólo son obligatorios mientras esRegalo esté activo; si se
    * desactiva, hay que sacarles el validator (no sólo ocultarlos) — si no, quedan inválidos
-   * para siempre (vacíos + required) y bloquean "Siguiente" aunque ya no se vean. */
+   * para siempre (vacíos + required) y bloquean "Siguiente" aunque ya no se vean.
+   *
+   * Al revés con el DNI de quien compra: en un regalo no se le pide, porque quien entra al
+   * parque (y a quien se le controla el documento) es el receptor, no el comprador. */
   private actualizarValidadoresReceptor(): void {
+    this.f['dni'].setValidators(this.esRegalo ? [] : [Validators.required, dniValidator]);
+    this.f['dniConfirmacion'].setValidators(this.esRegalo ? [] : [Validators.required, confirmacionDniValidator]);
+    this.f['dni'].updateValueAndValidity();
+    this.f['dniConfirmacion'].updateValueAndValidity();
+
     const receptor = this.formGroup.get('receptor') as FormGroup;
     receptor.get('nombre')!.setValidators(this.esRegalo ? [Validators.required, Validators.minLength(2)] : []);
     receptor.get('dni')!.setValidators(this.esRegalo ? [Validators.required, dniValidator] : []);
@@ -177,6 +187,12 @@ export class FormCliente implements OnInit, OnChanges {
 
       let receptorLimpio = null;
       if (this.esRegalo && receptor) {
+        // En un regalo quien compra no viene al parque: ni su DNI ni su edad/localidad (que
+        // alimentan las estadísticas de visitantes) aplican. Se descartan aunque hayan quedado
+        // tipeados de antes de tildar "Comprar como Regalo".
+        cliente.dni = null;
+        cliente.edad = null;
+        cliente.localidad = null;
         const { dniConfirmacion: _receptorConfirmacion, ...resto } = receptor;
         resto.dni = normalizarDocumento(resto.dni);
         receptorLimpio = resto;

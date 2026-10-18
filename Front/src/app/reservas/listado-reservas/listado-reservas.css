@@ -355,3 +355,56 @@
     margin: -9px 0;
   }
 }
+
+/* ---------- Teléfono ---------- */
+@media (max-width: 600px) {
+  /* La barra de semanas mide ~620px (dos ranuras de "Esta semana", flechas y tres semanas de
+     120px): en el celular se iba de costado, con barra de scroll y las flechas fuera de la
+     pantalla. Queda sólo la semana que se está mirando entre las dos flechas, a todo el ancho;
+     el atajo "Esta semana" aparece sólo cuando hace falta (la ranura vacía no ocupa lugar). */
+  .paginador-dias {
+    width: 100%;
+    box-sizing: border-box;
+    overflow: visible;
+  }
+
+  .btn-pagina-dia:not(.activo),
+  .btn-pagina-dia-vacia {
+    display: none;
+  }
+
+  .btn-pagina-dia.activo {
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 0;
+  }
+
+  .ranura-volver-hoy {
+    width: auto;
+  }
+
+  .ranura-volver-hoy:empty {
+    display: none;
+  }
+
+  /* "Martes 15 de septiembre" + "1 reserva · 1 pase" no entran en un renglón: el conteo va
+     abajo, chico, en vez de partir la fecha en dos. */
+  .separador-dia {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    padding: 10px 14px;
+  }
+}
+
+@media (pointer: coarse) and (max-width: 600px) {
+  .btn-flecha-pagina,
+  .btn-pagina-dia.activo,
+  .btn-volver-hoy {
+    height: 40px;
+  }
+
+  .btn-flecha-pagina {
+    width: 40px;
+  }
+}

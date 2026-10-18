@@ -1,10 +1,10 @@
 import { Component, ElementRef, OnDestroy, OnInit, computed, effect, inject, signal, viewChild } from '@angular/core';
-import { DecimalPipe } from '@angular/common';
+import { DatePipe, DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Chart, ChartOptions, registerables } from 'chart.js';
 import { ReporteService } from '../services/reporte.service';
 import { FacturaService } from '../services/factura.service';
-import { AfluenciaDiaria, ComprasPorEstado, DiaSemana, RecaudacionPorFormaPago, ReporteResumen, VentasPorOrigen } from '../models/reporte';
+import { AfluenciaDiaria, CompraCancelada, ComprasPorEstado, MotivoCancelacion, DiaSemana, RecaudacionPorFormaPago, ReporteResumen, VentasPorOrigen } from '../models/reporte';
 import { CabeceraInterna } from '../shared/cabecera-interna/cabecera-interna';
 import { FiltroRangoFechas } from '../shared/filtro-rango-fechas/filtro-rango-fechas';
 import { aFechaISO, restarUnAnio } from '../shared/fecha.util';
@@ -27,7 +27,7 @@ const PASOS_RESUMEN: TourStep[] = [
   {
     selector: '[data-tour="graficos-reportes"]',
     titulo: 'Gráficos y desgloses',
-    texto: 'Más abajo hay gráficos con el detalle: afluencia diaria, desglose por tipo, forma de pago, boletería contra anticipadas, horarios y más.',
+    texto: 'Más abajo hay gráficos con el detalle: afluencia diaria, desglose por tipo, forma de pago, boletería contra anticipadas, por qué se cancelaron compras, horarios y más.',
   },
   {
     selector: '[data-tour="ranking-boleteros"]',
@@ -78,6 +78,13 @@ const COLOR_POR_FORMA_PAGO: Record<RecaudacionPorFormaPago['formaPago'], string>
   SIN_COBRO: '#8c8c8c',
 };
 
+const ETIQUETA_POR_MOTIVO: Record<MotivoCancelacion, string> = {
+  CHECKOUT_ABANDONADO: 'Abrió el checkout y no intentó pagar',
+  PAGO_RECHAZADO: 'Intentó pagar y Mercado Pago no lo aprobó',
+  PAGO_NO_INICIADO: 'Falló al iniciar el pago',
+  ANULADA_EN_CAJA: 'Anulada en caja',
+};
+
 const ETIQUETA_POR_ESTADO: Record<ComprasPorEstado['estado'], string> = {
   APROBADO: 'Pagada online',
   USADO: 'Ya utilizada',
@@ -118,7 +125,7 @@ type PeriodoAgrupacion = 'dia' | 'semana' | 'mes';
 
 @Component({
   selector: 'app-configuracion-reportes',
-  imports: [FormsModule, PesosPipe, DecimalPipe, CabeceraInterna, FiltroRangoFechas],
+  imports: [FormsModule, PesosPipe, DecimalPipe, DatePipe, CabeceraInterna, FiltroRangoFechas],
   templateUrl: './reportes.html',
   styleUrls: ['../configuracion/configuracion-shared.css', './reportes.css'],
 })
@@ -218,6 +225,20 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
   cuponesCompras = computed(() =>
     (this.resumen()?.usoCupones ?? []).reduce((total, c) => total + c.cantidad, 0),
   );
+
+  /** Cancelaciones agrupadas por motivo, de la que más se repite a la que menos. */
+  cancelacionesPorMotivo = computed(() => {
+    const grupos = new Map<string, { etiqueta: string; cantidad: number; monto: number }>();
+    for (const c of this.resumen()?.cancelaciones ?? []) {
+      const etiqueta = this.etiquetaMotivo(c);
+      const g = grupos.get(etiqueta) ?? { etiqueta, cantidad: 0, monto: 0 };
+      g.cantidad++;
+      g.monto += c.montoTotal;
+      grupos.set(etiqueta, g);
+    }
+    return [...grupos.values()].sort((a, b) => b.cantidad - a.cantidad);
+  });
+  verDetalleCancelaciones = signal(false);
 
   /** Arranca con el rango principal y ese mismo rango un año antes, como punto de partida
    * cómodo: el admin corrige las fechas de cualquier fila (o agrega más) antes de comparar. */
@@ -359,6 +380,14 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
     if (valor < 0) return 'diferencia-faltante';
     if (valor > 0) return 'diferencia-sobrante';
     return 'diferencia-exacta';
+  }
+
+  etiquetaMotivo(c: CompraCancelada): string {
+    if (!c.motivo) return 'Sin motivo registrado';
+    // Las de antes de anotar el motivo las completó el backfill sin fecha de cancelación: de esas
+    // no se sabe si intentó pagar, así que no se las junta con las que seguro no lo intentaron.
+    if (c.motivo === 'CHECKOUT_ABANDONADO' && !c.fechaCancelacion) return 'Checkout de Mercado Pago sin pagar (sin detalle)';
+    return ETIQUETA_POR_MOTIVO[c.motivo];
   }
 
   etiquetaEstado(estado: ComprasPorEstado['estado']): string {

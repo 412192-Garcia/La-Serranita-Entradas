@@ -263,7 +263,22 @@
     display: none;
   }
 
+  /* Columna flex sólo para poder subir el tipo de operación arriba de la hora: si no, la
+     tarjeta arrancaba con "HORA 21:50" y el título quedaba en el segundo renglón. */
+  .fila-simple-operaciones-admin:not(.fila-simple-header) {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  /* Retiros, anticipadas validadas, etc. no tienen botones: sin esto la celda vacía dejaba un
+     hueco al pie de la tarjeta. */
+  .fila-simple-operaciones-admin > .acciones-operacion:empty {
+    display: none;
+  }
+
   .fila-simple-operaciones-admin > span:nth-child(3) {
+    order: -1;
     justify-content: flex-start;
     text-align: left;
     font-weight: 700;
@@ -283,4 +298,103 @@
   .paginador { gap: 10px; }
   .paginador .btn-limpiar { padding: 10px 12px; font-size: 0.82rem; }
   .paginador span { white-space: nowrap; }
+}
+
+.campo-motivo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--color-text);
+}
+
+.campo-motivo textarea {
+  font: inherit;
+  font-weight: 400;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-bg-soft);
+  color: var(--color-text);
+  resize: vertical;
+}
+
+.ayuda-motivo {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.campo-motivo .label-opcional {
+  font-weight: 400;
+  color: var(--color-text-muted);
+}
+
+@media (pointer: coarse) {
+  /* Filtros del historial y "Cancelar venta": venían en 29px / 25px de alto. */
+  .chip-filtro {
+    min-height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .btn-cancelar-venta {
+    min-height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+/* Rótulo de cada KPI. Sin esto el <h2> salía con el tamaño por defecto del navegador (24px):
+   el rótulo quedaba casi del tamaño del número y le robaba protagonismo. */
+.tarjeta-kpis-detalle h2 {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+}
+
+/* Teléfono: los KPI pasan a mosaicos de dos columnas (el de entradas, con su subtítulo, a todo
+   el ancho) en vez de tres bloques sueltos uno abajo del otro. */
+@media (max-width: 720px) {
+  .tarjeta-kpis-detalle,
+  .tarjeta-kpis-detalle-3 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .tarjeta-kpis-detalle > div {
+    min-width: 0;
+    padding: 10px 12px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background-color: var(--color-card-bg);
+  }
+
+  .tarjeta-kpis-detalle > div:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .tarjeta-kpis-detalle h2 {
+    font-size: 0.78rem;
+  }
+
+  .tarjeta-kpis-detalle .kpi-numero {
+    font-size: 1.35rem;
+    margin: 2px 0 0;
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 720px) {
+  /* Debajo de los mosaicos: un renglón de dato, no un título que compita con ellos. */
+  .fila-entradas-fisicas {
+    font-size: 0.9rem;
+  }
 }

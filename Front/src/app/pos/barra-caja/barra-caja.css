@@ -50,3 +50,12 @@
 .btn-descartar-error:hover {
   background-color: var(--color-danger-light);
 }
+
+@media (pointer: coarse) {
+  .btn-descartar-error {
+    min-height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}

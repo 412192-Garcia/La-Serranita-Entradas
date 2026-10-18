@@ -131,7 +131,7 @@ public interface CompraService {
      * este estado). Sólo para compras que pasaron por una caja (compra.caja != null); una
      * reserva online no se cancela por acá.
      */
-    Compra cancelarVenta(Long compraId);
+    Compra cancelarVenta(Long compraId, String motivo);
 
     /**
      * Corrige las entradas y/o la forma de pago de una venta de puerta ya cargada (ADMIN, desde

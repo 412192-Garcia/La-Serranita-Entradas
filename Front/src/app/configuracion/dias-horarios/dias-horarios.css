@@ -183,6 +183,15 @@
 .etiqueta-estado.abierto { background-color: var(--color-primary-light); color: var(--color-primary-dark); }
 .etiqueta-estado.cerrado { background-color: var(--color-border); color: var(--color-text-secondary); }
 
+/* Estado del día + botón para cambiarlo: centrados entre sí (el align-items: flex-end de
+   .fila-horario es para los inputs con etiqueta, y acá dejaba la píldora más abajo que el
+   botón) y separados de la ayuda que viene abajo. */
+.fila-estado-dia {
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
 /* ---------- Responsive ---------- */
 @media (max-width: 900px) {
   .seccion-dias { grid-template-columns: 1fr; }

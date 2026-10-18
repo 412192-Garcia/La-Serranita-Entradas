@@ -68,4 +68,8 @@ public class ReporteResumenDTO {
     private BigDecimal totalFacturado;
     private long cantidadFacturas;
     private long cantidadNotasCredito;
+
+    /** Compras canceladas del rango (por día de creación o de visita, igual que "Compras por
+     * estado"), con el motivo. Las más recientes primero. */
+    private List<CompraCanceladaDTO> cancelaciones;
 }

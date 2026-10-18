@@ -707,7 +707,51 @@
 }
 
 @media (pointer: coarse) {
-  .btn-aviso-point {
+  .btn-aviso-point,
+  .btn-cancelar-reserva {
     min-height: 44px;
+  }
+}
+
+/* ---------- Teléfono ---------- */
+@media (max-width: 600px) {
+  /* Cuatro columnas iguales partían "Sin descuento" en dos renglones (y ese botón quedaba más
+     alto que los otros). Cada uno toma el ancho de su texto, en una sola línea. */
+  .modo-descuento {
+    display: flex;
+  }
+
+  .btn-modo-descuento {
+    flex: 1 1 auto;
+    white-space: nowrap;
+    padding: 8px 6px;
+  }
+
+  /* Pago mixto: los dos montos uno debajo del otro. Lado a lado, el selector de la 2ª forma
+     (Efectivo / Tarjeta / QR) tenía media tarjeta y quedaba "Efect… Tarje…". */
+  .bloque-pago-mixto .fila-descuento-manual {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .bloque-pago-mixto .etiqueta-monto-mixto {
+    height: auto;
+  }
+
+  .bloque-pago-mixto .mini-toggle-forma {
+    gap: 6px;
+  }
+
+  .btn-mini-forma {
+    height: 36px;
+    padding: 0 8px;
+    font-size: 0.8rem;
+  }
+}
+
+@media (pointer: coarse) and (max-width: 600px) {
+  .btn-modo-descuento,
+  .btn-mini-forma {
+    min-height: 40px;
   }
 }

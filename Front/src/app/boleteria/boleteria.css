@@ -376,6 +376,12 @@
   margin-top: 6px;
 }
 
+/* .btn-buscar / .btn-limpiar sólo traen padding horizontal: en la barra de búsqueda el alto se lo
+   da el input de al lado, pero suelto en el modal quedaban de 19px. */
+.modal-acciones button {
+  min-height: 40px;
+}
+
 /* ---------- Foco de teclado ----------
    Botones que sólo tenían :hover (nada visible al navegar con Tab): mismo anillo que ya
    usan los inputs de esta misma pantalla. */
@@ -414,5 +420,14 @@
      gris claro. Es el rótulo que explica cada grupo de chips, conviene que se lea. */
   .etiqueta-filtro {
     font-size: 0.74rem;
+  }
+
+  .modal-acciones button {
+    min-height: 44px;
+  }
+
+  /* "Sin caja abierta" abre la apertura de caja: venía en 28px de alto. */
+  .indicador-caja-cerrada {
+    min-height: 40px;
   }
 }

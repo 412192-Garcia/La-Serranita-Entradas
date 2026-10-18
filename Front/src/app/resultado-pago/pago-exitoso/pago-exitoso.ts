@@ -67,7 +67,11 @@ export class PagoExitoso implements OnInit {
     this.ngZone.run(() => {
       if (compra) {
         this.codigoReserva = compra.codigoReserva;
-        this.compraAcumulada = { cliente: { dni: compra.cliente?.dni ?? null } };
+        this.compraAcumulada = {
+          cliente: { dni: compra.cliente?.dni ?? null },
+          esRegalo: !compra.fechaVisita && !!compra.receptorDni,
+          receptor: { dni: compra.receptorDni ?? null },
+        };
       }
       this.noEncontrada = !compra || (compra.estado !== 'APROBADO' && compra.estado !== 'USADO');
       this.verificando = false;

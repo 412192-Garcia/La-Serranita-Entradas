@@ -134,3 +134,12 @@
 .btn-marcar-resuelto {
   align-self: flex-start;
 }
+
+@media (pointer: coarse) {
+  .chip-filtro {
+    min-height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}

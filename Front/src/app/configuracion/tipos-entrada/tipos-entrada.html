@@ -56,6 +56,13 @@
         <span class="opcional">(ej: Bonificadas)</span>
       </span>
     </label>
+    <label class="fila-checkbox">
+      <input type="checkbox" [ngModel]="accesosRapidosTipo()" (ngModelChange)="accesosRapidosTipo.set($event)" />
+      <span>
+        Accesos rápidos en boletería: el POS muestra botones de cantidad de un toque (1 a 10 y "10+") en vez del +/−
+        <span class="opcional">(ej: Pase General, pase de menores)</span>
+      </span>
+    </label>
     <div class="fila-horario">
       <button type="button" class="btn-primario" [disabled]="guardandoTipo()" (click)="guardarTipo()">
         {{ guardandoTipo() ? 'Guardando…' : (tipoEditandoId() ? 'Guardar cambios' : 'Crear tipo de entrada') }}
@@ -79,7 +86,7 @@
             </div>
             @for (d of descuentosDelTipoActual(); track d.id) {
               <div class="fila-simple fila-simple-descuentos">
-                <span data-label="Cantidad">{{ d.cantidadPases }} pases</span>
+                <span>{{ d.cantidadPases }} pases</span>
                 <span data-label="Precio total">{{ d.precioPromocionalTotal | pesos }}</span>
                 <span data-label="Precio por persona">{{ precioPorPersona(d) | pesos }}</span>
                 <span data-label="Ahorro">{{ ahorroDescuento(d) | pesos }}</span>

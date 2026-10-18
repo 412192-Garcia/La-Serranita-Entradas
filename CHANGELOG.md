@@ -6,6 +6,84 @@ número y el CI la usa como nota de la Release de GitHub.
 
 ## Sin publicar
 
+- POS: los botones de cantidad de un toque (1 a 10 y "10+") ya no son sólo del Pase General.
+  Cada tipo de entrada tiene la opción "Accesos rápidos en boletería" en Configuración > Tipos de
+  entrada (ej. para el pase de menores). Antes salían para los tipos con precios por grupo
+  cargados. En una base existente hay que correr `scripts/accesos-rapidos-tipos-entrada.sql` una
+  vez, después de subir el back, para que el General (y cualquier tipo con precios por grupo) los
+  siga teniendo.
+- Módulo interno en el celular:
+  - Sistema > Rendimiento: los botones para ordenar ya no se pisan entre sí y en cada tarjeta el
+    nombre de cada dato queda a la izquierda y el valor a la derecha.
+  - Sistema > Módulos: el interruptor va al lado del nombre y la descripción usa todo el ancho
+    (antes quedaba en una columna angosta de tres palabras por renglón).
+  - Acciones > Generar reserva: se lee el aviso "Todavía no elegiste un día" / "Día
+    seleccionado" (era letra blanca sobre fondo claro, también en la compu), y los − / + de cada
+    entrada y las flechas del mes son más grandes para el dedo.
+  - Acciones > Facturación manual: cada renglón muestra qué es cada campo (Cant., Descripción,
+    Precio unit.) y la cantidad y el precio van juntos; en la lista de facturas el número va en su
+    renglón y la fecha y el total abajo.
+  - Acciones > Control de facturas: el listado para el contador pasa a tarjetas con el
+    comprobante de título y un dato por renglón.
+  - POS: el menú de la ticketera / Point se abre abajo, de borde a borde; antes se salía de la
+    pantalla por la izquierda.
+  - El cartel de "Algo salió mal" usa el ancho del celular (quedaba en una columna angosta).
+  - Botones que con el dedo quedaban muy chicos: Guardar / Cancelar de "Editar contacto" en
+    Control de accesos (también en la compu), los filtros de Cajas, del historial de una caja y
+    de Operaciones rechazadas, Día / Semana / Mes y los días en Reportes, "+ Agregar una venta" y
+    los demás de corregir una caja, "Vender sin control de caja", "Sin caja abierta", "Cancelar
+    reserva" del carrito y "Deshacer" de Control de accesos.
+  - Menú lateral con un ícono por pantalla y la inicial del usuario cuando no tiene foto.
+  - POS: la cabecera ocupa dos renglones en vez de tres (título con Tutorial y menú arriba;
+    Anticipadas, Caja y el estado de la ticketera / Point abajo, este último sólo con íconos).
+    Los descuentos ("Sin descuento" ya no se parte en dos renglones) y el pago mixto (los dos
+    montos uno abajo del otro, sin "Efect… / Tarje…" cortados) se acomodan al celular.
+  - Anticipadas y Control de accesos: la barra de semanas muestra sólo la semana elegida entre las
+    flechas (antes se iba de costado con las flechas fuera de pantalla) y cada día pone el conteo
+    de reservas debajo de la fecha.
+  - Cajas: los números de la caja (entradas, vendido, facturado) pasan a mosaicos, con el rótulo
+    chico arriba del número (antes el rótulo era casi más grande que el número, también en la
+    compu); en el historial cada operación lleva su tipo como título.
+  - Configuración: los lotes de cupones son tarjetas con "Ver cupones", los precios por grupo
+    llevan la cantidad de pases como título, el estado de un día queda alineado con su botón, y
+    en las tarjetas los valores se agrupan a la derecha de su etiqueta.
+- Sistema > Estado, tarjeta Impresión: "tickets sin imprimir" ya no queda en alerta para siempre.
+  Cuenta sólo las facturas cuyo último ticket falló: si se reimprimió bien, o la factura se anuló
+  (su ticket se cancela), deja de contar.
+- Cobro con Point: si Mercado Pago rechaza el monto por ser muy bajo (ej. un ítem de prueba de
+  $1), el boletero ve "Mercado Pago no acepta cobrar ese monto con el Point" en vez de un error en
+  inglés. Los demás rechazos de MP muestran también el detalle de qué dato falló.
+- Regalos en Control de accesos y en las anticipadas del POS: la fila muestra primero a quien
+  recibe el regalo (nombre, DNI y mail: es a quien se le pide el documento en la puerta) y abajo,
+  con el ícono de regalo, quién lo compró.
+- Comprar como regalo: primero se cargan los datos de quien lo recibe y después los de quien
+  compra, que ya no tiene que poner DNI (ni edad ni localidad), y no aparece más el aviso de que
+  ese DNI es para entrar al parque. La pantalla de compra confirmada muestra el DNI de quien
+  recibe el regalo en vez del de quien lo compró.
+  **Antes de subir:** correr `scripts/cliente-dni-opcional.sql` en la base.
+- Motivo de cancelación: cada compra cancelada guarda por qué, cuándo y quién. Las que cancela la
+  app sola quedan anotadas con lo que contestó Mercado Pago: "Abrió el checkout y no intentó
+  pagar", o "Intentó pagar y Mercado Pago no lo aprobó" con el detalle de cada intento (ej. "visa:
+  rechazado, fondos insuficientes"), o el error si no se pudo iniciar el pago. Al cancelar una
+  venta desde Cajas se puede escribir un motivo (opcional), que queda también en el historial de
+  Sistema. Si un checkout cancelado se termina pagando, el motivo se borra al reactivarse.
+- Pago online con la ventana de Mercado Pago bloqueada (pasa en Safari de iPhone, en el navegador
+  de Instagram, etc.): en vez de un aviso de error y volver a "Pagar", aparece un botón "Abrir
+  Mercado Pago" que abre el pago de esa misma reserva. Antes cada reintento creaba otra compra:
+  hubo un cliente con 30 compras en 6 minutos hasta poder pagar.
+- Reintentos de pago: si el mismo cliente (mismo DNI, o mismo mail en un regalo) vuelve a pagar
+  la misma fecha, entradas y cupón dentro de los 30 minutos, se reusa la compra que quedó sin
+  pagar en vez de crear otra. No aparta otra vez el cupo del día ni gasta otro uso del cupón. El
+  link de pago vence a las 3 horas de creada la compra, junto con la cancelación automática.
+  Dos personas con distinto DNI y el mismo mail (una familia) no comparten la compra. Si con el
+  link anterior ya pagó, se confirma la reserva en vez de darle otro link; si el pago está en
+  proceso, se le pide esperar. Si Mercado Pago falla al dar el link nuevo, la compra no se
+  cancela (el link anterior sigue sirviendo). En un regalo, el reintento no crea otro cliente.
+- Reportes > Cancelaciones: cuántas compras se cancelaron en el rango y por qué, con el detalle de
+  cada una (qué pasó, quién y monto).
+  **Después del primer arranque del backend nuevo:** correr
+  `scripts/backfill-motivos-cancelacion.sql` para completar el motivo de las canceladas de antes.
+
 ## 0.10.2 — 2026-10-16
 
 - Control de facturas: los textos del estado sin certificado y de la numeración ya no hablan del
@@ -34,6 +112,14 @@ número y el CI la usa como nota de la Release de GitHub.
 - Reportes: las cajas cerradas (faltantes/sobrantes y ranking de boleteros) cuentan el día en que se
   abrió la caja, que es el de sus ventas (antes, el día en que se cerró: una caja del domingo cerrada
   el sábado caía en el sábado).
+- Cobro con Point: al cobrar con tarjeta la tablet pregunta **débito o crédito** y el Point pide
+  directo esa tarjeta (antes le preguntaba al cliente si pagaba con tarjeta o con QR).
+- Cobro con Point: si se cancela desde la tablet con el cobro ya en la pantalla del Point, el botón
+  queda en "Cancelación pedida" (no se puede apretar de nuevo) y la ventana avisa que, si el Point no
+  lo suelta, hay que cancelarlo en el propio Point. Un cobro cancelado en el Point ahora dice "Se
+  canceló en el Point".
+- POS: el pago mixto acepta **dos tarjetas** ("Tarjeta 1" y "Tarjeta 2"), para un cliente que paga
+  mitad con cada una. Con el Point se cobran de a una, y cada una pregunta débito o crédito.
 
 ## 0.10.1 — 2026-10-16
 

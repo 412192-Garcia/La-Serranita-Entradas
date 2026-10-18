@@ -1,6 +1,6 @@
 @for (t of entradas(); track t.id) {
-  @if (tienePreciosPorGrupo(t.id)) {
-    <!-- Tiene precio por grupo: un toque elige la cantidad exacta; tocar la misma la vacía. -->
+  @if (tieneAccesosRapidos(t)) {
+    <!-- Con accesos rápidos: un toque elige la cantidad exacta; tocar la misma la vacía. -->
     <div class="selector-tipo">
       <div class="selector-header">
         <span class="selector-nombre">{{ t.nombre }}</span>
@@ -54,7 +54,7 @@
       }
     </div>
   } @else {
-    <!-- Sin precio por grupo: alcanza con un +/- simple. -->
+    <!-- Sin accesos rápidos: alcanza con un +/- simple. -->
     <div class="selector-tipo selector-simple">
       <div class="selector-header">
         <span class="selector-nombre">{{ t.nombre }}</span>

@@ -1,10 +1,9 @@
 import { Component, effect, input, output, signal, untracked } from '@angular/core';
 import { TipoEntrada } from '../../models/tipo-entrada';
-import { DescuentoEfectivo } from '../../services/configuracion.service';
 import { PesosPipe } from '../../shared/pesos.pipe';
 import { SeleccionarAlFocoDirective } from '../../shared/seleccionar-al-foco.directive';
 
-/** Números de un toque para las entradas obligatorias (pagas). Más que eso, se escribe a mano. */
+/** Números de un toque para los tipos con accesos rápidos. Más que eso, se escribe a mano. */
 const NUMEROS_RAPIDOS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 /** Tope de lo que se puede escribir a mano en una cantidad (un grupo enorme, no un error de tipeo de 6 cifras). */
 const CANTIDAD_MAXIMA = 9999;
@@ -18,21 +17,16 @@ const CANTIDAD_MAXIMA = 9999;
 export class CatalogoEntradas {
   entradas = input<TipoEntrada[]>([]);
   cantidades = input<Record<number, number>>({});
-  /** Para decidir qué tipos muestran la grilla de accesos rápidos: ver tienePreciosPorGrupo. */
-  descuentosEfectivo = input<DescuentoEfectivo[]>([]);
 
   cantidadesChange = output<Record<number, number>>();
 
   readonly numerosRapidos = NUMEROS_RAPIDOS;
 
-  /** Tipos con al menos un escalón de precio por grupo cargado (ver Configuración > Descuentos
-   * en efectivo): elegir la cantidad exacta de una vez tiene sentido ahí (se compra en grupo,
-   * "familia de 4"), a diferencia de un tipo sin escalones donde un +/- simple alcanza. Antes
-   * se usaba `obligatorio` para esto, pero ese campo significa otra cosa (si hace falta al
-   * menos un pase de ese tipo para poder entrar) — coincidía en los datos de siempre, no por
-   * diseño. */
-  tienePreciosPorGrupo(tipoId: number): boolean {
-    return this.descuentosEfectivo().some((d) => d.tipoEntradaId === tipoId);
+  /** Tipos que se venden en grupo ("familia de 4"): elegir la cantidad exacta de un toque tiene
+   * sentido ahí, a diferencia de otros donde un +/- simple alcanza. Se activa por tipo en
+   * Configuración > Tipos de entrada (campo accesosRapidos). */
+  tieneAccesosRapidos(t: TipoEntrada): boolean {
+    return t.accesosRapidos === true;
   }
 
   /** Tipos (con accesos rápidos) cuyo campo de cantidad manual (10+) está abierto. */

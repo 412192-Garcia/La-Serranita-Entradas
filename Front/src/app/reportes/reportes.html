@@ -153,6 +153,52 @@
   </div>
 
   @if (resumen(); as r) {
+    <div class="tarjeta tarjeta-ancha">
+      <h2>Cancelaciones</h2>
+      <p class="ayuda">Por qué se cancelaron las compras del rango (mismo criterio de fechas que "Compras por estado"). No suman en ningún total.</p>
+      @if (r.cancelaciones.length === 0) {
+        <p class="ayuda">No hubo compras canceladas en el rango.</p>
+      } @else {
+        <div class="tabla-simple">
+          <div class="fila-simple fila-simple-desglose-simple fila-simple-header">
+            <span>Motivo</span><span>Compras</span><span>Monto</span>
+          </div>
+          @for (g of cancelacionesPorMotivo(); track g.etiqueta) {
+            <div class="fila-simple fila-simple-desglose-simple">
+              <span>{{ g.etiqueta }}</span>
+              <span data-label="Compras">{{ g.cantidad | number }}</span>
+              <span data-label="Monto">{{ g.monto | pesos }}</span>
+            </div>
+          }
+        </div>
+
+        <button type="button" class="btn-ver-cancelaciones" (click)="verDetalleCancelaciones.set(!verDetalleCancelaciones())">
+          {{ verDetalleCancelaciones() ? 'Ocultar el detalle' : 'Ver cada una (' + r.cancelaciones.length + ')' }}
+        </button>
+        @if (verDetalleCancelaciones()) {
+          <div class="tabla-simple">
+            <div class="fila-simple fila-simple-cancelacion fila-simple-header">
+              <span>Compra</span><span>Creada</span><span>Motivo</span><span>Quién</span><span>Monto</span>
+            </div>
+            @for (c of r.cancelaciones; track c.codigoReserva) {
+              <div class="fila-simple fila-simple-cancelacion">
+                <span>#{{ c.codigoReserva }}</span>
+                <span data-label="Creada">{{ c.fechaCreacion | date: 'dd/MM/yy HH:mm' }}</span>
+                <span data-label="Motivo">
+                  {{ etiquetaMotivo(c) }}
+                  @if (c.detalle) {
+                    <small class="detalle-cancelacion">{{ c.detalle }}</small>
+                  }
+                </span>
+                <span data-label="Quién">{{ c.canceladaPor === 'SISTEMA' ? 'Automática' : (c.canceladaPor || '—') }}</span>
+                <span data-label="Monto">{{ c.montoTotal | pesos }}</span>
+              </div>
+            }
+          </div>
+        }
+      }
+    </div>
+
     <div class="tarjeta tarjeta-ancha" [class.tarjeta-grafico-tabla]="r.usoCupones.length > 0">
       <h2>Cupones aplicados</h2>
       <p class="kpi-numero kpi-numero-secundario">{{ cuponesDescontado() | pesos }}</p>

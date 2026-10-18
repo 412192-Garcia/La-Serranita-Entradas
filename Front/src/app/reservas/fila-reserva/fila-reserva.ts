@@ -1,5 +1,6 @@
 import { Component, TemplateRef, inject, input, output } from '@angular/core';
 import { DatePipe, NgTemplateOutlet } from '@angular/common';
+import { LucideGift } from '@lucide/angular';
 import { Reserva } from '../../services/boleteria.service';
 import { PesosPipe } from '../../shared/pesos.pipe';
 import { ReservaVista } from '../../shared/reserva-vista.util';
@@ -17,7 +18,7 @@ import { ReservasBusqueda } from '../busqueda-reservas';
  */
 @Component({
   selector: 'app-fila-reserva',
-  imports: [DatePipe, NgTemplateOutlet, PesosPipe],
+  imports: [DatePipe, NgTemplateOutlet, PesosPipe, LucideGift],
   templateUrl: './fila-reserva.html',
   styleUrl: './fila-reserva.css',
 })

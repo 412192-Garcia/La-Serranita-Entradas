@@ -83,6 +83,7 @@ public class TipoEntradaController {
             org.example.laserranitaentradas.monitoreo.AuditoriaContexto.cambio("Precio", antes.getPrecio(), tipoEntrada.getPrecio());
             org.example.laserranitaentradas.monitoreo.AuditoriaContexto.cambio("Activo", antes.getActivo(), tipoEntrada.getActivo());
             org.example.laserranitaentradas.monitoreo.AuditoriaContexto.cambio("Máximo por día", antes.getMaximoPorDia(), tipoEntrada.getMaximoPorDia());
+            org.example.laserranitaentradas.monitoreo.AuditoriaContexto.cambio("Accesos rápidos", antes.getAccesosRapidos(), tipoEntrada.getAccesosRapidos());
             tipoEntrada.setId(id);
             TipoEntrada tipoEntradaActualizado = tipoEntradaService.update(tipoEntrada);
             return ResponseEntity.ok(tipoEntradaActualizado);

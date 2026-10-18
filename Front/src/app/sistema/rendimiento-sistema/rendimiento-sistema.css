@@ -107,13 +107,18 @@ h3 {
 /* Igual que las grillas del resto del módulo interno: en pantallas chicas cada fila pasa a ser una
    tarjeta con la etiqueta de cada dato al costado (data-label). */
 @media (max-width: 900px) {
+  /* Bloque y no columna flex: dentro de una columna flex Chrome le calcula al encabezado (un flex
+     con wrap) el alto de una sola línea, y los renglones de botones se pisan entre sí. */
+  .grilla { display: block; }
+
   /* El encabezado se va, pero el orden sigue sirviendo: queda como fila de botones. */
-  .grilla-endpoints .fila-encabezado {
+  /* .fila.fila-encabezado: le tiene que ganar al borde y padding de tarjeta de .fila, más abajo. */
+  .grilla-endpoints .fila.fila-encabezado {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px 12px;
+    gap: 6px 14px;
     padding: 4px 0 10px;
-    border-bottom: none;
+    border: none;
   }
 
   .grilla-endpoints .fila-encabezado > span:first-child { display: none; }
@@ -133,7 +138,9 @@ h3 {
     border-radius: var(--radius-sm);
   }
 
-  .fila > span[data-label] {
+  /* Con .grilla delante para ganarle al justify-content: flex-end de las columnas numéricas, que
+     si no pega la etiqueta al número en vez de dejarla a la izquierda. */
+  .grilla .fila > span[data-label] {
     display: flex;
     justify-content: space-between;
     gap: 12px;
@@ -151,7 +158,7 @@ h3 {
   }
 
   /* La ruta es larga: va debajo de su etiqueta, no al costado. */
-  .fila > span.endpoint {
+  .grilla .fila > span.endpoint {
     flex-direction: column;
     gap: 2px;
     text-align: left;
@@ -160,4 +167,9 @@ h3 {
 
 @media (pointer: coarse) {
   .ver-todos { min-height: 44px; }
+}
+
+/* Los encabezados que ordenan, en angosto, son una fila de botones sueltos: que se puedan tocar. */
+@media (pointer: coarse) and (max-width: 900px) {
+  .grilla-endpoints .fila-encabezado .col-ordenable { min-height: 36px; }
 }

@@ -1,6 +1,5 @@
 import { Component, OnInit, computed, inject, input, output, signal } from '@angular/core';
 import { ToastService } from '../../shared/toast/toast.service';
-import { ConfirmacionService } from '../../shared/confirmacion/confirmacion.service';
 import { DatePipe, NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CajaDetalleAbierta, CajaService, OperacionCaja, etiquetaTipoOperacion } from '../../services/caja.service';
@@ -36,6 +35,7 @@ const OPERACIONES_POR_PAGINA = 15;
  * debajo de la fila en la tabla de "Cajas abiertas ahora" (ver cajas.html), no como un modal aparte.
  */
 import { VentasFacturasModal } from '../../shared/ventas-facturas-modal/ventas-facturas-modal';
+import { DialogoConfirmacion } from '../../shared/confirmacion/dialogo-confirmacion';
 import { FacturaService } from '../../services/factura.service';
 @Component({
   selector: 'app-caja-operaciones',
@@ -49,6 +49,7 @@ import { FacturaService } from '../../services/factura.service';
     RetiroEfectivoModal,
     IngresoEntradasModal,
     VentasFacturasModal,
+    DialogoConfirmacion,
     LucideShoppingCart,
     LucideArrowDownRight,
     LucideArrowUpRight,
@@ -61,7 +62,6 @@ import { FacturaService } from '../../services/factura.service';
 })
 export class CajaOperaciones implements OnInit {
   private cajaService = inject(CajaService);
-  private confirmacion = inject(ConfirmacionService);
   private toast = inject(ToastService);
   private boleteriaService = inject(BoleteriaService);
   private tipoEntradaService = inject(TipoEntradaService);
@@ -173,20 +173,32 @@ export class CajaOperaciones implements OnInit {
     });
   }
 
-  async cancelar(op: OperacionCaja): Promise<void> {
+  /** Venta que se está por cancelar: mientras no sea null está abierto el diálogo que pide el motivo. */
+  ventaACancelar = signal<OperacionCaja | null>(null);
+  /** Opcional: si se escribe, queda en la venta y se ve en Reportes > Cancelaciones. */
+  motivoCancelacion = signal('');
+
+  cancelar(op: OperacionCaja): void {
     if (op.compraId === null) return;
-    const confirmado = await this.confirmacion.pedir({
-      titulo: 'Cancelar la venta',
-      mensaje: `${op.detalle}\n\nDeja de contar para el cupo diario, la caja y los reportes. Si estaba facturada, se emite una nota de crédito por el total. Si se cobró con el Point, se le devuelve el pago al cliente.`,
-      aceptar: 'Cancelar la venta',
-      cancelar: 'No, dejarla',
-      peligro: true,
-    });
-    if (!confirmado) return;
-    this.cancelandoId.set(op.compraId);
-    this.boleteriaService.cancelarVenta(op.compraId).subscribe({
+    this.motivoCancelacion.set('');
+    this.ventaACancelar.set(op);
+  }
+
+  cerrarCancelacion(): void {
+    if (this.cancelandoId() !== null) return;
+    this.ventaACancelar.set(null);
+  }
+
+  confirmarCancelacion(): void {
+    const op = this.ventaACancelar();
+    if (!op || op.compraId === null) return;
+    const compraId = op.compraId;
+    this.cancelandoId.set(compraId);
+    this.boleteriaService.cancelarVenta(compraId, this.motivoCancelacion().trim()).subscribe({
       next: () => {
         this.cancelandoId.set(null);
+        this.ventaACancelar.set(null);
+        this.toast.exito('Venta cancelada.');
         this.cargarOperaciones();
         this.cambios.emit();
       },

@@ -29,7 +29,15 @@ public interface TrabajoImpresionRepository extends JpaRepository<TrabajoImpresi
 
     List<TrabajoImpresion> findByFacturaIdIn(Collection<Long> facturaIds);
 
-    long countByEstadoAndFechaCreacionAfter(EstadoTrabajoImpresion estado, LocalDateTime desde);
+    /**
+     * Facturas cuyo último ticket (pedido desde `desde`) quedó en ERROR: las que siguen sin
+     * imprimirse. Si después se reimprimió bien, o la factura se anuló (sus trabajos se cancelan
+     * como ERROR), ya no hay nada que hacer y no cuenta.
+     */
+    @Query("SELECT COUNT(t) FROM TrabajoImpresion t WHERE t.estado = :error AND t.fechaCreacion > :desde " +
+            "AND (t.factura.anulacionPedida IS NULL OR t.factura.anulacionPedida = false) " +
+            "AND t.id = (SELECT MAX(t2.id) FROM TrabajoImpresion t2 WHERE t2.factura = t.factura)")
+    long contarFacturasSinImprimir(@Param("desde") LocalDateTime desde, @Param("error") EstadoTrabajoImpresion error);
 
     /** Se marca ENVIADO antes de mandarlo, y sólo si todavía no tiene resultado. 0 = ya tenía. */
     @Modifying

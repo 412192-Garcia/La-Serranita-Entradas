@@ -65,7 +65,7 @@ export interface DetalleReserva {
 export interface Reserva {
   id: number;
   codigoReserva: string;
-  cliente: { id: number; dni: string; nombre: string; apellido: string } | null;
+  cliente: { id: number; dni: string | null; nombre: string; apellido: string } | null;
   contactEmail: string | null;
   contactPhone: string | null;
   /** Null cuando la compra es un regalo: quien lo recibe puede usarlo el día que prefiera. */
@@ -291,8 +291,8 @@ export class BoleteriaService {
 
   /** Cancela una venta de puerta mal cargada (ADMIN, desde el detalle de una caja). La marca
    * CANCELADO: deja de contar para cupo diario, totales de caja y reportes. */
-  cancelarVenta(compraId: number): Observable<Reserva> {
-    return this.http.put<Reserva>(`${this.internoUrl}/${compraId}/cancelar-venta`, {});
+  cancelarVenta(compraId: number, motivo: string): Observable<Reserva> {
+    return this.http.put<Reserva>(`${this.internoUrl}/${compraId}/cancelar-venta`, { motivo });
   }
 
   /** Corrige las entradas y/o la forma de pago de una venta de puerta (ADMIN). No toca

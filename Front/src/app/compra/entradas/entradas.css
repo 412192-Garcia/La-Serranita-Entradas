@@ -186,6 +186,55 @@ app-calendario {
   line-height: 1.4;
 }
 
+/* Ventana de pago bloqueada: no es un error, falta un clic. Color de acento, como el aviso de DNI. */
+.pago-bloqueado {
+  background-color: var(--color-accent-light);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  margin: 0 0 16px;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  color: var(--color-text);
+}
+
+.pago-bloqueado p {
+  margin: 0 0 12px;
+}
+
+.acciones-pago-bloqueado {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.btn-abrir-mp {
+  background-color: var(--color-primary);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 10px 18px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  min-height: 44px;
+}
+
+.btn-abrir-mp:hover {
+  background-color: var(--color-primary-dark);
+}
+
+.btn-cancelar-pago {
+  background: none;
+  border: none;
+  color: var(--color-text-secondary);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+  min-height: 44px;
+}
+
 /* Modal de confirmación de DNI: no es un error (por eso el color de acento, no el de
    peligro) — sólo hay que confirmar si la compra es realmente de la persona que ya
    está registrada con ese DNI. Se muestra encima del resumen (no lo reemplaza), para

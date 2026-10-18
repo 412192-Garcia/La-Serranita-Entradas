@@ -83,6 +83,20 @@
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 35%, transparent);
 }
 
+/* Teléfono: Anticipadas, Caja y dispositivos en una sola fila. El de dispositivos queda en
+   punto de estado + íconos (el texto, ej. "Point no disponible", está en el menú que abre y
+   en su aria-label): con el texto no entraban los tres y bajaba solo a otro renglón. */
+@media (max-width: 600px) {
+  .acciones-caja-cabecera {
+    flex-wrap: nowrap;
+    gap: 8px;
+  }
+
+  .acciones-caja-cabecera ::ng-deep app-selector-dispositivos .etiqueta {
+    display: none;
+  }
+}
+
 .catalogo {
   display: flex;
   flex-direction: column;

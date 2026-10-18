@@ -147,6 +147,34 @@
   }
 }
 
+@if (ventaACancelar(); as op) {
+  <app-dialogo-confirmacion
+    titulo="Cancelar la venta"
+    aceptar="Cancelar la venta"
+    cancelar="No, dejarla"
+    [peligro]="true"
+    [ocupado]="cancelandoId() !== null"
+    (confirmado)="confirmarCancelacion()"
+    (cancelado)="cerrarCancelacion()">
+    <p>{{ op.detalle }}</p>
+    <p>
+      Deja de contar para el cupo diario, la caja y los reportes. Si estaba facturada, se emite una nota de
+      crédito por el total. Si se cobró con el Point, se le devuelve el pago al cliente.
+    </p>
+    <label class="campo-motivo" for="motivo-cancelacion">
+      <span>Motivo <span class="label-opcional">(opcional)</span></span>
+      <textarea
+        id="motivo-cancelacion"
+        rows="3"
+        maxlength="300"
+        placeholder="Ej. se cargó dos veces, cobró con otra forma de pago, el cliente se arrepintió"
+        [ngModel]="motivoCancelacion()"
+        (ngModelChange)="motivoCancelacion.set($event)"></textarea>
+    </label>
+    <small class="ayuda-motivo">Si lo escribís, queda guardado en la venta y se ve en Reportes.</small>
+  </app-dialogo-confirmacion>
+}
+
 <ng-template #formularioVentaTpl>
   @if (cargandoFormulario()) {
     <app-spinner />

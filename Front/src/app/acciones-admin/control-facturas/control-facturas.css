@@ -118,21 +118,51 @@
   font-weight: 800;
 }
 
-/* Angosto: cada renglón pasa a tarjeta, con el nombre de cada dato al lado. */
+/* Angosto: cada renglón pasa a tarjeta, como las demás tablas del módulo interno: el comprobante
+   de título y abajo un dato por renglón, con su nombre a la izquierda y el valor a la derecha.
+   (Antes eran dos columnas de "Etiqueta: valor" que se partían a mitad de palabra.) */
 @media (max-width: 900px) {
-  .encabezado-totales { display: none; }
+  .tabla-totales { gap: 8px; }
 
   .fila-totales:not(.fila-neto) {
-    grid-template-columns: 1fr 1fr;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+    padding: 10px 12px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
   }
 
-  .fila-totales:not(.fila-neto) span::before {
-    content: attr(data-label) ': ';
-    font-weight: 500;
+  .fila-totales:not(.fila-neto) > span {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    text-align: right;
+  }
+
+  .fila-totales:not(.fila-neto) > span::before {
+    content: attr(data-label);
+    font-size: 0.8rem;
+    font-weight: 700;
     color: var(--color-text-secondary);
+    text-align: left;
   }
 
-  .fila-totales .num {
+  .fila-totales:not(.fila-neto) > span[data-label='Comprobante'] {
+    order: -1;
+    font-weight: 800;
+    font-size: 0.95rem;
     text-align: left;
+  }
+
+  .fila-totales:not(.fila-neto) > span[data-label='Comprobante']::before { content: none; }
+
+  /* Después del display: flex de arriba, que si no le gana. */
+  .fila-totales.encabezado-totales { display: none; }
+
+  .fila-neto {
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 10px 4px 0;
   }
 }

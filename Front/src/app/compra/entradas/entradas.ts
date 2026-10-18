@@ -312,6 +312,14 @@ export class Entradas implements OnInit, OnDestroy {
 
   private suscripcionPago: Subscription | null = null;
   private ventanaPago: Window | null = null;
+  /**
+   * Link de pago de una compra ya creada cuya ventana bloqueó el navegador. La ventana se abre
+   * cuando llega la respuesta del backend, ya fuera del clic, y algunos navegadores (Safari en
+   * iPhone, el de Instagram) la bloquean. Antes se avisaba y el botón volvía a "Pagar", que creaba
+   * otra compra con cada intento (pasó: 30 en 6 minutos). Ahora se ofrece abrir ESA compra con un
+   * clic propio, que ningún navegador bloquea.
+   */
+  linkPagoBloqueado: string | null = null;
 
   /**
    * El cupón se aplica en el resumen (ya elegida la forma de pago), pero el
@@ -525,6 +533,7 @@ export class Entradas implements OnInit, OnDestroy {
   iniciarPagoMercadoPago(confirmarDniExistente: boolean = false, esOtraPersona: boolean = false): void {
     this.procesandoPago = true;
     this.aviso = null;
+    this.linkPagoBloqueado = null;
     this.dniAConfirmar = null;
     // No se resetea en el reintento confirmado: ahí es cuando hace falta leer lo que
     // el usuario tildó en el cartel (ver el checkbox más abajo en el HTML).
@@ -580,21 +589,17 @@ export class Entradas implements OnInit, OnDestroy {
 
         // EVALUAMOS LA ESTRATEGIA DEVUELTA POR EL BACKEND
         if (res.formaPago === 'MERCADO_PAGO' && res.initPoint) {
-          const ancho = 1000;
-          const alto = 700;
-          const izquierda = (window.screen.width - ancho) / 2;
-          const arriba = (window.screen.height - alto) / 2;
-
           // El botón sigue "procesando" mientras esperamos que el usuario complete el
           // pago en la ventana de Mercado Pago (se libera al cerrarla, al confirmarse o al fallar el pago).
-          this.ventanaPago = window.open(
-              res.initPoint,
-              'MercadoPagoCheckout',
-              `width=${ancho},height=${alto},top=${arriba},left=${izquierda},scrollbars=yes,status=yes`
-          );
+          this.ventanaPago = this.abrirVentanaPago(res.initPoint);
 
           if (!this.ventanaPago) {
-            this.finalizarConAviso('No se pudo abrir la ventana de pago. Revisá que tu navegador no esté bloqueando ventanas emergentes e intentá de nuevo.');
+            // Bloqueada: la compra queda esperando y se ofrece el botón "Abrir Mercado Pago".
+            // procesandoPago sigue en true para que "Pagar" no cree otra compra mientras tanto.
+            this.ngZone.run(() => {
+              this.linkPagoBloqueado = res.initPoint ?? null;
+              this.cdr.detectChanges();
+            });
             return;
           }
 
@@ -747,6 +752,44 @@ export class Entradas implements OnInit, OnDestroy {
     });
   }
 
+  private abrirVentanaPago(url: string): Window | null {
+    const ancho = 1000;
+    const alto = 700;
+    const izquierda = (window.screen.width - ancho) / 2;
+    const arriba = (window.screen.height - alto) / 2;
+    return window.open(
+      url,
+      'MercadoPagoCheckout',
+      `width=${ancho},height=${alto},top=${arriba},left=${izquierda},scrollbars=yes,status=yes`
+    );
+  }
+
+  /**
+   * "Abrir Mercado Pago" después de un bloqueo. window.open dentro del clic (no un <a>) para que la
+   * ventana tenga opener: así la pantalla de resultado sabe que es la ventana de pago y no registra
+   * la conversión dos veces, y acá se puede seguir viendo si se cerró sin pagar.
+   */
+  abrirPagoBloqueado(): void {
+    if (!this.linkPagoBloqueado) return;
+    const ventana = this.abrirVentanaPago(this.linkPagoBloqueado);
+    if (!ventana) {
+      this.aviso = 'Tu navegador sigue sin dejar abrir Mercado Pago. Probá abrir esta página en Chrome o Safari.';
+      return;
+    }
+    this.ventanaPago = ventana;
+    this.linkPagoBloqueado = null;
+    this.aviso = null;
+    this.iniciarMonitoreoPago();
+  }
+
+  /** Desiste del pago bloqueado: vuelve a dejar elegir forma de pago o datos. La compra pendiente
+   * se reusa si vuelve a pagar lo mismo (backend), o la cancela el barrido. */
+  cancelarPagoBloqueado(): void {
+    this.detenerVerificacion();
+    this.linkPagoBloqueado = null;
+    this.procesandoPago = false;
+  }
+
   private registrarConversion(): void {
     if (!this.codigoReservaActual || this.montoTotalActual === null) return;
     this.analitica.registrarCompra({ codigoReserva: this.codigoReservaActual, montoTotal: this.montoTotalActual });
@@ -755,6 +798,7 @@ export class Entradas implements OnInit, OnDestroy {
   private finalizarConAviso(mensaje: string): void {
     this.ngZone.run(() => {
       this.procesandoPago = false;
+      this.linkPagoBloqueado = null;
       this.aviso = mensaje;
       this.cdr.detectChanges();
     });
@@ -774,6 +818,7 @@ export class Entradas implements OnInit, OnDestroy {
       // Sin acceso a la ventana: no es crítico, el usuario puede cerrarla a mano.
     }
     this.ventanaPago = null;
+    this.linkPagoBloqueado = null;
   }
 
   private detenerVerificacion(): void {

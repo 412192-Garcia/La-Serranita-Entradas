@@ -117,12 +117,42 @@ public class Compra extends BaseEntity {
     @Column(name = "fecha_pago")
     private LocalDateTime fechaPago;
 
+    /** Pasa la compra a CANCELADO dejando registrado por qué, cuándo y quién. */
+    public void cancelar(MotivoCancelacion motivo, String detalle, String usuario) {
+        this.estado = EstadoCompra.CANCELADO;
+        this.motivoCancelacion = motivo.name();
+        this.detalleCancelacion = detalle;
+        this.fechaCancelacion = LocalDateTime.now();
+        this.canceladaPor = usuario;
+    }
+
     public List<Long> pagosMercadoPago() {
         if (mpPaymentIds == null || mpPaymentIds.isBlank()) {
             return List.of();
         }
         return java.util.Arrays.stream(mpPaymentIds.split(",")).map(String::trim).map(Long::valueOf).toList();
     }
+
+    /** Sólo en una compra CANCELADO: por qué (nombre de un MotivoCancelacion). Se limpia si se reactiva. */
+    @Column(name = "motivo_cancelacion", length = 30)
+    private String motivoCancelacion;
+
+    /** Qué pasó: lo que escribió quien la anuló a mano (opcional), o lo que contestó Mercado Pago
+     * en una cancelación automática (intentos rechazados, error al iniciar el pago). */
+    @Column(name = "detalle_cancelacion", length = 300)
+    private String detalleCancelacion;
+
+    @Column(name = "fecha_cancelacion")
+    private LocalDateTime fechaCancelacion;
+
+    /** Usuario que la anuló, o SISTEMA si la canceló el barrido / el fallo al iniciar el pago. */
+    @Column(name = "cancelada_por", length = 100)
+    private String canceladaPor;
+
+    /** No se guarda: true cuando create() devolvió un checkout pendiente reusado en vez de una
+     * compra nueva. Esa compra ya tiene un link de pago vigente del intento anterior. */
+    @Transient
+    private boolean reusada;
 
     /**
      * Turno de caja en el que se cobró (venta de puerta o cobro de una reserva en
@@ -172,7 +202,8 @@ public class Compra extends BaseEntity {
      * Cuánto de esta compra corresponde a la forma de pago dada, contemplando el pago mixto:
      * si `forma` es la principal, su parte es el total menos lo que se llevó la secundaria; si
      * es la secundaria, es directamente montoFormaPagoSecundaria. 0 si la compra no tiene nada
-     * cobrado con esa forma. Reemplaza a "formaPago == forma ? montoTotal : 0" en todo cálculo
+     * cobrado con esa forma. Con tarjeta + tarjeta (las dos formas iguales) da el total: no
+     * sumarla una vez por forma. Reemplaza a "formaPago == forma ? montoTotal : 0" en todo cálculo
      * de caja/reportes que antes asumía una sola forma de pago por compra.
      */
     public BigDecimal montoPorForma(FormaPago forma) {

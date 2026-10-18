@@ -17,7 +17,7 @@ describe('ResumenCierre — matriz con descuentos', () => {
 
   const general: TipoEntrada = {
     id: 1, nombre: 'General', descripcion: '', precio: 9000, activo: true,
-    obligatorio: true, tipo: 'ENTRADA', maximoPorDia: null, entregaEntrada: true, orden: null, soloPos: false,
+    obligatorio: true, tipo: 'ENTRADA', maximoPorDia: null, entregaEntrada: true, orden: null, soloPos: false, accesosRapidos: false,
   };
 
   function venta(

@@ -16,6 +16,7 @@ const general: TipoEntrada = {
   entregaEntrada: true,
   orden: 1,
   soloPos: false,
+  accesosRapidos: false,
 };
 
 // Escalón ya actualizado al precio nuevo: 2 pases por 270. Lo reservado no debe verse afectado.

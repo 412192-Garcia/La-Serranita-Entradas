@@ -197,3 +197,13 @@
   .paginador .btn-limpiar { padding: 10px 12px; font-size: 0.82rem; }
   .paginador span { white-space: nowrap; }
 }
+
+@media (pointer: coarse) {
+  /* Filtro por boletero: venían en 29px de alto. */
+  .chip-filtro {
+    min-height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}

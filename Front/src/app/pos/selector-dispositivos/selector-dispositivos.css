@@ -167,6 +167,24 @@
   left: 0;
 }
 
+/* Teléfono: el botón puede quedar en cualquier punto de la cabecera (en el POS baja a su propio
+   renglón, pegado a la izquierda) y el menú alineado a su derecha se salía de la pantalla. Abajo
+   de todo, de borde a borde, siempre entra y queda a mano del pulgar. */
+@media (max-width: 600px) {
+  .menu-dispositivos,
+  .menu-dispositivos.menu-izquierda {
+    position: fixed;
+    top: auto;
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    z-index: 900;
+    min-width: 0;
+    max-width: none;
+    max-height: 70vh;
+  }
+}
+
 /* Un Point: la opción para elegirlo y, al lado, el botón para pasarlo a manual / integrado. */
 .fila-point {
   display: flex;

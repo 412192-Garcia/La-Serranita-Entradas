@@ -193,6 +193,19 @@
   flex-shrink: 0;
 }
 
+/* Sin foto de perfil: la inicial del usuario en un círculo del color de marca, para que la
+   cabecera del cajón no quede con el nombre suelto. */
+.avatar-inicial {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--color-primary-light);
+  color: var(--color-primary-dark);
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 0.95rem;
+}
+
 /* ---------- Menú deslizable ---------- */
 .menu-overlay {
   position: fixed;
@@ -323,6 +336,12 @@
   width: 18px;
   height: 18px;
   flex-shrink: 0;
+  color: var(--color-text-muted);
+}
+
+.menu-slider-item:hover svg,
+.menu-slider-item.activo svg {
+  color: inherit;
 }
 
 .menu-slider-salir {
@@ -425,5 +444,24 @@
      ya dice dónde estás. */
   .cabecera p {
     display: none;
+  }
+}
+
+/* Teléfono con acciones de pantalla (el POS): a este ancho la fila de abajo SÍ se llena con las
+   acciones solas, y si Tutorial + menú bajan con ellas las empujan a un tercer renglón. Vuelven
+   arriba, al lado del título, y las acciones quedan en una sola fila a todo el ancho. */
+@media (max-width: 600px) {
+  .cabecera:has(.cabecera-acciones:not(:empty)) .cabecera-texto {
+    grid-column: 1;
+    align-self: center;
+  }
+
+  .cabecera:has(.cabecera-acciones:not(:empty)) .cabecera-controles {
+    grid-row: 1;
+    grid-column: 2;
+  }
+
+  .cabecera:has(.cabecera-acciones:not(:empty)) .cabecera-acciones {
+    grid-column: 1 / -1;
   }
 }

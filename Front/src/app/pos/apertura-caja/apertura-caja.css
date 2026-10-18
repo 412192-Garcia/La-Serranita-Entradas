@@ -56,3 +56,12 @@
     grid-template-columns: 1fr;
   }
 }
+
+@media (pointer: coarse) {
+  .btn-link-sin-control {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}

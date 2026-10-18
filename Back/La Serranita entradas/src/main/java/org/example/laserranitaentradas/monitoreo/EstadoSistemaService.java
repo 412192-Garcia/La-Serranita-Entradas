@@ -318,8 +318,11 @@ public class EstadoSistemaService {
             }
         }
         LocalDateTime inicioDia = LocalDate.now(AuditoriaService.ZONA).atStartOfDay();
-        long fallidos = trabajoRepository.countByEstadoAndFechaCreacionAfter(EstadoTrabajoImpresion.ERROR, inicioDia);
-        if (fallidos > 0) detalles.add(fallidos + " ticket(s) que no se pudieron imprimir hoy");
+        long fallidos = trabajoRepository.contarFacturasSinImprimir(inicioDia, EstadoTrabajoImpresion.ERROR);
+        if (fallidos > 0) {
+            detalles.add(fallidos + " ticket(s) que no se pudieron imprimir hoy");
+            detalles.add("Se reimprimen desde las ventas de la caja; al reimprimirse dejan de contar");
+        }
         String resumen = fallidos > 0 ? fallidos + " ticket(s) sin imprimir hoy"
                 : conectadas.isEmpty() ? "Sin ticketeras conectadas" : conectadas.size() + " ticketera(s) conectada(s)";
         return new Tarjeta("impresion", "Impresión", fallidos > 0 ? "ALERTA" : (conectadas.isEmpty() ? "INFO" : "OK"), resumen, detalles, null);

@@ -117,8 +117,11 @@ public class MercadoPagoPointClient {
                 .contentType(MediaType.APPLICATION_JSON).body(body).retrieve().toBodilessEntity());
     }
 
-    /** qr = el Point muestra el QR para pagar con la app; si no, espera la tarjeta. */
-    public Orden crearOrden(String terminalId, BigDecimal monto, String externalReference, String claveIdempotencia, boolean qr) {
+    /**
+     * medio = config.payment_method.default_type: "qr" (el Point muestra el QR), "debit_card" o
+     * "credit_card" (sólo acepta esa tarjeta). Null = el Point le pregunta al cliente con qué paga.
+     */
+    public Orden crearOrden(String terminalId, BigDecimal monto, String externalReference, String claveIdempotencia, String medio) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("type", "point");
         body.put("external_reference", externalReference);
@@ -126,8 +129,8 @@ public class MercadoPagoPointClient {
         body.put("transactions", Map.of("payments", List.of(Map.of("amount", monto.setScale(2, RoundingMode.HALF_UP).toPlainString()))));
         Map<String, Object> config = new LinkedHashMap<>();
         config.put("point", Map.of("terminal_id", terminalId));
-        if (qr) {
-            config.put("payment_method", Map.of("default_type", "qr"));
+        if (medio != null) {
+            config.put("payment_method", Map.of("default_type", medio));
         }
         body.put("config", config);
         JsonNode r = ejecutar(() -> http.post().uri("/v1/orders").headers(h -> {
@@ -202,8 +205,12 @@ public class MercadoPagoPointClient {
         }
     }
 
-    /** MP devuelve {"errors":[{"code":"...","message":"..."}]} o {"message":"..."}: se queda con lo legible. */
-    private static String mensajeDe(HttpStatusCode status, String cuerpo) {
+    /**
+     * MP devuelve {"errors":[{"code":"...","message":"...","details":[...]}]} o {"message":"..."}:
+     * se queda con lo legible. Los details dicen qué campo falló, y sin ellos un "property_value"
+     * no le dice nada al boletero.
+     */
+    static String mensajeDe(HttpStatusCode status, String cuerpo) {
         try {
             JsonNode r = new com.fasterxml.jackson.databind.ObjectMapper().readTree(cuerpo);
             JsonNode error = r.path("errors").path(0);
@@ -211,6 +218,16 @@ public class MercadoPagoPointClient {
             String mensaje = texto(error, "message");
             if (mensaje == null) mensaje = texto(r, "message");
             if (codigo == null) codigo = texto(r, "error");
+            List<String> detalles = new ArrayList<>();
+            for (JsonNode d : error.path("details")) {
+                detalles.add(d.isTextual() ? d.asText() : d.toString());
+            }
+            String todo = (mensaje + " " + String.join(" ", detalles)).toLowerCase();
+            if (codigo != null && codigo.startsWith("property") && todo.contains("amount")) {
+                // Pasa con montos muy chicos (ej. un ítem de prueba de $1): MP no los cobra con Point.
+                return "Mercado Pago no acepta cobrar ese monto con el Point (es demasiado bajo). Cobralo de otra forma.";
+            }
+            if (!detalles.isEmpty()) mensaje = (mensaje != null ? mensaje + ": " : "") + String.join("; ", detalles);
             if (mensaje != null) return codigo != null ? mensaje + " (" + codigo + ")" : mensaje;
         } catch (Exception ignorada) {
             // Cuerpo que no es JSON: se usa tal cual, recortado.
