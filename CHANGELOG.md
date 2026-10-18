@@ -6,6 +6,12 @@ número y el CI la usa como nota de la Release de GitHub.
 
 ## Sin publicar
 
+- Sistema > Estado, tarjeta Impresión: "tickets sin imprimir" ya no queda en alerta para siempre.
+  Cuenta sólo las facturas cuyo último ticket falló: si se reimprimió bien, o la factura se anuló
+  (su ticket se cancela), deja de contar.
+- Cobro con Point: si Mercado Pago rechaza el monto por ser muy bajo (ej. un ítem de prueba de
+  $1), el boletero ve "Mercado Pago no acepta cobrar ese monto con el Point" en vez de un error en
+  inglés. Los demás rechazos de MP muestran también el detalle de qué dato falló.
 - Regalos en Control de accesos y en las anticipadas del POS: la fila muestra primero a quien
   recibe el regalo (nombre, DNI y mail: es a quien se le pide el documento en la puerta) y abajo,
   con el ícono de regalo, quién lo compró.
