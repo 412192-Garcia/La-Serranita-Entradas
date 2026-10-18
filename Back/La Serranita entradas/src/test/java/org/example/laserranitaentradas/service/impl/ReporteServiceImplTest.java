@@ -111,6 +111,19 @@ class ReporteServiceImplTest {
     }
 
     @Test
+    void generarResumen_pagoMixtoConDosTarjetas_cuentaElTotalUnaSolaVezEnTarjeta() {
+        Compra dosTarjetas = ventaPuerta("10000", FormaPago.TARJETA, DIA);
+        dosTarjetas.setFormaPagoSecundaria(FormaPago.TARJETA);
+        dosTarjetas.setMontoFormaPagoSecundaria(new BigDecimal("4000"));
+        stubReporte(dosTarjetas);
+
+        ReporteResumenDTO resumen = service.generarResumen(DIA, DIA);
+
+        assertThat(resumen.getRecaudacionTotal()).isEqualByComparingTo("10000");
+        assertThat(montoDe(resumen, FormaPago.TARJETA)).isEqualByComparingTo("10000");
+    }
+
+    @Test
     void generarResumen_sinCajasDeshabilitadas_todasLasComprasCuentan() {
         Caja cajaHabilitada = new Caja();
         cajaHabilitada.setId(5L);

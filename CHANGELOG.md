@@ -34,6 +34,14 @@ número y el CI la usa como nota de la Release de GitHub.
 - Reportes: las cajas cerradas (faltantes/sobrantes y ranking de boleteros) cuentan el día en que se
   abrió la caja, que es el de sus ventas (antes, el día en que se cerró: una caja del domingo cerrada
   el sábado caía en el sábado).
+- Cobro con Point: al cobrar con tarjeta la tablet pregunta **débito o crédito** y el Point pide
+  directo esa tarjeta (antes le preguntaba al cliente si pagaba con tarjeta o con QR).
+- Cobro con Point: si se cancela desde la tablet con el cobro ya en la pantalla del Point, el botón
+  queda en "Cancelación pedida" (no se puede apretar de nuevo) y la ventana avisa que, si el Point no
+  lo suelta, hay que cancelarlo en el propio Point. Un cobro cancelado en el Point ahora dice "Se
+  canceló en el Point".
+- POS: el pago mixto acepta **dos tarjetas** ("Tarjeta 1" y "Tarjeta 2"), para un cliente que paga
+  mitad con cada una. Con el Point se cobran de a una, y cada una pregunta débito o crédito.
 
 ## 0.10.1 — 2026-10-16
 

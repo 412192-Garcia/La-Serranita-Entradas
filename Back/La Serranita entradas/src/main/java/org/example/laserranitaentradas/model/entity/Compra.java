@@ -172,7 +172,8 @@ public class Compra extends BaseEntity {
      * Cuánto de esta compra corresponde a la forma de pago dada, contemplando el pago mixto:
      * si `forma` es la principal, su parte es el total menos lo que se llevó la secundaria; si
      * es la secundaria, es directamente montoFormaPagoSecundaria. 0 si la compra no tiene nada
-     * cobrado con esa forma. Reemplaza a "formaPago == forma ? montoTotal : 0" en todo cálculo
+     * cobrado con esa forma. Con tarjeta + tarjeta (las dos formas iguales) da el total: no
+     * sumarla una vez por forma. Reemplaza a "formaPago == forma ? montoTotal : 0" en todo cálculo
      * de caja/reportes que antes asumía una sola forma de pago por compra.
      */
     public BigDecimal montoPorForma(FormaPago forma) {

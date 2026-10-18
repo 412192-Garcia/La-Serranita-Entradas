@@ -117,8 +117,11 @@ public class MercadoPagoPointClient {
                 .contentType(MediaType.APPLICATION_JSON).body(body).retrieve().toBodilessEntity());
     }
 
-    /** qr = el Point muestra el QR para pagar con la app; si no, espera la tarjeta. */
-    public Orden crearOrden(String terminalId, BigDecimal monto, String externalReference, String claveIdempotencia, boolean qr) {
+    /**
+     * medio = config.payment_method.default_type: "qr" (el Point muestra el QR), "debit_card" o
+     * "credit_card" (sólo acepta esa tarjeta). Null = el Point le pregunta al cliente con qué paga.
+     */
+    public Orden crearOrden(String terminalId, BigDecimal monto, String externalReference, String claveIdempotencia, String medio) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("type", "point");
         body.put("external_reference", externalReference);
@@ -126,8 +129,8 @@ public class MercadoPagoPointClient {
         body.put("transactions", Map.of("payments", List.of(Map.of("amount", monto.setScale(2, RoundingMode.HALF_UP).toPlainString()))));
         Map<String, Object> config = new LinkedHashMap<>();
         config.put("point", Map.of("terminal_id", terminalId));
-        if (qr) {
-            config.put("payment_method", Map.of("default_type", "qr"));
+        if (medio != null) {
+            config.put("payment_method", Map.of("default_type", medio));
         }
         body.put("config", config);
         JsonNode r = ejecutar(() -> http.post().uri("/v1/orders").headers(h -> {

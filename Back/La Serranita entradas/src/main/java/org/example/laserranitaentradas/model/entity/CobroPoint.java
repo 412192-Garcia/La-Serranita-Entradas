@@ -62,6 +62,11 @@ public class CobroPoint extends BaseEntity {
     @Column(name = "pago_id", length = 64)
     private String pagoId;
 
+    /** DEBITO o CREDITO: lo que eligió el boletero para una tarjeta, así el Point pide directo esa
+     * (sin él, el Point le pregunta al cliente con qué paga, QR incluido). Null en QR. */
+    @Column(name = "tipo_tarjeta", length = 10)
+    private String tipoTarjeta;
+
     /** visa, debmaster, account_money... */
     @Column(name = "medio_pago", length = 50)
     private String medioPago;

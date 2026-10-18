@@ -209,7 +209,8 @@ public class CompraServiceImpl implements CompraService {
 
     /**
      * Valida el pago mixto (venta cobrada con 2 formas de pago, ej. mitad efectivo y mitad
-     * tarjeta): ambas formas tienen que ser presenciales y distintas entre sí, el monto de la
+     * tarjeta): ambas formas tienen que ser presenciales y distintas entre sí, salvo tarjeta +
+     * tarjeta (dos tarjetas distintas del mismo cliente, cada una con su cobro), el monto de la
      * secundaria tiene que ser positivo y menor al total (la principal se lleva el resto), y
      * es excluyente con dólares (que ya asumen el pago 100% en efectivo). Sin
      * formaPagoSecundaria en el request, no hace nada: es el 99% de las ventas.
@@ -223,7 +224,7 @@ public class CompraServiceImpl implements CompraService {
         if (!FORMAS_PAGO_MIXTO.contains(request.getFormaPago()) || !FORMAS_PAGO_MIXTO.contains(secundaria)) {
             throw new IllegalArgumentException("El pago mixto sólo admite efectivo, tarjeta o QR");
         }
-        if (secundaria == request.getFormaPago()) {
+        if (secundaria == request.getFormaPago() && secundaria != FormaPago.TARJETA) {
             throw new IllegalArgumentException("Las dos formas de pago tienen que ser distintas");
         }
         BigDecimal monto = request.getMontoFormaPagoSecundaria();

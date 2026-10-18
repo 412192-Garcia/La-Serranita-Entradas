@@ -225,11 +225,22 @@ export class CarritoVenta {
   /** Lo que se cobra con formaPagoSecundaria; lo de la forma principal es el resto del total. */
   montoFormaPagoSecundaria = signal<number | null>(null);
 
-  /** Opciones para la segunda forma: las 3 presenciales salvo la ya elegida como principal. */
-  opcionesFormaPagoSecundaria = computed(() => FORMAS_PAGO.filter((f) => f.valor !== this.formaPago()));
+  /** Opciones para la segunda forma: las 3 presenciales salvo la ya elegida como principal. La
+   * tarjeta es la excepción: tarjeta + tarjeta = dos tarjetas distintas ("Tarjeta 1" y "Tarjeta 2"). */
+  opcionesFormaPagoSecundaria = computed(() =>
+    FORMAS_PAGO.filter((f) => f.valor !== this.formaPago() || f.valor === 'TARJETA').map((f) =>
+      f.valor === this.formaPago() ? { ...f, etiqueta: 'Tarjeta 2' } : f
+    )
+  );
+  /** Pago mixto con dos tarjetas distintas. */
+  dosTarjetas = computed(
+    () => this.pagoMixtoActivo() && this.formaPago() === 'TARJETA' && this.formaPagoSecundaria() === 'TARJETA'
+  );
 
   /** Etiqueta de la forma principal elegida, para mostrar "Efectivo: $X" en el pago mixto. */
-  etiquetaFormaPagoActual = computed(() => FORMAS_PAGO.find((f) => f.valor === this.formaPago())?.etiqueta ?? '');
+  etiquetaFormaPagoActual = computed(() =>
+    this.dosTarjetas() ? 'Tarjeta 1' : (FORMAS_PAGO.find((f) => f.valor === this.formaPago())?.etiqueta ?? '')
+  );
 
   /** Etiqueta de la segunda forma ya elegida, para el label "Monto en Tarjeta". Genérico
    * mientras no eligió ninguna todavía (el input queda deshabilitado hasta entonces). */
@@ -581,11 +592,11 @@ export class CarritoVenta {
     if (formaPago !== 'EFECTIVO_BOLETERIA') {
       this.limpiarPagoDolares();
     }
-    // La principal y la secundaria tienen que ser distintas. Si tocan como principal la que
+    // La principal y la secundaria tienen que ser distintas (salvo tarjeta + tarjeta). Si tocan como principal la que
     // ya estaba de secundaria, lo más probable es que se confundieron de botón — no que
     // quisieron cancelar el pago mixto — así que se intercambian (con sus montos) en vez de
     // perder la carga.
-    if (this.pagoMixtoActivo() && this.formaPagoSecundaria() === formaPago) {
+    if (this.pagoMixtoActivo() && this.formaPagoSecundaria() === formaPago && formaPago !== 'TARJETA') {
       const montoSecundarioViejo = this.montoFormaPagoSecundaria() ?? 0;
       this.formaPagoSecundaria.set(anterior);
       this.montoFormaPagoSecundaria.set(Math.max(0, this.total() - montoSecundarioViejo));

@@ -6,7 +6,7 @@ import { LucideCreditCard, LucideQrCode } from '@lucide/angular';
 import { Modal } from '../../shared/modal/modal';
 import { PesosPipe } from '../../shared/pesos.pipe';
 import { ConectividadService } from '../../services/conectividad.service';
-import { CobroPoint, FormaPagoPoint, PointService, TerminalPoint } from '../../services/point.service';
+import { CobroPoint, FormaPagoPoint, PointService, TerminalPoint, TipoTarjetaPoint } from '../../services/point.service';
 
 /** Cada cuánto se pregunta por el cobro mientras se espera la tarjeta (el backend le pregunta a
  * Mercado Pago como mucho cada 3 s; si llega el webhook, antes). */
@@ -47,6 +47,16 @@ export class CobroPointModal implements OnInit {
   cobro = signal<CobroPoint | null>(null);
   error = signal<string | null>(null);
   cancelando = signal(false);
+  /** Mercado Pago aceptó cancelar pero el Point todavía no la soltó (la aplica cuando puede, a
+   * veces nunca): no se vuelve a pedir, se espera o se cancela en el propio Point. */
+  cancelacionPedida = signal(false);
+  /** Débito o crédito: se elige antes de mandar una tarjeta, así el Point pide directo ésa en vez
+   * de preguntarle al cliente con qué paga. */
+  tipoTarjeta = signal<TipoTarjetaPoint | null>(null);
+  /** Falta elegir débito o crédito: todavía no se mandó nada al Point. */
+  eligiendoTarjeta = computed(
+    () => this.forma() === 'TARJETA' && this.tipoTarjeta() === null && this.cobro() === null && this.error() === null
+  );
   /** Un mismo intento usa siempre la misma clave: si se pierde la respuesta, reintentar no crea otra orden. */
   private clave = crypto.randomUUID();
   private consultando = false;
@@ -71,14 +81,19 @@ export class CobroPointModal implements OnInit {
     if (previo) {
       this.cobro.set(previo);
       this.consultar();
-    } else {
+    } else if (this.forma() !== 'TARJETA') {
       this.enviar();
     }
   }
 
+  elegirTarjeta(tipo: TipoTarjetaPoint): void {
+    this.tipoTarjeta.set(tipo);
+    this.enviar();
+  }
+
   enviar(): void {
     this.error.set(null);
-    this.point.crearCobro(this.terminal().id, this.monto(), this.clave, this.forma()).subscribe({
+    this.point.crearCobro(this.terminal().id, this.monto(), this.clave, this.forma(), this.tipoTarjeta()).subscribe({
       next: (c) => this.procesar(c),
       error: (err) => this.error.set(this.mensaje(err, 'No se pudo mandar el cobro al Point.')),
     });
@@ -88,6 +103,12 @@ export class CobroPointModal implements OnInit {
   reintentar(): void {
     this.clave = crypto.randomUUID();
     this.cobro.set(null);
+    this.cancelacionPedida.set(false);
+    // Con tarjeta se vuelve a preguntar: puede que haya fallado por haber elegido la equivocada.
+    if (this.forma() === 'TARJETA') {
+      this.tipoTarjeta.set(null);
+      return;
+    }
     this.enviar();
   }
 
@@ -99,6 +120,7 @@ export class CobroPointModal implements OnInit {
     this.point.cancelarCobro(c.id).subscribe({
       next: (r) => {
         this.cancelando.set(false);
+        if (r.enCurso) this.cancelacionPedida.set(true);
         this.procesar(r);
       },
       error: (err) => {

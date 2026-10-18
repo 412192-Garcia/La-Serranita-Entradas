@@ -294,7 +294,8 @@ public class ReporteServiceImpl implements ReporteService {
                 // real, ver Compra.montoPorForma), no sólo a la principal.
                 cantidadPorFormaPago.merge(compra.getFormaPago(), 1L, Long::sum);
                 montoPorFormaPago.merge(compra.getFormaPago(), compra.montoPorForma(compra.getFormaPago()), BigDecimal::add);
-                if (compra.getFormaPagoSecundaria() != null) {
+                // Tarjeta + tarjeta: montoPorForma ya devolvió las dos partes juntas (y es una compra).
+                if (compra.getFormaPagoSecundaria() != null && compra.getFormaPagoSecundaria() != compra.getFormaPago()) {
                     cantidadPorFormaPago.merge(compra.getFormaPagoSecundaria(), 1L, Long::sum);
                     montoPorFormaPago.merge(compra.getFormaPagoSecundaria(),
                             compra.montoPorForma(compra.getFormaPagoSecundaria()), BigDecimal::add);

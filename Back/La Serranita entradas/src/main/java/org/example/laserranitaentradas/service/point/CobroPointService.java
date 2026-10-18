@@ -83,7 +83,12 @@ public class CobroPointService {
                                 String medioPago, Integer cuotas, Long compraId, LocalDateTime fecha) {}
 
     /** formaPago: TARJETA (por defecto) o MERCADO_PAGO_QR. */
-    public record CrearCobroRequest(String terminalId, BigDecimal monto, String claveIdempotencia, FormaPago formaPago) {}
+    /** tipoTarjeta: DEBITO o CREDITO, sólo para TARJETA (null = el Point pregunta). */
+    /** Tarjeta elegida en la tablet → default_type de la orden de MP. */
+    private static final Map<String, String> MEDIO_TARJETA = Map.of("DEBITO", "debit_card", "CREDITO", "credit_card");
+
+    public record CrearCobroRequest(String terminalId, BigDecimal monto, String claveIdempotencia, FormaPago formaPago,
+                                    String tipoTarjeta) {}
 
     /** Para el cierre de caja: lo que cobró el Point (ya atado a ventas) y lo cobrado sin venta. */
     public record ResumenCajaPoint(BigDecimal tarjeta, BigDecimal qr, long cantidad, List<CobroPointDTO> sinVenta) {}
@@ -231,6 +236,10 @@ public class CobroPointService {
         if (!FORMAS_POINT.contains(forma)) {
             throw new IllegalArgumentException("El Point sólo cobra tarjeta o QR");
         }
+        String tipoTarjeta = forma == FormaPago.TARJETA ? pedido.tipoTarjeta() : null;
+        if (tipoTarjeta != null && !MEDIO_TARJETA.containsKey(tipoTarjeta)) {
+            throw new IllegalArgumentException("La tarjeta tiene que ser de débito o de crédito");
+        }
         Caja caja = cajaService.getAbiertaOrThrow(operador.id());
 
         CobroPoint cobro = repository.save(CobroPoint.builder()
@@ -238,6 +247,7 @@ public class CobroPointService {
                 .terminalId(pedido.terminalId())
                 .monto(pedido.monto())
                 .formaPago(forma)
+                .tipoTarjeta(tipoTarjeta)
                 .estado(EstadoCobroPoint.CREADO)
                 .caja(caja)
                 .build());
@@ -252,10 +262,16 @@ public class CobroPointService {
      * queda CREADO sin orden y se vuelve a pedir en la próxima consulta del POS, porque la orden
      * puede estar igual en el Point esperando la tarjeta.
      */
+    /** Lo que se le pide al Point (default_type de la orden): QR, la tarjeta elegida o nada (pregunta). */
+    static String medioDe(CobroPoint cobro) {
+        if (cobro.getFormaPago() == FormaPago.MERCADO_PAGO_QR) return "qr";
+        return cobro.getTipoTarjeta() == null ? null : MEDIO_TARJETA.get(cobro.getTipoTarjeta());
+    }
+
     private void mandarOrden(CobroPoint cobro) {
         try {
             Orden orden = client.crearOrden(cobro.getTerminalId(), cobro.getMonto(), PREFIJO_REFERENCIA + cobro.getId(),
-                    cobro.getClaveIdempotencia(), cobro.getFormaPago() == FormaPago.MERCADO_PAGO_QR);
+                    cobro.getClaveIdempotencia(), medioDe(cobro));
             cobro.setOrdenId(orden.id());
             aplicar(cobro, orden);
             log.info("Cobro con Point {} por {} mandado al Point {} (orden {})", cobro.getId(), cobro.getMonto(),
@@ -607,9 +623,9 @@ public class CobroPointService {
             case "amount_limit_exceeded" -> "El monto supera el límite de la tarjeta";
             case "invalid_installments" -> "Las cuotas elegidas no se aceptan";
             case "processing_error" -> "Error de procesamiento en Mercado Pago";
-            case "canceled_on_terminal" -> "Se canceló en el Point";
+            case "canceled_on_terminal", "cancel_by_terminal" -> "Se canceló en el Point";
             case "canceled_by_api" -> "Se canceló desde la tablet";
-            case "cancellation_requested" -> "Cancelando en el Point...";
+            case "cancellation_requested" -> "Cancelación pedida al Point. Si en unos segundos sigue esperando la tarjeta, cancelalo en el propio Point";
             case "check_on_terminal" -> "Revisá en el Point si el pago salió";
             case "waiting_payment" -> "Procesando el pago...";
             case DETALLE_SIN_CONFIRMAR -> "Mercado Pago no confirmó el cobro todavía: reintentando...";

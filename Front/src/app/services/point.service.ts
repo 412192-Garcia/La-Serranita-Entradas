@@ -61,6 +61,8 @@ export interface ResumenCajaPoint {
   sinVenta: CobroPoint[];
 }
 
+export type TipoTarjetaPoint = 'DEBITO' | 'CREDITO';
+
 /** Point elegido en ESTA tablet (cada tablet tiene el suyo al lado, como la ticketera). */
 const CLAVE_POINT = 'pos-point';
 /** Elegido a propósito "Sin Point": la tarjeta se cobra en el posnet y se anota a mano. */
@@ -160,8 +162,15 @@ export class PointService {
 
   // ---------- Cobros ----------
 
-  crearCobro(terminalId: string, monto: number, claveIdempotencia: string, formaPago: FormaPagoPoint): Observable<CobroPoint> {
-    return this.http.post<CobroPoint>(`${this.url}/cobros`, { terminalId, monto, claveIdempotencia, formaPago });
+  /** tipoTarjeta: con tarjeta, el Point pide directo ésa; sin él le pregunta al cliente con qué paga (QR incluido). */
+  crearCobro(
+    terminalId: string,
+    monto: number,
+    claveIdempotencia: string,
+    formaPago: FormaPagoPoint,
+    tipoTarjeta: TipoTarjetaPoint | null
+  ): Observable<CobroPoint> {
+    return this.http.post<CobroPoint>(`${this.url}/cobros`, { terminalId, monto, claveIdempotencia, formaPago, tipoTarjeta });
   }
 
   consultarCobro(id: number): Observable<CobroPoint> {
