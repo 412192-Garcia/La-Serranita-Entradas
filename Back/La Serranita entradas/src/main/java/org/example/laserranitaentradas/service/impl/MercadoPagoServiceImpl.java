@@ -117,8 +117,13 @@ public class MercadoPagoServiceImpl implements PagoService {
                     .statementDescriptor(statementDescriptor)
                     // El link vence junto con el barrido de checkouts abandonados: pasado ese plazo
                     // la compra se cancela y libera el cupo, así que no tiene que poder pagarse.
+                    // Se cuenta desde que se creó la COMPRA, no el link: una compra reusada en un
+                    // reintento recibe un link nuevo, que no tiene que vivir más que ella.
                     .expires(true)
-                    .expirationDateTo(OffsetDateTime.now().plusHours(horasCheckoutAbandonado));
+                    .expirationDateTo(compra.getFechaCreacion() != null
+                            ? compra.getFechaCreacion().atZone(java.time.ZoneId.systemDefault()).toOffsetDateTime()
+                                    .plusHours(horasCheckoutAbandonado)
+                            : OffsetDateTime.now().plusHours(horasCheckoutAbandonado));
 
             // El navegador del propio cliente vuelve acá al terminar de pagar. A diferencia
             // del webhook, esto no depende de que nuestro servidor sea alcanzable desde afuera

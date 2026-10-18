@@ -16,7 +16,10 @@ export interface CompraResponseDTO {
   estado: string;
   montoTotal: number;
   mensaje?: string;
-  cliente?: { dni: string } | null;
+  cliente?: { dni: string | null } | null;
+  fechaVisita?: string | null;
+  /** Sólo en un regalo: el DNI (enmascarado) con el que entra quien lo recibe. */
+  receptorDni?: string | null;
 }
 
 export interface CotizacionResponseDTO {

@@ -1,6 +1,7 @@
 package org.example.laserranitaentradas.controller;
 
 import org.example.laserranitaentradas.config.UsuarioAutenticado;
+import org.example.laserranitaentradas.model.dto.CancelarVentaRequest;
 import org.example.laserranitaentradas.model.dto.CompraRequestDTO;
 import org.example.laserranitaentradas.model.dto.CompraResponseDTO;
 import org.example.laserranitaentradas.model.dto.EditarContactoRequest;
@@ -101,9 +102,10 @@ public class CompraInternoController {
 
     @PutMapping("/{id}/cancelar-venta")
     @Operation(summary = "Cancelar una venta de puerta mal cargada (ADMIN)",
-            description = "La marca CANCELADO en vez de borrarla (queda el registro para auditoría) y deja de contar para cupo diario, totales de caja y reportes. Sólo para ventas que pasaron por una caja.")
-    public ResponseEntity<CompraResponseDTO> cancelarVenta(@PathVariable @Parameter(description = "ID de la compra") Long id) {
-        Compra compra = compraService.cancelarVenta(id);
+            description = "Acepta un motivo opcional (queda en la compra y en la auditoría). La marca CANCELADO en vez de borrarla (queda el registro para auditoría) y deja de contar para cupo diario, totales de caja y reportes. Sólo para ventas que pasaron por una caja.")
+    public ResponseEntity<CompraResponseDTO> cancelarVenta(@PathVariable @Parameter(description = "ID de la compra") Long id,
+                                                           @RequestBody(required = false) CancelarVentaRequest request) {
+        Compra compra = compraService.cancelarVenta(id, request != null ? request.getMotivo() : null);
         return ResponseEntity.ok(CompraController.entityToDto(compra));
     }
 

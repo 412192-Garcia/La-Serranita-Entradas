@@ -136,6 +136,9 @@ public class CompraController {
             cliente.setDni(enmascararDocumento(c.getCliente().getDni()));
             dto.setCliente(cliente);
         }
+        // En un regalo entra quien lo recibe: la pantalla de éxito tiene que mostrar SU DNI, no
+        // el de quien compró (que puede ni haberlo cargado). Enmascarado, igual que el del cliente.
+        dto.setReceptorDni(enmascararDocumento(c.getReceptorDni()));
         return dto;
     }
 

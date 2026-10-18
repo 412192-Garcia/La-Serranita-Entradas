@@ -74,13 +74,21 @@
   font-weight: 600 !important;
 }
 
-/* Regalo: el nombre de arriba es quien compró, no quien viene a usarlo — este renglón, en el
-   color de acento que ya identifica "regalo" en la columna de fecha, marca a quién hay que
-   pedirle el DNI en la puerta. */
-.titular-receptor {
+/* Regalo: el nombre de arriba es el de quien lo usa; este renglón, en el color de acento que ya
+   identifica "regalo" en la columna de fecha, aclara que es un regalo y quién lo compró. */
+.titular-regalo-de {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font-size: 0.78rem;
   font-weight: 700;
   color: var(--color-accent-dark);
+}
+
+.icono-regalo {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
 }
 
 /* Un renglón por tipo de pase, en vez de todo corrido en una sola línea: con

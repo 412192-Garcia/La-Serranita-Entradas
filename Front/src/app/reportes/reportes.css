@@ -213,6 +213,31 @@
   grid-template-columns: 2fr 1fr 1fr;
 }
 
+.fila-simple-cancelacion {
+  grid-template-columns: 0.9fr 1fr 2.2fr 1fr 0.9fr;
+  font-size: 0.9rem;
+}
+
+.detalle-cancelacion {
+  display: block;
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+}
+
+.btn-ver-cancelaciones {
+  align-self: flex-start;
+  margin: 12px 0 4px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--color-primary-dark);
+  font: inherit;
+  font-weight: 700;
+  font-size: 0.9rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 .lista-periodos-comparar {
   display: flex;
   flex-direction: column;

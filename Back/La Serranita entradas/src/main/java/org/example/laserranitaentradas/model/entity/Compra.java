@@ -117,12 +117,37 @@ public class Compra extends BaseEntity {
     @Column(name = "fecha_pago")
     private LocalDateTime fechaPago;
 
+    /** Pasa la compra a CANCELADO dejando registrado por qué, cuándo y quién. */
+    public void cancelar(MotivoCancelacion motivo, String detalle, String usuario) {
+        this.estado = EstadoCompra.CANCELADO;
+        this.motivoCancelacion = motivo.name();
+        this.detalleCancelacion = detalle;
+        this.fechaCancelacion = LocalDateTime.now();
+        this.canceladaPor = usuario;
+    }
+
     public List<Long> pagosMercadoPago() {
         if (mpPaymentIds == null || mpPaymentIds.isBlank()) {
             return List.of();
         }
         return java.util.Arrays.stream(mpPaymentIds.split(",")).map(String::trim).map(Long::valueOf).toList();
     }
+
+    /** Sólo en una compra CANCELADO: por qué (nombre de un MotivoCancelacion). Se limpia si se reactiva. */
+    @Column(name = "motivo_cancelacion", length = 30)
+    private String motivoCancelacion;
+
+    /** Qué pasó: lo que escribió quien la anuló a mano (opcional), o lo que contestó Mercado Pago
+     * en una cancelación automática (intentos rechazados, error al iniciar el pago). */
+    @Column(name = "detalle_cancelacion", length = 300)
+    private String detalleCancelacion;
+
+    @Column(name = "fecha_cancelacion")
+    private LocalDateTime fechaCancelacion;
+
+    /** Usuario que la anuló, o SISTEMA si la canceló el barrido / el fallo al iniciar el pago. */
+    @Column(name = "cancelada_por", length = 100)
+    private String canceladaPor;
 
     /**
      * Turno de caja en el que se cobró (venta de puerta o cobro de una reserva en

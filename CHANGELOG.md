@@ -6,6 +6,33 @@ número y el CI la usa como nota de la Release de GitHub.
 
 ## Sin publicar
 
+- Regalos en Control de accesos y en las anticipadas del POS: la fila muestra primero a quien
+  recibe el regalo (nombre, DNI y mail: es a quien se le pide el documento en la puerta) y abajo,
+  con el ícono de regalo, quién lo compró.
+- Comprar como regalo: primero se cargan los datos de quien lo recibe y después los de quien
+  compra, que ya no tiene que poner DNI (ni edad ni localidad), y no aparece más el aviso de que
+  ese DNI es para entrar al parque. La pantalla de compra confirmada muestra el DNI de quien
+  recibe el regalo en vez del de quien lo compró.
+  **Antes de subir:** correr `scripts/cliente-dni-opcional.sql` en la base.
+- Motivo de cancelación: cada compra cancelada guarda por qué, cuándo y quién. Las que cancela la
+  app sola quedan anotadas con lo que contestó Mercado Pago: "Abrió el checkout y no intentó
+  pagar", o "Intentó pagar y Mercado Pago no lo aprobó" con el detalle de cada intento (ej. "visa:
+  rechazado, fondos insuficientes"), o el error si no se pudo iniciar el pago. Al cancelar una
+  venta desde Cajas se puede escribir un motivo (opcional), que queda también en el historial de
+  Sistema. Si un checkout cancelado se termina pagando, el motivo se borra al reactivarse.
+- Pago online con la ventana de Mercado Pago bloqueada (pasa en Safari de iPhone, en el navegador
+  de Instagram, etc.): en vez de un aviso de error y volver a "Pagar", aparece un botón "Abrir
+  Mercado Pago" que abre el pago de esa misma reserva. Antes cada reintento creaba otra compra:
+  hubo un cliente con 30 compras en 6 minutos hasta poder pagar.
+- Reintentos de pago: si el mismo cliente (mismo DNI, o mismo mail en un regalo) vuelve a pagar
+  la misma fecha, entradas y cupón dentro de los 30 minutos, se reusa la compra que quedó sin
+  pagar en vez de crear otra. No aparta otra vez el cupo del día ni gasta otro uso del cupón. El
+  link de pago vence a las 3 horas de creada la compra, junto con la cancelación automática.
+- Reportes > Cancelaciones: cuántas compras se cancelaron en el rango y por qué, con el detalle de
+  cada una (qué pasó, quién y monto).
+  **Después del primer arranque del backend nuevo:** correr
+  `scripts/backfill-motivos-cancelacion.sql` para completar el motivo de las canceladas de antes.
+
 ## 0.10.2 — 2026-10-16
 
 - Control de facturas: los textos del estado sin certificado y de la numeración ya no hablan del

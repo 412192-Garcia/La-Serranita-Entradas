@@ -144,7 +144,7 @@ export class ConfiguracionCajas implements OnInit {
       selector: '[data-tour="acciones-caja-abierta"]',
       alternativo: '[data-tour="cajas-abiertas"]',
       titulo: 'Corregir mientras el boletero trabaja',
-      texto: '"+ Agregar venta" carga una que faltó; "Retiro / Aporte" y "Entradas físicas" registran movimientos. Más abajo, el historial lista cada operación y las ventas traen "Editar" y "Cancelar", para arreglar un error sin esperar al cierre.',
+      texto: '"+ Agregar venta" carga una que faltó; "Retiro / Aporte" y "Entradas físicas" registran movimientos. Más abajo, el historial lista cada operación y las ventas traen "Editar" y "Cancelar" (con un motivo opcional), para arreglar un error sin esperar al cierre.',
       antes: () => this.tutorialMostrarCajaAbierta(),
     },
     {

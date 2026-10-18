@@ -3,6 +3,7 @@ package org.example.laserranitaentradas.service.impl;
 import org.example.laserranitaentradas.model.dto.AfluenciaDiariaDTO;
 import org.example.laserranitaentradas.model.dto.AnticipacionCompraDTO;
 import org.example.laserranitaentradas.model.dto.CajaResumenReporteDTO;
+import org.example.laserranitaentradas.model.dto.CompraCanceladaDTO;
 import org.example.laserranitaentradas.model.dto.ComprasPorEstadoDTO;
 import org.example.laserranitaentradas.model.dto.DesgloseTipoEntradaDTO;
 import org.example.laserranitaentradas.model.dto.IngresoPorTipoDTO;
@@ -50,6 +51,7 @@ import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
 import java.util.LinkedHashMap;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -200,6 +202,8 @@ public class ReporteServiceImpl implements ReporteService {
             cantidadPorEstado.put(estado, 0L);
         }
 
+        List<CompraCanceladaDTO> cancelaciones = new ArrayList<>();
+
         Map<ClaveHora, Long> cantidadComprasAnticipadaPorHora = new HashMap<>();
         Map<ClaveHora, Long> cantidadPasesAnticipadaPorHora = new HashMap<>();
         Map<ClaveHora, Long> cantidadComprasBoleteriaPorHora = new HashMap<>();
@@ -277,6 +281,11 @@ public class ReporteServiceImpl implements ReporteService {
             }
 
             cantidadPorEstado.merge(compra.getEstado(), 1L, Long::sum);
+            if (compra.getEstado() == EstadoCompra.CANCELADO) {
+                cancelaciones.add(new CompraCanceladaDTO(compra.getCodigoReserva(), compra.getFechaCreacion(),
+                        compra.getFechaCancelacion(), compra.getFormaPago(), compra.getMontoTotal(),
+                        compra.getMotivoCancelacion(), compra.getDetalleCancelacion(), compra.getCanceladaPor()));
+            }
 
             long pasesEntrada = compra.getDetalles().stream()
                     .filter(d -> d.getTipoEntrada() != null && d.getTipoEntrada().getTipo() == Tipo.ENTRADA)
@@ -666,7 +675,10 @@ public class ReporteServiceImpl implements ReporteService {
                 ventasPorOrigen, totalDescuentos, cantidadComprasConDescuento,
                 cajas, totalRetirosCajas, totalFaltantesCajas, totalSobrantesCajas,
                 ventasArticulosVarios, usoPromociones, ventasDolares, ingresosPorTipo, entradasVendidasBoleteria,
-                anticipacionCompra, usoCupones, totalFacturado, cantidadFacturas, cantidadNotasCredito);
+                anticipacionCompra, usoCupones, totalFacturado, cantidadFacturas, cantidadNotasCredito,
+                cancelaciones.stream()
+                        .sorted(Comparator.comparing(CompraCanceladaDTO::getFechaCreacion).reversed())
+                        .toList());
     }
 
     /** true si `fecha` (puede ser null) cae dentro de [desde, hasta], ambos inclusive. */

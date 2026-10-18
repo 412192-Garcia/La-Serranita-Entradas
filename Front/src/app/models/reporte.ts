@@ -58,6 +58,23 @@ export interface ComprasPorEstado {
   cantidad: number;
 }
 
+export type MotivoCancelacion = 'CHECKOUT_ABANDONADO' | 'PAGO_RECHAZADO' | 'PAGO_NO_INICIADO' | 'ANULADA_EN_CAJA';
+
+/** Una compra cancelada del rango, con el motivo (Reportes > Cancelaciones). */
+export interface CompraCancelada {
+  codigoReserva: string;
+  fechaCreacion: string;
+  /** Null en las canceladas antes de que se guardara el motivo. */
+  fechaCancelacion: string | null;
+  formaPago: string;
+  montoTotal: number;
+  /** Null si no quedó registrado. */
+  motivo: MotivoCancelacion | null;
+  /** Qué pasó: lo que escribió quien la anuló, o lo que contestó Mercado Pago en cada intento. */
+  detalle: string | null;
+  canceladaPor: string | null;
+}
+
 export type DiaSemana = 'MONDAY' | 'TUESDAY' | 'WEDNESDAY' | 'THURSDAY' | 'FRIDAY' | 'SATURDAY' | 'SUNDAY';
 
 /** Grilla completa de 7 días x 24 horas (siempre 168 filas, haya habido ventas o no en cada
@@ -160,4 +177,6 @@ export interface ReporteResumen {
   totalFacturado: number;
   cantidadFacturas: number;
   cantidadNotasCredito: number;
+  /** Canceladas del rango con su motivo, las más recientes primero. */
+  cancelaciones: CompraCancelada[];
 }

@@ -21,6 +21,15 @@
         <p><strong>Todavía no abonaste.</strong></p>
         <p>Al llegar al parque, presentá el DNI <strong>{{ compraAcumulada.cliente?.dni }}</strong> en la boletería y pagá el total en efectivo antes de ingresar con todo tu grupo.</p>
       </div>
+    } @else if (compraAcumulada?.esRegalo) {
+      <!-- Regalo: entra quien lo recibe, con SU DNI — el de quien compró no sirve para ingresar. -->
+      <h3>¡Regalo confirmado!</h3>
+      <p>Tu orden <strong>#{{ codigoReserva }}</strong> ya está lista.</p>
+
+      <div class="mensaje-dni-ingreso">
+        <p><strong>Le avisamos por mail{{ compraAcumulada.receptor?.nombre ? ' a ' + compraAcumulada.receptor.nombre : '' }}.</strong></p>
+        <p>Puede venir cualquier día dentro de los 90 días desde la compra: sólo tiene que presentar su DNI <strong>{{ compraAcumulada.receptor?.dni }}</strong> en el acceso para ingresar.</p>
+      </div>
     } @else {
       <h3>¡Compra confirmada!</h3>
       <p>Tu orden <strong>#{{ codigoReserva }}</strong> ya está lista.</p>

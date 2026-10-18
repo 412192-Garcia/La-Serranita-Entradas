@@ -284,3 +284,36 @@
   .paginador .btn-limpiar { padding: 10px 12px; font-size: 0.82rem; }
   .paginador span { white-space: nowrap; }
 }
+
+.campo-motivo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--color-text);
+}
+
+.campo-motivo textarea {
+  font: inherit;
+  font-weight: 400;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-bg-soft);
+  color: var(--color-text);
+  resize: vertical;
+}
+
+.ayuda-motivo {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.campo-motivo .label-opcional {
+  font-weight: 400;
+  color: var(--color-text-muted);
+}

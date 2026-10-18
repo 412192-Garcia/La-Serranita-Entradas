@@ -38,7 +38,11 @@ public interface CompraRepository extends JpaRepository<Compra, Long>, JpaSpecif
     @Query("""
             UPDATE Compra c
                SET c.estado = org.example.laserranitaentradas.model.entity.EstadoCompra.APROBADO,
-                   c.mpPaymentIds = :mpPaymentIds
+                   c.mpPaymentIds = :mpPaymentIds,
+                   c.motivoCancelacion = null,
+                   c.detalleCancelacion = null,
+                   c.fechaCancelacion = null,
+                   c.canceladaPor = null
              WHERE c.id = :id
                AND c.estado IN (org.example.laserranitaentradas.model.entity.EstadoCompra.PENDIENTE_PAGO,
                                 org.example.laserranitaentradas.model.entity.EstadoCompra.CANCELADO)
@@ -113,6 +117,13 @@ public interface CompraRepository extends JpaRepository<Compra, Long>, JpaSpecif
             "OR (c.fechaPago >= :desdeDt AND c.fechaPago < :hastaDt)")
     List<Compra> findParaReporte(@Param("desde") LocalDate desde, @Param("hasta") LocalDate hasta,
                                  @Param("desdeDt") LocalDateTime desdeDt, @Param("hastaDt") LocalDateTime hastaDt);
+
+    /** Checkouts de Mercado Pago todavía sin pagar creados después de `desde`: candidatos a
+     * reusarse cuando el mismo cliente vuelve a apretar "Pagar" (ver CompraServiceImpl.create). */
+    @Query("SELECT c FROM Compra c WHERE c.estado = org.example.laserranitaentradas.model.entity.EstadoCompra.PENDIENTE_PAGO "
+            + "AND c.formaPago = org.example.laserranitaentradas.model.entity.FormaPago.MERCADO_PAGO "
+            + "AND c.fechaCreacion > :desde")
+    List<Compra> findCheckoutsPendientesDesde(@Param("desde") LocalDateTime desde);
 
     /** Ids de checkouts que quedaron sin pagarse: para expirarlos (ver CompraServiceImpl). */
     @Query("SELECT c.id FROM Compra c WHERE c.estado = :estado AND c.fechaCreacion < :limite")

@@ -86,6 +86,15 @@
         @if (aviso) {
           <p class="aviso-pago" role="alert">{{ aviso }}</p>
         }
+        @if (linkPagoBloqueado) {
+          <div class="pago-bloqueado" role="alert">
+            <p><strong>Tu navegador no dejó abrir la ventana de pago.</strong> Tu reserva ya está lista: tocá el botón para pagarla en Mercado Pago.</p>
+            <div class="acciones-pago-bloqueado">
+              <button type="button" class="btn-abrir-mp" (click)="abrirPagoBloqueado()">Abrir Mercado Pago</button>
+              <button type="button" class="btn-cancelar-pago" (click)="cancelarPagoBloqueado()">Cancelar</button>
+            </div>
+          </div>
+        }
         <!-- Muestra el resumen y el botón de generar preferencia -->
         <app-resumen
           [datosCompra]="compraAcumulada"
