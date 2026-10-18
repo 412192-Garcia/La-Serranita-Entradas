@@ -6,6 +6,8 @@ número y el CI la usa como nota de la Release de GitHub.
 
 ## Sin publicar
 
+## 0.10.3 — 2026-10-18
+
 - POS: los botones de cantidad de un toque (1 a 10 y "10+") ya no son sólo del Pase General.
   Cada tipo de entrada tiene la opción "Accesos rápidos en boletería" en Configuración > Tipos de
   entrada (ej. para el pase de menores). Antes salían para los tipos con precios por grupo
