@@ -361,3 +361,19 @@
 @media (max-width: 600px) {
   .panel { padding: 20px 16px 32px; }
 }
+
+@media (pointer: coarse) {
+  /* Día / Semana / Mes y los días de la semana: venían en 30px de alto. */
+  .btn-agrupacion,
+  .btn-dia-semana {
+    min-height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .btn-ver-cancelaciones {
+    padding: 10px 0;
+    margin: 2px 0 0;
+  }
+}

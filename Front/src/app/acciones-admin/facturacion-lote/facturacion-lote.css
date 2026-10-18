@@ -216,5 +216,6 @@
 
 @media (pointer: coarse) {
   .item-catalogo { min-height: 64px; }
+  .btn-link { min-height: 40px; }
   .contador .btn-icono { width: 44px; height: 44px; }
 }

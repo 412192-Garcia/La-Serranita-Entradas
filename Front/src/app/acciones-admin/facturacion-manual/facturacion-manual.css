@@ -147,6 +147,10 @@
   min-width: 0;
 }
 
+/* En la grilla de escritorio el <label> no existe como caja: el input es la celda. */
+.campo-renglon { display: contents; }
+.etiqueta-renglon { display: none; }
+
 .renglon-encabezado {
   font-size: 0.75rem;
   font-weight: 700;
@@ -358,6 +362,14 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* Teléfono: "Factura B 0037-00000075" no entra al lado de la fecha y el total, y se partía en
+   dos renglones apretados. El número va solo arriba y la fecha y el total en el renglón de abajo. */
+@media (max-width: 600px) {
+  .manual-cabecera { flex-wrap: wrap; row-gap: 2px; }
+  .manual-numero { flex-basis: 100%; }
+  .manual-total { margin-left: auto; }
+}
+
 .manual-detalle {
   font-size: 0.82rem;
   color: var(--color-text-secondary);
@@ -443,17 +455,33 @@
 @media (max-width: 900px) {
   .renglon-encabezado { display: none; }
 
+  /* Ítem + quitar / descripción / cantidad + precio / subtotal, cada campo con su etiqueta. */
   .renglon {
-    grid-template-columns: 1fr 80px 40px;
+    grid-template-columns: 96px minmax(0, 1fr) auto;
     padding-bottom: 10px;
     border-bottom: 1px solid var(--color-border);
   }
 
-  .renglon select { grid-column: 1 / 3; }
+  .renglon select { grid-column: 1 / 3; grid-row: 1; }
   .renglon .btn-icono { grid-column: 3; grid-row: 1; }
-  .renglon input[type='text'] { grid-column: 1 / -1; }
-  .renglon input[aria-label='Cantidad'] { grid-column: 1; }
-  .renglon input[aria-label='Precio unitario'] { grid-column: 2 / -1; }
+
+  .campo-renglon {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+  }
+
+  .etiqueta-renglon {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--color-text-secondary);
+  }
+
+  .campo-descripcion { grid-column: 1 / -1; grid-row: 2; }
+  .campo-cantidad { grid-column: 1; grid-row: 3; }
+  .campo-precio { grid-column: 2 / -1; grid-row: 3; }
   .renglon .subtotal { grid-column: 1 / -1; }
   .renglon .subtotal::before { content: attr(data-label) ': '; font-weight: 500; color: var(--color-text-secondary); }
 }

@@ -69,6 +69,8 @@
       <div class="identidad-slider">
         @if (usuario.fotoPerfil) {
           <img class="avatar-operador-slider" [src]="usuario.fotoPerfil" alt="" />
+        } @else {
+          <span class="avatar-operador-slider avatar-inicial" aria-hidden="true">{{ usuario.username.charAt(0).toUpperCase() }}</span>
         }
         <span class="operador-slider">{{ usuario.username }}</span>
       </div>
@@ -81,6 +83,19 @@
   <nav class="menu-slider-nav">
     @for (e of enlacesVisibles(); track e.ruta) {
       <a class="menu-slider-item" [class.activo]="esRutaActual(e.ruta)" [routerLink]="e.ruta" (click)="cerrarMenu()">
+        <!-- Íconos fijos por ruta (no lucideIcon dinámico): el dinámico arrastra el registro de
+             íconos al bundle inicial, que es el que baja cada visitante de la compra online. -->
+        @switch (e.ruta) {
+          @case ('/boleteria') { <svg lucideScanLine [strokeWidth]="2" aria-hidden="true"></svg> }
+          @case ('/pos') { <svg lucideTicket [strokeWidth]="2" aria-hidden="true"></svg> }
+          @case ('/hoy') { <svg lucideSun [strokeWidth]="2" aria-hidden="true"></svg> }
+          @case ('/cajas') { <svg lucideWallet [strokeWidth]="2" aria-hidden="true"></svg> }
+          @case ('/reportes') { <svg lucideChartColumn [strokeWidth]="2" aria-hidden="true"></svg> }
+          @case ('/configuracion') { <svg lucideSettings [strokeWidth]="2" aria-hidden="true"></svg> }
+          @case ('/acciones') { <svg lucideWrench [strokeWidth]="2" aria-hidden="true"></svg> }
+          @case ('/sistema') { <svg lucideActivity [strokeWidth]="2" aria-hidden="true"></svg> }
+          @case ('/mi-cuenta') { <svg lucideCircleUser [strokeWidth]="2" aria-hidden="true"></svg> }
+        }
         {{ e.texto }}
         @if (avisoSinVer(e)) {
           <span class="punto-notificacion-item" aria-label="Hay un aviso pendiente"></span>

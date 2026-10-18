@@ -221,7 +221,7 @@
     } @else {
       @for (l of lotes(); track l.id) {
         <div class="lote-item">
-          <button type="button" class="lote-resumen" (click)="toggleLoteExpandido(l.id)">
+          <button type="button" class="lote-resumen" [attr.aria-expanded]="loteExpandidoId() === l.id" (click)="toggleLoteExpandido(l.id)">
             <span class="lote-nombre">
               {{ l.nombre }}
               @if (l.descripcion) {

@@ -27,7 +27,7 @@ export function mostrarAvisoGlobal(mensaje: string, accion?: AccionAviso): void 
     aviso.style.cssText =
       'pointer-events:auto;background:#3a1414;color:#fff;border:1px solid #7a2020;' +
       'border-radius:8px;padding:10px 14px;font:14px/1.4 system-ui,sans-serif;' +
-      'box-shadow:0 4px 16px rgba(0,0,0,.3);max-width:90vw;display:flex;gap:12px;align-items:center;';
+      'box-shadow:0 4px 16px rgba(0,0,0,.3);max-width:560px;box-sizing:border-box;display:flex;gap:12px;align-items:center;';
 
     const texto = document.createElement('span');
     texto.textContent = mensaje;
@@ -38,8 +38,8 @@ export function mostrarAvisoGlobal(mensaje: string, accion?: AccionAviso): void 
       boton.type = 'button';
       boton.textContent = accion.etiqueta;
       boton.style.cssText =
-        'background:#fff;color:#3a1414;border:none;border-radius:6px;padding:6px 10px;' +
-        'font-weight:700;cursor:pointer;flex-shrink:0;font:inherit;';
+        'background:#fff;color:#3a1414;border:none;border-radius:6px;padding:6px 12px;' +
+        'min-height:40px;cursor:pointer;flex-shrink:0;font:inherit;font-weight:700;';
       boton.addEventListener('click', () => {
         aviso.remove();
         accion.onClick();
@@ -62,8 +62,10 @@ function obtenerOCrearContenedor(): HTMLElement {
   if (!contenedor) {
     contenedor = document.createElement('div');
     contenedor.id = ID_CONTENEDOR;
+    // Anclado a los dos costados y no con left:50% + translate: así el cartel puede usar todo el
+    // ancho de un celular (con left:50% el navegador lo achica a la mitad de la pantalla).
     contenedor.style.cssText =
-      'position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:99999;' +
+      'position:fixed;bottom:16px;left:16px;right:16px;z-index:99999;' +
       'display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none;';
     document.body.appendChild(contenedor);
   }

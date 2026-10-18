@@ -155,6 +155,33 @@
   }
 }
 
+/* Teléfono: la sangría de los submódulos, el padding y el hueco al interruptor se comían casi la
+   mitad del ancho y la descripción quedaba en una columna de tres palabras por renglón. */
+@media (max-width: 600px) {
+  /* El interruptor va a la altura del título y la descripción usa todo el ancho de la tarjeta
+     (display: contents saca a .modulo-texto del medio para que sus hijos sean celdas de la grilla). */
+  .modulo {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 4px 10px;
+    padding: 12px;
+  }
+
+  .modulo-texto { display: contents; }
+  .modulo-texto > * { grid-column: 1 / -1; }
+  .modulo-texto > .modulo-titulo { grid-column: 1; grid-row: 1; align-self: center; }
+  .modulo > .interruptor { grid-column: 2; grid-row: 1; }
+
+  .modulo.submodulo {
+    padding: 10px 12px;
+  }
+
+  .lista-submodulos {
+    margin-left: 6px;
+    padding-left: 10px;
+  }
+}
+
 @media (pointer: coarse) {
   .interruptor {
     width: 56px;

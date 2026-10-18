@@ -79,7 +79,7 @@
             </div>
             @for (d of descuentosDelTipoActual(); track d.id) {
               <div class="fila-simple fila-simple-descuentos">
-                <span data-label="Cantidad">{{ d.cantidadPases }} pases</span>
+                <span>{{ d.cantidadPases }} pases</span>
                 <span data-label="Precio total">{{ d.precioPromocionalTotal | pesos }}</span>
                 <span data-label="Precio por persona">{{ precioPorPersona(d) | pesos }}</span>
                 <span data-label="Ahorro">{{ ahorroDescuento(d) | pesos }}</span>

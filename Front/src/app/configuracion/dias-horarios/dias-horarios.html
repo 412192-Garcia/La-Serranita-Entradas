@@ -93,7 +93,7 @@
     } @else if (diaUnicoSeleccionado(); as dia) {
       <h2>{{ dia.fecha | date: 'dd/MM/yyyy' }}</h2>
 
-      <div class="fila-horario">
+      <div class="fila-horario fila-estado-dia">
         <span class="etiqueta-estado" [class.abierto]="dia.abierto" [class.cerrado]="!dia.abierto">
           {{ dia.abierto ? 'Abierto' : 'Cerrado' }}
         </span>

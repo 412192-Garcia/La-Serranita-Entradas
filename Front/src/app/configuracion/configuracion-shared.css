@@ -371,6 +371,10 @@ input:focus, select:focus {
     letter-spacing: 0.3px;
     color: var(--color-text-muted);
     white-space: nowrap;
+    /* Todo el espacio libre va entre la etiqueta y el valor: si la celda tiene más de una pieza
+       (ej. "0 /" + el input al editar un cupón) quedan juntas a la derecha en vez de repartirse
+       con una en el medio. */
+    margin-right: auto;
   }
 
   /* Nombre/concepto (primera celda, sin data-label): sin etiqueta, hace de título de la

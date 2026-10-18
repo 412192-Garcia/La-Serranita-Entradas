@@ -6,6 +6,41 @@ número y el CI la usa como nota de la Release de GitHub.
 
 ## Sin publicar
 
+- Módulo interno en el celular:
+  - Sistema > Rendimiento: los botones para ordenar ya no se pisan entre sí y en cada tarjeta el
+    nombre de cada dato queda a la izquierda y el valor a la derecha.
+  - Sistema > Módulos: el interruptor va al lado del nombre y la descripción usa todo el ancho
+    (antes quedaba en una columna angosta de tres palabras por renglón).
+  - Acciones > Generar reserva: se lee el aviso "Todavía no elegiste un día" / "Día
+    seleccionado" (era letra blanca sobre fondo claro, también en la compu), y los − / + de cada
+    entrada y las flechas del mes son más grandes para el dedo.
+  - Acciones > Facturación manual: cada renglón muestra qué es cada campo (Cant., Descripción,
+    Precio unit.) y la cantidad y el precio van juntos; en la lista de facturas el número va en su
+    renglón y la fecha y el total abajo.
+  - Acciones > Control de facturas: el listado para el contador pasa a tarjetas con el
+    comprobante de título y un dato por renglón.
+  - POS: el menú de la ticketera / Point se abre abajo, de borde a borde; antes se salía de la
+    pantalla por la izquierda.
+  - El cartel de "Algo salió mal" usa el ancho del celular (quedaba en una columna angosta).
+  - Botones que con el dedo quedaban muy chicos: Guardar / Cancelar de "Editar contacto" en
+    Control de accesos (también en la compu), los filtros de Cajas, del historial de una caja y
+    de Operaciones rechazadas, Día / Semana / Mes y los días en Reportes, "+ Agregar una venta" y
+    los demás de corregir una caja, "Vender sin control de caja", "Sin caja abierta", "Cancelar
+    reserva" del carrito y "Deshacer" de Control de accesos.
+  - Menú lateral con un ícono por pantalla y la inicial del usuario cuando no tiene foto.
+  - POS: la cabecera ocupa dos renglones en vez de tres (título con Tutorial y menú arriba;
+    Anticipadas, Caja y el estado de la ticketera / Point abajo, este último sólo con íconos).
+    Los descuentos ("Sin descuento" ya no se parte en dos renglones) y el pago mixto (los dos
+    montos uno abajo del otro, sin "Efect… / Tarje…" cortados) se acomodan al celular.
+  - Anticipadas y Control de accesos: la barra de semanas muestra sólo la semana elegida entre las
+    flechas (antes se iba de costado con las flechas fuera de pantalla) y cada día pone el conteo
+    de reservas debajo de la fecha.
+  - Cajas: los números de la caja (entradas, vendido, facturado) pasan a mosaicos, con el rótulo
+    chico arriba del número (antes el rótulo era casi más grande que el número, también en la
+    compu); en el historial cada operación lleva su tipo como título.
+  - Configuración: los lotes de cupones son tarjetas con "Ver cupones", los precios por grupo
+    llevan la cantidad de pases como título, el estado de un día queda alineado con su botón, y
+    en las tarjetas los valores se agrupan a la derecha de su etiqueta.
 - Sistema > Estado, tarjeta Impresión: "tickets sin imprimir" ya no queda en alerta para siempre.
   Cuenta sólo las facturas cuyo último ticket falló: si se reimprimió bien, o la factura se anuló
   (su ticket se cancela), deja de contar.

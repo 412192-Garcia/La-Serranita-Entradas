@@ -1242,3 +1242,69 @@
 @media (max-width: 500px) {
   .tarjeta-kpis-detalle { grid-template-columns: 1fr; }
 }
+
+@media (pointer: coarse) {
+  /* "+ Agregar una venta" / "+ Sumar o restar un monto" y los filtros: venían entre 26 y 30px. */
+  .chip-filtro,
+  .btn-toggle-extra {
+    min-height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* "Deshacer" es un link subrayado sin padding: el área tocable era sólo la palabra. */
+  .btn-deshacer-ajuste {
+    padding: 10px 6px;
+    margin: -10px -6px;
+  }
+}
+
+/* Rótulo de cada KPI. Sin esto el <h2> salía con el tamaño por defecto del navegador (24px):
+   el rótulo quedaba casi del tamaño del número y le robaba protagonismo. */
+.tarjeta-kpis-detalle h2 {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+}
+
+/* Teléfono: los KPI pasan a mosaicos de dos columnas (el de entradas, con su subtítulo, a todo
+   el ancho) en vez de tres bloques sueltos uno abajo del otro. */
+@media (max-width: 720px) {
+  .tarjeta-kpis-detalle,
+  .tarjeta-kpis-detalle-3 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .tarjeta-kpis-detalle > div {
+    min-width: 0;
+    padding: 10px 12px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background-color: var(--color-card-bg);
+  }
+
+  .tarjeta-kpis-detalle > div:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .tarjeta-kpis-detalle h2 {
+    font-size: 0.78rem;
+  }
+
+  .tarjeta-kpis-detalle .kpi-numero {
+    font-size: 1.35rem;
+    margin: 2px 0 0;
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 720px) {
+  /* Debajo de los mosaicos: un renglón de dato, no un título que compita con ellos. */
+  .fila-entradas-fisicas {
+    font-size: 0.9rem;
+  }
+}

@@ -232,3 +232,68 @@
 .seccion-cupones .form-grid label {
   justify-content: flex-end;
 }
+
+/* ---------- Teléfono: lotes como tarjetas ----------
+   Separados sólo por una línea, los lotes se leían como una lista corrida, con el ▼ suelto a
+   la derecha y las acciones del lote abierto mezcladas con el siguiente. Cada lote pasa a ser
+   una tarjeta como las de los cupones, y el ▼ se vuelve "Ver cupones" / "Ocultar cupones". */
+@media (max-width: 900px) {
+  .lote-item,
+  .lote-item:last-child {
+    margin-top: 10px;
+    padding: 4px 14px 0;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+  }
+
+  .lote-resumen {
+    padding: 8px 0 10px;
+  }
+
+  .lote-resumen > .lote-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 8px;
+    padding: 8px 0 0;
+    border-top: 1px solid var(--color-bg-soft);
+    font-size: 0.7rem;
+    color: var(--color-primary-dark);
+  }
+
+  .lote-resumen > .lote-toggle::before {
+    content: 'Ver cupones';
+    font-size: 0.85rem;
+    font-weight: 700;
+  }
+
+  .lote-resumen[aria-expanded='true'] > .lote-toggle::before {
+    content: 'Ocultar cupones';
+  }
+
+  .lote-acciones {
+    padding: 4px 0 12px;
+    align-items: center;
+  }
+
+  .lote-acciones-estado {
+    flex-basis: 100%;
+  }
+
+  .lote-codigos {
+    padding: 0 0 14px;
+  }
+}
+
+@media (pointer: coarse) {
+  /* .btn-mini baja el min-height a 0 a propósito para la tabla de escritorio, y eso también
+     pisaba el mínimo táctil: Editar / Desactivar / Guardar quedaban en ~28px. */
+  .btn-mini {
+    min-height: 40px;
+  }
+
+  .input-edicion {
+    min-height: 40px;
+  }
+}

@@ -165,7 +165,42 @@
   flex-wrap: wrap;
 }
 
+/* El aviso "Día seleccionado / Todavía no elegiste un día" del calendario está pensado para el
+   fondo verde de la compra pública (letra blanca sobre blanco translúcido): acá va sobre el fondo
+   claro de la página y no se leía nada. */
+:host ::ng-deep app-calendario .feedback-reserva {
+  background-color: var(--color-card-bg);
+  border-color: var(--color-border);
+  color: var(--color-text);
+}
+
+:host ::ng-deep app-calendario .feedback-reserva.sin-fecha {
+  color: var(--color-text-secondary);
+}
+
 /* ---------- Responsive ---------- */
 @media (max-width: 800px) {
   .layout-crear-reserva { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 600px) {
+  .tarjeta { padding: 18px 16px; }
+}
+
+/* Los − / + de cada entrada (30px de ancho) y las flechas de mes del calendario (33px) vienen de
+   la compra pública: con el dedo, en el celular del admin, se erraba seguido. */
+@media (pointer: coarse) {
+  :host ::ng-deep app-calendario .btn-nav {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  :host ::ng-deep app-seleccion-entradas .control-cantidad {
+    width: 128px;
+    height: 44px;
+  }
+
+  :host ::ng-deep app-seleccion-entradas .btn-contador {
+    width: 44px;
+  }
 }

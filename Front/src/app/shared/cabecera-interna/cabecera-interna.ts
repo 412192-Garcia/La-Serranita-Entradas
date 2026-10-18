@@ -1,6 +1,9 @@
 import { Component, EventEmitter, Input, OnInit, Output, computed, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
-import { LucideMenu, LucideX, LucideLogOut, LucideWifiOff, LucideCircleHelp } from '@lucide/angular';
+import {
+  LucideMenu, LucideX, LucideLogOut, LucideWifiOff, LucideCircleHelp, LucideScanLine, LucideTicket, LucideSun,
+  LucideWallet, LucideChartColumn, LucideSettings, LucideWrench, LucideActivity, LucideCircleUser,
+} from '@lucide/angular';
 import { SesionService } from '../../services/sesion.service';
 import { ConectividadService } from '../../services/conectividad.service';
 import { NotificacionService, ResumenNotificaciones, TipoNotificacion } from '../../services/notificacion.service';
@@ -43,7 +46,11 @@ const TODOS_LOS_ENLACES: EnlaceCabecera[] = [
  */
 @Component({
   selector: 'app-cabecera-interna',
-  imports: [RouterLink, Tour, LucideMenu, LucideX, LucideLogOut, LucideWifiOff, LucideCircleHelp],
+  imports: [
+    RouterLink, Tour, LucideMenu, LucideX, LucideLogOut, LucideWifiOff, LucideCircleHelp,
+    LucideScanLine, LucideTicket, LucideSun, LucideWallet, LucideChartColumn, LucideSettings, LucideWrench,
+    LucideActivity, LucideCircleUser,
+  ],
   templateUrl: './cabecera-interna.html',
   styleUrl: './cabecera-interna.css',
 })

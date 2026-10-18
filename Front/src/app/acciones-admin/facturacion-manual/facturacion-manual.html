@@ -122,12 +122,23 @@
               </optgroup>
             }
           </select>
-          <input type="number" min="1" max="9999" step="1" inputmode="numeric" aria-label="Cantidad"
-            [ngModel]="l.cantidad" (ngModelChange)="actualizar(l.clave, { cantidad: $event ?? 0 })" />
-          <input type="text" maxlength="80" placeholder="Ej: Entradas grupo colegio" aria-label="Descripción"
-            [ngModel]="l.descripcion" (ngModelChange)="actualizar(l.clave, { descripcion: $event })" />
-          <input type="number" min="0" step="0.01" inputmode="decimal" placeholder="0" aria-label="Precio unitario"
-            [ngModel]="l.precio" (ngModelChange)="actualizar(l.clave, { precio: $event })" />
+          <!-- En escritorio la etiqueta no se ve (display: contents: el encabezado de la grilla ya dice
+               qué es cada columna); en el celular el renglón se apila y cada campo lleva la suya. -->
+          <label class="campo-renglon campo-cantidad">
+            <span class="etiqueta-renglon">Cant.</span>
+            <input type="number" min="1" max="9999" step="1" inputmode="numeric" aria-label="Cantidad"
+              [ngModel]="l.cantidad" (ngModelChange)="actualizar(l.clave, { cantidad: $event ?? 0 })" />
+          </label>
+          <label class="campo-renglon campo-descripcion">
+            <span class="etiqueta-renglon">Descripción</span>
+            <input type="text" maxlength="80" placeholder="Ej: Entradas grupo colegio" aria-label="Descripción"
+              [ngModel]="l.descripcion" (ngModelChange)="actualizar(l.clave, { descripcion: $event })" />
+          </label>
+          <label class="campo-renglon campo-precio">
+            <span class="etiqueta-renglon">Precio unit.</span>
+            <input type="number" min="0" step="0.01" inputmode="decimal" placeholder="0" aria-label="Precio unitario"
+              [ngModel]="l.precio" (ngModelChange)="actualizar(l.clave, { precio: $event })" />
+          </label>
           <span class="num subtotal" data-label="Subtotal">{{ subtotal(l) | pesos }}</span>
           <button type="button" class="btn-icono" title="Quitar renglón" aria-label="Quitar renglón"
             [disabled]="lineas().length === 1" (click)="quitarLinea(l.clave)">
