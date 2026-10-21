@@ -5,7 +5,7 @@ import { FormaPagoType } from '../models/compra';
 import { crearOrdenable } from '../shared/ordenable';
 import { esEscaneoDocumento, extraerDniDeEscaneo } from '../shared/escaner-dni.util';
 import { aFechaISO } from '../shared/fecha.util';
-import { ReservaVista, aVista, etiquetaGrupoFecha } from '../shared/reserva-vista.util';
+import { ReservaVista, aVista, esRegalo, etiquetaGrupoFecha } from '../shared/reserva-vista.util';
 
 function hoyComoFechaInput(): string {
   return aFechaISO(new Date());
@@ -161,6 +161,10 @@ export class ReservasBusqueda implements OnDestroy {
   });
 
   totalRegalos = computed(() => this.regalosVisibles()?.length ?? 0);
+
+  /** El bloque junta regalos y reservas sin fecha generadas desde Acciones (sin receptor): el
+   * botón sólo dice "regalos" si todos lo son. */
+  soloRegalos = computed(() => (this.regalosVisibles() ?? []).every((v) => esRegalo(v.reserva)));
 
   toggleRegalos(): void {
     this.regalosExpandido.update((v) => !v);

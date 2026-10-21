@@ -40,6 +40,7 @@ final class CatalogoAcciones {
             entry("PUT /api/interno/compras/{id}/editar-venta", new Accion("VENTA_EDITADA", "Editó la venta", "Compra")),
             entry("PUT /api/interno/compras/{id}/contacto", new Accion("CONTACTO_MODIFICADO", "Editó el contacto de la compra", "Compra")),
             entry("POST /api/interno/compras/{id}/reembolsar", new Accion("COMPRA_REEMBOLSADA", "Reembolsó la compra", "Compra")),
+            entry("POST /api/interno/compras/{id}/cancelar-reserva", new Accion("RESERVA_CANCELADA", "Canceló la reserva", "Compra")),
             entry("POST /api/interno/compras/{id}/confirmar-pago-efectivo", new Accion("PAGO_EFECTIVO_CONFIRMADO", "Confirmó el pago en efectivo de la compra", "Compra")),
             entry("POST /api/interno/compras/{id}/reenviar-mail", new Accion("MAIL_REENVIADO", "Reenvió el mail de la compra", "Compra")),
             entry("PUT /api/compras/{id}/deshacer-validacion", new Accion("VALIDACION_DESHECHA", "Deshizo la validación de ingreso", "Compra")),

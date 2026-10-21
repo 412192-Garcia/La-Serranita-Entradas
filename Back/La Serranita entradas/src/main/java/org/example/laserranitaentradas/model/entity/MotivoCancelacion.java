@@ -16,5 +16,8 @@ public enum MotivoCancelacion {
      * pago. El detalle tiene el error. */
     PAGO_NO_INICIADO,
     /** Un admin anuló una venta de caja (Cajas > operaciones). El motivo escrito (opcional) va en detalleCancelacion. */
-    ANULADA_EN_CAJA
+    ANULADA_EN_CAJA,
+    /** Un admin canceló una reserva generada desde Acciones (RESERVA_ADMIN): no se cobró nada
+     * por la app, así que no hay nada que reembolsar. */
+    RESERVA_CANCELADA
 }

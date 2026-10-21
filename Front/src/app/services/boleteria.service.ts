@@ -68,7 +68,7 @@ export interface Reserva {
   cliente: { id: number; dni: string | null; nombre: string; apellido: string } | null;
   contactEmail: string | null;
   contactPhone: string | null;
-  /** Null cuando la compra es un regalo: quien lo recibe puede usarlo el día que prefiera. */
+  /** Null en un regalo (quien lo recibe elige el día) o en una reserva sin fecha generada desde Acciones. */
   fechaVisita: string | null;
   montoTotal: number;
   descuentoAplicado: number;
@@ -79,7 +79,7 @@ export interface Reserva {
   fechaValidacion: string | null;
   /** Usuario de boletería que validó el ingreso. */
   usuarioValidador: string | null;
-  /** Datos de quien recibe el regalo: sólo vienen cargados cuando fechaVisita es null. */
+  /** Datos de quien recibe el regalo: sólo vienen cargados en un regalo (fechaVisita null + receptor). */
   receptorNombre: string | null;
   receptorEmail: string | null;
   receptorDni: string | null;
@@ -93,7 +93,7 @@ export interface EditarContactoRequest {
   dni?: string;
   email?: string;
   telefono?: string;
-  /** Sólo aplica si la compra es un regalo (fechaVisita null). */
+  /** Sólo aplica si la compra es un regalo (sin fecha y con receptor). */
   receptorDni?: string;
 }
 
@@ -255,6 +255,11 @@ export class BoleteriaService {
    */
   reembolsar(compraId: number): Observable<Reserva> {
     return this.http.post<Reserva>(`${this.internoUrl}/${compraId}/reembolsar`, {});
+  }
+
+  /** Reserva generada desde Acciones (RESERVA_ADMIN): no se cobró nada, así que sólo se cancela. */
+  cancelarReserva(compraId: number): Observable<Reserva> {
+    return this.http.post<Reserva>(`${this.internoUrl}/${compraId}/cancelar-reserva`, {});
   }
 
   /**

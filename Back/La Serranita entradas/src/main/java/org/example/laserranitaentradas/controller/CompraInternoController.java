@@ -119,6 +119,14 @@ public class CompraInternoController {
         return ResponseEntity.ok(CompraController.entityToDto(compra));
     }
 
+    @PostMapping("/{id}/cancelar-reserva")
+    @Operation(summary = "Cancelar una reserva generada desde Acciones (ADMIN)",
+            description = "Sólo para reservas RESERVA_ADMIN que todavía no ingresaron. No se cobró nada por la app, así que no hay reembolso: la marca CANCELADO.")
+    public ResponseEntity<CompraResponseDTO> cancelarReserva(@PathVariable @Parameter(description = "ID de la compra") Long id) {
+        Compra compra = compraService.cancelarReservaAdmin(id);
+        return ResponseEntity.ok(CompraController.entityToDto(compra));
+    }
+
     @PostMapping("/{id}/reembolsar")
     @Operation(summary = "Reembolsar una compra pagada online",
             description = "Sólo válido para compras APROBADO (pagadas por Mercado Pago) que todavía no ingresaron; dispara el reembolso real vía la API de Mercado Pago")

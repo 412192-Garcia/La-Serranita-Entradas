@@ -48,7 +48,7 @@
                     <li>{{ e.cantidad }}× {{ e.nombre }} <span>{{ e.subtotal | pesos }}</span></li>
                   }
                 </ul>
-                <p class="total-resumen">Total {{ datos.subtotal | pesos }}</p>
+                <p class="total-resumen">Sin cobro · valor de lista {{ datos.subtotal | pesos }}</p>
               </div>
 
               @if (error()) {

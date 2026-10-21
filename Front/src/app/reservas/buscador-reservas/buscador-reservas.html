@@ -44,7 +44,7 @@
     </button>
   </div>
 
-  <!-- Regalos (fechaVisita null): no dependen de qué día/página se esté mirando, así que el
+  <!-- Regalos y reservas sin fecha (fechaVisita null): no dependen de qué día/página se esté mirando, así que el
        botón vive acá, junto a los controles fijos, en vez de adentro de los resultados (que
        cambian con cada búsqueda). El panel expandido es su propio bloque (app-panel-regalos). -->
   @if (busqueda.totalRegalos() > 0) {
@@ -55,8 +55,13 @@
       [class.activo]="busqueda.regalosExpandido()"
       [attr.aria-expanded]="busqueda.regalosExpandido()"
       (click)="busqueda.toggleRegalos()">
-      <svg lucideGift [strokeWidth]="2"></svg>
-      <span>{{ busqueda.totalRegalos() }} regalo{{ busqueda.totalRegalos() === 1 ? '' : 's' }}</span>
+      @if (busqueda.soloRegalos()) {
+        <svg lucideGift [strokeWidth]="2"></svg>
+        <span>{{ busqueda.totalRegalos() }} regalo{{ busqueda.totalRegalos() === 1 ? '' : 's' }}</span>
+      } @else {
+        <svg lucideCalendarOff [strokeWidth]="2"></svg>
+        <span>{{ busqueda.totalRegalos() }} sin fecha</span>
+      }
       <svg lucideChevronDown class="icono-regalos" [strokeWidth]="2.5"></svg>
     </button>
   }

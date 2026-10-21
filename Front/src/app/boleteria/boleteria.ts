@@ -4,6 +4,7 @@ import { ConfirmacionService } from '../shared/confirmacion/confirmacion.service
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { BoleteriaService, Reserva } from '../services/boleteria.service';
+import { esRegalo } from '../shared/reserva-vista.util';
 import { CabeceraInterna } from '../shared/cabecera-interna/cabecera-interna';
 import { CajaService, Caja } from '../services/caja.service';
 import { AperturaCaja } from '../pos/apertura-caja/apertura-caja';
@@ -44,8 +45,8 @@ const PASOS_TUTORIAL: TourStep[] = [
     selector: '[data-tour="regalos"]',
     // El botón sólo existe si hay regalos: sin ellos se resalta la barra de fecha, que siempre está.
     alternativo: '[data-tour="fecha"]',
-    titulo: 'Regalos',
-    texto: 'Un regalo no tiene fecha de visita (quien lo recibe elige cuándo venir), así que no aparece en la lista del día: va en este botón, que sólo se ve cuando hay regalos. Tocalo para desplegarlos. En cada uno, "Para <nombre> · DNI" es la persona que se presenta en la puerta, no quien compró.',
+    titulo: 'Regalos y reservas sin fecha',
+    texto: 'Los regalos y las reservas sin fecha generadas desde Acciones no tienen día de visita, así que no aparecen en la lista del día: van en este botón, que sólo se ve cuando hay alguna. Tocalo para desplegarlas. En un regalo, el nombre y DNI de arriba son de quien lo recibe y se presenta en la puerta, no de quien compró; en una reserva sin fecha entra el titular.',
   },
   {
     selector: '[data-tour="estado"]',
@@ -60,7 +61,7 @@ const PASOS_TUTORIAL: TourStep[] = [
   {
     selector: '[data-tour="resultados"]',
     titulo: 'Validar o cobrar',
-    texto: 'Cada resultado tiene un botón para validar el ingreso o cobrar y validar (si te equivocás, tenés unos segundos para "Cancelar validación"), y un menú ⋮ para editar el contacto, reenviar el mail, ver la factura o reembolsar. Ese menú es sólo de esta pantalla: los boleteros validan y cobran desde el POS.',
+    texto: 'Cada resultado tiene un botón para validar el ingreso o cobrar y validar (si te equivocás, tenés unos segundos para "Cancelar validación"), y un menú ⋮ para editar el contacto, reenviar el mail, ver la factura y reembolsar (o cancelar, si es una reserva generada desde Acciones). Ese menú es sólo de esta pantalla: los boleteros validan y cobran desde el POS.',
   },
 ];
 
@@ -208,7 +209,7 @@ export class Boleteria implements OnInit, OnDestroy {
   /** Sin fecha de visita = regalo: el DNI que vale para entrar es el de quien lo recibe, no el
    * del comprador (ver receptorDni en Compra). */
   esRegaloDe(reserva: Reserva): boolean {
-    return reserva.fechaVisita == null;
+    return esRegalo(reserva);
   }
 
   abrirEdicion(reserva: Reserva, event: MouseEvent): void {
@@ -287,7 +288,12 @@ export class Boleteria implements OnInit, OnDestroy {
 
   /** Sólo tiene sentido para lo pagado online que todavía no ingresó: es lo único que se reembolsa. */
   puedeReembolsar(reserva: Reserva): boolean {
-    return reserva.estado === 'APROBADO';
+    return reserva.estado === 'APROBADO' && reserva.formaPago !== 'RESERVA_ADMIN';
+  }
+
+  /** Una reserva generada desde Acciones no se cobró por la app: no hay nada que devolver, se cancela. */
+  puedeCancelarReserva(reserva: Reserva): boolean {
+    return reserva.estado === 'APROBADO' && reserva.formaPago === 'RESERVA_ADMIN';
   }
 
   /** Habilita "Deshacer validación" en el menú "⋮" para cualquier USADO reciente, más allá de
@@ -323,6 +329,33 @@ export class Boleteria implements OnInit, OnDestroy {
       error: (err) => {
         console.error('Error al reembolsar:', err);
         this.busqueda.errorAccion.set(typeof err?.error === 'string' ? err.error : 'No se pudo procesar el reembolso.');
+        this.reembolsandoId.set(null);
+      },
+    });
+  }
+
+  async cancelarReserva(reserva: Reserva, event: MouseEvent): Promise<void> {
+    event.stopPropagation();
+    this.menuAbiertoId.set(null);
+    const confirmado = await this.confirmacion.pedir({
+      titulo: 'Cancelar la reserva',
+      mensaje: `La reserva #${reserva.codigoReserva} queda cancelada y ya no se puede usar para ingresar. No se puede deshacer.`,
+      aceptar: 'Cancelar reserva',
+      peligro: true,
+    });
+    if (!confirmado) return;
+
+    this.reembolsandoId.set(reserva.id);
+    this.busqueda.errorAccion.set(null);
+
+    this.boleteriaService.cancelarReserva(reserva.id).subscribe({
+      next: (actualizada) => {
+        this.busqueda.reemplazarEnResultado(actualizada);
+        this.reembolsandoId.set(null);
+      },
+      error: (err) => {
+        console.error('Error al cancelar la reserva:', err);
+        this.busqueda.errorAccion.set(typeof err?.error === 'string' ? err.error : 'No se pudo cancelar la reserva.');
         this.reembolsandoId.set(null);
       },
     });

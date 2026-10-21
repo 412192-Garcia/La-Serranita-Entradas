@@ -132,9 +132,6 @@ public class EmailServiceImpl implements EmailService {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
-            boolean pendienteDePago = compra.getEstado() == EstadoCompra.RESERVADO_EFECTIVO;
-            boolean esRegalo = compra.getFechaVisita() == null;
-
             helper.setFrom(remitente, NOMBRE_REMITENTE);
             helper.setTo(compra.getContactEmail());
             agregarCopia(helper);
@@ -197,12 +194,24 @@ public class EmailServiceImpl implements EmailService {
         }
     }
 
+    /**
+     * Un regalo es una compra sin fecha CON receptor. Sin fecha y sin receptor es una reserva
+     * abierta del propio titular (la genera un admin desde Acciones): lleva el mismo
+     * comprobante que una reserva con fecha, sólo que vale para cualquier día.
+     */
+    private static boolean esRegalo(Compra compra) {
+        return compra.getFechaVisita() == null && compra.getReceptorNombre() != null;
+    }
+
     private static String asuntoComprobante(Compra compra) {
         boolean pendienteDePago = compra.getEstado() == EstadoCompra.RESERVADO_EFECTIVO;
-        if (compra.getFechaVisita() == null) {
+        if (esRegalo(compra)) {
             return pendienteDePago
                     ? "¡Regalo reservado! - La Serranita Parque Recreativo"
                     : "¡Gracias por tu regalo! - La Serranita Parque Recreativo";
+        }
+        if (compra.getFormaPago() == FormaPago.RESERVA_ADMIN) {
+            return "¡Reserva confirmada! - La Serranita Parque Recreativo";
         }
         return pendienteDePago
                 ? "¡Reserva confirmada! Pagás en la entrada - La Serranita Parque Recreativo"
@@ -568,7 +577,9 @@ public class EmailServiceImpl implements EmailService {
     /** @param numeroFactura con factura adjunta (compra online), su número; si no, null */
     private String construirHtmlEmail(Compra compra, String numeroFactura) {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
-        String fechaVisitaStr = compra.getFechaVisita() != null ? compra.getFechaVisita().format(formatter) : "Fecha a confirmar";
+        // Sin fecha y sin receptor es una reserva abierta generada por un admin: el titular
+        // viene el día que quiera.
+        String fechaVisitaStr = compra.getFechaVisita() != null ? compra.getFechaVisita().format(formatter) : "Cualquier día";
 
         String nombreCliente = compra.getCliente() != null
                 ? compra.getCliente().getNombre() + " " + compra.getCliente().getApellido()
@@ -576,11 +587,10 @@ public class EmailServiceImpl implements EmailService {
 
         String dniCliente = compra.getCliente() != null ? compra.getCliente().getDni() : "-";
 
-        // Sin fecha de visita la compra es un regalo (ver el Javadoc de Compra.fechaVisita):
-        // este comprobante es del COMPRADOR, no de quien va a entrar al parque, así que no
-        // puede decirle "presentá tu DNI en la boletería" con el DNI del propio comprador — el
-        // que entra (y paga, si quedó pendiente) es el destinatario del regalo.
-        boolean esRegalo = compra.getFechaVisita() == null;
+        // En un regalo este comprobante es del COMPRADOR, no de quien va a entrar al parque, así
+        // que no puede decirle "presentá tu DNI en la boletería" con el DNI del propio comprador
+        // — el que entra (y paga, si quedó pendiente) es el destinatario del regalo.
+        boolean esRegalo = esRegalo(compra);
         String nombreReceptor = compra.getReceptorNombre() != null ? compra.getReceptorNombre() : "la persona que elijas";
         String dniReceptor = compra.getReceptorDni() != null ? compra.getReceptorDni() : "-";
 
@@ -610,9 +620,14 @@ public class EmailServiceImpl implements EmailService {
             etiquetaTotal = "Total a abonar en la entrada";
             colorTotal = COLOR_AMBAR_OSCURO;
         } else {
+            // Una reserva generada desde Acciones no se pagó por acá: no puede decir "pago confirmado".
+            boolean reservaGenerada = compra.getFormaPago() == FormaPago.RESERVA_ADMIN;
             header = esRegalo
                     ? construirHeader("¡Gracias por tu compra!", "Le regalaste una entrada a " + nombreReceptor + " para La Serranita.",
                             "REGALO ENVIADO", COLOR_PRIMARIO_OSCURO, COLOR_PRIMARIO_CLARO)
+                    : reservaGenerada
+                    ? construirHeader("¡Reserva confirmada!", "Tu reserva en La Serranita quedó registrada.",
+                            "CONFIRMADA", COLOR_PRIMARIO_OSCURO, COLOR_PRIMARIO_CLARO)
                     : construirHeader("¡Pago confirmado!", "Tu compra en La Serranita fue procesada con éxito.",
                             "CONFIRMADO", COLOR_PRIMARIO_OSCURO, COLOR_PRIMARIO_CLARO);
             String textoModalidad = esRegalo

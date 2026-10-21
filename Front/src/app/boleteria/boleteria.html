@@ -140,6 +140,15 @@
               {{ reembolsandoId() === reserva.id ? 'Reembolsando…' : 'Reembolsar' }}
             </button>
           }
+          @if (puedeCancelarReserva(reserva)) {
+            <button
+              type="button"
+              class="opcion-riesgosa"
+              [disabled]="reembolsandoId() === reserva.id"
+              (click)="cancelarReserva(reserva, $event)">
+              {{ reembolsandoId() === reserva.id ? 'Cancelando…' : 'Cancelar reserva' }}
+            </button>
+          }
         </div>
       }
     </div>

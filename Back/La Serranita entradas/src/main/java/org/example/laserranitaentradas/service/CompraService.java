@@ -124,6 +124,12 @@ public interface CompraService {
     Compra reembolsarCompra(Long compraId);
 
     /**
+     * Cancela una reserva generada por un admin (RESERVA_ADMIN) que todavía no ingresó. No se
+     * cobró nada por la app, así que no hay reembolso: sólo pasa a CANCELADO.
+     */
+    Compra cancelarReservaAdmin(Long compraId);
+
+    /**
      * Cancela una venta de puerta mal cargada (ADMIN, desde el detalle de una caja): la marca
      * CANCELADO en vez de borrarla, para no perder el rastro por si hay que auditar el error
      * después. Al quedar CANCELADO, deja de contar para el cupo diario, los totales de caja y
