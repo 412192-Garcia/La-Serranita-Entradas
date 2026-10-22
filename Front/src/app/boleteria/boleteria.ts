@@ -5,6 +5,9 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { BoleteriaService, Reserva } from '../services/boleteria.service';
 import { esRegalo } from '../shared/reserva-vista.util';
+import { aFechaISO } from '../shared/fecha.util';
+import { Calendario } from '../compra/calendario/calendario';
+import { DatePipe } from '@angular/common';
 import { CabeceraInterna } from '../shared/cabecera-interna/cabecera-interna';
 import { CajaService, Caja } from '../services/caja.service';
 import { AperturaCaja } from '../pos/apertura-caja/apertura-caja';
@@ -61,7 +64,7 @@ const PASOS_TUTORIAL: TourStep[] = [
   {
     selector: '[data-tour="resultados"]',
     titulo: 'Validar o cobrar',
-    texto: 'Cada resultado tiene un botón para validar el ingreso o cobrar y validar (si te equivocás, tenés unos segundos para "Cancelar validación"), y un menú ⋮ para editar el contacto, reenviar el mail, ver la factura y reembolsar (o cancelar, si es una reserva generada desde Acciones). Ese menú es sólo de esta pantalla: los boleteros validan y cobran desde el POS.',
+    texto: 'Cada resultado tiene un botón para validar el ingreso o cobrar y validar (si te equivocás, tenés unos segundos para "Cancelar validación"), y un menú ⋮ para editar el contacto, cambiar la fecha, reenviar el mail, ver la factura y reembolsar (o cancelar, si es una reserva generada desde Acciones). Ese menú es sólo de esta pantalla: los boleteros validan y cobran desde el POS.',
   },
 ];
 
@@ -76,6 +79,8 @@ import { FacturaService } from '../services/factura.service';
   selector: 'app-boleteria',
   imports: [
     FormsModule,
+    Calendario,
+    DatePipe,
     CabeceraInterna,
     AperturaCaja,
     Modal,
@@ -262,6 +267,59 @@ export class Boleteria implements OnInit, OnDestroy {
         console.error('Error al editar el contacto:', err);
         this.errorEdit.set(typeof err?.error === 'string' ? err.error : 'No se pudo guardar los cambios.');
         this.guardandoEdit.set(false);
+      },
+    });
+  }
+
+  // ---------- Cambiar la fecha de visita ----------
+
+  /** Anticipadas que todavía no ingresaron. Un regalo no: el día lo elige quien lo recibe. */
+  puedeCambiarFecha(reserva: Reserva): boolean {
+    return (reserva.estado === 'APROBADO' || reserva.estado === 'RESERVADO_EFECTIVO') && !esRegalo(reserva);
+  }
+
+  cambiandoFecha = signal<Reserva | null>(null);
+  fechaNueva = signal<Date | null>(null);
+  avisarPorMail = signal(true);
+  guardandoFecha = signal(false);
+  errorFecha = signal<string | null>(null);
+
+  abrirCambioFecha(reserva: Reserva, event: MouseEvent): void {
+    event.stopPropagation();
+    this.menuAbiertoId.set(null);
+    this.fechaNueva.set(null);
+    this.avisarPorMail.set(!!reserva.contactEmail);
+    this.errorFecha.set(null);
+    this.cambiandoFecha.set(reserva);
+  }
+
+  cerrarCambioFecha(): void {
+    if (this.guardandoFecha()) return;
+    this.cambiandoFecha.set(null);
+  }
+
+  guardarFecha(): void {
+    const reserva = this.cambiandoFecha();
+    const fecha = this.fechaNueva();
+    if (!reserva || !fecha || this.guardandoFecha()) return;
+
+    this.guardandoFecha.set(true);
+    this.errorFecha.set(null);
+    const avisar = this.avisarPorMail() && !!reserva.contactEmail;
+
+    this.boleteriaService.cambiarFecha(reserva.id, aFechaISO(fecha), avisar).subscribe({
+      next: () => {
+        this.guardandoFecha.set(false);
+        this.cambiandoFecha.set(null);
+        this.toast.exito(`Reserva #${reserva.codigoReserva} pasada al ${fecha.toLocaleDateString('es-AR')}${avisar ? ', con aviso por mail' : ''}.`);
+        // Cambió de día: se rehace la búsqueda para que aparezca donde corresponde (otro día, o
+        // fuera del bloque de sin fecha).
+        this.busqueda.ejecutarBusqueda();
+      },
+      error: (err) => {
+        console.error('Error al cambiar la fecha:', err);
+        this.errorFecha.set(typeof err?.error === 'string' && err.error ? err.error : 'No se pudo cambiar la fecha.');
+        this.guardandoFecha.set(false);
       },
     });
   }

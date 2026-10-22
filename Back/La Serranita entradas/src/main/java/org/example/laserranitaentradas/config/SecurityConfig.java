@@ -109,6 +109,7 @@ public class SecurityConfig {
                 // Devuelve plata real por la API de Mercado Pago: la UI ya lo muestra sólo al admin.
                 .requestMatchers(HttpMethod.POST, "/api/interno/compras/*/reembolsar").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/interno/compras/*/cancelar-reserva").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.PUT, "/api/interno/compras/*/fecha").hasRole("ADMIN")
                 // Cerrar caja (y corregir un cierre ya hecho) dejó de ser self-service: ahora
                 // lo dispara un ADMIN desde la pantalla de Cajas, nunca el boletero desde el
                 // POS — por eso estas van ADMIN-only en vez de caer en el catch-all de abajo.

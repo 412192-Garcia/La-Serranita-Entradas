@@ -130,6 +130,15 @@ public interface CompraService {
     Compra cancelarReservaAdmin(Long compraId);
 
     /**
+     * Pasa una reserva anticipada (pagada online, a pagar en efectivo o generada desde Acciones)
+     * a otro día de visita, mientras no haya ingresado. El día nuevo tiene que estar abierto, no
+     * ser pasado y tener cupo para sus entradas. Una reserva sin fecha generada desde Acciones
+     * puede recibir un día; un regalo no (el día lo elige quien lo recibe). El código de reserva
+     * no cambia y el precio tampoco.
+     */
+    Compra cambiarFechaVisita(Long compraId, LocalDate nuevaFecha, boolean avisarPorMail);
+
+    /**
      * Cancela una venta de puerta mal cargada (ADMIN, desde el detalle de una caja): la marca
      * CANCELADO en vez de borrarla, para no perder el rastro por si hay que auditar el error
      * después. Al quedar CANCELADO, deja de contar para el cupo diario, los totales de caja y

@@ -244,6 +244,11 @@ export class BoleteriaService {
     return this.http.put<Reserva>(`${this.internoUrl}/${compraId}/contacto`, datos);
   }
 
+  /** Pasa la reserva a otro día de visita (yyyy-MM-dd, hora local); con avisarPorMail le reenvía el comprobante. */
+  cambiarFecha(compraId: number, fecha: string, avisarPorMail: boolean): Observable<Reserva> {
+    return this.http.put<Reserva>(`${this.internoUrl}/${compraId}/fecha`, { fecha, avisarPorMail });
+  }
+
   /** Reenvía el comprobante ya enviado (y el aviso al receptor, si es un regalo). */
   reenviarMail(compraId: number): Observable<void> {
     return this.http.post<void>(`${this.internoUrl}/${compraId}/reenviar-mail`, {});

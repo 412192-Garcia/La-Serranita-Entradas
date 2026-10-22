@@ -369,6 +369,45 @@
   color: var(--color-text-muted);
 }
 
+/* ---------- Modal de cambio de fecha ---------- */
+.modal-fecha {
+  max-width: 460px;
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+}
+
+.modal-fecha app-calendario {
+  display: block;
+}
+
+/* El "Día seleccionado" del calendario viene pensado para el fondo verde de la compra pública
+   (letra blanca): acá va sobre el blanco del modal. Mismo arreglo que en Generar reserva. */
+:host ::ng-deep app-calendario .feedback-reserva {
+  background-color: var(--color-card-bg);
+  border-color: var(--color-border);
+  color: var(--color-text);
+}
+
+:host ::ng-deep app-calendario .feedback-reserva.sin-fecha {
+  color: var(--color-text-secondary);
+}
+
+.modal-contenido .check-aviso {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.modal-contenido .check-aviso input {
+  padding: 0;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  accent-color: var(--color-primary);
+}
+
 .modal-acciones {
   display: flex;
   justify-content: flex-end;

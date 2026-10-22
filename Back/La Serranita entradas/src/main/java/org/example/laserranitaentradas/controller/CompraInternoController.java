@@ -1,6 +1,7 @@
 package org.example.laserranitaentradas.controller;
 
 import org.example.laserranitaentradas.config.UsuarioAutenticado;
+import org.example.laserranitaentradas.model.dto.CambiarFechaRequest;
 import org.example.laserranitaentradas.model.dto.CancelarVentaRequest;
 import org.example.laserranitaentradas.model.dto.CompraRequestDTO;
 import org.example.laserranitaentradas.model.dto.CompraResponseDTO;
@@ -90,6 +91,15 @@ public class CompraInternoController {
             @PathVariable @Parameter(description = "ID de la compra") Long id,
             @RequestBody EditarContactoRequest request) {
         Compra compra = compraService.actualizarContacto(id, request);
+        return ResponseEntity.ok(CompraController.entityToDto(compra));
+    }
+
+    @PutMapping("/{id}/fecha")
+    @Operation(summary = "Cambiar el día de visita de una reserva (ADMIN)",
+            description = "Sólo reservas que todavía no ingresaron (no regalos). El día nuevo tiene que estar abierto, no ser pasado y tener cupo. Opcionalmente le reenvía el comprobante al titular.")
+    public ResponseEntity<CompraResponseDTO> cambiarFecha(@PathVariable @Parameter(description = "ID de la compra") Long id,
+                                                          @RequestBody CambiarFechaRequest request) {
+        Compra compra = compraService.cambiarFechaVisita(id, request.getFecha(), request.isAvisarPorMail());
         return ResponseEntity.ok(CompraController.entityToDto(compra));
     }
 

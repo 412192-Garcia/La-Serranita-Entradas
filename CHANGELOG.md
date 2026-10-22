@@ -6,6 +6,15 @@ número y el CI la usa como nota de la Release de GitHub.
 
 ## Sin publicar
 
+- Control de accesos: nueva acción "Cambiar fecha" en el menú ⋮ de las reservas que todavía no
+  ingresaron (pagadas online, a cobrar en caja o generadas desde Acciones). Se elige el día en el
+  calendario y, si la reserva tiene mail, se le puede mandar el comprobante con la fecha nueva. El
+  día tiene que estar abierto, no ser pasado y tener cupo. El código y el precio no cambian. A una
+  reserva sin fecha generada desde Acciones se le puede asignar un día; a un regalo no (el día lo
+  elige quien lo recibe). Queda en el historial de acciones con la fecha anterior y la nueva.
+- Las reservas generadas desde Acciones figuran como "Generada" en vez de "Pagada
+  online".
+
 - Acciones > Generar reserva, reservas sin fecha:
   - El mail al titular es el mismo comprobante que el de una reserva con fecha, con "Cualquier
     día" como fecha de visita. Antes salía el mail de regalo, con los datos del receptor vacíos.

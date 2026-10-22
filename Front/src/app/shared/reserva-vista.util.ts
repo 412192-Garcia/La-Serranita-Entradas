@@ -111,6 +111,11 @@ export function aVista(reserva: Reserva, hoy: string): ReservaVista {
       : esRegalo(reserva)
         ? 'Regalo — cualquier día'
         : 'Sin fecha — cualquier día',
-    etiquetaEstado: etiquetaEstadoCompra(reserva.estado),
+    // Una reserva generada desde Acciones queda APROBADO sin haber pagado nada por la app (el
+    // cobro, si lo hubo, fue por fuera).
+    etiquetaEstado:
+      reserva.estado === 'APROBADO' && reserva.formaPago === 'RESERVA_ADMIN'
+        ? 'Generada'
+        : etiquetaEstadoCompra(reserva.estado),
   };
 }
