@@ -6,6 +6,8 @@ número y el CI la usa como nota de la Release de GitHub.
 
 ## Sin publicar
 
+## 0.10.4 — 2026-10-22
+
 - Control de accesos: nueva acción "Cambiar fecha" en el menú ⋮ de las reservas que todavía no
   ingresaron (pagadas online, a cobrar en caja o generadas desde Acciones). Se elige el día en el
   calendario y, si la reserva tiene mail, se le puede mandar el comprobante con la fecha nueva. El
