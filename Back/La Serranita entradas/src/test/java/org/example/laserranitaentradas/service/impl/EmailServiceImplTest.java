@@ -182,6 +182,46 @@ class EmailServiceImplTest {
         verifyNoInteractions(mailSender);
     }
 
+    @Test
+    void reservaGeneradaSinFecha_mandaElComprobanteDeReservaYNoElDeRegalo() throws Exception {
+        Compra compra = Compra.builder()
+                .id(3L)
+                .codigoReserva("RESERVA-4")
+                .contactEmail("titular@mail.com")
+                .cliente(org.example.laserranitaentradas.model.entity.Cliente.builder()
+                        .nombre("Juan").apellido("Pérez").dni("30111222").build())
+                .montoTotal(BigDecimal.ZERO)
+                .estado(EstadoCompra.APROBADO)
+                .formaPago(org.example.laserranitaentradas.model.entity.FormaPago.RESERVA_ADMIN)
+                .fechaVisita(null)
+                .build();
+        when(compraRepository.findById(3L)).thenReturn(Optional.of(compra));
+        when(mailSender.createMimeMessage()).thenReturn(new MimeMessage((Session) null));
+
+        service.enviarComprobanteCompra(3L);
+
+        ArgumentCaptor<MimeMessage> captor = ArgumentCaptor.forClass(MimeMessage.class);
+        verify(mailSender).send(captor.capture());
+        MimeMessage m = captor.getValue();
+        m.saveChanges();
+        assertThat(m.getSubject()).contains("Reserva confirmada").doesNotContain("regalo");
+        String html = textoHtml(m);
+        assertThat(html).contains("Reserva confirmada").contains("Cualquier día").contains("Juan Pérez")
+                .doesNotContain("REGALO ENVIADO").doesNotContain("Pago confirmado");
+    }
+
+    /** El HTML del mail, buscándolo dentro de las partes que arma MimeMessageHelper. */
+    private static String textoHtml(jakarta.mail.Part parte) throws Exception {
+        if (parte.isMimeType("text/html")) return (String) parte.getContent();
+        if (parte.getContent() instanceof jakarta.mail.Multipart multi) {
+            for (int i = 0; i < multi.getCount(); i++) {
+                String html = textoHtml(multi.getBodyPart(i));
+                if (html != null) return html;
+            }
+        }
+        return null;
+    }
+
     // ---------- Factura ----------
 
     private org.example.laserranitaentradas.service.factura.ComprobanteFactura comprobante() {

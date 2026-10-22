@@ -7,6 +7,7 @@ import { FormCliente } from '../compra/form-cliente/form-cliente';
 import { CompraService, CompraResponseDTO } from '../services/compra.service';
 import { Modal } from '../shared/modal/modal';
 import { PesosPipe } from '../shared/pesos.pipe';
+import { aFechaISO } from '../shared/fecha.util';
 
 enum EtapaReserva {
   SELECCION,
@@ -22,8 +23,8 @@ interface EntradaSeleccion {
   subtotal: number;
 }
 
-/** Lo que se va acumulando entre los tres pasos, antes de mandarlo al backend. Siempre es una
- * entrada normal con fecha, nunca el "regalo sin fecha fija" de la compra online: sólo que no se cobra. */
+/** Lo que se va acumulando entre los tres pasos, antes de mandarlo al backend. Con fecha, o sin
+ * fecha a nombre del titular (nunca un regalo con receptor): en ambos casos no se cobra. */
 interface DatosReserva {
   fechaVisita: Date | null;
   entradas: EntradaSeleccion[];
@@ -99,10 +100,7 @@ export class CrearReserva {
       this.actualizarDatosCliente.set(false);
     }
 
-    let fechaFormateada: string | null = null;
-    if (this.datos.fechaVisita) {
-      fechaFormateada = new Date(this.datos.fechaVisita).toISOString().split('T')[0];
-    }
+    const fechaFormateada = this.datos.fechaVisita ? aFechaISO(new Date(this.datos.fechaVisita)) : null;
 
     const payload = {
       cliente: {

@@ -1,6 +1,7 @@
 package org.example.laserranitaentradas.controller;
 
 import org.example.laserranitaentradas.config.UsuarioAutenticado;
+import org.example.laserranitaentradas.model.dto.CambiarFechaRequest;
 import org.example.laserranitaentradas.model.dto.CancelarVentaRequest;
 import org.example.laserranitaentradas.model.dto.CompraRequestDTO;
 import org.example.laserranitaentradas.model.dto.CompraResponseDTO;
@@ -93,6 +94,15 @@ public class CompraInternoController {
         return ResponseEntity.ok(CompraController.entityToDto(compra));
     }
 
+    @PutMapping("/{id}/fecha")
+    @Operation(summary = "Cambiar el día de visita de una reserva (ADMIN)",
+            description = "Sólo reservas que todavía no ingresaron (no regalos). El día nuevo tiene que estar abierto, no ser pasado y tener cupo. Opcionalmente le reenvía el comprobante al titular.")
+    public ResponseEntity<CompraResponseDTO> cambiarFecha(@PathVariable @Parameter(description = "ID de la compra") Long id,
+                                                          @RequestBody CambiarFechaRequest request) {
+        Compra compra = compraService.cambiarFechaVisita(id, request.getFecha(), request.isAvisarPorMail());
+        return ResponseEntity.ok(CompraController.entityToDto(compra));
+    }
+
     @PostMapping("/{id}/reenviar-mail")
     @Operation(summary = "Reenviar el comprobante por mail", description = "Vuelve a enviar el mail de confirmación (y, si es un regalo, el aviso al receptor)")
     public ResponseEntity<Void> reenviarMail(@PathVariable @Parameter(description = "ID de la compra") Long id) {
@@ -116,6 +126,14 @@ public class CompraInternoController {
             @PathVariable @Parameter(description = "ID de la compra") Long id,
             @RequestBody EditarVentaRequestDTO request) {
         Compra compra = compraService.editarVenta(id, request);
+        return ResponseEntity.ok(CompraController.entityToDto(compra));
+    }
+
+    @PostMapping("/{id}/cancelar-reserva")
+    @Operation(summary = "Cancelar una reserva generada desde Acciones (ADMIN)",
+            description = "Sólo para reservas RESERVA_ADMIN que todavía no ingresaron. No se cobró nada por la app, así que no hay reembolso: la marca CANCELADO.")
+    public ResponseEntity<CompraResponseDTO> cancelarReserva(@PathVariable @Parameter(description = "ID de la compra") Long id) {
+        Compra compra = compraService.cancelarReservaAdmin(id);
         return ResponseEntity.ok(CompraController.entityToDto(compra));
     }
 

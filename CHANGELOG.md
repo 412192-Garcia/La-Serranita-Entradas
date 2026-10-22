@@ -6,6 +6,30 @@ número y el CI la usa como nota de la Release de GitHub.
 
 ## Sin publicar
 
+- Control de accesos: nueva acción "Cambiar fecha" en el menú ⋮ de las reservas que todavía no
+  ingresaron (pagadas online, a cobrar en caja o generadas desde Acciones). Se elige el día en el
+  calendario y, si la reserva tiene mail, se le puede mandar el comprobante con la fecha nueva. El
+  día tiene que estar abierto, no ser pasado y tener cupo. El código y el precio no cambian. A una
+  reserva sin fecha generada desde Acciones se le puede asignar un día; a un regalo no (el día lo
+  elige quien lo recibe). Queda en el historial de acciones con la fecha anterior y la nueva.
+- Las reservas generadas desde Acciones figuran como "Generada" en vez de "Pagada
+  online".
+
+- Acciones > Generar reserva, reservas sin fecha:
+  - El mail al titular es el mismo comprobante que el de una reserva con fecha, con "Cualquier
+    día" como fecha de visita. Antes salía el mail de regalo, con los datos del receptor vacíos.
+  - El código pasa a ser `RESERVA-N` en vez de `ABIERTA-N` (las ya generadas mantienen el suyo).
+  - En Control de accesos y en las anticipadas del POS, el botón que las despliega dice "N sin
+    fecha" cuando hay alguna que no es regalo (antes las contaba como regalos).
+  - Editar contacto pide el DNI del titular, como en cualquier reserva. Antes la trataba como
+    regalo: escondía el DNI del titular y mostraba el de "quien recibe el regalo".
+- Acciones > Generar reserva: el mail dice "¡Reserva confirmada!" en vez de "¡Pago confirmado!"
+  (no se pagó nada por la app). Al confirmar, el monto aparece como "Sin cobro · valor de lista"
+  en vez de "Total".
+- Control de accesos: en una reserva generada desde Acciones el menú ⋮ ofrece "Cancelar reserva"
+  en vez de "Reembolsar" (no se cobró nada por la app, así que no había nada que devolver y el
+  reembolso fallaba). Queda cancelada y figura en Reportes > Cancelaciones.
+
 ## 0.10.3 — 2026-10-18
 
 - POS: los botones de cantidad de un toque (1 a 10 y "10+") ya no son sólo del Pase General.

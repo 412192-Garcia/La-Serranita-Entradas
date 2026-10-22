@@ -128,8 +128,8 @@ export class Pos implements OnInit, OnDestroy {
       selector: '[data-tour="regalos"]',
       // El botón sólo existe si hay regalos: sin ellos se resalta la barra de fecha, que siempre está.
       alternativo: '[data-tour="fecha"]',
-      titulo: 'Anticipadas: regalos',
-      texto: 'Un regalo no tiene fecha de visita (quien lo recibe elige cuándo venir), así que no aparece en la lista del día: va en este botón, que sólo se ve cuando hay regalos. Tocalo para desplegarlos. En cada uno, "Para <nombre> · DNI" es la persona que se presenta: pedile ese DNI, no el de quien compró.',
+      titulo: 'Anticipadas: regalos y sin fecha',
+      texto: 'Los regalos y las reservas sin fecha no tienen día de visita, así que no aparecen en la lista del día: van en este botón, que sólo se ve cuando hay alguna. Tocalo para desplegarlas. En un regalo, el nombre y DNI de arriba son de quien lo recibe: pedile ese DNI, no el de quien compró. En una reserva sin fecha entra el titular.',
       antes: () => this.abrirAnticipadasParaTutorial(),
     },
     {

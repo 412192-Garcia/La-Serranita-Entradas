@@ -26,6 +26,14 @@ export interface ReservaVista {
   etiquetaEstado: string;
 }
 
+/**
+ * Regalo = sin fecha CON receptor (lo usa otra persona, que entra con SU DNI). Sin fecha y sin
+ * receptor es una reserva abierta generada desde Acciones: el titular es quien entra.
+ */
+export function esRegalo(reserva: Reserva): boolean {
+  return !reserva.fechaVisita && !!(reserva.receptorNombre || reserva.receptorDni);
+}
+
 const DIAS_SEMANA = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 const DIAS_SEMANA_CORTOS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
@@ -97,12 +105,17 @@ export function aVista(reserva: Reserva, hoy: string): ReservaVista {
     totalPases,
     // Sin fecha: se distingue por receptor, no por el prefijo del código. El receptor es el
     // dato de negocio (un regalo lo usa otra persona, y se valida con SU DNI); el REGALO-/
-    // ABIERTA- del código es sólo su representación visible.
+    // RESERVA- del código es sólo su representación visible.
     etiquetaFecha: reserva.fechaVisita
       ? etiquetaFechaFila(reserva.fechaVisita, hoy)
-      : reserva.receptorNombre
+      : esRegalo(reserva)
         ? 'Regalo — cualquier día'
         : 'Sin fecha — cualquier día',
-    etiquetaEstado: etiquetaEstadoCompra(reserva.estado),
+    // Una reserva generada desde Acciones queda APROBADO sin haber pagado nada por la app (el
+    // cobro, si lo hubo, fue por fuera).
+    etiquetaEstado:
+      reserva.estado === 'APROBADO' && reserva.formaPago === 'RESERVA_ADMIN'
+        ? 'Generada'
+        : etiquetaEstadoCompra(reserva.estado),
   };
 }

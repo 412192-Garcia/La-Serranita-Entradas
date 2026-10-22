@@ -1,6 +1,6 @@
 import { Component, ElementRef, effect, inject, input, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { LucideChevronDown, LucideGift } from '@lucide/angular';
+import { LucideCalendarOff, LucideChevronDown, LucideGift } from '@lucide/angular';
 import { ReservasBusqueda } from '../busqueda-reservas';
 
 /**
@@ -10,7 +10,7 @@ import { ReservasBusqueda } from '../busqueda-reservas';
  */
 @Component({
   selector: 'app-buscador-reservas',
-  imports: [FormsModule, LucideChevronDown, LucideGift],
+  imports: [FormsModule, LucideCalendarOff, LucideChevronDown, LucideGift],
   templateUrl: './buscador-reservas.html',
   styleUrl: './buscador-reservas.css',
 })

@@ -83,6 +83,7 @@ const ETIQUETA_POR_MOTIVO: Record<MotivoCancelacion, string> = {
   PAGO_RECHAZADO: 'Intentó pagar y Mercado Pago no lo aprobó',
   PAGO_NO_INICIADO: 'Falló al iniciar el pago',
   ANULADA_EN_CAJA: 'Anulada en caja',
+  RESERVA_CANCELADA: 'Reserva generada cancelada',
 };
 
 const ETIQUETA_POR_ESTADO: Record<ComprasPorEstado['estado'], string> = {

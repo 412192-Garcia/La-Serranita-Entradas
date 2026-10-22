@@ -125,6 +125,9 @@
             </button>
           }
           <button type="button" (click)="abrirEdicion(reserva, $event)">Editar contacto</button>
+          @if (puedeCambiarFecha(reserva)) {
+            <button type="button" (click)="abrirCambioFecha(reserva, $event)">Cambiar fecha</button>
+          }
           <button type="button" [disabled]="reenviandoId() === reserva.id" (click)="reenviarMail(reserva, $event)">
             {{ reenviandoId() === reserva.id ? 'Enviando…' : 'Reenviar mail' }}
           </button>
@@ -140,6 +143,15 @@
               {{ reembolsandoId() === reserva.id ? 'Reembolsando…' : 'Reembolsar' }}
             </button>
           }
+          @if (puedeCancelarReserva(reserva)) {
+            <button
+              type="button"
+              class="opcion-riesgosa"
+              [disabled]="reembolsandoId() === reserva.id"
+              (click)="cancelarReserva(reserva, $event)">
+              {{ reembolsandoId() === reserva.id ? 'Cancelando…' : 'Cancelar reserva' }}
+            </button>
+          }
         </div>
       }
     </div>
@@ -147,6 +159,40 @@
 
   @if (facturaDe(); as reserva) {
     <app-factura-compra-modal [reserva]="reserva" (cerrar)="facturaDe.set(null)" />
+  }
+
+  @if (cambiandoFecha(); as reserva) {
+    <app-modal (cerrar)="cerrarCambioFecha()">
+      <div class="modal-contenido modal-fecha">
+        <h3>Cambiar fecha — #{{ reserva.codigoReserva }}</h3>
+        <p class="ayuda-receptor">
+          @if (reserva.fechaVisita) {
+            Ahora es para el <strong>{{ reserva.fechaVisita + 'T12:00:00' | date: 'EEEE d/MM/yyyy' }}</strong>.
+          } @else {
+            Ahora no tiene fecha (vale cualquier día).
+          }
+          Elegí el día nuevo: el código y el precio no cambian.
+        </p>
+        <app-calendario
+          [mostrarOpcionRegalo]="false"
+          (fechaSeleccionadaChange)="fechaNueva.set($event)" />
+        @if (reserva.contactEmail) {
+          <label class="check-aviso">
+            <input type="checkbox" [ngModel]="avisarPorMail()" (ngModelChange)="avisarPorMail.set($event)" />
+            Mandarle el comprobante con la fecha nueva a {{ reserva.contactEmail }}
+          </label>
+        }
+        @if (errorFecha()) {
+          <p class="alerta-error">{{ errorFecha() }}</p>
+        }
+        <div class="modal-acciones">
+          <button type="button" class="btn-limpiar" [disabled]="guardandoFecha()" (click)="cerrarCambioFecha()">Cancelar</button>
+          <button type="button" class="btn-buscar" [disabled]="!fechaNueva() || guardandoFecha()" (click)="guardarFecha()">
+            {{ guardandoFecha() ? 'Guardando…' : 'Cambiar fecha' }}
+          </button>
+        </div>
+      </div>
+    </app-modal>
   }
 
   @if (editando(); as reserva) {

@@ -5,8 +5,11 @@ import org.example.laserranitaentradas.model.dto.EditarContactoRequest;
 import org.example.laserranitaentradas.model.entity.ConfirmacionPago;
 import org.example.laserranitaentradas.model.entity.Cliente;
 import org.example.laserranitaentradas.model.entity.Compra;
+import org.example.laserranitaentradas.model.entity.CompraDetalle;
 import org.example.laserranitaentradas.model.entity.EstadoCompra;
 import org.example.laserranitaentradas.model.entity.FormaPago;
+import org.example.laserranitaentradas.model.entity.Tipo;
+import org.example.laserranitaentradas.model.entity.TipoEntrada;
 import org.example.laserranitaentradas.repository.ArticuloVarioRepository;
 import org.example.laserranitaentradas.repository.CajaRepository;
 import org.example.laserranitaentradas.repository.CompraRepository;
@@ -1488,6 +1491,97 @@ class CompraServiceImplTest {
         assertThat(venta.getEstado()).isEqualTo(EstadoCompra.CANCELADO);
         assertThat(venta.getMotivoCancelacion()).isEqualTo("ANULADA_EN_CAJA");
         assertThat(venta.getDetalleCancelacion()).isNull();
+    }
+
+    // ---------- Cambiar la fecha de una reserva ----------
+
+    private static Compra reservaParaElDia(Long id, LocalDate fecha, int cantidad, Integer maximoPorDia) {
+        TipoEntrada tipo = TipoEntrada.builder().id(1L).nombre("General").tipo(Tipo.ENTRADA)
+                .precio(new java.math.BigDecimal("100")).maximoPorDia(maximoPorDia).build();
+        Compra reserva = new Compra();
+        reserva.setId(id);
+        reserva.setCodigoReserva("261030-2");
+        reserva.setEstado(EstadoCompra.APROBADO);
+        reserva.setFormaPago(FormaPago.MERCADO_PAGO);
+        reserva.setFechaVisita(fecha);
+        reserva.setDetalles(new java.util.ArrayList<>(List.of(
+                CompraDetalle.builder().tipoEntrada(tipo).cantidad(cantidad).compra(reserva).build())));
+        return reserva;
+    }
+
+    @Test
+    void cambiarFechaVisita_aUnDiaAbiertoConCupo_laMueveYAvisaPorMail() {
+        LocalDate nueva = LocalDate.now().plusDays(5);
+        Compra reserva = reservaParaElDia(90L, LocalDate.now().plusDays(2), 2, 10);
+        when(compraRepository.findById(90L)).thenReturn(Optional.of(reserva));
+        when(diaAperturaService.getAbiertoByDate(nueva)).thenReturn(true);
+        when(compraRepository.findAllByFechaVisitaOrderByCodigoReservaAsc(nueva)).thenReturn(List.of());
+        when(compraRepository.save(any(Compra.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        service.cambiarFechaVisita(90L, nueva, true);
+
+        assertThat(reserva.getFechaVisita()).isEqualTo(nueva);
+        assertThat(reserva.getCodigoReserva()).isEqualTo("261030-2");
+        verify(emailService).enviarComprobanteCompra(90L);
+    }
+
+    @Test
+    void cambiarFechaVisita_sinCupoEseDia_noLaMueve() {
+        LocalDate nueva = LocalDate.now().plusDays(5);
+        Compra reserva = reservaParaElDia(91L, LocalDate.now().plusDays(2), 3, 10);
+        Compra otraDeEseDia = reservaParaElDia(92L, nueva, 8, 10);
+        when(compraRepository.findById(91L)).thenReturn(Optional.of(reserva));
+        when(diaAperturaService.getAbiertoByDate(nueva)).thenReturn(true);
+        when(compraRepository.findAllByFechaVisitaOrderByCodigoReservaAsc(nueva)).thenReturn(List.of(otraDeEseDia));
+
+        assertThatThrownBy(() -> service.cambiarFechaVisita(91L, nueva, false))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("cupo");
+        assertThat(reserva.getFechaVisita()).isEqualTo(LocalDate.now().plusDays(2));
+        verify(compraRepository, never()).save(any());
+    }
+
+    @Test
+    void cambiarFechaVisita_aUnDiaCerrado_noLaMueve() {
+        LocalDate nueva = LocalDate.now().plusDays(5);
+        Compra reserva = reservaParaElDia(93L, LocalDate.now().plusDays(2), 1, null);
+        when(compraRepository.findById(93L)).thenReturn(Optional.of(reserva));
+        when(diaAperturaService.getAbiertoByDate(nueva)).thenReturn(false);
+
+        assertThatThrownBy(() -> service.cambiarFechaVisita(93L, nueva, false))
+                .hasMessageContaining("cerrado");
+        verify(compraRepository, never()).save(any());
+    }
+
+    @Test
+    void cambiarFechaVisita_yaUsada_oRegalo_noSePuede() {
+        LocalDate nueva = LocalDate.now().plusDays(5);
+        Compra usada = reservaParaElDia(94L, LocalDate.now(), 1, null);
+        usada.setEstado(EstadoCompra.USADO);
+        Compra regalo = reservaParaElDia(95L, null, 1, null);
+        regalo.setReceptorDni("40111222");
+        when(compraRepository.findById(94L)).thenReturn(Optional.of(usada));
+        when(compraRepository.findById(95L)).thenReturn(Optional.of(regalo));
+
+        assertThatThrownBy(() -> service.cambiarFechaVisita(94L, nueva, false)).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> service.cambiarFechaVisita(95L, nueva, false)).isInstanceOf(IllegalStateException.class);
+        verify(compraRepository, never()).save(any());
+    }
+
+    @Test
+    void cambiarFechaVisita_reservaGeneradaSinFecha_recibeElDia() {
+        LocalDate nueva = LocalDate.now().plusDays(1);
+        Compra reserva = reservaParaElDia(96L, null, 2, null);
+        reserva.setFormaPago(FormaPago.RESERVA_ADMIN);
+        when(compraRepository.findById(96L)).thenReturn(Optional.of(reserva));
+        when(diaAperturaService.getAbiertoByDate(nueva)).thenReturn(true);
+        when(compraRepository.findAllByFechaVisitaOrderByCodigoReservaAsc(nueva)).thenReturn(List.of());
+        when(compraRepository.save(any(Compra.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        service.cambiarFechaVisita(96L, nueva, false);
+
+        assertThat(reserva.getFechaVisita()).isEqualTo(nueva);
+        verify(emailService, never()).enviarComprobanteCompra(any());
     }
 
     private static Compra ventaDeCaja(Long id) {

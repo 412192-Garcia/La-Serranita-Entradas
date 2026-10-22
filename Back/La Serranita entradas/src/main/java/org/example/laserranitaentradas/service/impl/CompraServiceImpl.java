@@ -1,5 +1,7 @@
 package org.example.laserranitaentradas.service.impl;
 
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionSynchronization;
 import org.example.laserranitaentradas.monitoreo.AuditoriaContexto;
 
 import com.mercadopago.client.payment.PaymentClient;
@@ -1241,7 +1243,7 @@ public class CompraServiceImpl implements CompraService {
     /**
      * Código visible yyMMdd-N: N es el orden de esta reserva entre todas las que ya
      * existen para ese mismo día de visita. Sin fecha: REGALO-N si es un regalo (tiene
-     * receptor), ABIERTA-N si es una reserva sin día generada por un admin.
+     * receptor), RESERVA-N si es una reserva sin día generada por un admin.
      *
      * El `count(*) + 1` es correcto sólo si nadie más lo está haciendo al mismo tiempo: dos
      * compras simultáneas leían el mismo conteo, armaban el mismo código y la segunda moría
@@ -1259,7 +1261,7 @@ public class CompraServiceImpl implements CompraService {
     private String generarCodigoReserva(LocalDate fechaVisita, boolean tieneReceptor) {
         String prefijo = fechaVisita != null
                 ? fechaVisita.format(DateTimeFormatter.ofPattern("yyMMdd"))
-                : (tieneReceptor ? "REGALO" : "ABIERTA");
+                : (tieneReceptor ? "REGALO" : "RESERVA");
         // La clave del lock es un hash del prefijo: si dos prefijos distintos colisionaran,
         // lo único que pasa es que se esperan de más, nunca que se repita un número.
         compraRepository.bloquearFechaDeVisita(prefijo.hashCode());
@@ -1560,8 +1562,10 @@ public class CompraServiceImpl implements CompraService {
         if (!esBlanco(request.getTelefono())) compra.setContactPhone(request.getTelefono());
 
         // El DNI de quien recibe un regalo vive directo en la Compra, no en un Cliente
-        // compartido: no hace falta ningún desacople, se pisa nomás.
-        if (compra.getFechaVisita() == null && !esBlanco(request.getReceptorDni())) {
+        // compartido: no hace falta ningún desacople, se pisa nomás. Sólo en un regalo: una
+        // reserva sin fecha generada desde Acciones no tiene receptor (entra el titular).
+        if (compra.getFechaVisita() == null && compra.getReceptorDni() != null
+                && !esBlanco(request.getReceptorDni())) {
             compra.setReceptorDni(request.getReceptorDni().trim());
         }
 
@@ -1580,7 +1584,8 @@ public class CompraServiceImpl implements CompraService {
             throw new IllegalStateException("La compra ID " + compraId + " todavía no tiene un comprobante confirmado para reenviar.");
         }
         emailService.enviarComprobanteCompra(compraId);
-        if (compra.getFechaVisita() == null) {
+        // Sólo un regalo tiene a quién avisar (una reserva sin fecha generada desde Acciones no).
+        if (compra.getFechaVisita() == null && compra.getReceptorEmail() != null) {
             emailService.enviarAvisoRegalo(compraId);
         }
     }
@@ -1973,6 +1978,86 @@ public class CompraServiceImpl implements CompraService {
         // Si estaba facturada: nota de crédito por el total (o anulación si no llegó a ARCA).
         facturaService.alCancelarVenta(compra);
         return compraRepository.save(compra);
+    }
+
+    @Transactional
+    @Override
+    public Compra cancelarReservaAdmin(Long compraId) {
+        Compra compra = compraRepository.findById(compraId)
+                .orElseThrow(() -> new IllegalArgumentException("Compra no encontrada ID: " + compraId));
+        if (compra.getFormaPago() != FormaPago.RESERVA_ADMIN) {
+            throw new IllegalArgumentException("Sólo se cancelan por acá las reservas generadas desde Acciones.");
+        }
+        if (compra.getEstado() != EstadoCompra.APROBADO) {
+            throw new IllegalStateException(
+                    "Sólo se pueden cancelar reservas que todavía no fueron utilizadas (estado actual: " + compra.getEstado() + ")");
+        }
+        AuditoriaContexto.referencia("#" + compra.getCodigoReserva());
+        compra.cancelar(MotivoCancelacion.RESERVA_CANCELADA, null, usuarioActual());
+        facturaService.alCancelarVenta(compra);
+        return compraRepository.save(compra);
+    }
+
+    @Transactional
+    @Override
+    public Compra cambiarFechaVisita(Long compraId, LocalDate nuevaFecha, boolean avisarPorMail) {
+        Compra compra = compraRepository.findById(compraId)
+                .orElseThrow(() -> new IllegalArgumentException("Compra no encontrada ID: " + compraId));
+        if (nuevaFecha == null) {
+            throw new IllegalArgumentException("Elegí el día nuevo.");
+        }
+        // Sólo anticipadas que todavía no entraron: una venta de puerta ya se usó en el momento.
+        if (compra.getEstado() != EstadoCompra.APROBADO && compra.getEstado() != EstadoCompra.RESERVADO_EFECTIVO) {
+            throw new IllegalStateException("Sólo se puede cambiar la fecha de una reserva que todavía no ingresó.");
+        }
+        if (compra.getFechaVisita() == null && compra.getReceptorDni() != null) {
+            throw new IllegalStateException("Un regalo no tiene fecha: la elige quien lo recibe.");
+        }
+        if (nuevaFecha.equals(compra.getFechaVisita())) {
+            throw new IllegalArgumentException("La reserva ya es para ese día.");
+        }
+        if (nuevaFecha.isBefore(LocalDate.now())) {
+            throw new IllegalArgumentException("No se puede pasar una reserva a un día que ya pasó.");
+        }
+        DateTimeFormatter formato = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+        Boolean abierto = diaAperturaService.getAbiertoByDate(nuevaFecha);
+        if (abierto == null || !abierto) {
+            throw new IllegalArgumentException("El parque está cerrado el " + nuevaFecha.format(formato) + ".");
+        }
+
+        // Cupo diario del día nuevo: lo que ya hay ese día más las entradas de esta reserva.
+        Map<Long, Integer> vendidoEseDia = cantidadVendidaPorTipoEnElDia(nuevaFecha, compraId);
+        for (CompraDetalle det : compra.getDetalles()) {
+            TipoEntrada tipo = det.getTipoEntrada();
+            if (tipo == null || tipo.getMaximoPorDia() == null) continue;
+            int total = vendidoEseDia.merge(tipo.getId(), det.getCantidad(), Integer::sum);
+            if (total > tipo.getMaximoPorDia()) {
+                throw new IllegalArgumentException("No hay cupo de " + tipo.getNombre() + " ese día (máximo "
+                        + tipo.getMaximoPorDia() + " por día).");
+            }
+        }
+
+        AuditoriaContexto.referencia("#" + compra.getCodigoReserva());
+        AuditoriaContexto.detalle((compra.getFechaVisita() != null ? compra.getFechaVisita().format(formato) : "Sin fecha")
+                + " → " + nuevaFecha.format(formato));
+        compra.setFechaVisita(nuevaFecha);
+        Compra guardada = compraRepository.save(compra);
+
+        if (avisarPorMail) {
+            // Después del commit: el mail se arma en otro hilo leyendo la compra de la base, y
+            // antes de eso todavía vería el día viejo.
+            if (TransactionSynchronizationManager.isSynchronizationActive()) {
+                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        emailService.enviarComprobanteCompra(compraId);
+                    }
+                });
+            } else {
+                emailService.enviarComprobanteCompra(compraId);
+            }
+        }
+        return guardada;
     }
 
     @Transactional

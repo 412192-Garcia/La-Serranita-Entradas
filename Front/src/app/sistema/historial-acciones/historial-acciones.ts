@@ -17,6 +17,8 @@ const NOMBRES_ACCION: Record<string, string> = {
   VENTA_EDITADA: 'Venta editada',
   CONTACTO_MODIFICADO: 'Contacto editado',
   COMPRA_REEMBOLSADA: 'Compra reembolsada',
+  RESERVA_CANCELADA: 'Reserva cancelada',
+  FECHA_CAMBIADA: 'Fecha de reserva cambiada',
   PAGO_EFECTIVO_CONFIRMADO: 'Pago en efectivo confirmado',
   MAIL_REENVIADO: 'Mail de compra reenviado',
   VALIDACION_DESHECHA: 'Validación deshecha',

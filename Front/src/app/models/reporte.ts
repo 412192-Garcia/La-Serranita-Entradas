@@ -58,7 +58,7 @@ export interface ComprasPorEstado {
   cantidad: number;
 }
 
-export type MotivoCancelacion = 'CHECKOUT_ABANDONADO' | 'PAGO_RECHAZADO' | 'PAGO_NO_INICIADO' | 'ANULADA_EN_CAJA';
+export type MotivoCancelacion = 'CHECKOUT_ABANDONADO' | 'PAGO_RECHAZADO' | 'PAGO_NO_INICIADO' | 'ANULADA_EN_CAJA' | 'RESERVA_CANCELADA';
 
 /** Una compra cancelada del rango, con el motivo (Reportes > Cancelaciones). */
 export interface CompraCancelada {
