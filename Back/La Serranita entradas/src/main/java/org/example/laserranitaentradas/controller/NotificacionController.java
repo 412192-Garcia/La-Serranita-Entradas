@@ -18,8 +18,7 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 
-/** Avisos genéricos (punto rojo en la cabecera interna) del usuario logueado. ADMIN-only por
- * ahora (gateado en SecurityConfig); RECHAZO_OPERACION y SISTEMA, además, sólo al SUPERADMIN. Si en el futuro se agrega un tipo para BOLETERO, aflojar esa regla. */
+/** Avisos del punto rojo del usuario logueado. RECHAZO_OPERACION y SISTEMA sólo para SUPERADMIN. */
 @RestController
 @RequestMapping("/api/interno/notificaciones")
 @Tag(name = "Notificaciones", description = "Avisos genéricos (cajas atrasadas, rechazos pendientes, etc.) del usuario logueado")
@@ -61,7 +60,7 @@ public class NotificacionController {
 
     @PostMapping("/{tipo}/marcar-vistas")
     @Operation(summary = "Marcar estos ids como vistos por el usuario logueado, para este tipo de aviso",
-            description = "Sólo tiene efecto real en tipos con desapareceAlVerse=true (ej. CAJA_ATRASADA); en los demás no hace nada. Devuelve los ids que estaban sin ver hasta ahora (los que prendían el aviso), para que la pantalla pueda señalarlos.")
+            description = "Sólo afecta a tipos con desapareceAlVerse=true. Devuelve los ids que estaban sin ver.")
     public ResponseEntity<List<Long>> marcarVistas(@PathVariable TipoNotificacion tipo,
                                                     @RequestBody MarcarVistasRequestDTO request,
                                                     @AuthenticationPrincipal UsuarioAutenticado operador) {

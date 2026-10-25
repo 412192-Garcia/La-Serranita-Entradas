@@ -15,19 +15,12 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * Sistema > Estado > Ventas: fallas que no tiran ningún error pero se notan en los números. Si
- * Mercado Pago deja de confirmar pagos, o el webhook deja de llegar, o el POS de la puerta se queda
- * sin subir ventas, en el log no aparece nada: lo que cambia es cuánto se vende.
- *
- * - Sin ventas online: 0 en las últimas horas cuando, el mismo día de la semana a la misma hora, lo
- *   normal (promedio de las 4 semanas anteriores) es vender varias.
- * - Checkouts que no se pagan: casi nadie termina de pagar los que abre (se rompió algún paso).
- * - Webhook: los pagos se confirman por el respaldo (verificación del navegador, barrido) y no por
- *   el aviso de Mercado Pago.
- * - Puerta: entra gente con anticipadas y el POS no registra ninguna venta (o al revés, pero sólo
- *   si para hoy hay anticipadas sin usar: un día sin compras online es normal que no se valide nada).
- *
- * Sólo cuenta en la base: no consulta a Mercado Pago.
+ * Sistema > Estado > Ventas: fallas que no tiran error pero se notan en los números.
+ * - Sin ventas online cuando lo normal (4 semanas anteriores, mismo día y hora) es vender.
+ * - Casi nadie termina de pagar los checkouts.
+ * - Los pagos se confirman por el respaldo y no por el webhook.
+ * - Entra gente con anticipadas y el POS no vende (o al revés, si hay anticipadas de hoy sin usar).
+ * Sólo consulta la base.
  */
 @Component
 public class AnomaliasVentas {
@@ -49,7 +42,7 @@ public class AnomaliasVentas {
     private int conversionMinima;
     @Value("${app.monitoreo.ventas.minimo-confirmaciones:4}")
     private int minimoConfirmaciones;
-    /** Validaciones (o ventas de puerta) en la última hora a partir de las cuales que el otro lado esté en 0 es raro. */
+    /** Movimiento en la última hora a partir del cual que el otro lado esté en 0 es raro. */
     @Value("${app.monitoreo.ventas.movimiento-puerta:15}")
     private int movimientoPuerta;
     /** Anticipadas de hoy todavía sin validar a partir de las cuales que no se valide ninguna es raro. */
@@ -142,8 +135,7 @@ public class AnomaliasVentas {
                     + "¿el POS está sin conexión o sin subir las ventas? (ver Terminales del POS)");
         } else if (ventasPuerta >= movimientoPuerta && validaciones == 0
                 && compras.countByEstadoAndFechaVisita(EstadoCompra.APROBADO, ahora.toLocalDate()) >= anticipadasEsperadas) {
-            // Con gente entrando por la boletería y muchas anticipadas de hoy esperando, que no se
-            // valide ninguna sí es raro. Sin anticipadas para hoy es lo normal (día flojo online).
+            // Sin anticipadas para hoy es normal que no se valide nada.
             problemas.add(ventasPuerta + " ventas en la boletería en la última hora y ninguna anticipada validada, con "
                     + "anticipadas de hoy sin usar: ¿falla la validación en la puerta?");
         } else {

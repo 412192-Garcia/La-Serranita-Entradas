@@ -55,12 +55,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * La caja es lo que un boletero abre/cierra por turno; si el cálculo de "monto esperado"
- * se rompe, el diferencia (faltante/sobrante) que ve el admin en Reportes queda mal.
- * Estos tests cubren la parte que no es obvia: qué compras cuentan como "efectivo real
- * en el cajón" (sólo EFECTIVO_BOLETERIA no cancelada), el conteo de efectivo por
- * denominación, la reconciliación de tarjeta/QR contra el posnet, la diferencia de
- * entradas físicas, y las validaciones de apertura/cierre.
+ * Cálculo del esperado y las diferencias de caja: qué cuenta como efectivo en el cajón, conteo por
+ * denominación, tarjeta/QR contra posnet, entradas físicas y validaciones de apertura y cierre.
  */
 @ExtendWith(MockitoExtension.class)
 class CajaServiceImplTest {
@@ -270,8 +266,7 @@ class CajaServiceImplTest {
 
     @Test
     void registrarIngresoEntradas_retiroSinMotivo_seGuardaIgual() {
-        // El motivo es opcional también en un retiro de entradas (a diferencia del motivo de un
-        // retiro de efectivo, que sí es obligatorio).
+        // El motivo es opcional en un retiro de entradas (en uno de efectivo es obligatorio).
         Caja cajaAbierta = cajaAbierta(7L, "5000", 50);
         when(cajaRepository.findAllByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(List.of(cajaAbierta));
         when(compraRepository.findAllByCajaId(7L)).thenReturn(List.of());
@@ -288,8 +283,7 @@ class CajaServiceImplTest {
 
     @Test
     void registrarIngresoEntradas_retiroMayorAlStockActual_seGuardaIgual() {
-        // El servidor no bloquea un retiro que deja el conteo en negativo: el frontend ya avisó
-        // y pidió confirmación antes de mandarlo (ver stockActual en el modal).
+        // El servidor no bloquea un retiro que deja el conteo en negativo: el front ya pidió confirmación.
         Caja cajaAbierta = cajaAbierta(7L, "5000", 50);
         when(cajaRepository.findAllByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(List.of(cajaAbierta));
         when(compraRepository.findAllByCajaId(7L)).thenReturn(List.of());
@@ -394,8 +388,7 @@ class CajaServiceImplTest {
 
     @Test
     void cerrar_sumaLosAportesAlMontoEsperadoEnVezDeRestarlos() {
-        // Un aporte es plata que entra a la caja: al revés de un retiro, tiene que sumar al
-        // esperado, no restar.
+        // Un aporte suma al esperado.
         Caja cajaAbierta = cajaAbierta(7L, "5000", 50);
         when(cajaRepository.findAllByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(List.of(cajaAbierta));
         when(compraRepository.findAllByCajaId(7L)).thenReturn(List.of(
@@ -449,8 +442,7 @@ class CajaServiceImplTest {
 
     @Test
     void registrarRetiro_conClaveYaProcesada_noDuplicaYDevuelveLoGuardado() {
-        // El caso que hace segura la cola offline: la petición original llegó y se guardó, pero
-        // la respuesta se perdió en el corte. El reintento trae la misma clave y no cobra dos veces.
+        // La operación se guardó pero se perdió la respuesta: el reintento con la misma clave no duplica.
         Caja cajaAbierta = cajaAbierta(7L, "5000", 50);
         RetiroCaja yaGuardado = RetiroCaja.builder()
                 .caja(cajaAbierta)
@@ -474,8 +466,7 @@ class CajaServiceImplTest {
 
     @Test
     void registrarRetiro_conFechaOriginal_guardaEsaFechaYNoLaDeSincronizacion() {
-        // Un retiro hecho a las 14:00 sin señal y sincronizado a las 18:00 tiene que quedar
-        // registrado a las 14:00, o el detalle de caja y los reportes por hora quedan mal.
+        // Hecho a las 14:00 sin señal y sincronizado a las 18:00: queda a las 14:00.
         LocalDateTime cuandoPasoDeVerdad = LocalDateTime.of(2026, 8, 10, 14, 0);
         Caja cajaAbierta = cajaAbierta(7L, "5000", 50);
         when(retiroCajaRepository.findByIdempotencyKey("clave-2")).thenReturn(Optional.empty());
@@ -649,8 +640,7 @@ class CajaServiceImplTest {
 
     @Test
     void cerrar_conCajaSinEntradasFisicasInicialCargada_noCalculaEsperadasNiDiferencia() {
-        // Sin inicial (turnos previos a ese campo) no hay contra qué comparar: sólo se guarda
-        // el número de restantes, sin esperadas ni diferencia.
+        // Sin inicial: sólo se guardan las restantes, sin esperadas ni diferencia.
         Caja cajaVieja = cajaAbierta(7L, "5000", null);
         when(cajaRepository.findAllByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(List.of(cajaVieja));
         when(compraRepository.findAllByCajaId(7L)).thenReturn(List.of());
@@ -709,8 +699,7 @@ class CajaServiceImplTest {
 
         var respuesta = service.cerrar(USUARIO_ID, List.of(conteo(1000, 50)), List.of(), 50, null, null);
 
-        // totalEntradasPagas cuenta sólo tipos ENTRADA con precio > 0: General x3.
-        // Niño (precio 0) y Almuerzo (EXTRA) quedan afuera.
+        // Sólo ENTRADA con precio > 0: General x3. Niño (precio 0) y Almuerzo (EXTRA) no.
         assertThat(respuesta.getTotalEntradasPagas()).isEqualTo(3);
         assertThat(respuesta.getEntradasVendidasPorTipo()).hasSize(2);
         assertThat(respuesta.getEntradasVendidasPorTipo())
@@ -722,9 +711,7 @@ class CajaServiceImplTest {
 
     @Test
     void getActual_conVentaEnDolares_exponeHuboVentaDolaresAunqueLaCajaSigaAbierta() {
-        // Es sólo un booleano (no un monto): a diferencia de los totales esperados, esto se
-        // ve incluso con la caja ABIERTA, porque el frontend lo necesita para saber si
-        // mostrar el campo de dólares contados al cerrar.
+        // Es un booleano: se ve con la caja abierta.
         Caja cajaAbierta = cajaAbierta(7L, "5000", 50);
         when(cajaRepository.findAllByUsuarioIdAndFechaCierreIsNull(2L)).thenReturn(List.of(cajaAbierta));
         when(compraRepository.findAllByCajaId(7L)).thenReturn(List.of(
@@ -766,17 +753,14 @@ class CajaServiceImplTest {
 
     @Test
     void cerrar_conVentasEnDolares_sumaLosDolaresRecibidosYRestaElVueltoDelEfectivoEsperado() {
-        // El pago en dólares sigue siendo EFECTIVO_BOLETERIA, pero no entra nada en pesos al
-        // cajón (entran dólares, contados aparte): lo único que sale del cajón en pesos es el
-        // vuelto. totalVentasEfectivo (revenue) sí suma el precio de lista igual que cualquier
-        // venta; efectivoEsperado (lo que tiene que haber físicamente) no.
+        // En dólares no entran pesos y sale el vuelto: totalVentasEfectivo suma el precio, efectivoEsperado
+        // no.
         Caja cajaAbierta = cajaAbierta(7L, "5000", 50);
         when(cajaRepository.findAllByUsuarioIdAndFechaCierreIsNull(USUARIO_ID)).thenReturn(List.of(cajaAbierta));
 
         // Venta en pesos: entran 3000 pesos limpios.
         Compra ventaPesos = compraConMontoFormaEstado("3000", FormaPago.EFECTIVO_BOLETERIA, EstadoCompra.VENDIDO_EN_PUERTA);
-        // Venta en dólares: total 1000, cliente entrega 2 dólares a 1000 cada uno = 2000,
-        // vuelto = 2000 - 1000 = 1000 pesos que salen del cajón.
+        // Total 1000, entrega 2 dólares a 1000 = 2000, vuelto 1000 pesos.
         Compra ventaDolares = compraDolares("1000", "1000", "2", EstadoCompra.VENDIDO_EN_PUERTA);
         // Cancelada: no debe contar ni para el esperado en pesos ni en dólares.
         Compra ventaCancelada = compraDolares("5000", "1000", "10", EstadoCompra.CANCELADO);
@@ -847,9 +831,7 @@ class CajaServiceImplTest {
 
     @Test
     void corregirCaja_deOtroUsuario_permite() {
-        // corregirCaja ya no valida dueño en el service: queda gateado ADMIN-only en
-        // SecurityConfig, así que cualquier caja se puede corregir sin importar quién la abrió
-        // (mismo criterio que getDetalle).
+        // corregirCaja no valida dueño: el control es de SecurityConfig.
         Caja cajaCerrada = cajaCerradaDeUsuario(7L, 99L);
         when(cajaRepository.findById(7L)).thenReturn(Optional.of(cajaCerrada));
         when(compraRepository.findAllByCajaId(7L)).thenReturn(List.of());
@@ -973,8 +955,7 @@ class CajaServiceImplTest {
 
     @Test
     void recerrarConElUltimoConteo_reutilizaElConteoYaGuardadoEnLaCaja() {
-        // Simula una caja recién reabierta con reabrir(): fechaCierre null, pero el conteo de
-        // cuando se cerró la primera vez todavía está ahí (reabrir no lo toca).
+        // Caja recién reabierta: fechaCierre null, conteo intacto.
         Caja cajaReabierta = cajaAbierta(7L, "5000", 50);
         cajaReabierta.setUsuario(usuarioConId(USUARIO_ID));
         cajaReabierta.setEntradasFisicasRestantes(40);
@@ -1018,8 +999,7 @@ class CajaServiceImplTest {
 
     @Test
     void getDetalle_devuelveLaCajaSinImportarQuienLaAbrio() {
-        // A diferencia de corregirCaja, getDetalle no valida dueño: lo usa el admin para
-        // revisar cualquier caja, no sólo las propias.
+        // getDetalle no valida dueño.
         Caja cajaCerrada = cajaCerradaDeUsuario(7L, 99L);
         when(cajaRepository.findById(7L)).thenReturn(Optional.of(cajaCerrada));
         when(compraRepository.findAllByCajaId(7L)).thenReturn(List.of());
@@ -1113,7 +1093,7 @@ class CajaServiceImplTest {
         assertThat(caja.getMontoEsperado()).isEqualByComparingTo("73600");
         // contado 68600 - esperado 73600 = -5000 (ahora falta, antes cerraba)
         assertThat(caja.getDiferencia()).isEqualByComparingTo("-5000");
-        // el ajuste sale del esperado de tarjeta: 10000 vendido - 10000 traspasado = 0, contra 10000 de cierre => sobra 10000
+        // Tarjeta: 10000 vendido − 10000 traspasado = 0, contra 10000 de cierre: sobran 10000.
         assertThat(respuesta.getTotalVentasTarjeta()).isEqualByComparingTo("0");
         assertThat(respuesta.getDiferenciaTarjeta()).isEqualByComparingTo("10000");
         assertThat(respuesta.getAjustes()).hasSize(1);
@@ -1197,8 +1177,7 @@ class CajaServiceImplTest {
         // contó 60000 de verdad (600 billetes de 100).
         var respuesta = service.corregirCaja(7L, List.of(conteo(100, 600)), List.of(), 0, null, null, List.of(req));
 
-        // esperado = 1 (inicial, cajaCerradaDeUsuario usa "5000")... ojo: inicial 5000.
-        // 5000 + 50000 (venta) + 10000 (agregado) = 65000; contado 60000 => -5000
+        // 5000 inicial + 50000 venta + 10000 agregado = 65000; contado 60000: −5000.
         assertThat(caja.getMontoEsperado()).isEqualByComparingTo("65000");
         assertThat(caja.getDiferencia()).isEqualByComparingTo("-5000");
         assertThat(respuesta.getAjustes().get(0).getFormaOrigen()).isNull();
@@ -1273,8 +1252,7 @@ class CajaServiceImplTest {
 
         var respuesta = service.eliminarAjuste(7L, 3L);
 
-        // El ajuste borrado (EFECTIVO -> TARJETA, 10000) le restaba 10000 al esperado de efectivo.
-        // Sin él: esperado = 5000 (inicial) + 68600 (venta efectivo) = 73600; diferencia = 68600 - 73600 = -5000.
+        // Sin el ajuste borrado: esperado = 5000 + 68600 = 73600; diferencia −5000.
         assertThat(caja.getMontoEsperado()).isEqualByComparingTo("73600");
         assertThat(caja.getDiferencia()).isEqualByComparingTo("-5000");
         assertThat(respuesta.getAjustes()).isEmpty();
@@ -1300,8 +1278,7 @@ class CajaServiceImplTest {
         caja.setMontoInicial(new BigDecimal(montoInicial));
         caja.setEntradasFisicasInicial(entradasFisicasInicial);
         caja.setFechaApertura(LocalDateTime.now()); // para que cuente como "de hoy" (ver getCajaOperativaHoy)
-        // Nunca null en la entidad real (nullable=false): toDto lo necesita para buscar las
-        // anticipadas validadas por este usuario (ver findAnticipadasValidadasPorUsuarioYFecha).
+        // Nunca null en la entidad real: toDto lo usa para las anticipadas validadas.
         caja.setUsuario(usuarioConId(1L));
         return caja;
     }

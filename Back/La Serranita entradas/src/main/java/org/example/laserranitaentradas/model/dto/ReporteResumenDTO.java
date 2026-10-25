@@ -47,14 +47,10 @@ public class ReporteResumenDTO {
     /** Ventas cobradas en efectivo-dólares en el rango. */
     private VentasDolaresDTO ventasDolares;
 
-    /** Ingresos reales del rango por tipo de entrada (gente que cruzó la puerta), separados en
-     * venta de puerta y anticipada validada. Va por fecha de validación, no por día de cobro:
-     * así una anticipada pre-pagada aparece el día que la persona entró. Reconcilia con
-     * personasIngresadas. */
+    /** Ingresos reales por tipo, por fecha de validación, separados en puerta y anticipada. */
     private List<IngresoPorTipoDTO> ingresosPorTipo;
 
-    /** Entradas con cargo vendidas en la puerta (POS) y cobradas en el rango — la "producción" de
-     * venta de boletería. No incluye anticipadas ni entradas gratis. */
+    /** Entradas con cargo vendidas en la puerta. Sin anticipadas ni gratis. */
     private long entradasVendidasBoleteria;
 
     /** Histograma de anticipación: días entre compra y uso de las anticipadas usadas en el rango. */
@@ -63,13 +59,11 @@ public class ReporteResumenDTO {
     /** Cupones aplicados en el rango, agrupados por su valor de descuento. */
     private List<UsoCuponDTO> usoCupones;
 
-    /** Facturado ante ARCA en el rango (por fecha de emisión del comprobante): Facturas B con
-     * CAE − notas de crédito con CAE. No es lo mismo que recaudacionTotal: no toda venta se factura. */
+    /** Facturas B con CAE − NC con CAE, por fecha de emisión. No toda venta se factura. */
     private BigDecimal totalFacturado;
     private long cantidadFacturas;
     private long cantidadNotasCredito;
 
-    /** Compras canceladas del rango (por día de creación o de visita, igual que "Compras por
-     * estado"), con el motivo. Las más recientes primero. */
+    /** Canceladas del rango con su motivo, las más recientes primero. */
     private List<CompraCanceladaDTO> cancelaciones;
 }

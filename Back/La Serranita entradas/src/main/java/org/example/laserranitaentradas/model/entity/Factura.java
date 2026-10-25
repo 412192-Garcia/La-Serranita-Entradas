@@ -8,18 +8,14 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * Factura electrónica B (Consumidor Final) de una compra, autorizada por ARCA (WSFEv1). Una
- * factura manual también puede ser A, a un receptor identificado por CUIT (campos receptor*).
+ * Factura electrónica B de una compra, autorizada por ARCA. Una manual también puede ser A, con receptor por
+ * CUIT.
  *
- * Vive aparte de la Compra a propósito: la venta se confirma siempre, aunque ARCA esté caída,
- * y la factura se emite después en segundo plano (ver FacturaServiceImpl). Por eso nace
- * PENDIENTE, sin número ni CAE.
+ * Va aparte de la Compra: la venta se confirma aunque ARCA esté caída y la factura se emite después, por eso
+ * nace PENDIENTE.
  *
- * El número de comprobante lo asigna ARCA en orden estricto por punto de venta: no se elige,
- * se pide el último autorizado y se usa el siguiente. numeroIntentado guarda el número con el
- * que se mandó el último pedido ANTES de mandarlo, para que si la respuesta se pierde (timeout,
- * corte) el próximo intento pueda preguntarle a ARCA si ese número quedó autorizado en vez de
- * emitir la misma venta dos veces.
+ * numeroIntentado guarda el número del último pedido antes de mandarlo, para consultar a ARCA si se pierde la
+ * respuesta en vez de facturar dos veces.
  */
 @Entity
 @Table(name = "facturas", uniqueConstraints = {
@@ -37,9 +33,10 @@ public class Factura extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    /** Una compra puede tener varios comprobantes: la factura, su nota de crédito si se canceló,
-     * y una factura nueva si se editó el monto. Null en una factura manual (Acciones > Facturación
-     * manual) y en su nota de crédito: no hay venta detrás. */
+    /**
+     * Una compra puede tener factura, nota de crédito y factura nueva. Null en las manuales y sus notas de
+     * crédito.
+     */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_compra")
     private Compra compra;
@@ -50,16 +47,16 @@ public class Factura extends BaseEntity {
     private Factura comprobanteAsociado;
 
     /**
-     * La venta se canceló o cambió de monto mientras esta factura estaba en camino (pidió número a
-     * ARCA y no se sabe si quedó autorizada). Al resolverse: si quedó autorizada se le emite la
-     * nota de crédito; si no, pasa a ANULADA sin pedir otro número.
+     * La venta cambió mientras la factura estaba en camino: si quedó autorizada se le emite nota de crédito;
+     * si no, pasa a ANULADA.
      */
     @Column(name = "anulacion_pedida", nullable = false, columnDefinition = "boolean default false")
     @Builder.Default
     private Boolean anulacionPedida = false;
 
-    /** Copia de los ítems al momento de facturar ("cantidad<TAB>descripción" por línea): si después
-     * se edita la venta, el comprobante sigue mostrando lo que se facturó. */
+    /**
+     * Ítems al facturar ("cantidad<TAB>descripción"), para que una edición posterior no cambie lo facturado.
+     */
     @Column(length = 2000)
     private String detalle;
 
@@ -72,8 +69,7 @@ public class Factura extends BaseEntity {
     @Column(nullable = false, length = 20)
     private DestinoFactura destino;
 
-    /** Sólo con destino IMPRIMIR: en qué ticketera (nombre que anuncia el agente). Null = la
-     * única conectada, si hay una sola. */
+    /** Sólo con IMPRIMIR: la ticketera. Null = la única conectada. */
     @Column(length = 60)
     private String impresora;
 
@@ -84,13 +80,11 @@ public class Factura extends BaseEntity {
     @Column(name = "punto_venta", nullable = false)
     private Integer puntoVenta;
 
-    /** Código ARCA del comprobante: 1 = Factura A, 3 = Nota de Crédito A, 6 = Factura B,
-     * 8 = Nota de Crédito B. */
+    /** Código ARCA: 1 Factura A, 3 NC A, 6 Factura B, 8 NC B. */
     @Column(name = "tipo_comprobante", nullable = false)
     private Integer tipoComprobante;
 
-    /** Sólo en una Factura A (y su nota de crédito): CUIT del receptor, 11 dígitos sin guiones.
-     * Null = Consumidor Final sin identificar. */
+    /** Sólo en Factura A y su NC: CUIT de 11 dígitos sin guiones. Null = Consumidor Final. */
     @Column(name = "receptor_cuit", length = 11)
     private String receptorCuit;
 
@@ -105,9 +99,7 @@ public class Factura extends BaseEntity {
     @Column(name = "receptor_condicion_iva")
     private Integer receptorCondicionIva;
 
-    /** Sólo en las facturas de un lote manual: la clave que manda el front con el lote. Si el pedido
-     * se repite (se perdió la respuesta y el admin tocó "Facturar" de nuevo), se devuelven las mismas
-     * facturas en vez de pedir el lote otra vez a ARCA. */
+    /** Clave del lote manual: si se repite el pedido, se devuelven las mismas facturas. */
     @Column(name = "lote_clave", length = 64)
     private String loteClave;
 
@@ -132,8 +124,7 @@ public class Factura extends BaseEntity {
     @Column(name = "fecha_emision")
     private LocalDate fechaEmision;
 
-    /** Momento en que ARCA la autorizó, en hora de Argentina: la hora que se imprime. Null en las
-     * facturas anteriores a este dato (se imprime sólo la fecha). */
+    /** Cuándo la autorizó ARCA, en hora argentina. Null en facturas viejas. */
     @Column(name = "emitida_en")
     private LocalDateTime emitidaEn;
 

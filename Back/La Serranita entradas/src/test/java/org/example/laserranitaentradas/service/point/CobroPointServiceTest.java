@@ -271,8 +271,7 @@ class CobroPointServiceTest {
 
     @Test
     void vincular_cobroEnCursoAnotadoAMano_seAtaIgual() {
-        // "Salió aprobado: anotar a mano": MP todavía no dio el resultado, pero el cobro queda de
-        // esta venta y no aparece después como plata cobrada sin venta.
+        // Anotado a mano antes de que MP dé el resultado: el cobro queda de esta venta.
         CobroPoint c = cobro(EstadoCobroPoint.REVISAR_EN_POINT, "15000");
         when(repository.findParaVincular(50L)).thenReturn(Optional.of(c));
         Compra v = venta(FormaPago.TARJETA, "15000", null, null);
@@ -515,7 +514,7 @@ class CobroPointServiceTest {
 
     @Test
     void devolverDeVenta_siMercadoPagoNoLaDaPorDevuelta_noSeCancela() {
-        // Tarjetas que sólo se devuelven desde el propio Point: MP toma el pedido pero la orden sigue processed.
+        // MP toma el pedido pero la orden sigue processed: se devuelve desde el Point.
         Compra v = venta(FormaPago.TARJETA, "15000", null, null);
         CobroPoint c = cobro(EstadoCobroPoint.APROBADO, "15000");
         when(repository.findAllByCompraId(900L)).thenReturn(java.util.List.of(c));

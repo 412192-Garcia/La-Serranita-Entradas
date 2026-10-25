@@ -7,10 +7,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Un traspaso de monto entre formas de pago que el admin arma en el resumen de cierre.
- * Se mandan de a varios (uno por grupo firma+origen+destino) en una sola llamada.
- */
+/** Un traspaso entre formas de pago del resumen de cierre. */
 @Data
 public class AjusteCajaRequestDTO {
     private FormaPago formaOrigen;

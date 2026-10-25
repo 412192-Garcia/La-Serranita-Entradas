@@ -21,9 +21,8 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Lo que usa el agente de impresión de la PC de la entrada. No lleva JWT (no es una persona, y
- * tiene que reconectarse solo durante meses): se autentica con un token fijo compartido,
- * IMPRESION_AGENTE_TOKEN. Sin ese token configurado, estos endpoints quedan cerrados.
+ * Endpoints del agente de impresión. Sin JWT: token fijo IMPRESION_AGENTE_TOKEN. Sin token configurado quedan
+ * cerrados.
  */
 @RestController
 @RequestMapping("/api/impresion/agente")
@@ -51,8 +50,7 @@ public class AgenteImpresionController {
         if (nombres.isEmpty() || nombres.stream().anyMatch(n -> n.contains(";") || n.length() > 60)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Nombres de impresora inválidos");
         }
-        // Que nginx no retenga los eventos en su buffer: sin esto el agente recibe los tickets
-        // tarde (cuando se llena el buffer) o nunca.
+        // Que nginx no retenga los eventos en el buffer.
         response.setHeader("X-Accel-Buffering", "no");
         response.setHeader("Cache-Control", "no-cache");
         return impresionService.conectarAgente(agente.trim(), nombres);
@@ -60,7 +58,7 @@ public class AgenteImpresionController {
 
     @PostMapping(value = "/estado", consumes = MediaType.TEXT_PLAIN_VALUE)
     @Operation(summary = "El agente informa si cada ticketera responde",
-            description = "Una línea por ticketera: nombre<TAB>1|0<TAB>detalle. Lo usa la tablet para avisar 'ticketera apagada' antes de cobrar.")
+            description = "Una línea por ticketera: nombre<TAB>1|0<TAB>detalle.")
     public ResponseEntity<Void> estado(@RequestHeader(value = "X-Agente-Token", required = false) String token,
                                        @RequestParam String agente,
                                        @RequestBody(required = false) String cuerpo) {

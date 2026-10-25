@@ -21,9 +21,8 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * Representación impresa de la factura en PDF, con el mismo formato que el ticket de la
- * ticketera (80 mm de ancho, como el de la cantina): encabezado fiscal, tipo y número, ítems,
- * total, IVA contenido (Ley 27.743), CAE y QR de ARCA.
+ * Factura en PDF con el formato del ticket (80 mm): encabezado fiscal, ítems, total, IVA contenido (Ley
+ * 27.743), CAE y QR.
  */
 @Component
 public class FacturaPdfGenerator {
@@ -43,12 +42,9 @@ public class FacturaPdfGenerator {
     private static final DateTimeFormatter FECHA = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     public byte[] generar(ComprobanteFactura c) {
-        // Dos pasadas: la primera en una hoja larguísima sólo para medir cuánto ocupa todo, la
-        // segunda con el alto exacto. Así el PDF queda como un ticket y no con media hoja en
-        // blanco abajo (o cortado si la venta tiene muchas líneas).
+        // Primero se mide en una hoja larga y después se arma con el alto exacto.
         float usado = renderizar(c, ALTO_BORRADOR).altoUsado();
-        // + margen de abajo y aire de sobra: OpenPDF no cuenta en la posición vertical el último
-        // renglón todavía pendiente, y si queda justo ese renglón salta a una segunda página.
+        // Aire de sobra: OpenPDF no cuenta el último renglón y saltaría a otra página.
         return renderizar(c, usado + MARGEN + 30f).pdf();
     }
 

@@ -10,15 +10,10 @@ import org.springframework.stereotype.Component;
 import java.util.Properties;
 
 /**
- * Casilla desde la que salen las facturas (ej. facturas@), separada de la de reservas y
- * comprobantes de compra (MAIL_RESERVAS_USERNAME, ej. reservas@). Es otra cuenta, con su propia contraseña
- * (MAIL_FACTURAS_USERNAME / MAIL_FACTURAS_PASSWORD); el servidor SMTP es el mismo salvo que se
- * indique otro.
+ * Casilla de las facturas (MAIL_FACTURAS_USERNAME / MAIL_FACTURAS_PASSWORD), aparte de la de reservas. Sin
+ * ella salen de la general.
  *
- * Sin MAIL_FACTURAS_USERNAME las facturas salen de la casilla general, como antes.
- *
- * No es un bean JavaMailSender a propósito: declarar uno apagaría el que Spring Boot arma solo
- * para la casilla general (se configura sólo si no hay ninguno).
+ * No es un bean JavaMailSender: apagaría el que Spring Boot arma para la casilla general.
  */
 @Component
 public class CasillaFacturas {
@@ -42,8 +37,7 @@ public class CasillaFacturas {
             return;
         }
         JavaMailSenderImpl propio = new JavaMailSenderImpl();
-        // docker-compose pasa las variables sin cargar como texto vacío (y ahí Spring no usa el
-        // valor por defecto): vacío = el mismo servidor que la casilla general.
+        // docker-compose pasa vacío lo no cargado: vacío = el servidor de la general.
         propio.setHost(host == null || host.isBlank() ? hostGeneral : host.trim());
         propio.setPort(puerto == null || puerto.isBlank() ? puertoGeneral : Integer.parseInt(puerto.trim()));
         propio.setUsername(usuario.trim());

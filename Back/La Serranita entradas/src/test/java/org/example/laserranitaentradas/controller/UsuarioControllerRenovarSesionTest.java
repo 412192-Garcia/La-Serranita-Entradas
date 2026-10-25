@@ -19,10 +19,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
-/**
- * Renovación de la sesión de "Mantener sesión iniciada": sólo renueva los tokens largos, y
- * vuelve a mirar al usuario en la base — es lo que evita que un token de días sea irrevocable.
- */
+/** Sólo renueva tokens largos y vuelve a leer el usuario de la base. */
 @ExtendWith(MockitoExtension.class)
 class UsuarioControllerRenovarSesionTest {
 

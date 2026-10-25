@@ -21,11 +21,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
-/**
- * El límite de compra online para el mismo día: el parque puede seguir abierto pero ya no se
- * vende para hoy un rato antes del cierre. Se mide contra el cierre de ESE día (el especial si
- * lo tiene) y sólo corta el día de hoy.
- */
+/** Límite de compra online del día: contra el cierre de ese día y sólo para hoy. */
 @ExtendWith(MockitoExtension.class)
 class DiaAperturaServiceImplTest {
 
@@ -117,8 +113,7 @@ class DiaAperturaServiceImplTest {
 
     @Test
     void laListaDeDiasAbiertosNoDescuentaElLimiteDeCompraDeHoy() {
-        // Hoy estuvo abierto: sigue figurando aunque ya se haya cortado la compra (eso se consulta
-        // aparte, con compraDelDiaCerrada). Así el calendario lo puede pintar como "estuvo abierto".
+        // Hoy sigue figurando abierto aunque ya se cortó la compra.
         abiertosHoyYManana();
 
         assertThat(service.getDiasAbiertos(2026, 9)).contains("2026-09-21", "2026-09-22");

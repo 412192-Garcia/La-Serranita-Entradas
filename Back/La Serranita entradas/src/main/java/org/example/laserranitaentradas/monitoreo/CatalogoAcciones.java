@@ -5,11 +5,7 @@ import java.util.Set;
 
 import static java.util.Map.entry;
 
-/**
- * Nombre legible de cada operación que modifica algo, por método y patrón de ruta (el del
- * controller). Una operación que no esté acá igual se registra, con su ruta: el catálogo sólo la
- * hace más fácil de leer.
- */
+/** Nombre legible de cada operación, por método y ruta. Lo que no está igual se registra con su ruta. */
 final class CatalogoAcciones {
 
     record Accion(String codigo, String descripcion, String entidad) {}

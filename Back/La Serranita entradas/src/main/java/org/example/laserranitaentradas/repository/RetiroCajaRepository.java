@@ -17,9 +17,7 @@ public interface RetiroCajaRepository extends JpaRepository<RetiroCaja, Long> {
 
     Optional<RetiroCaja> findByIdempotencyKey(String idempotencyKey);
 
-    /** [idCaja, neto de retiros] por caja, en lote: los RETIRO suman y los APORTE restan (un
-     * aporte es, en la fórmula del esperado, un retiro negativo). Evita un query por caja al
-     * armar el reporte. */
+    /** [idCaja, neto de retiros] por caja: RETIRO suma y APORTE resta. */
     @Query("SELECT r.caja.id, COALESCE(SUM(CASE WHEN r.tipo = :aporte THEN -r.monto ELSE r.monto END), 0) " +
             "FROM RetiroCaja r WHERE r.caja.id IN :cajaIds GROUP BY r.caja.id")
     List<Object[]> netoRetirosPorCaja(@Param("cajaIds") Collection<Long> cajaIds,

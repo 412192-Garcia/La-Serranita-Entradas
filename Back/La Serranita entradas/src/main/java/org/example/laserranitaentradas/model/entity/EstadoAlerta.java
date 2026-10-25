@@ -8,9 +8,8 @@ import lombok.Setter;
 import java.time.LocalDateTime;
 
 /**
- * Lo último que se avisó por mail de cada tarjeta de Sistema > Estado (ver AlertasService): así se
- * avisa cuando una se pone en rojo y cuando vuelve a estar bien, no cada 5 minutos mientras siga
- * igual. En la base y no en memoria para que un reinicio no repita todos los avisos.
+ * Lo último que se avisó de cada tarjeta, para avisar sólo los cambios. En la base para que un reinicio no
+ * repita todo.
  */
 @Entity
 @Table(name = "alertas_estado")

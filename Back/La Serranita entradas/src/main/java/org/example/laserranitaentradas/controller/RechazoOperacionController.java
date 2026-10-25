@@ -10,8 +10,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.util.List;
 
-/** ADMIN-only (gateado en SecurityConfig): operaciones del POS que el servidor rechazó, para
- * que cualquier admin las revise sin depender de mirar el navegador del boletero que las hizo. */
+/** Operaciones del POS que el servidor rechazó. */
 @RestController
 @RequestMapping("/api/interno/rechazos")
 @Tag(name = "Rechazos", description = "Operaciones del POS rechazadas por el servidor, para revisión de un admin")
@@ -37,14 +36,14 @@ public class RechazoOperacionController {
 
     @PostMapping("/{id}/reabrir-y-reintentar")
     @Operation(summary = "Reabrir la caja de origen y reintentar un rechazo",
-            description = "Sólo para RETIRO_APORTE e INGRESO_ENTRADAS rechazados porque la caja ya no estaba abierta: la reabre, aplica el movimiento, y la vuelve a cerrar con el mismo conteo que ya tenía.")
+            description = "RETIRO_APORTE e INGRESO_ENTRADAS rechazados por caja cerrada: la reabre, aplica y la recierra con el mismo conteo.")
     public ResponseEntity<OperacionRechazadaResponseDTO> reabrirYReintentar(@PathVariable Long id) {
         return ResponseEntity.ok(rechazoService.reabrirYReintentar(id));
     }
 
     @PostMapping("/reabrir-y-reintentar-lote")
     @Operation(summary = "Reabrir la caja de origen y reintentar varios rechazos a la vez",
-            description = "Igual que /{id}/reabrir-y-reintentar, pero para varios rechazos de la MISMA caja en un solo ciclo de reabrir/cerrar (ej. se encolaron 5 operaciones sin conexión y la caja se cerró antes de que se reintentaran).")
+            description = "Como /{id}/reabrir-y-reintentar, para varios rechazos de la misma caja.")
     public ResponseEntity<List<OperacionRechazadaResponseDTO>> reabrirYReintentarLote(@RequestBody List<Long> ids) {
         return ResponseEntity.ok(rechazoService.reabrirYReintentarLote(ids));
     }

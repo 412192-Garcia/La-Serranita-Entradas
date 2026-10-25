@@ -41,12 +41,8 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 /**
- * El reporte atribuye cada métrica a la fecha que le corresponde y NO a un único "día de la
- * compra": la recaudación va al día de cobro (Mercado Pago = fecha de compra; efectivo/tarjeta/QR
- * = fecha de validación, que es cuando se cobra en la puerta), la afluencia y las personas
- * ingresadas van SIEMPRE a la fecha de validación, y la demanda ("reservado para ese día") va a
- * la fecha de visita. Estos tests cubren los casos donde esas fechas caen en meses distintos.
- * También: una caja deshabilitada por un admin saca sus ventas de puerta de todo el reporte.
+ * Cada métrica va a su fecha: recaudación al día de cobro, afluencia a la validación, demanda a la visita.
+ * Estos tests cubren fechas en meses distintos y las cajas deshabilitadas.
  */
 @ExtendWith(MockitoExtension.class)
 class ReporteServiceImplTest {
@@ -74,14 +70,8 @@ class ReporteServiceImplTest {
         lenient().when(cajaRepository.findAllByFechaAperturaBetweenAndFechaCierreIsNotNullOrderByFechaAperturaDesc(any(), any())).thenReturn(List.of());
         lenient().when(cajaRepository.findIdsDeshabilitadas()).thenReturn(List.of());
         lenient().when(cajaService.diferenciaPosnetPorCaja(any())).thenReturn(java.util.Map.of());
-        // Sin descuento por grupo salvo que un test lo pise explícitamente: el desglose por tipo
-        // recalcula el bruto de cada línea con esto (ver ReporteServiceImpl), y por defecto tiene
-        // que coincidir con precio de lista para no romper los tests que no prueban ese caso.
-        // Guarda tipo == null: un test que registra OTRO stub más específico para este mismo
-        // método (ver el test de precio por grupo) dispara esta respuesta una vez de más, con
-        // argumentos placeholder, mientras Mockito resuelve a qué stubbing engancha el nuevo
-        // when(...) — sin la guarda, esa pasada de más revienta con NPE antes de llegar a
-        // registrar el stub específico.
+        // Sin precio de grupo salvo que el test lo pise. El guard tipo == null evita un NPE cuando otro stub
+        // del mismo método se registra después.
         lenient().when(calculoPrecioService.calcularTotal(any(), anyInt(), any()))
                 .thenAnswer(inv -> {
                     TipoEntrada tipo = inv.getArgument(0);
@@ -329,9 +319,7 @@ class ReporteServiceImplTest {
 
     @Test
     void generarResumen_descuentoDePromocion_noSeReportaComoUsoDeCupon() {
-        // Una promo de puerta también carga descuentoAplicado. El desglose por cupón tiene que
-        // quedar vacío: es lo que mira la tarjeta "Cupones aplicados" del front, que antes
-        // mostraba el total de descuentos y se contradecía con su propia tabla.
+        // Una promo de puerta también tiene descuentoAplicado: el desglose por cupón tiene que quedar vacío.
         Compra conPromo = ventaPuerta("3000", FormaPago.EFECTIVO_BOLETERIA, DIA);
         conPromo.setDescuentoAplicado(new BigDecimal("500"));
 
@@ -396,9 +384,7 @@ class ReporteServiceImplTest {
 
     @Test
     void generarResumen_ventaConPrecioPorGrupoYDescuentoManual_desgloseUsaElMontoRealmenteCobrado() {
-        // 4 pases con precio por grupo (CalculoPrecioService, no tipo.getPrecio() a secas):
-        // el escalón cobra 16000 en vez de los 18000 de lista (4 x 4500). Encima el boletero
-        // cargó un descuento manual de 500: la compra queda en 15500.
+        // 4 pases con escalón: 16000 en vez de 18000 de lista, menos 500 manual = 15500.
         when(calculoPrecioService.calcularTotal(any(TipoEntrada.class), eq(4), eq(FormaPago.EFECTIVO_BOLETERIA)))
                 .thenReturn(new BigDecimal("16000"));
 
@@ -409,9 +395,7 @@ class ReporteServiceImplTest {
         stubReporte(venta);
         ReporteResumenDTO resumen = service.generarResumen(DIA, DIA);
 
-        // Antes de este fix el desglose sumaba tipo.getPrecio() x cantidad a secas (18000),
-        // más que la recaudación real: ni el precio por grupo ni el descuento manual pisaban
-        // esa cuenta. Ahora tiene que coincidir con lo efectivamente cobrado.
+        // El desglose tiene que coincidir con lo cobrado.
         assertThat(resumen.getDesglosePorTipo()).singleElement().satisfies(fila ->
                 assertThat(fila.getMontoBoleteria()).isEqualByComparingTo("15500"));
         assertThat(resumen.getRecaudacionTotal()).isEqualByComparingTo("15500");
@@ -423,8 +407,7 @@ class ReporteServiceImplTest {
         Compra puerta = ventaPuerta("10000", FormaPago.EFECTIVO_BOLETERIA, DIA);
         puerta.setFechaCreacion(DIA.atTime(14, 30));
         puerta.setFechaValidacion(DIA.atTime(14, 30));
-        // Viernes (MARZO) 20:15hs: reserva por Mercado Pago — la hora de cobro es la de la
-        // compra, no la de la visita (que además cae en otro día, para no confundir la grilla).
+        // Viernes 20:15 por MP: la hora es la de la compra, no la de la visita.
         Compra anticipada = mpAprobada("5000", MARZO, MARZO.plusDays(10));
         anticipada.setFechaCreacion(MARZO.atTime(20, 15));
 
@@ -444,8 +427,7 @@ class ReporteServiceImplTest {
         assertThat(slotAnticipada.getCantidadPasesAnticipada()).isEqualTo(2);
         assertThat(slotAnticipada.getCantidadComprasBoleteria()).isZero();
 
-        // Nada se filtró a otro día/hora por error: el total de cada serie en TODA la grilla
-        // coincide exactamente con lo cargado.
+        // El total de cada serie coincide con lo cargado.
         assertThat(resumen.getVentasPorHora().stream().mapToLong(VentasPorHoraDTO::getCantidadComprasBoleteria).sum())
                 .isEqualTo(1);
         assertThat(resumen.getVentasPorHora().stream().mapToLong(VentasPorHoraDTO::getCantidadComprasAnticipada).sum())

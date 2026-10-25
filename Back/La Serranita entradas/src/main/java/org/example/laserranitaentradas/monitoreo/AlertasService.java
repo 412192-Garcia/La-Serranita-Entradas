@@ -31,17 +31,12 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * Avisos que llegan sin entrar a la app:
- *
- * - Mail a ALERTAS_MAIL cuando una tarjeta de Sistema > Estado se pone en rojo, cuando cambia lo que
- *   dice (ej. de 1 a 3 errores, como mucho una vez por hora), cuando vuelve a estar bien, y un
- *   recordatorio diario mientras siga en rojo. También cuando el servidor arranca (un reinicio que
- *   nadie hizo es una caída).
- * - Latido a ALERTAS_LATIDO_URL (healthchecks.io o similar) cada 5 minutos si el backend y la base
- *   andan: el servicio externo avisa cuando el latido deja de llegar. Es lo único que se entera
- *   si se cae el servidor entero, porque entonces esta app no puede mandar nada.
- *
- * Sin ALERTAS_MAIL / ALERTAS_LATIDO_URL cada parte queda apagada.
+ * Avisos por fuera de la app:
+ * - Mail a ALERTAS_MAIL cuando una tarjeta se pone en rojo, cambia (máximo una vez por hora), vuelve a estar
+ * bien, y un recordatorio diario. También al arrancar el servidor.
+ * - Latido a ALERTAS_LATIDO_URL cada 5 min si backend y base andan: es lo único que avisa si se cae el
+ * servidor entero.
+ * Sin esas variables cada parte queda apagada.
  */
 @Service
 public class AlertasService {

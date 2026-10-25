@@ -31,12 +31,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-/**
- * enviarComprobanteCompra/enviarAvisoRegalo corren @Async, sin ningún admin mirando la
- * pantalla en el momento (los dispara el webhook de Mercado Pago, la verificación directa del
- * comprador, o el "reenviar" de Boletería que tampoco espera la respuesta): si el envío falla,
- * lo único que puede avisarle a un admin es dejarlo registrado en la cola de rechazos.
- */
+/** Los envíos son @Async y nadie mira: si fallan, tienen que quedar en rechazos. */
 @ExtendWith(MockitoExtension.class)
 class EmailServiceImplTest {
 
@@ -58,8 +53,7 @@ class EmailServiceImplTest {
         // lenient: sólo los tests de factura usan la casilla de facturas.
         org.mockito.Mockito.lenient().when(casillaFacturas.sender()).thenReturn(mailSender);
         org.mockito.Mockito.lenient().when(casillaFacturas.direccion()).thenReturn("facturas@laserranita.com");
-        // @Value no se inyecta fuera de un contexto de Spring: sin esto, helper.setFrom(null)
-        // explota con NPE antes de siquiera llegar al mailSender.send(...) que cada test stubea.
+        // Sin contexto de Spring no hay @Value: sin esto setFrom(null) tira NPE.
         ReflectionTestUtils.setField(service, "remitente", "no-reply@laserranita.com");
     }
 

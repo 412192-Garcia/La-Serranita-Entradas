@@ -10,11 +10,7 @@ import lombok.ToString;
 
 import java.math.BigDecimal;
 
-/**
- * Descuento con nombre para la venta en puerta (ej: "Folleto Verano 2026 — 15%"), a
- * diferencia del cupón online (que es por código) o del descuento manual ad-hoc que el
- * cajero puede tipear directo en la venta sin necesidad de una promo cargada acá.
- */
+/** Descuento con nombre para la venta en puerta (ej: "Folleto Verano 2026 — 15%"). */
 @Entity
 @Table(name = "promociones", uniqueConstraints = {
         @UniqueConstraint(name = "uk_nombre_promocion", columnNames = "nombre")

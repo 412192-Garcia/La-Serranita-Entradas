@@ -35,7 +35,7 @@ public class CompraInternoController {
     }
 
     @PostMapping("/{id}/confirmar-pago-efectivo")
-    @Operation(summary = "Confirmar cobro en boletería", description = "Confirma que se recibió el efectivo de una reserva EFECTIVO_BOLETERIA; la compra pasa a USADO y habilita el ingreso. Un boletero necesita caja abierta; un admin (Control de Accesos) puede cobrar sin una — queda sin reconciliar en ningún cierre, sólo en Reportes.")
+    @Operation(summary = "Confirmar cobro en boletería", description = "La reserva pasa a USADO. Un boletero necesita caja abierta; un admin puede cobrar sin caja.")
     public ResponseEntity<CompraResponseDTO> confirmarPagoEfectivo(
             @PathVariable @Parameter(description = "ID de la compra") Long id,
             @AuthenticationPrincipal UsuarioAutenticado operador) {
@@ -47,8 +47,7 @@ public class CompraInternoController {
 
     @PostMapping("/venta-pos")
     @Operation(summary = "Registrar una venta presencial en boletería",
-            description = "Cobra y habilita el ingreso en un solo paso: la compra queda en USADO, sin datos de cliente. " +
-                    "El precio promocional por grupo sólo se aplica si el cobro es en efectivo.")
+            description = "Cobro e ingreso en un paso, sin datos de cliente. El precio de grupo sólo en efectivo.")
     public ResponseEntity<CompraResponseDTO> registrarVentaPos(
             @RequestBody VentaPosRequestDTO request,
             @AuthenticationPrincipal UsuarioAutenticado operador) {
@@ -57,8 +56,7 @@ public class CompraInternoController {
             Compra venta = compraService.registrarVentaPos(request, operador.id());
             return ResponseEntity.status(HttpStatus.CREATED).body(CompraController.entityToDto(venta));
         } catch (IllegalArgumentException | IllegalStateException ex) {
-            // Ver el comentario en CajaController: sólo interesa si pasó en un reintento en
-            // segundo plano, no en el primer intento en vivo (ya lo ve la persona ahí mismo).
+            // Sólo se registra si pasó en un reintento en segundo plano.
             if (Boolean.TRUE.equals(request.getEsReintentoEncolado())) {
                 rechazoService.registrar("VENTA", request, ex.getMessage(), request.getIdempotencyKey());
             }
@@ -68,7 +66,7 @@ public class CompraInternoController {
 
     @PostMapping("/caja/{cajaId}/venta-pos")
     @Operation(summary = "Cargar una venta que le faltó registrar a un boletero (ADMIN)",
-            description = "Igual que /venta-pos, pero el admin la carga directamente en la caja indicada por id (no la propia): para cuando revisa el detalle de una caja abierta y nota que falta una venta. Queda a nombre del dueño de esa caja.")
+            description = "Como /venta-pos, en la caja indicada. Queda a nombre del dueño de la caja.")
     public ResponseEntity<CompraResponseDTO> registrarVentaPosComoAdmin(
             @PathVariable @Parameter(description = "ID de la caja") Long cajaId,
             @RequestBody VentaPosRequestDTO request) {
@@ -77,7 +75,7 @@ public class CompraInternoController {
     }
 
     @PostMapping("/generar-reserva")
-    @Operation(summary = "Generar una reserva a mano, sin cobrar nada por acá", description = "Sólo ADMIN: para invitados o ventas por agencia (el cobro real, si lo hay, se resolvió por fuera). La forma de pago del cuerpo se ignora, siempre queda como RESERVA_ADMIN.")
+    @Operation(summary = "Generar una reserva a mano, sin cobrar nada por acá", description = "Invitados o ventas por agencia. Siempre queda como RESERVA_ADMIN.")
     public ResponseEntity<CompraResponseDTO> generarReserva(@RequestBody @Parameter(description = "Datos de la reserva") CompraRequestDTO request) throws Exception {
         // Se pisa acá, no en el body: así ningún cliente puede pedirlo mandando "RESERVA_ADMIN" a mano.
         request.setFormaPago(FormaPago.RESERVA_ADMIN);
@@ -86,7 +84,7 @@ public class CompraInternoController {
     }
 
     @PutMapping("/{id}/contacto")
-    @Operation(summary = "Editar datos de contacto de la reserva", description = "Corrige nombre/apellido del titular y su email/teléfono de contacto. No permite tocar fecha, entradas ni montos.")
+    @Operation(summary = "Editar datos de contacto de la reserva", description = "Titular y contacto. No toca fecha, entradas ni montos.")
     public ResponseEntity<CompraResponseDTO> actualizarContacto(
             @PathVariable @Parameter(description = "ID de la compra") Long id,
             @RequestBody EditarContactoRequest request) {
@@ -96,7 +94,7 @@ public class CompraInternoController {
 
     @PutMapping("/{id}/fecha")
     @Operation(summary = "Cambiar el día de visita de una reserva (ADMIN)",
-            description = "Sólo reservas que todavía no ingresaron (no regalos). El día nuevo tiene que estar abierto, no ser pasado y tener cupo. Opcionalmente le reenvía el comprobante al titular.")
+            description = "Reservas sin ingresar (no regalos). El día tiene que estar abierto y con cupo. Opcionalmente reenvía el comprobante.")
     public ResponseEntity<CompraResponseDTO> cambiarFecha(@PathVariable @Parameter(description = "ID de la compra") Long id,
                                                           @RequestBody CambiarFechaRequest request) {
         Compra compra = compraService.cambiarFechaVisita(id, request.getFecha(), request.isAvisarPorMail());
@@ -112,7 +110,7 @@ public class CompraInternoController {
 
     @PutMapping("/{id}/cancelar-venta")
     @Operation(summary = "Cancelar una venta de puerta mal cargada (ADMIN)",
-            description = "Acepta un motivo opcional (queda en la compra y en la auditoría). La marca CANCELADO en vez de borrarla (queda el registro para auditoría) y deja de contar para cupo diario, totales de caja y reportes. Sólo para ventas que pasaron por una caja.")
+            description = "Motivo opcional. Queda CANCELADO y deja de contar en cupo, caja y reportes. Sólo ventas de caja.")
     public ResponseEntity<CompraResponseDTO> cancelarVenta(@PathVariable @Parameter(description = "ID de la compra") Long id,
                                                            @RequestBody(required = false) CancelarVentaRequest request) {
         Compra compra = compraService.cancelarVenta(id, request != null ? request.getMotivo() : null);
@@ -121,7 +119,7 @@ public class CompraInternoController {
 
     @PutMapping("/{id}/editar-venta")
     @Operation(summary = "Corregir las entradas, artículos y/o la forma de pago de una venta de puerta (ADMIN)",
-            description = "Ej. el cajero cargó de más o cobró con el método equivocado. Reemplaza entradas y artículos por completo (mandá la lista final, no un diff); el descuento ya aplicado queda igual. Revalida cupo diario y recalcula el monto.")
+            description = "Reemplaza entradas y artículos (la lista final, no un diff). El descuento queda igual; revalida cupo y recalcula el monto.")
     public ResponseEntity<CompraResponseDTO> editarVenta(
             @PathVariable @Parameter(description = "ID de la compra") Long id,
             @RequestBody EditarVentaRequestDTO request) {
@@ -131,7 +129,7 @@ public class CompraInternoController {
 
     @PostMapping("/{id}/cancelar-reserva")
     @Operation(summary = "Cancelar una reserva generada desde Acciones (ADMIN)",
-            description = "Sólo para reservas RESERVA_ADMIN que todavía no ingresaron. No se cobró nada por la app, así que no hay reembolso: la marca CANCELADO.")
+            description = "RESERVA_ADMIN sin ingresar. Sin reembolso.")
     public ResponseEntity<CompraResponseDTO> cancelarReserva(@PathVariable @Parameter(description = "ID de la compra") Long id) {
         Compra compra = compraService.cancelarReservaAdmin(id);
         return ResponseEntity.ok(CompraController.entityToDto(compra));
@@ -139,7 +137,7 @@ public class CompraInternoController {
 
     @PostMapping("/{id}/reembolsar")
     @Operation(summary = "Reembolsar una compra pagada online",
-            description = "Sólo válido para compras APROBADO (pagadas por Mercado Pago) que todavía no ingresaron; dispara el reembolso real vía la API de Mercado Pago")
+            description = "Sólo APROBADO sin ingresar. Reembolsa por Mercado Pago.")
     public ResponseEntity<CompraResponseDTO> reembolsar(@PathVariable @Parameter(description = "ID de la compra") Long id) {
         Compra compra = compraService.reembolsarCompra(id);
         return ResponseEntity.ok(CompraController.entityToDto(compra));

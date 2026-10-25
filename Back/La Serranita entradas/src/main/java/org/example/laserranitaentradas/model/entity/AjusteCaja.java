@@ -16,15 +16,11 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Corrección manual de la repartición por forma de pago de una caja YA CERRADA. El admin,
- * revisando el cierre, ajusta a mano cuánto cuenta cada forma de pago sin tocar las compras:
- * queda como un registro aparte de "esto se ajustó a mano", con quién y cuándo (auditoría de
- * BaseEntity), y el cierre recalcula sus esperados/diferencias aplicando estos ajustes.
- *
- * Tres casos, según qué formas vengan seteadas:
- * - reubicar: origen + destino → la cajera cobró de una forma y tocó otra en el POS.
- * - quitar:   sólo origen      → se registró de más en esa forma (venta fantasma / duplicada).
- * - agregar:  sólo destino     → se cobró y no se registró (falta esa venta en esa forma).
+ * Corrección manual de una caja cerrada entre formas de pago, sin tocar las compras. El cierre recalcula con
+ * estos ajustes.
+ * - reubicar: origen + destino (se cobró de una forma y se anotó otra).
+ * - quitar: sólo origen (venta de más).
+ * - agregar: sólo destino (venta que faltó).
  */
 @Entity
 @Table(name = "ajustes_caja")
@@ -73,7 +69,7 @@ public class AjusteCaja extends BaseEntity {
     @Column(nullable = false)
     private LocalDateTime fecha;
 
-    /** Ids de las compras que el admin marcó como mal clasificadas — trazabilidad, no se usan en el cálculo. */
+    /** Compras marcadas como mal clasificadas. Sólo trazabilidad. */
     @ElementCollection
     @CollectionTable(name = "ajuste_caja_compras", joinColumns = @JoinColumn(name = "id_ajuste"))
     @Column(name = "id_compra")
@@ -81,10 +77,8 @@ public class AjusteCaja extends BaseEntity {
     private List<Long> comprasMovidas = new ArrayList<>();
 
     /**
-     * Composición de UNA venta de este ajuste: id de tipo de entrada → cantidad de pases.
-     * Con esto el cierre recalcula el uso del talonario y los conteos de entradas (esperadas,
-     * pagas, por tipo) además de la plata por forma de pago. Vacío si el ajuste es un monto
-     * suelto o una firma que el front no pudo descomponer (ej. incluye un artículo vario).
+     * Tipo de entrada → cantidad de UNA venta del ajuste, para recalcular el talonario y los conteos. Vacío
+     * si es un monto suelto.
      */
     @ElementCollection
     @CollectionTable(name = "ajuste_caja_lineas", joinColumns = @JoinColumn(name = "id_ajuste"))

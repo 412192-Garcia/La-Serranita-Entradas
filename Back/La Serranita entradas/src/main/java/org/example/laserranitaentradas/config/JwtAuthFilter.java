@@ -49,8 +49,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         try {
             rol = RolUsuario.valueOf(rolClaim);
         } catch (IllegalArgumentException | NullPointerException e) {
-            // Token con un rol que ya no existe: se deja pasar sin autenticar y
-            // las reglas de autorización lo rechazan como si no hubiera token.
+            // Rol que ya no existe: pasa sin autenticar.
             return;
         }
 

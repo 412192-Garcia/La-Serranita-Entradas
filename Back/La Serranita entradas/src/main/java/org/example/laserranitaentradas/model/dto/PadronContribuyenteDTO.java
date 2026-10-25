@@ -1,15 +1,13 @@
 package org.example.laserranitaentradas.model.dto;
 
 /**
- * Lo que dice el padrón de ARCA de un CUIT, para completar la Factura A sin tipear.
+ * Datos del padrón de un CUIT para la Factura A.
  *
- * @param estado        ENCONTRADO, NO_EXISTE (el CUIT no está en el padrón), CON_ERROR (ARCA no
- *                      da la constancia: CUIT cancelada, bloqueada, con requerimientos pendientes...)
- *                      o NO_DISPONIBLE (no se pudo consultar: ARCA caída, servicio no autorizado)
- * @param condicionIva  código ARCA de la condición frente al IVA (1, 4, 6, 13, 16); null si no está
- *                      inscripto en IVA ni en monotributo
- * @param admiteFacturaA si con esa condición se le puede hacer Factura A
- * @param mensaje       para mostrar tal cual (el motivo del error, o un aviso); null si no hay nada que decir
+ * @param estado ENCONTRADO, NO_EXISTE, CON_ERROR (ARCA no da la constancia) o NO_DISPONIBLE (no se pudo
+ * consultar)
+ * @param condicionIva código ARCA (1, 4, 6, 13, 16); null si no está en IVA ni monotributo
+ * @param admiteFacturaA si se le puede hacer Factura A
+ * @param mensaje para mostrar tal cual; null si no hay nada
  */
 public record PadronContribuyenteDTO(String cuit, Estado estado, String razonSocial, String domicilio,
                                      Integer condicionIva, String condicionIvaTexto, boolean admiteFacturaA,

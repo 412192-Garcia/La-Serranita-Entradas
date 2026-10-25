@@ -61,12 +61,7 @@ public class CompraController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-    /**
-     * RESERVA_ADMIN y SIN_COBRO no salen del storefront: la primera sólo la crea un ADMIN desde
-     * /api/interno/compras/generar-reserva, y SIN_COBRO sólo la genera el POS de boletería. Este
-     * endpoint es público, así que si las dejáramos pasar cualquier visitante podría pedir
-     * entradas sin que el sistema le cobre nada.
-     */
+    /** RESERVA_ADMIN y SIN_COBRO no se aceptan en el endpoint público: serían entradas sin cobro. */
     private static void rechazarFormaPagoSoloInterna(CompraRequestDTO compraRequest) {
         if (compraRequest.getFormaPago() == FormaPago.RESERVA_ADMIN
                 || compraRequest.getFormaPago() == FormaPago.SIN_COBRO) {
@@ -75,7 +70,7 @@ public class CompraController {
     }
 
     @PostMapping("/cotizar")
-    @Operation(summary = "Cotizar precio", description = "Calcula el subtotal aplicando descuentos por grupo/forma de pago, sin persistir nada")
+    @Operation(summary = "Cotizar precio", description = "Subtotal con descuentos, sin guardar nada")
     public ResponseEntity<CotizacionResponseDTO> cotizar(@RequestBody @Parameter(description = "Entradas y forma de pago a cotizar") CotizacionRequestDTO cotizacionRequest) {
         return ResponseEntity.ok(compraService.cotizar(cotizacionRequest));
     }
@@ -89,8 +84,7 @@ public class CompraController {
 
     @PostMapping("/{id}/verificar-pago")
     @Operation(summary = "Verificar el pago directamente contra Mercado Pago",
-            description = "Si la compra sigue PENDIENTE_PAGO, consulta la API de Mercado Pago por external_reference en vez de esperar al webhook. " +
-                    "Pensado para que el navegador del cliente lo dispare al volver del pago, sin depender de que el webhook haya llegado.")
+            description = "Si sigue PENDIENTE_PAGO, consulta a Mercado Pago sin esperar al webhook. Lo llama el navegador al volver del pago.")
     public ResponseEntity<Map<String, String>> verificarPago(@PathVariable Long id) {
         String estado = compraService.verificarPagoDirecto(id);
         return ResponseEntity.ok(Map.of("estado", estado));
@@ -98,7 +92,7 @@ public class CompraController {
 
     @GetMapping("/{id}")
     @Operation(summary = "Resumen público de una compra",
-            description = "Código de reserva, estado, total y DNI enmascarado, para las pantallas de resultado del pago. Sin datos de contacto.")
+            description = "Código, estado, total y DNI enmascarado. Sin datos de contacto.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Compra encontrada"),
             @ApiResponse(responseCode = "404", description = "Compra no encontrada")
@@ -111,7 +105,7 @@ public class CompraController {
 
     @GetMapping("/codigo/{codigoReserva}")
     @Operation(summary = "Resumen público de una compra por código de reserva",
-            description = "Mismo resumen que por ID. Es lo que llega en external_reference cuando Mercado Pago vuelve al sitio.")
+            description = "Mismo resumen que por ID (el código llega en external_reference).")
     public ResponseEntity<CompraResponseDTO> obtenerCompraPorCodigo(@PathVariable String codigoReserva) {
         return compraService.findByCodigoReserva(codigoReserva)
                 .map(c -> ResponseEntity.ok(resumenPublico(c)))
@@ -119,8 +113,7 @@ public class CompraController {
     }
 
     /**
-     * El endpoint es anónimo y los IDs son correlativos: con la compra completa, recorrer
-     * 1, 2, 3… alcanzaba para bajarse nombre, DNI, mail y teléfono de todos los clientes.
+     * Endpoint anónimo con IDs correlativos: sin recortar se podían bajar los datos de todos los clientes.
      */
     private static CompraResponseDTO resumenPublico(Compra c) {
         CompraResponseDTO dto = new CompraResponseDTO();
@@ -136,8 +129,7 @@ public class CompraController {
             cliente.setDni(enmascararDocumento(c.getCliente().getDni()));
             dto.setCliente(cliente);
         }
-        // En un regalo entra quien lo recibe: la pantalla de éxito tiene que mostrar SU DNI, no
-        // el de quien compró (que puede ni haberlo cargado). Enmascarado, igual que el del cliente.
+        // En un regalo se muestra el DNI de quien lo recibe, enmascarado.
         dto.setReceptorDni(enmascararDocumento(c.getReceptorDni()));
         return dto;
     }
@@ -152,7 +144,7 @@ public class CompraController {
         return "*".repeat(documento.length() - 3) + documento.substring(documento.length() - 3);
     }
 
-    /** Claves de orden que expone el frontend, mapeadas a la propiedad JPA real (evita inyectar cualquier campo). */
+    /** Claves de orden del front mapeadas a propiedades JPA reales. */
     private static final Map<String, String> CAMPOS_ORDENABLES = Map.of(
             "fechaVisita", "fechaVisita",
             "codigoReserva", "codigoReserva",
@@ -163,18 +155,14 @@ public class CompraController {
 
     @GetMapping("/buscar")
     @Operation(summary = "Búsqueda paginada de boletería",
-            description = "Texto libre (DNI/nombre/apellido/código de reserva/email), fecha, boletería vs. anticipada, estado(s) y forma de pago. " +
-                    "Filtra, ordena y pagina en la base, así que soporta días con miles de compras sin traer todo a memoria.")
+            description = "Texto libre (DNI, nombre, código, email), fecha, tipo, estado y forma de pago. Pagina en la base.")
     public ResponseEntity<Page<CompraResponseDTO>> buscar(
             @RequestParam(required = false) String texto,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fecha,
-            // Rango usado por la vista agrupada por día de Boletería ("ver todas las fechas"):
-            // trae todas las compras de los días de una página (ver /fechas-visita más abajo),
-            // en vez de un único fecha= puntual.
+            // Rango para la vista agrupada por día ("ver todas las fechas").
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaDesde,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaHasta,
-            // Regalos (fechaVisita null): mutuamente excluyente con fecha/fechaDesde/fechaHasta,
-            // que nunca matchean NULL — ver comentario en CompraSpecifications.sinFecha.
+            // Regalos (fechaVisita null). Excluyente con fecha/fechaDesde/fechaHasta.
             @RequestParam(required = false) Boolean sinFecha,
             @RequestParam(required = false) TipoListadoCompra tipo,
             @RequestParam(required = false) List<EstadoCompra> estados,
@@ -186,7 +174,7 @@ public class CompraController {
         int tamanioPagina = Math.min(Math.max(size, 1), 200);
         String campoOrden = CAMPOS_ORDENABLES.getOrDefault(ordenarPor, "fechaVisita");
         Sort.Direction sentido = "DESC".equalsIgnoreCase(direccion) ? Sort.Direction.DESC : Sort.Direction.ASC;
-        // codigoReserva como desempate: mismo orden estable entre páginas aunque el campo elegido tenga empates.
+        // codigoReserva desempata, para un orden estable entre páginas.
         Sort orden = Sort.by(sentido, campoOrden);
         if (!"codigoReserva".equals(campoOrden)) {
             orden = orden.and(Sort.by(Sort.Direction.ASC, "codigoReserva"));
@@ -199,11 +187,7 @@ public class CompraController {
 
     @GetMapping("/fechas-visita")
     @Operation(summary = "Días distintos con compras, paginados por día",
-            description = "Mismos filtros que /buscar (menos orden), pero pagina por cantidad de días con al menos " +
-                    "una compra en vez de por cantidad de compras. La vista agrupada por día de Boletería la usa " +
-                    "para saber qué días le tocan a cada página sin partir un día a la mitad entre dos páginas: " +
-                    "primero pide acá la página de días, y con el primer/último día de esa página vuelve a llamar " +
-                    "a /buscar con fechaDesde/fechaHasta para traer todas las compras de esos días completos.")
+            description = "Mismos filtros que /buscar, pero pagina por días con compras. Después se piden esos días a /buscar con fechaDesde/fechaHasta.")
     public ResponseEntity<Page<LocalDate>> fechasVisita(
             @RequestParam(required = false) String texto,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaDesde,
@@ -235,14 +219,14 @@ public class CompraController {
     @Operation(summary = "Validar/Marcar entradas como usadas", description = "Marca la compra como usada y registra al boletero autenticado como validador")
     public ResponseEntity<CompraResponseDTO> validarCompra(@PathVariable @Parameter(description = "ID de la compra") Long id,
                                                            @AuthenticationPrincipal UsuarioAutenticado operador) {
-        // El validador sale del token, no del cuerpo del request: si lo mandara el
-        // cliente, cualquier boletero podría atribuirle el ingreso a un compañero.
+        // El validador sale del token: si viniera en el request, un boletero podría atribuirle el ingreso a
+        // otro.
         Compra actualizada = compraService.marcarEntradasComoUsadas(id, operador.id());
         return ResponseEntity.ok(entityToDto(actualizada));
     }
 
     @PutMapping("/{id}/deshacer-validacion")
-    @Operation(summary = "Deshacer una validación reciente", description = "Vuelve la compra al estado anterior (APROBADO o RESERVADO_EFECTIVO). Sólo funciona dentro de una ventana corta desde que se validó.")
+    @Operation(summary = "Deshacer una validación reciente", description = "Vuelve al estado anterior. Sólo poco después de validar.")
     public ResponseEntity<CompraResponseDTO> deshacerValidacion(@PathVariable @Parameter(description = "ID de la compra") Long id) {
         Compra actualizada = compraService.deshacerValidacion(id);
         return ResponseEntity.ok(entityToDto(actualizada));

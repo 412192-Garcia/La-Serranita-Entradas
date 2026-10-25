@@ -55,9 +55,7 @@ public class UsuarioServiceImpl implements UsuarioService {
         Usuario existente = usuarioRepository.findById(usuario.getId())
                 .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado para id: " + usuario.getId()));
 
-        // La contraseña es write-only: si el formulario de edición no manda una nueva,
-        // llega en null/vacío acá, y guardarla tal cual pisaría el hash existente,
-        // dejando al usuario sin poder iniciar sesión nunca más.
+        // Contraseña vacía = no cambiarla; guardarla pisaría el hash.
         org.example.laserranitaentradas.monitoreo.AuditoriaContexto.referencia("\"" + existente.getUsername() + "\"");
         org.example.laserranitaentradas.monitoreo.AuditoriaContexto.cambio("Usuario", existente.getUsername(), usuario.getUsername());
         org.example.laserranitaentradas.monitoreo.AuditoriaContexto.cambio("Rol", existente.getRol(), usuario.getRol());

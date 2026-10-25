@@ -2,8 +2,7 @@ package org.example.laserranitaentradas.model.dto;
 
 import lombok.Data;
 
-/** Datos de contacto editables desde boletería: nombre/apellido/DNI del titular y su contacto,
- * o el DNI de quien recibe un regalo. */
+/** Contacto editable desde boletería: titular, o DNI del receptor de un regalo. */
 @Data
 public class EditarContactoRequest {
     String nombre;

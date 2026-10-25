@@ -11,11 +11,8 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Calcula cuánto descuenta un cupón sobre las entradas de una compra. Un solo lugar para la
- * compra online y para la cotización, así el total que ve el cliente es el que se le cobra.
- *
- * Trabaja sobre líneas (tipo, cantidad, total ya con precio de grupo si correspondía): el
- * precio unitario de una línea es total / cantidad.
+ * Descuento de un cupón sobre las entradas, el mismo para la compra y la cotización. Precio unitario de una
+ * línea = total / cantidad.
  */
 final class CuponDescuentoCalculator {
 
@@ -27,7 +24,7 @@ final class CuponDescuentoCalculator {
         }
     }
 
-    /** descuento siempre >= 0; motivoNoAplica != null significa que el cupón no se puede usar con esas entradas. */
+    /** descuento >= 0; motivoNoAplica != null = el cupón no sirve con esas entradas. */
     record Resultado(BigDecimal descuento, String motivoNoAplica) {
         static Resultado noAplica(String motivo) {
             return new Resultado(BigDecimal.ZERO, motivo);
@@ -74,8 +71,8 @@ final class CuponDescuentoCalculator {
             base = base.add(parte);
             if (porEntrada && monto != null) {
                 BigDecimal porUnidad = parte.divide(BigDecimal.valueOf(tomadas), 2, RoundingMode.HALF_UP);
-                // Restar: cada entrada pierde el monto (sin pasar de su precio). Precio fijo: cada
-                // entrada pasa a costar el monto, o queda como está si ya era más barata.
+                // Restar: cada entrada pierde el monto, sin bajar de 0. Precio fijo: pasa a costar el monto,
+                // salvo que ya fuera más barata.
                 BigDecimal porEntradaDescontada = restaPorEntrada
                         ? monto.min(porUnidad)
                         : porUnidad.subtract(monto).max(BigDecimal.ZERO);

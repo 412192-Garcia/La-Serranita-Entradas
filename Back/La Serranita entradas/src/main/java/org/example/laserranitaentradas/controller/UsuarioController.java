@@ -56,7 +56,7 @@ public class UsuarioController {
     }
 
     @PostMapping("/renovar-sesion")
-    @Operation(summary = "Renovar la sesión", description = "Devuelve un token nuevo (otra vuelta de la duración larga) a quien inició sesión con \"Mantener sesión iniciada\", así no vence mientras use la app. Vuelve a consultar el usuario: si se dio de baja, no renueva.")
+    @Operation(summary = "Renovar la sesión", description = "Token nuevo para quien inició con \"Mantener sesión iniciada\". Si el usuario se dio de baja, no renueva.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Sesión renovada, con los datos actuales del usuario"),
             @ApiResponse(responseCode = "400", description = "La sesión no se inició con \"Mantener sesión iniciada\""),
@@ -70,9 +70,8 @@ public class UsuarioController {
             return ResponseEntity.badRequest().body("Esta sesión no se inició con \"Mantener sesión iniciada\": no se renueva.");
         }
 
-        // Se relee de la base a propósito: es lo que cierra el hueco de un token de días que no se
-        // puede revocar — un usuario dado de baja no logra renovar, y uno al que le cambiaron el
-        // rol recibe el token con el rol actual.
+        // Se relee de la base: un usuario dado de baja no renueva y uno con rol nuevo recibe el token
+        // actualizado.
         Optional<Usuario> usuario = usuarioService.obtenerUsuarioPorId(operador.id())
                 .filter(u -> Boolean.TRUE.equals(u.getActivo()));
         if (usuario.isEmpty()) {
@@ -84,7 +83,7 @@ public class UsuarioController {
     }
 
     @PutMapping("/me/password")
-    @Operation(summary = "Cambiar mi propia contraseña", description = "Cualquier usuario logueado puede cambiar su propia contraseña, verificando la actual antes de pisarla")
+    @Operation(summary = "Cambiar mi propia contraseña", description = "La propia, verificando la actual")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "204", description = "Contraseña cambiada"),
             @ApiResponse(responseCode = "400", description = "Contraseña actual incorrecta o la nueva no cumple el mínimo")
@@ -96,7 +95,7 @@ public class UsuarioController {
     }
 
     @PutMapping("/me/tema")
-    @Operation(summary = "Cambiar mi color de tema", description = "Cualquier usuario logueado puede personalizar el color principal de la interfaz. Mandar colorTema en null vuelve al tema por defecto.")
+    @Operation(summary = "Cambiar mi color de tema", description = "colorTema null = tema por defecto.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Color actualizado"),
             @ApiResponse(responseCode = "400", description = "El color no es un hex válido")
@@ -108,7 +107,7 @@ public class UsuarioController {
     }
 
     @PutMapping("/me/foto")
-    @Operation(summary = "Cambiar mi foto de perfil", description = "Cualquier usuario logueado puede subir o sacar su propia foto de perfil. Mandar fotoPerfil en null la saca.")
+    @Operation(summary = "Cambiar mi foto de perfil", description = "fotoPerfil null = sacarla.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Foto actualizada"),
             @ApiResponse(responseCode = "400", description = "La foto no es una imagen válida o es demasiado grande")
@@ -200,11 +199,7 @@ public class UsuarioController {
         return ResponseEntity.notFound().build();
     }
 
-    /**
-     * Los SUPERADMIN (soporte de la app) no aparecen para el admin del parque: no los ve en la lista,
-     * no los puede editar ni borrar (para él no existen: 404) y no puede crear ni ascender a nadie a
-     * ese rol (403). Así el acceso a Sistema no se puede conseguir desde Usuarios.
-     */
+    /** El admin del parque no ve ni toca a los SUPERADMIN (404) ni puede asignar ese rol (403). */
     private static boolean visiblePara(Usuario u, UsuarioAutenticado operador) {
         return u.getRol() != RolUsuario.SUPERADMIN || esSuperadmin(operador);
     }

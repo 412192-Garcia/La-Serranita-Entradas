@@ -15,11 +15,8 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 /**
- * Que un usuario ya vio un aviso puntual (tipo + referencia) del sistema de notificaciones
- * genérico. Sólo importa para los tipos con desapareceAlVerse=true (ver TipoNotificacion): para
- * esos, "verlo" apaga el aviso PARA ESE usuario — otros que no lo vieron lo siguen viendo. No
- * extiende BaseEntity: no hace falta auditar quién la creó (usuarioId ya lo dice) y nunca se
- * modifica después de creada.
+ * Un usuario ya vio un aviso. Sólo importa con desapareceAlVerse=true. No extiende BaseEntity: no se
+ * modifica.
  */
 @Entity
 @Table(name = "notificaciones_vistas")

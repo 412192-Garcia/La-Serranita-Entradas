@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
 public class CompraCanceladaDTO {
     private String codigoReserva;
     private LocalDateTime fechaCreacion;
-    /** Null en las canceladas antes de que se guardara el motivo (ver scripts/backfill-motivos-cancelacion.sql). */
+    /** Null en cancelaciones viejas (ver scripts/backfill-motivos-cancelacion.sql). */
     private LocalDateTime fechaCancelacion;
     private FormaPago formaPago;
     private BigDecimal montoTotal;

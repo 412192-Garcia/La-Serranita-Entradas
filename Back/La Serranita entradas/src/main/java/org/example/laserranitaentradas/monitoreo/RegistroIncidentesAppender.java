@@ -10,11 +10,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.Map;
 
-/**
- * Engancha el logging de la app al registro de errores: cada log.error (y cada warn de los loggers
- * "alertas.*", que son avisos explícitos aunque no sean una excepción) va a la cola de
- * IncidenteService. Nunca toca la base desde acá: sólo encola.
- */
+/** Cada log.error (y los warn de "alertas.*") va a la cola de IncidenteService. Sólo encola. */
 class RegistroIncidentesAppender extends AppenderBase<ILoggingEvent> {
 
     /** Loggers de la propia base / pool: si la base falla, registrarlo en la base no tiene sentido. */
@@ -61,10 +57,7 @@ class RegistroIncidentesAppender extends AppenderBase<ILoggingEvent> {
         return actual;
     }
 
-    /**
-     * "Error no controlado atendiendo la request" no dice nada en la lista: se le suma la causa, así
-     * con muchos errores juntos se ve de un vistazo cuáles son por lo mismo (ej. la base caída).
-     */
+    /** Suma la causa al mensaje genérico, para agrupar a simple vista. */
     static String conCausa(String mensaje, IThrowableProxy causa) {
         if (causa == null) return mensaje;
         String clase = causa.getClassName().substring(causa.getClassName().lastIndexOf('.') + 1);

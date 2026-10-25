@@ -21,78 +21,54 @@ public interface CajaService {
     /** La caja abierta del usuario, o null si no tiene ninguna en curso. */
     CajaResponseDTO getActual(Long usuarioId);
 
-    /** Devuelve la caja abierta de ese usuario o lanza si no tiene ninguna: la usan las ventas para bloquearse sin caja. */
+    /** Caja abierta del usuario; lanza si no tiene. */
     Caja getAbiertaOrThrow(Long usuarioId);
 
-    /** Igual que getAbiertaOrThrow pero sin lanzar: para el cobro en efectivo de un admin desde
-     * Control de Accesos, que puede no tener caja (ver confirmarPagoEfectivo). */
+    /** Como getAbiertaOrThrow pero sin lanzar: un admin puede cobrar en Control de Accesos sin caja. */
     java.util.Optional<Caja> getAbierta(Long usuarioId);
 
     CajaResponseDTO abrir(Long usuarioId, BigDecimal montoInicial, Integer entradasFisicasInicial);
 
-    /**
-     * Abre una caja sin pedir el conteo inicial (denominaciones, entradas físicas): nace con
-     * montoInicial=0 y entradasFisicasInicial=0, marcada controlOmitido. Sólo para cuando el
-     * propio ADMIN va a vender sin pasar por la apertura formal (ADMIN-only, gateado en
-     * SecurityConfig). Se cierra sola a fin de día sin pedir tampoco el conteo de cierre — ver
-     * cerrarCajasSinControlAtrasadas.
-     */
+    /** Abre una caja sin conteo inicial (controlOmitido). Se cierra sola a fin de día. */
     CajaResponseDTO abrirSinControl(Long usuarioId);
 
     /**
-     * Cierra automáticamente, sin conteo manual, las cajas "sin control" (abrirSinControl) que
-     * hayan quedado abiertas: no hay nada que contar en ellas, así que fija
-     * montoContado = montoEsperado (diferencia siempre 0) y quedan en "Cajas cerradas" como
-     * cualquier otra. Lo llama el job programado a medianoche.
+     * Cierra las cajas sin control que quedaron abiertas, con diferencia 0. Lo llama el job de medianoche.
      */
     void cerrarCajasSinControlAtrasadas();
 
-    /**
-     * Igual que cerrarCajasSinControlAtrasadas pero para UNA caja puntual, a pedido de un
-     * ADMIN (ej. "Cerrar caja" en el listado, en vez de esperar al job de medianoche). Lanza
-     * si la caja no existe, ya está cerrada, o no es una caja "sin control" (esas sí necesitan
-     * el flujo normal con su conteo).
-     */
+    /** Cierra ya una caja sin control. Lanza si no existe, ya está cerrada o no es sin control. */
     CajaResponseDTO cerrarSinControlPorId(Long cajaId);
 
     /**
-     * idempotencyKey/fechaOriginal vienen sólo del POS con cola offline: la clave evita duplicar
-     * si se reintenta un movimiento cuya respuesta se perdió en un corte, y la fecha registra
-     * cuándo pasó de verdad en vez de cuándo se sincronizó. Ambos null desde el uso normal.
+     * idempotencyKey y fechaOriginal vienen del POS offline: evitan duplicar reintentos y guardan cuándo pasó
+     * de verdad. Null en el uso normal.
      */
     CajaResponseDTO registrarRetiro(Long usuarioId, BigDecimal monto, String motivo, TipoMovimientoCaja tipo,
                                      String idempotencyKey, LocalDateTime fechaOriginal);
 
-    /** Igual que registrarRetiro, pero para que un ADMIN lo cargue en la caja de OTRO usuario (ADMIN-only, gateado en SecurityConfig). Sin cola offline: el admin siempre opera con conexión. */
+    /** Como registrarRetiro, en la caja de otro usuario. Sin cola offline. */
     CajaResponseDTO registrarRetiroComoAdmin(Long cajaId, BigDecimal monto, String motivo, TipoMovimientoCaja tipo);
 
-    /**
-     * Suma o resta entradas físicas al talonario de la caja abierta: INGRESO cuando el boletero
-     * se quedó sin y le traen más, RETIRO para sacarle entradas y dárselas a otro boletero (motivo
-     * opcional). Ver registrarRetiro por idempotencyKey/fechaOriginal.
-     */
+    /** Suma (INGRESO) o resta (RETIRO) entradas físicas al talonario de la caja abierta. */
     CajaResponseDTO registrarIngresoEntradas(Long usuarioId, Integer cantidad, String motivo, TipoMovimientoEntradas tipo,
                                               String idempotencyKey, LocalDateTime fechaOriginal);
 
-    /** Igual que registrarIngresoEntradas, pero para que un ADMIN lo cargue en la caja de OTRO usuario por id (ADMIN-only, gateado en SecurityConfig). Sin cola offline. */
+    /** Como registrarIngresoEntradas, en la caja de otro usuario. Sin cola offline. */
     CajaResponseDTO registrarIngresoEntradasComoAdmin(Long cajaId, Integer cantidad, String motivo, TipoMovimientoEntradas tipo);
 
     CajaResponseDTO cerrar(Long usuarioId, List<ConteoDenominacionDTO> conteoEfectivo,
                             List<CierrePosnetRequestDTO> cierresPosnet, Integer entradasFisicasRestantes,
                             BigDecimal cambioContado, BigDecimal dolaresContado);
 
-    /** Igual que cerrar, pero para que un ADMIN cierre la caja de OTRO usuario por id (ADMIN-only, gateado en SecurityConfig). */
+    /** Como cerrar, para la caja de otro usuario. */
     CajaResponseDTO cerrarComoAdmin(Long cajaId, List<ConteoDenominacionDTO> conteoEfectivo,
                                      List<CierrePosnetRequestDTO> cierresPosnet, Integer entradasFisicasRestantes,
                                      BigDecimal cambioContado, BigDecimal dolaresContado);
 
     /**
-     * Corrige una caja YA CERRADA en una sola pasada atómica: reescribe el recuento
-     * (efectivo/posnet/entradas/dólares) y, si vienen, registra traspasos de monto entre
-     * efectivo/tarjeta/QR (cada uno como un AjusteCaja aparte, sin tocar las compras). Recalcula
-     * y persiste montoEsperado/diferencia con los ajustes ya aplicados. ADMIN-only (gateado en
-     * SecurityConfig): no valida dueño acá, cualquier caja cerrada se puede corregir. `ajustes`
-     * puede venir null o vacío (corrección de recuento pura).
+     * Corrige una caja cerrada en una sola transacción: reescribe el recuento y registra los traspasos entre
+     * formas de pago como AjusteCaja, sin tocar las compras. `ajustes` puede venir vacío.
      */
     CajaResponseDTO corregirCaja(Long cajaId, List<ConteoDenominacionDTO> conteoEfectivo,
                                   List<CierrePosnetRequestDTO> cierresPosnet, Integer entradasFisicasRestantes,
@@ -100,78 +76,45 @@ public interface CajaService {
                                   List<AjusteCajaRequestDTO> ajustes);
 
     /**
-     * Reabre momentáneamente una caja ya cerrada (fechaCierre → null) para poder aplicarle una
-     * operación que se había rechazado porque esa caja ya no estaba abierta — retiro/aporte,
-     * ingreso de entradas, o una venta. No aplica ningún movimiento por sí sola: eso lo hace
-     * quien llama, usando los métodos normales de siempre (registrarRetiro,
-     * registrarIngresoEntradas, CompraService.registrarVentaPos) contra ESTA caja ya reabierta
-     * — así cada operación se revalida en vivo con las reglas reales (cupo, promo vigente, etc.)
-     * en vez de forzarse a ciegas. Lanza si la caja no existe o si sigue abierta (nada que
-     * reabrir). ADMIN-only (gateado en SecurityConfig, vía RechazoOperacionController), que es
-     * quien orquesta reabrir → reaplicar (una o varias operaciones de la misma caja) →
-     * recerrarConElUltimoConteo.
+     * Reabre una caja cerrada para reaplicarle una operación rechazada. No aplica nada por sí sola: quien
+     * llama usa los métodos normales para que se revalide todo, y después recerrarConElUltimoConteo.
      */
     Caja reabrir(Long cajaId);
 
-    /**
-     * Vuelve a cerrar una caja que se reabrió con reabrir(), reutilizando el mismo conteo
-     * (denominaciones, posnet, entradas cortadas, cambio, dólares) que ya tenía guardado de
-     * antes — no hace falta pedirle a nadie que cuente billetes de nuevo por operaciones que ni
-     * siquiera vio. Lanza si la caja no existe o si ya está cerrada.
-     */
+    /** Vuelve a cerrar una caja reabierta con el mismo conteo que tenía. */
     CajaResponseDTO recerrarConElUltimoConteo(Long cajaId);
 
-    /** Detalle completo de cualquier caja (para que el admin la revise sin importar quién la abrió). */
+    /** Detalle de cualquier caja. */
     CajaResponseDTO getDetalle(Long cajaId);
 
-    /** Todas las cajas abiertas ahora mismo, sin importar de qué boletero — para el dashboard del admin. */
+    /** Todas las cajas abiertas, de cualquier boletero. */
     List<CajaAbiertaDTO> getCajasAbiertas();
 
-    /** Ids de cajas sin cerrar cuya apertura fue un día anterior a hoy: quedaron pendientes de que
-     * un admin haga el control de cierre. Candidatas del aviso CAJA_ATRASADA (ver NotificacionController). */
+    /** Cajas abiertas desde un día anterior (aviso CAJA_ATRASADA). */
     List<Long> getIdsCajasAtrasadas();
 
     /**
-     * Ventas, retiros/aportes e ingresos de entradas de una caja, en orden cronológico, más un
-     * resumen de lo vendido hasta el momento (por forma de pago y por tipo de entrada) — a
-     * diferencia de getDetalle(), funciona con la caja todavía ABIERTA (no espera al cierre):
-     * lo usa el admin para revisar y corregir una venta mal cargada mientras el boletero sigue
-     * trabajando. ADMIN-only (gateado en SecurityConfig): a un boletero no se le puede mostrar
-     * esto de su propia caja en curso, se prestaría a ajustar el conteo para que cierre justo.
+     * Operaciones de una caja, también abierta, con el resumen de lo vendido. Sólo ADMIN: al boletero no se
+     * le muestra para que no ajuste el conteo.
      */
     CajaDetalleAbiertaDTO getOperacionesCaja(Long cajaId);
 
     /**
-     * Cajas cerradas, paginadas y opcionalmente filtradas por boletero — para el listado de "Cajas
-     * cerradas" en la pantalla de Cajas. No filtra por fechas: pagina sobre todas las cajas
-     * cerradas (a diferencia del reporte agregado, ReporteService.getResumen, que sí trabaja por
-     * rango y trae todas las del rango de una). Pagina en la base, así que soporta boleteros con
-     * meses de turnos sin traerlos todos a memoria. ordenarPor admite cualquier campo de
-     * CajaResumenReporteDTO excepto "totalRetiros" (se computa con un JOIN + SUM, no es una
-     * columna propia de Caja para ordenar en la base).
+     * Cajas cerradas paginadas en la base, filtrables por boletero. ordenarPor no admite "totalRetiros" (es
+     * un SUM, no una columna).
      */
     CajasCerradasResponseDTO getCajasCerradas(String usuarioNombre, String ordenarPor, String direccion,
                                                int page, int size);
 
-    /** Nombres de los boleteros con al menos una caja cerrada (habilitada), para los chips de filtro de "Cajas cerradas". */
+    /** Boleteros con alguna caja cerrada habilitada, para el filtro. */
     java.util.List<String> getBoleterosConCajasCerradas();
 
     /** Deshace un ajuste manual: borra la fila y recalcula el cierre. ADMIN-only. */
     CajaResponseDTO eliminarAjuste(Long cajaId, Long ajusteId);
 
-    /**
-     * Diferencia combinada de Tarjeta + QR por caja (lo cerrado en el/los posnet menos lo vendido
-     * con tarjeta y QR, con los ajustes manuales aplicados). Positivo = sobró, negativo = faltó, 0
-     * si la caja no tuvo nada de posnet. En lote (3 queries agrupadas) para el listado de cajas
-     * cerradas, el ranking y los KPIs, donde no llega el detalle completo del cierre.
-     */
+    /** Diferencia de tarjeta + QR por caja, con ajustes (positivo = sobró). En lote para listados y KPIs. */
     java.util.Map<Long, java.math.BigDecimal> diferenciaPosnetPorCaja(java.util.List<Long> cajaIds);
 
-    /**
-     * Deshabilita una caja YA CERRADA: desaparece de todos los listados/KPIs de Cajas, del ranking
-     * y del reporte agregado, y sus ventas dejan de sumar en el reporte (ver ReporteService). El
-     * detalle por id la sigue devolviendo, con habilitada=false. Irreversible desde la app.
-     * ADMIN-only (gateado en SecurityConfig).
-     */
+    /** Saca una caja cerrada de listados, KPIs y reporte (habilitada=false). Irreversible desde la app. */
     CajaResponseDTO deshabilitarCaja(Long cajaId);
 }

@@ -5,10 +5,7 @@ import lombok.Data;
 
 import java.math.BigDecimal;
 
-/**
- * Cupones aplicados en el rango, agrupados por lote (o por código si es individual) y valor del
- * descuento, para ver qué promociones se usan más. Sólo cuenta compras cobradas.
- */
+/** Cupones usados en el rango, por lote (o código) y descuento. Sólo compras cobradas. */
 @Data
 @AllArgsConstructor
 public class UsoCuponDTO {

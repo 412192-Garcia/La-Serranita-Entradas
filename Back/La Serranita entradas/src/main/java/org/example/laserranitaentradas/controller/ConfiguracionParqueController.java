@@ -32,14 +32,12 @@ public class ConfiguracionParqueController {
 
     @GetMapping("/horario")
     @Operation(summary = "Obtener horario del parque",
-            description = "Sin fecha, el horario por defecto del parque. Con fecha, el que rige ese día: su horario especial si tiene uno, "
-                    + "si no el general. Endpoint público, sin autenticación.")
+            description = "Sin fecha, el horario por defecto. Con fecha, el especial de ese día o el general. Público.")
     public ResponseEntity<HorarioResponseDTO> obtenerHorario(
             @RequestParam(required = false) @Parameter(description = "Fecha (YYYY-MM-DD), opcional") LocalDate fecha) {
         ConfiguracionParque config = configuracionParqueService.getHorarioGeneral();
         DiaApertura dia = fecha != null ? diaAperturaService.findByDate(fecha).orElse(null) : null;
-        // Campo por campo, igual que el límite de compra (DiaAperturaService.getLimiteDeCompra):
-        // lo que el día no define lo toma del horario general.
+        // Lo que el día no define sale del horario general.
         LocalTime apertura = dia != null && dia.getHoraApertura() != null ? dia.getHoraApertura() : config.getHoraApertura();
         LocalTime cierre = dia != null && dia.getHoraCierre() != null ? dia.getHoraCierre() : config.getHoraCierre();
         boolean especial = !apertura.equals(config.getHoraApertura()) || !cierre.equals(config.getHoraCierre());
@@ -47,7 +45,7 @@ public class ConfiguracionParqueController {
     }
 
     @PutMapping("/horario")
-    @Operation(summary = "Actualizar horario general", description = "Actualiza el horario por defecto del parque y, opcionalmente, cuántos minutos antes del cierre se corta la compra online del día (minutosLimiteCompra, 0 a 720; null lo deja como estaba)")
+    @Operation(summary = "Actualizar horario general", description = "Horario por defecto y, opcional, minutosLimiteCompra (0 a 720; null no lo cambia)")
     public ResponseEntity<ConfiguracionParque> actualizarHorarioGeneral(@RequestBody HorarioRequest request) {
         ConfiguracionParque actualizado = configuracionParqueService.actualizarHorarioGeneral(
                 request.getHoraApertura(), request.getHoraCierre(), request.getMinutosLimiteCompra());

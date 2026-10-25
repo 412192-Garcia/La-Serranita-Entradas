@@ -24,9 +24,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
 /**
- * La factura de una compra online se pide después de que commitea la aprobación del pago, en su
- * propia transacción: con transacciones reales (los tests de Mockito no pueden probar esto).
- * ARCA y el mail están simulados: la emisión no sale a internet.
+ * La factura online se pide después del commit de la aprobación, en su propia transacción: hace falta Spring
+ * de verdad. ARCA y el mail están simulados.
  */
 @SpringBootTest(properties = {
         "afip.environment=dev",

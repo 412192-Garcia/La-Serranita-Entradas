@@ -12,12 +12,8 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * Un cierre de posnet/QR cargado al cerrar la caja (TARJETA o MERCADO_PAGO_QR). Puede
- * haber más de uno del mismo tipo: si el posnet se reinicia a mitad de turno, el
- * boletero carga cada mitad como una entrada separada y se suman.
- *
- * formaPago null significa "cierre combinado" (Tarjeta+QR cargados juntos, sin
- * distinguir cuál es cuál) — ver validarCierresPosnet en CajaServiceImpl.
+ * Un cierre de posnet o QR. Puede haber varios del mismo tipo (posnet reiniciado). formaPago null = cierre
+ * combinado.
  */
 @Entity
 @Table(name = "cierres_posnet")

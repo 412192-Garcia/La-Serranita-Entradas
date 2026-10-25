@@ -8,16 +8,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ResponseStatusException;
 
-/**
- * Traduce las excepciones de los servicios a respuestas HTTP en un solo lugar.
- *
- * Antes cada endpoint repetía el mismo try/catch, con dos problemas: los
- * controladores nuevos se olvidaban de ponerlo y devolvían el error 500 genérico
- * de Spring, y el cuerpo de la respuesta variaba de endpoint en endpoint.
- *
- * El cuerpo se devuelve como texto plano porque es lo que el frontend ya espera
- * para mostrarle el motivo al usuario.
- */
+/** Traduce las excepciones a respuestas HTTP. El cuerpo va en texto plano: el front lo muestra tal cual. */
 @RestControllerAdvice
 public class ManejadorGlobalErrores {
 
@@ -29,8 +20,7 @@ public class ManejadorGlobalErrores {
         return ResponseEntity.badRequest().body(ex.getMessage());
     }
 
-    /** Pedido mal armado (JSON roto, un tipo que no corresponde): es error del que pide, no del
-     * servidor, así que va como 400 y no se registra en Sistema > Errores. */
+    /** Pedido mal armado: 400, y no se registra en Sistema > Errores. */
     @ExceptionHandler({org.springframework.http.converter.HttpMessageNotReadableException.class,
             org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class,
             org.springframework.web.bind.MissingServletRequestParameterException.class})
@@ -47,27 +37,21 @@ public class ManejadorGlobalErrores {
         return ResponseEntity.status(estado).body("No existe.");
     }
 
-    /** Un controller que ya decidió el código HTTP (ej. 401 del agente de impresión con un token
-     * inválido): se respeta ese código en vez de convertirlo en un 500. */
+    /** Respeta el código que ya eligió el controller. */
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<String> conCodigo(ResponseStatusException ex) {
         return ResponseEntity.status(ex.getStatusCode()).body(ex.getReason());
     }
 
-    /**
-     * Cualquier otra cosa: se registra completa (queda en Sistema > Errores) y al cliente se le da un
-     * mensaje neutro con un código corto, para que lo pueda reportar y se encuentre el error exacto.
-     */
+    /** Lo demás se registra completo y al cliente se le da un mensaje con un código corto para reportarlo. */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<String> errorInesperado(Exception ex) {
         if (esDesconexionDelCliente(ex)) {
-            // El navegador (o el agente de impresión) cortó antes de recibir la respuesta: cerró la
-            // pestaña, perdió señal, recargó. No es un error del servidor ni hay a quién responderle.
+            // El cliente cortó antes de la respuesta: no es error del servidor.
             log.debug("El cliente cortó la conexión antes de la respuesta: {}", ex.toString());
             return null;
         }
-        // "E" + el id de la request (ver MetricasRequestsFilter): con el código que reporta el usuario
-        // se encuentran en el log todas las líneas de esa request, no sólo la del error.
+        // "E" + id de la request: con ese código se encuentran todas sus líneas en el log.
         String requestId = org.slf4j.MDC.get("requestId");
         String codigo = "E" + (requestId != null ? requestId
                 : Integer.toHexString(java.util.concurrent.ThreadLocalRandom.current().nextInt(0x100000, 0x1000000)).toUpperCase());
@@ -82,12 +66,9 @@ public class ManejadorGlobalErrores {
     }
 
     /**
-     * El cliente cortó mientras se le escribía la respuesta. Se reconoce sólo por el tipo con el que
-     * Tomcat (ClientAbortException) y Spring (AsyncRequestNotUsableException) envuelven esa falla, y
-     * no por el texto: un "Connection reset" de la base, del SMTP o de Mercado Pago también es una
-     * IOException con ese mensaje, y es un error del servidor que tiene que quedar registrado y
-     * responderse como 500 (si se contestara vacío, el POS daría la venta por guardada y la sacaría
-     * de la cola).
+     * Se reconoce por el tipo (ClientAbortException, AsyncRequestNotUsableException) y no por el texto: un
+     * "Connection reset" de la base o de MP es un error real y tiene que dar 500, o el POS daría la venta por
+     * guardada.
      */
     public static boolean esDesconexionDelCliente(Throwable ex) {
         for (Throwable t = ex; t != null; t = t.getCause() == t ? null : t.getCause()) {

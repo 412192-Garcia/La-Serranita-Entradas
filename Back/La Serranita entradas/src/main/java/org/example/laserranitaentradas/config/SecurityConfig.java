@@ -24,8 +24,7 @@ public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
 
-    // Lista separada por comas: en dev es sólo el ng serve local; en producción se
-    // pisa con la env var CORS_ALLOWED_ORIGINS apuntando al dominio real del front.
+    // Separada por comas. En producción la pisa CORS_ALLOWED_ORIGINS.
     @Value("${cors.allowed-origins:http://localhost:4200}")
     private String corsAllowedOrigins;
 
@@ -40,9 +39,8 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.ignoringRequestMatchers("/h2-console/**", "/api/**"))
             .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            // Se usa setStatus (no sendError) para no disparar el forward interno a /error:
-            // ese forward vuelve a pasar por el filtro de CORS y, al perder los headers,
-            // el navegador lo reporta como fallo de CORS en vez de exponer el 401/403 real.
+            // setStatus y no sendError: el forward a /error pierde los headers de CORS y el navegador no ve
+            // el 401/403.
             .exceptionHandling(handling -> handling
                 .authenticationEntryPoint((request, response, authException) -> response.setStatus(HttpServletResponse.SC_UNAUTHORIZED))
                 .accessDeniedHandler((request, response, accessDeniedException) -> response.setStatus(HttpServletResponse.SC_FORBIDDEN)))
@@ -61,27 +59,22 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/cupones/codigo/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/compras", "/api/compras/iniciar-pago", "/api/compras/cotizar").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/compras/opciones-pago").permitAll()
-                // {id:\d+} y no {id}: un {id} suelto también matchea /api/compras/buscar (esta regla
-                // gana por ir primero) y dejaba la búsqueda de boletería abierta sin login.
+                // {id:\d+} y no {id}: si no matchea /api/compras/buscar y la deja abierta sin login.
                 .requestMatchers(HttpMethod.GET, "/api/compras/{id:\\d+}", "/api/compras/{id:\\d+}/estado", "/api/compras/codigo/*").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/compras/{id:\\d+}/verificar-pago").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/pagos/webhook").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/ping").permitAll()
-                // Para el monitor externo (UptimeRobot o similar) y el healthcheck de Docker: sólo
-                // dice si el backend y la base responden, sin ningún dato interno.
+                // Para el monitor externo y el healthcheck de Docker; no expone datos.
                 .requestMatchers(HttpMethod.GET, "/api/salud").permitAll()
-                // Actuator vive en su propio puerto (management.server.port), que sólo se alcanza
-                // desde la red interna de Docker (el agente de Grafana): ahí no hay JWT.
+                // Actuator va en su propio puerto, sólo accesible desde la red de Docker.
                 .requestMatchers(HttpMethod.GET, "/actuator/health", "/actuator/prometheus").permitAll()
-                // Errores de JavaScript del navegador (también de la tienda pública, sin login): el
-                // controller limita cuántos acepta por IP.
+                // Errores de JavaScript del navegador, también sin login; el controller limita por IP.
                 .requestMatchers(HttpMethod.POST, "/api/errores-cliente").permitAll()
                 // El agente de impresión no tiene JWT: se autentica con su propio token en el controller.
                 .requestMatchers("/api/impresion/agente/**").permitAll()
 
                 // ---------- Sólo ADMIN, dentro del módulo interno ----------
-                // Va antes que la regla general de /api/interno/** (más abajo): Spring Security
-                // usa la primera regla que matchea, así que el orden acá importa.
+                // Va antes que /api/interno/**: gana la primera regla que matchea.
                 .requestMatchers(HttpMethod.POST, "/api/interno/compras/generar-reserva").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.GET, "/api/interno/caja/*/detalle").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.GET, "/api/interno/caja/*/operaciones").hasRole("ADMIN")
@@ -90,8 +83,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/interno/caja/cerradas/boleteros").hasRole("ADMIN")
                 // Lo cobrado con el Point en una caja: es un total "esperado", como los del cierre.
                 .requestMatchers(HttpMethod.GET, "/api/interno/point/caja/*/resumen").hasRole("ADMIN")
-                // Configuración > Cobros: la lista recién traída de MP, el nombre de cada Point, si lo
-                // ven las tablets y el modo (integrado/manual). El POS ya no cambia el modo.
+                // Configuración > Cobros.
                 .requestMatchers(HttpMethod.GET, "/api/interno/point/terminales/actualizadas").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/api/interno/point/terminales/*/nombre", "/api/interno/point/terminales/*/habilitado",
                         "/api/interno/point/terminales/*/modo").hasRole("ADMIN")
@@ -111,9 +103,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/interno/compras/*/reembolsar").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/interno/compras/*/cancelar-reserva").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/api/interno/compras/*/fecha").hasRole("ADMIN")
-                // Cerrar caja (y corregir un cierre ya hecho) dejó de ser self-service: ahora
-                // lo dispara un ADMIN desde la pantalla de Cajas, nunca el boletero desde el
-                // POS — por eso estas van ADMIN-only en vez de caer en el catch-all de abajo.
+                // Cerrar y corregir caja: sólo ADMIN.
                 .requestMatchers(HttpMethod.POST, "/api/interno/caja/*/cerrar").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/interno/caja/*/cerrar-sin-control").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/interno/caja/*/retiros").hasRole("ADMIN")
@@ -130,8 +120,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/interno/sistema/**").hasRole("SUPERADMIN")
 
                 // ---------- Boletería (BOLETERO o ADMIN) ----------
-                // Antes que la regla general de /api/usuarios/** (ADMIN-only, más abajo): cualquier
-                // usuario logueado puede cambiar su propia contraseña o su tema, no sólo el admin.
+                // Antes que /api/usuarios/**: cualquier usuario cambia su contraseña o su tema.
                 .requestMatchers(HttpMethod.POST, "/api/usuarios/renovar-sesion").hasAnyRole("BOLETERO", "ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/api/usuarios/me/password").hasAnyRole("BOLETERO", "ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/api/usuarios/me/tema").hasAnyRole("BOLETERO", "ADMIN")
@@ -142,8 +131,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/interno/**").hasAnyRole("BOLETERO", "ADMIN")
                 .requestMatchers(HttpMethod.GET, "/api/promociones/**").hasAnyRole("BOLETERO", "ADMIN")
                 .requestMatchers(HttpMethod.GET, "/api/articulos-varios/**").hasAnyRole("BOLETERO", "ADMIN")
-                // El POS los cachea para poder calcular el precio de grupo sin conexión. Sólo
-                // lectura: crear/editar/borrar escalones sigue siendo ADMIN (regla de más abajo).
+                // El POS los cachea para el precio de grupo sin conexión. Editarlos sigue siendo ADMIN.
                 .requestMatchers(HttpMethod.GET, "/api/descuentos-efectivo/**").hasAnyRole("BOLETERO", "ADMIN")
 
                 // ---------- Configuración (solo ADMIN) ----------
@@ -170,10 +158,7 @@ public class SecurityConfig {
         return http.build();
     }
 
-    /**
-     * SUPERADMIN puede todo lo de ADMIN, y ADMIN todo lo de BOLETERO: las reglas de arriba nombran el
-     * rol mínimo y Spring aplica la jerarquía solo (authorizeHttpRequests toma este bean).
-     */
+    /** SUPERADMIN incluye ADMIN y ADMIN incluye BOLETERO: las reglas nombran el rol mínimo. */
     @Bean
     static RoleHierarchy roleHierarchy() {
         return RoleHierarchyImpl.fromHierarchy("""

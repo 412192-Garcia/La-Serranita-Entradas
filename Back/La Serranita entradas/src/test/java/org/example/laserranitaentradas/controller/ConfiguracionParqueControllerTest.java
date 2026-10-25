@@ -18,7 +18,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
-/** El horario que ve el comprador para el día elegido: el especial de ese día si tiene, si no el general. */
+/** Horario del día elegido: el especial si tiene, si no el general. */
 @ExtendWith(MockitoExtension.class)
 class ConfiguracionParqueControllerTest {
 

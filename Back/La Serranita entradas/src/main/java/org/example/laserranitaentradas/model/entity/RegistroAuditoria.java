@@ -7,14 +7,7 @@ import lombok.Setter;
 
 import java.time.LocalDateTime;
 
-/**
- * Historial de acciones: quién hizo qué y cuándo (Sistema > Historial de acciones). Se registra
- * solo, para toda operación que modifica algo hecha por un usuario logueado y para los inicios de
- * sesión (ver AuditoriaFilter); en lo crítico el servicio suma el antes y el después
- * (ver AuditoriaContexto).
- *
- * accion es texto y no enum a propósito (ver Incidente).
- */
+/** Historial de acciones: quién hizo qué y cuándo. accion es texto a propósito (ver Incidente). */
 @Entity
 @Table(name = "auditoria", indexes = {
         @Index(name = "ix_auditoria_fecha", columnList = "fecha"),

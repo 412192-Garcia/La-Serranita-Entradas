@@ -10,11 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-/**
- * Reserva cargada a mano por un ADMIN, sin cobrar nada por acá (invitados, o ventas por
- * agencia donde el cobro real se hizo por fuera): no hay ningún pago que esperar, así que
- * queda aprobada al instante, igual que EfectivoBoleteriaServiceImpl pero sin "a cobrar en boletería".
- */
+/** Reserva de un ADMIN sin cobro (invitados, agencias): queda aprobada al instante. */
 @Service
 public class ReservaAdminServiceImpl implements PagoService {
 
@@ -27,8 +23,7 @@ public class ReservaAdminServiceImpl implements PagoService {
     @Override
     public PagoResponseDTO procesarPago(Compra compra) {
         Long compraId = compra.getId();
-        // Sólo es un regalo (y amerita el mail al receptor) si además hay un receptor cargado.
-        // Una reserva admin sin fecha ni receptor es del propio titular: sólo va el comprobante.
+        // Sin fecha ni receptor es del titular: sólo va el comprobante.
         boolean esRegalo = compra.getFechaVisita() == null && compra.getReceptorEmail() != null;
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {

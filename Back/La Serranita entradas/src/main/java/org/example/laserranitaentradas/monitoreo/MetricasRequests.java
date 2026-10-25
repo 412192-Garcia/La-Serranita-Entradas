@@ -15,10 +15,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAdder;
 
 /**
- * Cuánto tarda cada endpoint de la API (Sistema > Rendimiento): cantidad, promedio, p95, máximo,
- * tiempo total, lentas y errores 4xx/5xx por endpoint desde que arrancó el servidor, más las
- * últimas requests lentas. En
- * memoria a propósito: es "cómo viene ahora", se pierde al reiniciar y no le suma carga a la base.
+ * Tiempos por endpoint desde que arrancó el servidor (Sistema > Rendimiento) y las últimas requests lentas.
+ * En memoria: se pierde al reiniciar.
  */
 @Component
 public class MetricasRequests {
@@ -26,9 +24,8 @@ public class MetricasRequests {
     private static final int MAX_LENTAS_RECIENTES = 200;
 
     /**
-     * @param p95Ms     el 95 % de las requests tardó esto o menos. Aproximado: sale de un histograma
-     *                  por tramos (ver TRAMOS_MS), así no hay que guardar cada duración.
-     * @param totalMs   tiempo sumado de todas: lo que ese endpoint le ocupa al servidor
+     * @param p95Ms aproximado, de un histograma por tramos (TRAMOS_MS)
+     * @param totalMs tiempo sumado de todas
      * @param errores4xx pedidos rechazados (sesión vencida, datos inválidos, 404)
      */
     public record Endpoint(String endpoint, long cantidad, long promedioMs, long p95Ms, long maxMs, long totalMs,

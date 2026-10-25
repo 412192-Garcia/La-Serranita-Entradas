@@ -7,10 +7,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.LocalTime;
 import java.util.List;
 
-/**
- * Todo lo que va impreso en una factura emitida, ya resuelto: lo usan el PDF del mail y (más
- * adelante) el ticket de la ticketera, así el formato del comprobante sale de un solo lugar.
- */
+/** Lo que va impreso en una factura emitida, para el PDF y el ticket. */
 public record ComprobanteFactura(
         String razonSocial,
         String domicilio,
@@ -33,11 +30,9 @@ public record ComprobanteFactura(
         String comprobanteAsociado,
         /** Hora en que ARCA la autorizó (hora de Argentina); null en las facturas viejas. */
         LocalTime horaEmision,
-        /** Cómo se llama el código de la compra en el comprobante: "Reserva" (anticipada) o
-         * "Venta" (venta de puerta, que nunca fue una reserva). */
+        /** "Reserva" o "Venta". */
         String etiquetaCodigo,
-        /** El boletero que cobró en la puerta (el de la caja de la compra); null en una compra
-         * online o una factura manual. */
+        /** Quien cobró en la puerta; null en online o manual. */
         String atendidoPor,
         /** Sólo en una Factura A (o su nota de crédito); null = Consumidor Final. */
         Receptor receptor
@@ -103,9 +98,8 @@ public record ComprobanteFactura(
     }
 
     /**
-     * Una línea del comprobante. subtotal = lo que se cobró por esa línea (con el precio de grupo si
-     * correspondía); null en facturas viejas o si no se pudo calcular de forma que cierre con el
-     * total. cantidad 0 = línea sin cantidad (la de "Descuento", con subtotal negativo).
+     * subtotal con precio de grupo si correspondía; null si no cierra con el total. cantidad 0 = la línea de
+     * "Descuento".
      */
     public record Item(int cantidad, String descripcion, BigDecimal subtotal) {
         public Item(int cantidad, String descripcion) {
@@ -118,7 +112,7 @@ public record ComprobanteFactura(
     }
 
     /**
-     * Receptor identificado de una Factura A.
+     * Receptor de una Factura A.
      *
      * @param condicionIva el texto, ej. "IVA Responsable Inscripto"
      */

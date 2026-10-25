@@ -8,10 +8,7 @@ import lombok.Setter;
 import java.time.LocalDateTime;
 
 /**
- * Un navegador donde se usa el POS (la PC o tablet de una boletería), según su último latido: cada
- * minuto, con conexión, avisa cuántas operaciones tiene en su cola local sin subir. Sirve para ver
- * desde Sistema > Estado lo que de otra forma sólo se ve en esa pantalla: una terminal que quedó sin
- * internet con ventas guardadas, o una cola que no logra vaciarse.
+ * Un navegador con el POS, según su último latido (cada minuto avisa cuántas operaciones tiene sin subir).
  */
 @Entity
 @Table(name = "terminales_pos")

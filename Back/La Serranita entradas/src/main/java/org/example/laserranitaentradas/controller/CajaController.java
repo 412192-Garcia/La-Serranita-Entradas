@@ -43,7 +43,7 @@ public class CajaController {
     }
 
     @PostMapping("/abrir")
-    @Operation(summary = "Abrir caja", description = "Declara el efectivo inicial y con cuántas entradas físicas arranca, y habilita a cobrar")
+    @Operation(summary = "Abrir caja", description = "Efectivo inicial y entradas físicas con las que arranca")
     public ResponseEntity<CajaResponseDTO> abrir(@RequestBody AbrirCajaRequestDTO request,
                                                   @AuthenticationPrincipal UsuarioAutenticado operador) {
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -51,7 +51,7 @@ public class CajaController {
     }
 
     @PostMapping("/abrir-sin-control")
-    @Operation(summary = "Vender sin abrir caja (ADMIN)", description = "Abre una caja sin pedir el conteo inicial, sólo para cuando el propio ADMIN va a vender sin pasar por la apertura formal. Se cierra sola a fin de día, sin pedir tampoco un conteo de cierre.")
+    @Operation(summary = "Vender sin abrir caja (ADMIN)", description = "Caja sin conteos de apertura ni de cierre. Se cierra sola a fin de día.")
     public ResponseEntity<CajaResponseDTO> abrirSinControl(@AuthenticationPrincipal UsuarioAutenticado operador) {
         return ResponseEntity.status(HttpStatus.CREATED).body(cajaService.abrirSinControl(operador.id()));
     }
@@ -64,9 +64,7 @@ public class CajaController {
             return ResponseEntity.ok(cajaService.registrarRetiro(operador.id(), request.getMonto(), request.getMotivo(),
                     request.getTipo(), request.getIdempotencyKey(), request.getFechaOriginal()));
         } catch (IllegalArgumentException | IllegalStateException ex) {
-            // Sólo interesa registrarlo para un admin si pasó en un reintento en segundo plano de
-            // la cola offline: un rechazo en el primer intento en vivo ya lo ve y lo corrige la
-            // persona que lo tipeó ahí mismo (ver el campo en el DTO).
+            // Sólo se registra si pasó en un reintento en segundo plano: en vivo lo ve quien lo cargó.
             if (Boolean.TRUE.equals(request.getEsReintentoEncolado())) {
                 rechazoService.registrar("RETIRO_APORTE", request, ex.getMessage(), request.getIdempotencyKey());
             }
@@ -75,7 +73,7 @@ public class CajaController {
     }
 
     @PostMapping("/ingresos-entradas")
-    @Operation(summary = "Registrar un ingreso o retiro de entradas físicas en la caja abierta", description = "Ingreso: para cuando el boletero se queda sin talonario y le traen más a mitad de turno. Retiro: para sacarle entradas y dárselas a otro boletero.")
+    @Operation(summary = "Registrar un ingreso o retiro de entradas físicas en la caja abierta", description = "Ingreso: le traen más talonario. Retiro: le sacan entradas.")
     public ResponseEntity<CajaResponseDTO> registrarIngresoEntradas(@RequestBody IngresoEntradasRequestDTO request,
                                                                       @AuthenticationPrincipal UsuarioAutenticado operador) {
         try {
@@ -90,7 +88,7 @@ public class CajaController {
     }
 
     @PostMapping("/{id}/cerrar")
-    @Operation(summary = "Cerrar caja (ADMIN)", description = "Compara lo contado (efectivo por denominación, cierres de posnet, entradas físicas) contra lo esperado y cierra el turno. Sólo un ADMIN puede cerrar cajas, sin importar de qué boletero — el cierre ya no es self-service.")
+    @Operation(summary = "Cerrar caja (ADMIN)", description = "Compara lo contado (efectivo, posnet, entradas) con lo esperado y cierra el turno.")
     public ResponseEntity<CajaResponseDTO> cerrar(@PathVariable Long id, @RequestBody CerrarCajaRequestDTO request) {
         return ResponseEntity.ok(cajaService.cerrarComoAdmin(id, request.getConteoEfectivo(), request.getCierresPosnet(),
                 request.getEntradasFisicasRestantes(), request.getCambioContado(), request.getDolaresContado()));
@@ -103,19 +101,19 @@ public class CajaController {
     }
 
     @PostMapping("/{id}/retiros")
-    @Operation(summary = "Registrar un retiro o aporte en la caja de otro usuario (ADMIN)", description = "Para cuando el admin está cerrando la caja de un boletero y nota que falta cargar un movimiento.")
+    @Operation(summary = "Registrar un retiro o aporte en la caja de otro usuario (ADMIN)", description = "Para cargar un movimiento que faltó.")
     public ResponseEntity<CajaResponseDTO> registrarRetiroComoAdmin(@PathVariable Long id, @RequestBody RetiroCajaRequestDTO request) {
         return ResponseEntity.ok(cajaService.registrarRetiroComoAdmin(id, request.getMonto(), request.getMotivo(), request.getTipo()));
     }
 
     @PostMapping("/{id}/ingresos-entradas")
-    @Operation(summary = "Registrar un ingreso o retiro de entradas físicas en la caja de otro usuario (ADMIN)", description = "Mismo caso de uso que /{id}/retiros pero para el talonario físico.")
+    @Operation(summary = "Registrar un ingreso o retiro de entradas físicas en la caja de otro usuario (ADMIN)", description = "Como /{id}/retiros, para el talonario.")
     public ResponseEntity<CajaResponseDTO> registrarIngresoEntradasComoAdmin(@PathVariable Long id, @RequestBody IngresoEntradasRequestDTO request) {
         return ResponseEntity.ok(cajaService.registrarIngresoEntradasComoAdmin(id, request.getCantidad(), request.getMotivo(), request.getTipo()));
     }
 
     @GetMapping("/abiertas")
-    @Operation(summary = "Cajas abiertas ahora mismo (ADMIN)", description = "Todas las cajas en curso, sin importar de qué boletero — para el dashboard de hoy")
+    @Operation(summary = "Cajas abiertas ahora mismo (ADMIN)", description = "Todas las cajas en curso")
     public ResponseEntity<List<CajaAbiertaDTO>> getCajasAbiertas() {
         return ResponseEntity.ok(cajaService.getCajasAbiertas());
     }
@@ -134,26 +132,26 @@ public class CajaController {
 
     @GetMapping("/cerradas/boleteros")
     @Operation(summary = "Boleteros con cajas cerradas (ADMIN)",
-            description = "Nombres (nombre + apellido) de los boleteros con al menos una caja cerrada y habilitada, en orden alfabético. Alimenta los chips de filtro del listado de \"Cajas cerradas\", que ya no depende de un rango de fechas.")
+            description = "Boleteros con alguna caja cerrada habilitada, para el filtro de \"Cajas cerradas\", que ya no depende de un rango de fechas.")
     public ResponseEntity<List<String>> getBoleterosConCajasCerradas() {
         return ResponseEntity.ok(cajaService.getBoleterosConCajasCerradas());
     }
 
     @GetMapping("/{id}/detalle")
-    @Operation(summary = "Detalle completo de una caja (ADMIN)", description = "Para que el admin revise cualquier caja cerrada, sin importar quién la abrió")
+    @Operation(summary = "Detalle completo de una caja (ADMIN)", description = "Cualquier caja cerrada")
     public ResponseEntity<CajaResponseDTO> getDetalle(@PathVariable Long id) {
         return ResponseEntity.ok(cajaService.getDetalle(id));
     }
 
     @GetMapping("/{id}/operaciones")
-    @Operation(summary = "Detalle de una caja con la caja todavía abierta (ADMIN)", description = "Ventas/retiros/ingresos en orden cronológico más un resumen de lo vendido (por forma de pago y por tipo de entrada). A diferencia de /detalle, funciona sin esperar al cierre: para que el admin revise y corrija una venta mal cargada mientras el boletero sigue trabajando.")
+    @Operation(summary = "Detalle de una caja con la caja todavía abierta (ADMIN)", description = "Operaciones en orden y resumen de lo vendido. Funciona con la caja abierta.")
     public ResponseEntity<CajaDetalleAbiertaDTO> getOperaciones(@PathVariable Long id) {
         return ResponseEntity.ok(cajaService.getOperacionesCaja(id));
     }
 
     @PutMapping("/{id}/correccion")
     @Operation(summary = "Corregir una caja cerrada (ADMIN)",
-            description = "En una sola pasada atómica: recontar efectivo/posnet/entradas/dólares y traspasar monto entre efectivo/tarjeta/QR (cuando la cajera cobró de una forma y registró otra). Los traspasos no tocan las compras, quedan como AjusteCaja aparte. Sólo un ADMIN, cualquier caja cerrada sin importar quién la abrió.")
+            description = "Recuento y traspasos entre formas de pago en una transacción. Los traspasos quedan como AjusteCaja, sin tocar las compras.")
     public ResponseEntity<CajaResponseDTO> corregirCaja(@PathVariable Long id, @RequestBody CorreccionCajaRequestDTO request) {
         return ResponseEntity.ok(cajaService.corregirCaja(id, request.getConteoEfectivo(),
                 request.getCierresPosnet(), request.getEntradasFisicasRestantes(), request.getCambioContado(),
@@ -162,7 +160,7 @@ public class CajaController {
 
     @PostMapping("/{id}/deshabilitar")
     @Operation(summary = "Deshabilitar una caja cerrada (ADMIN)",
-            description = "La caja desaparece de todos los listados y KPIs de Cajas, del ranking y del reporte agregado, y sus ventas dejan de sumar en el reporte. El detalle por id la sigue devolviendo con habilitada=false. Irreversible desde la app; sólo cajas ya cerradas.")
+            description = "Sólo cajas cerradas. Sale de listados, KPIs y reporte (habilitada=false). Irreversible desde la app.")
     public ResponseEntity<CajaResponseDTO> deshabilitar(@PathVariable Long id) {
         return ResponseEntity.ok(cajaService.deshabilitarCaja(id));
     }

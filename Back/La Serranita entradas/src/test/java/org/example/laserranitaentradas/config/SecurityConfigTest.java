@@ -11,10 +11,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
 /**
- * Las reglas públicas del storefront usan path variables ({id}) que aceptan cualquier segmento,
- * y Spring Security aplica la primera regla que matchea: una regla pública mal acotada deja
- * abierto sin login un endpoint interno que comparte prefijo (ej. /api/compras/buscar, que
- * devuelve datos personales de todas las compras).
+ * Una regla pública con {id} mal acotada deja abierto un endpoint interno con el mismo prefijo (ej.
+ * /api/compras/buscar).
  */
 @SpringBootTest
 @AutoConfigureMockMvc

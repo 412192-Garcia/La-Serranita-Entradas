@@ -3,12 +3,8 @@ package org.example.laserranitaentradas.model.entity;
 import lombok.Getter;
 
 /**
- * Partes del sistema que se pueden apagar desde Sistema > Módulos sin tocar el servidor. Se
- * guarda por nombre en {@link ModuloSistema} (columna de texto, no enum de base): sumar uno acá
- * no necesita ajustar ningún CHECK en las bases existentes.
- *
- * Un submódulo (con {@link #getPadre()}) sólo funciona si también está prendido su módulo: apagar
- * Facturación apaga la de boletería y la online, sin perder cómo estaba cada una.
+ * Partes que se apagan desde Sistema > Módulos. Se guarda por nombre (texto) para no chocar con un CHECK. Un
+ * submódulo sólo anda si su padre está prendido.
  */
 @Getter
 public enum Modulo {
@@ -32,8 +28,10 @@ public enum Modulo {
     private final String descripcion;
     /** Cómo arranca si nunca se tocó: la facturación ya existía prendida, el Point es nuevo. */
     private final boolean activoPorDefecto;
-    /** Nombre del módulo del que depende (null = módulo principal). Texto porque un enum no puede
-     * referirse a sus propias constantes en el constructor. */
+    /**
+     * Módulo padre (null = principal). Texto porque un enum no puede referirse a sus constantes en el
+     * constructor.
+     */
     private final String codigoPadre;
 
     Modulo(String nombre, String descripcion, boolean activoPorDefecto, String codigoPadre) {

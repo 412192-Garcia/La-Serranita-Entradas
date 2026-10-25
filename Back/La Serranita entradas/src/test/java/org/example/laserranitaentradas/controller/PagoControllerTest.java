@@ -23,12 +23,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Cubre la validación de firma del webhook de Mercado Pago (PagoController.firmaValida):
- * es el único portón entre "cualquiera en internet" y confirmar un pago como aprobado, así
- * que un bug acá (aceptar una firma inválida, o el cálculo del HMAC mal armado) es directamente
- * plata regalada. No cubre las ramas "payment"/"merchant_order" en sí porque instancian el SDK
- * de Mercado Pago (new PaymentClient()/new MerchantOrderClient()) sin inyección, así que llamarlas
- * en test pegaría contra la red real — quedan fuera de alcance de un test unitario.
+ * Validación de firma del webhook de MP (firmaValida): un bug acá es plata regalada. Las ramas
+ * "payment"/"merchant_order" no se prueban porque usan el SDK contra la red.
  */
 @ExtendWith(MockitoExtension.class)
 class PagoControllerTest {
@@ -49,7 +45,7 @@ class PagoControllerTest {
         ReflectionTestUtils.setField(controller, "webhookSecret", secreto);
     }
 
-    /** HMAC-SHA256("id:{dataId};request-id:{requestId};ts:{ts};", secreto), tal cual lo espera el controller. */
+    /** HMAC-SHA256("id:{dataId};request-id:{requestId};ts:{ts};", secreto). */
     private String firmarComoMercadoPago(String dataId, String requestId, String ts, String secreto) throws Exception {
         String manifest = "id:" + dataId.toLowerCase() + ";request-id:" + requestId + ";ts:" + ts + ";";
         Mac mac = Mac.getInstance("HmacSHA256");
@@ -120,9 +116,7 @@ class PagoControllerTest {
 
     @Test
     void conFirmaValidaPeroSinDataIdNiEvento_aceptaSinLlamarACompraService() throws Exception {
-        // Cubre la firma correcta sin arrastrar la rama "payment" (que pegaría contra la red
-        // real de Mercado Pago): sin data.id ni type/topic reconocido, el controller no tiene
-        // nada que procesar y devuelve 200 sin tocar compraService.
+        // Firma correcta sin data.id ni type: 200 sin tocar compraService.
         configurarSecreto(SECRETO);
         String dataId = "123456789";
         String firmaValida = firmarComoMercadoPago(dataId, "req-1", "1700000000", SECRETO);
@@ -137,9 +131,7 @@ class PagoControllerTest {
 
     @Test
     void firmaValida_esInsensibleAMayusculasEnElDataId() throws Exception {
-        // El controller normaliza el data.id a minúsculas antes de armar el manifest
-        // (dataId.toLowerCase()): la firma tiene que calcularse igual sobre el id en
-        // minúsculas para que un data.id con mayúsculas no rompa la validación.
+        // El data.id se pasa a minúsculas antes de armar el manifest.
         configurarSecreto(SECRETO);
         String dataIdOriginal = "ABC123";
         String firmaValida = firmarComoMercadoPago(dataIdOriginal.toLowerCase(), "req-1", "1700000000", SECRETO);
@@ -164,8 +156,7 @@ class PagoControllerTest {
 
     @Test
     void conRequestIdDistintoAlFirmado_rechaza401() throws Exception {
-        // El request-id es parte del manifest firmado: si alguien reusa una firma válida
-        // de OTRA notificación pero con un x-request-id distinto, tiene que rechazarse.
+        // Una firma válida con otro x-request-id se rechaza.
         configurarSecreto(SECRETO);
         String firmaParaOtroRequestId = firmarComoMercadoPago("123456789", "req-original", "1700000000", SECRETO);
         String xSignature = "ts=1700000000,v1=" + firmaParaOtroRequestId;
@@ -179,10 +170,7 @@ class PagoControllerTest {
 
     @Test
     void usaIdDelBodySiDataIdDeQueryFaltaYPayloadTraeData() {
-        // Si Mercado Pago no manda data.id como query param pero sí un body con
-        // {"data": {"id": ...}}, el controller tiene que resolverlo igual antes de validar
-        // la firma (que en este test se salta al no haber secreto, para aislar sólo esa
-        // resolución del id, no la validación de firma que ya está cubierta arriba).
+        // data.id en el body en vez del query param; sin secreto para aislar sólo eso.
         configurarSecreto("");
         java.util.Map<String, Object> data = new java.util.HashMap<>();
         data.put("id", "999");

@@ -6,10 +6,8 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * Lo que un servicio le suma al registro de auditoría de la request en curso: a qué se refiere
- * ("#261005-3", "General") y el antes → después de lo que cambió. El AuditoriaFilter lo abre al
- * entrar la request y lo junta con el resto al terminar. Fuera de una request (procesos en segundo
- * plano) no hace nada.
+ * Lo que un servicio suma a la auditoría de la request: la referencia ("#261005-3") y el antes → después.
+ * Fuera de una request no hace nada.
  */
 public final class AuditoriaContexto {
 

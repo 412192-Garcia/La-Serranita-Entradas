@@ -104,9 +104,8 @@ public class ComprobanteFacturaService {
     }
 
     /**
-     * En una Factura A el IVA va discriminado: cada renglón se muestra sin IVA. El redondeo de cada
-     * renglón puede no sumar justo el neto de la factura; la diferencia (centavos) va al renglón más
-     * grande, para que los renglones cierren con el "Subtotal neto gravado".
+     * En Factura A cada renglón va sin IVA. La diferencia de redondeo va al renglón más grande para que
+     * cierre con el neto.
      */
     private static List<ComprobanteFactura.Item> itemsSinIva(List<ComprobanteFactura.Item> items, BigDecimal neto) {
         if (items.isEmpty() || items.stream().anyMatch(i -> i.subtotal() == null)) return items;
@@ -137,11 +136,7 @@ public class ComprobanteFacturaService {
         return nombre.isEmpty() ? u.getUsername() : nombre;
     }
 
-    /**
-     * Venta hecha directo en la boletería (nunca fue una reserva): queda VENDIDO_EN_PUERTA y no
-     * tiene titular. Lo del titular cubre también la nota de crédito de una venta de puerta ya
-     * cancelada (deja de estar VENDIDO_EN_PUERTA). Una reserva cobrada en puerta tiene titular.
-     */
+    /** Venta de puerta: sin titular (cubre también la NC de una venta de puerta cancelada). */
     private static boolean esVentaDePuerta(Compra c) {
         return c.getEstado() == EstadoCompra.VENDIDO_EN_PUERTA || (c.getCliente() == null && c.getCaja() != null);
     }
@@ -152,10 +147,7 @@ public class ComprobanteFacturaService {
         return d.getDescripcionLibre() != null ? d.getDescripcionLibre() : "Artículo";
     }
 
-    /**
-     * QR obligatorio de los comprobantes electrónicos (RG 4892): la URL de ARCA con los datos del
-     * comprobante en JSON y base64. Escanearlo lleva a la consulta de validez del comprobante.
-     */
+    /** QR obligatorio (RG 4892): URL de ARCA con el comprobante en base64. */
     public String qrUrl(Factura f) {
         // Sin CUIT = la facturación ya no está configurada (ej. una base de prueba sin el certificado).
         if (f.getEstado() != EstadoFactura.EMITIDA || f.getCae() == null || afipClient.getCuit() == null) return null;
@@ -170,10 +162,8 @@ public class ComprobanteFacturaService {
         datos.put("importe", new java.math.BigDecimal(f.getImporteTotal().stripTrailingZeros().toPlainString()));
         datos.put("moneda", "PES");
         datos.put("ctz", 1);
-        // tipoDocRec/nroDocRec son opcionales en la especificación de ARCA y no se informan para un
-        // consumidor final sin identificar (99/0). Omitirlos achica el QR de 61x61 a 57x57
-        // cuadraditos: el contenido es lo que lo hace tan denso y difícil de leer en papel térmico.
-        // En una Factura A el receptor está identificado: ahí sí se informa su CUIT.
+        // Sin receptor a consumidor final se omite tipoDocRec/nroDocRec: el QR baja de 61x61 a 57x57 y se lee
+        // mejor. En Factura A sí va el CUIT.
         if (f.getReceptorCuit() != null) {
             datos.put("tipoDocRec", 80);
             datos.put("nroDocRec", Long.parseLong(f.getReceptorCuit()));

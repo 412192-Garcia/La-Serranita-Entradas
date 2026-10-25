@@ -46,7 +46,7 @@ public class Usuario extends BaseEntity {
     @Builder.Default
     private Boolean activo = true;
 
-    /** Color principal elegido por el usuario para personalizar la interfaz (hex, ej "#39a935"). Null = tema por defecto. */
+    /** Color principal (hex). Null = por defecto. */
     @Column(name = "color_tema")
     private String colorTema;
 
@@ -62,7 +62,7 @@ public class Usuario extends BaseEntity {
     @Column(name = "color_borde")
     private String colorBorde;
 
-    /** Foto de perfil del usuario, como data URI base64 (ya redimensionada y comprimida del lado del cliente). Null = sin foto. */
+    /** Data URI base64, ya comprimida en el cliente. Null = sin foto. */
     @Column(name = "foto_perfil", columnDefinition = "TEXT")
     private String fotoPerfil;
 

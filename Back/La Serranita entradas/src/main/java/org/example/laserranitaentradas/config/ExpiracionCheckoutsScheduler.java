@@ -10,12 +10,8 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 
 /**
- * Cancela los checkouts de Mercado Pago que quedaron colgados en PENDIENTE_PAGO (el usuario
- * abrió el pago y nunca lo terminó). Sin esto, cada checkout abandonado se queda para siempre
- * con un uso de cupón consumido y ocupando lugar en el cupo diario del día de visita.
- *
- * Antes de cancelar, cada compra se re-verifica contra Mercado Pago (por si el pago entró y el
- * webhook nunca llegó): eso lo resuelve {@link CompraService#expirarCheckoutAbandonado}.
+ * Cancela los checkouts que quedaron en PENDIENTE_PAGO, para liberar cupo y cupón. Antes re-verifica contra
+ * Mercado Pago ({@link CompraService#expirarCheckoutAbandonado}).
  */
 @Component
 public class ExpiracionCheckoutsScheduler {
@@ -24,9 +20,7 @@ public class ExpiracionCheckoutsScheduler {
 
     private final CompraService compraService;
 
-    /** Cuántas horas sin pagarse antes de dar un checkout por abandonado. Una preferencia de
-     * Mercado Pago no queda abierta tanto tiempo, así que 3 h es de sobra sin arriesgar cancelar
-     * algo que el cliente todavía está por pagar. */
+    /** Horas sin pagar para darlo por abandonado. */
     @Value("${compras.checkout-abandonado.horas:3}")
     private int horasAntiguedad;
 

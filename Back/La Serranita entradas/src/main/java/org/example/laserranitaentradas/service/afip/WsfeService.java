@@ -13,12 +13,8 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * Traduce entre el dominio y los métodos de WSFEv1 de ARCA (manual del desarrollador
- * COMPG v4). Sólo lo que usa el parque: Factura B a Consumidor Final y, en la facturación manual,
- * Factura A a un responsable inscripto o monotributista identificado por CUIT. Todo con IVA 21%.
- *
- * Los campos se arman en el orden del WSDL (SoapXml.campos): WSFE es un servicio .NET que toma un
- * campo fuera de lugar como si no hubiera venido.
+ * Traduce entre el dominio y WSFEv1. Factura B a consumidor final y, en la manual, Factura A por CUIT. IVA
+ * 21%. Los campos van en el orden del WSDL (SoapXml.campos).
  */
 @Component
 public class WsfeService {
@@ -33,9 +29,7 @@ public class WsfeService {
     private static final int CONDICION_IVA_CONSUMIDOR_FINAL = 5;
 
     /**
-     * Condiciones frente al IVA del receptor que admiten Factura A (tabla FEParamGetCondicionIvaReceptor):
-     * responsable inscripto y las tres variantes de monotributo (RG 5003). Exento, no alcanzado y
-     * consumidor final van con Factura B.
+     * Condiciones que admiten Factura A: responsable inscripto y monotributo (RG 5003). El resto va con B.
      */
     public static final Map<Integer, String> CONDICIONES_IVA_FACTURA_A = Map.of(
             1, "IVA Responsable Inscripto",
@@ -142,9 +136,7 @@ public class WsfeService {
         det.put("ImpOpEx", 0);
         det.put("ImpTrib", 0);
         det.put("ImpIVA", s.iva());
-        // Concepto 2 (servicios) y 3 (productos y servicios) exigen el período del servicio y
-        // el vencimiento del pago. Es una entrada de un día cobrada en el acto: el período es
-        // ese día y el pago "vence" en la fecha del comprobante (contado).
+        // Servicios exigen período y vencimiento: es el mismo día, al contado.
         if (s.concepto() != 1) {
             det.put("FchServDesde", s.fechaServicio().format(FORMATO_FECHA));
             det.put("FchServHasta", s.fechaServicio().format(FORMATO_FECHA));
@@ -188,8 +180,7 @@ public class WsfeService {
                     LocalDate.parse(detResp.path("CAEFchVto").asText(), FORMATO_FECHA), mensajes, codigos);
         }
         if (resultado.isBlank() && !mensajes.isEmpty()) {
-            // Sin Resultado pero con Errors: ARCA ni siquiera procesó el pedido (ej. error
-            // interno o de autenticación). No se sabe si es pasajero, así que se reintenta.
+            // Sin Resultado pero con Errors: ARCA no procesó el pedido. Se reintenta.
             throw new AfipException("ARCA: " + String.join(" | ", mensajes), true);
         }
         return new ResultadoCae(false, null, null, mensajes, codigos);

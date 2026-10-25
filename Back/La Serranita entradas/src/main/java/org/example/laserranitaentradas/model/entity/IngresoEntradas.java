@@ -10,7 +10,7 @@ import lombok.ToString;
 
 import java.time.LocalDateTime;
 
-/** Entradas físicas (talonario) que se suman al stock de la caja mientras está abierta, ej. cuando el boletero se queda sin y le traen más. */
+/** Entradas físicas que se suman o restan al talonario de una caja abierta. */
 @Entity
 @Table(name = "ingresos_entradas")
 @Data
@@ -32,13 +32,10 @@ public class IngresoEntradas extends BaseEntity {
     @Column(nullable = false)
     private Integer cantidad;
 
-    /** Opcional: sólo tiene sentido completarlo en un RETIRO (ej. "se las doy a Fulano"), un
-     * ingreso normal no necesita explicación. */
+    /** Opcional, para los RETIRO. */
     private String motivo;
 
-    /** Default 'INGRESO' en la columna: permite que ddl-auto=update agregue esta columna NOT NULL
-     *  sobre las filas ya existentes en la base de prueba en uso (sin default, Postgres rechaza
-     *  el ALTER TABLE porque esas filas quedarían sin valor). Ver TipoMovimientoCaja/RetiroCaja. */
+    /** Default 'INGRESO' para que ddl-auto la pueda agregar como NOT NULL. */
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20, columnDefinition = "varchar(20) default 'INGRESO'")
     private TipoMovimientoEntradas tipo;
@@ -46,12 +43,7 @@ public class IngresoEntradas extends BaseEntity {
     @Column(nullable = false)
     private LocalDateTime fecha;
 
-    /**
-     * Clave que genera el cliente antes de mandar la operación, para que un reintento no
-     * duplique: si la petición original llegó y se procesó pero la respuesta se perdió (corte
-     * de conexión justo ahí), el reintento trae la misma clave y el servicio devuelve lo ya
-     * guardado. Null para operaciones que no vienen de la cola offline del POS.
-     */
+    /** Clave del POS para que un reintento no duplique. Null fuera de la cola offline. */
     @Column(name = "idempotency_key", unique = true, length = 64)
     private String idempotencyKey;
 }

@@ -15,7 +15,7 @@ public interface CierrePosnetRepository extends JpaRepository<CierrePosnet, Long
     /** Usado al corregir un cierre ya hecho: se borran los cierres viejos y se cargan los nuevos de cero. */
     void deleteAllByCajaId(Long cajaId);
 
-    /** [idCaja, total cerrado en el/los posnet] por caja, para calcular la diferencia de Tarjeta+QR en lote. */
+    /** [idCaja, total cerrado en posnet] por caja. */
     @Query("SELECT c.caja.id, COALESCE(SUM(c.monto), 0) FROM CierrePosnet c WHERE c.caja.id IN :cajaIds GROUP BY c.caja.id")
     List<Object[]> sumMontoPorCaja(@Param("cajaIds") List<Long> cajaIds);
 }

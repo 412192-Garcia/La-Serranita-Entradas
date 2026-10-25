@@ -66,7 +66,7 @@ public class ReporteServiceImpl implements ReporteService {
     /** Lo efectivamente cobrado: reservas en efectivo pendientes de cobro no cuentan como recaudación. */
     private static final Set<EstadoCompra> ESTADOS_COBRADOS =
             EnumSet.of(EstadoCompra.APROBADO, EstadoCompra.USADO, EstadoCompra.VENDIDO_EN_PUERTA);
-    /** "Vendidas" para afluencia: incluye también lo reservado en efectivo, todavía no cobrado pero ya comprometido. */
+    /** Para afluencia también cuenta lo reservado en efectivo sin cobrar. */
     private static final Set<EstadoCompra> ESTADOS_VENDIDOS =
             EnumSet.of(EstadoCompra.APROBADO, EstadoCompra.USADO, EstadoCompra.RESERVADO_EFECTIVO, EstadoCompra.VENDIDO_EN_PUERTA);
     /** Gente que realmente entró: el check-in por DNI y la venta en puerta valen igual. */
@@ -87,15 +87,12 @@ public class ReporteServiceImpl implements ReporteService {
         return 5;
     }
 
-    /** Clave del mapa de ventas por hora (ver más abajo): el gráfico "Compras por hora del día"
-     * es el único del resumen que se filtra por día de semana en el front, así que junta ambos
-     * en vez de bucketear sólo por hora como antes. */
+    /** Día y hora: el gráfico por hora se filtra por día de semana en el front. */
     private record ClaveHora(DayOfWeek dia, int hora) {}
 
     /**
-     * Cómo se agrupa un cupón en el reporte: el nombre del lote si es de un lote (así los miles
-     * de códigos de un lote cuentan juntos), o su código si es individual, más el valor del
-     * descuento: "La Voz (importado) · 20%", "NUEVAWEB · $17.500".
+     * El nombre del lote (o el código si es individual) más el descuento: "La Voz · 20%", "NUEVAWEB ·
+     * $17.500".
      */
     private static String etiquetaCupon(Cupon cupon) {
         String valor = "Cupón";
@@ -140,30 +137,21 @@ public class ReporteServiceImpl implements ReporteService {
             throw new IllegalArgumentException("El rango de fechas es inválido");
         }
 
-        // Cada compra tiene tres fechas que importan y NO tienen por qué caer en el mismo mes:
-        //  - fechaCreacion   → cuándo se generó la compra (y, en Mercado Pago, cuándo se pagó)
-        //  - fechaVisita     → el día que el cliente eligió para venir (null en un regalo)
-        //  - fechaValidacion → cuándo la persona realmente cruzó la puerta
-        // El reporte atribuye cada métrica a la fecha que le corresponde:
-        //  - RECAUDACIÓN     → día de cobro: Mercado Pago = fechaCreacion; efectivo/tarjeta/QR
-        //                      = fechaValidacion (se cobra en la puerta al validar)
-        //  - INGRESOS / personas / afluencia real → fechaValidacion, siempre
-        //  - DEMANDA ("reservado para ese día")   → fechaVisita
-        // Ejemplo: pagan un regalo por MP en enero y lo canjean en marzo → la plata queda en
-        // enero, el visitante en marzo, y ninguna de las dos se mueve al re-correr el reporte.
+        // Cada métrica va a su fecha:
+        // - Recaudación: día de cobro (MP = fechaPago, o creación si falta; el resto = fechaValidacion).
+        // - Ingresos y afluencia real: fechaValidacion.
+        // - Demanda (reservado para el día): fechaVisita.
+        // Un regalo pagado en enero y canjeado en marzo: la plata en enero, el visitante en marzo.
         LocalDateTime desdeDt = desde.atStartOfDay();
         LocalDateTime hastaDt = hasta.plusDays(1).atStartOfDay();
         List<Compra> compras = compraRepository.findParaReporte(desde, hasta, desdeDt, hastaDt);
 
-        // Cajas que un admin deshabilitó: sus ventas de boletería no cuentan en ninguna métrica
-        // (como si el turno nunca hubiera existido). Las compras online tienen caja == null.
+        // Las ventas de cajas deshabilitadas no cuentan en nada. Las online tienen caja null.
         Set<Long> cajasDeshabilitadas = new HashSet<>(cajaRepository.findIdsDeshabilitadas());
 
         BigDecimal recaudacionTotal = BigDecimal.ZERO;
         long cantidadCompras = 0;
-        // Entradas (con cargo) vendidas en la puerta y cobradas en el rango. Es la "producción"
-        // de venta de boletería del día: las anticipadas quedan afuera a propósito (se vendieron
-        // otro día, o por otro canal), y las gratis también (no son una venta).
+        // Entradas con cargo vendidas en la puerta en el rango. Sin anticipadas ni gratis.
         long entradasVendidasBoleteria = 0;
 
         Map<LocalDate, Long> vendidosAnticipadaPorDia = new HashMap<>();
@@ -176,8 +164,7 @@ public class ReporteServiceImpl implements ReporteService {
         Map<String, Long> cantidadPorCupon = new LinkedHashMap<>();
         Map<String, BigDecimal> descuentoPorCupon = new LinkedHashMap<>();
 
-        // Ingresos reales por tipo (gente que cruzó la puerta), por fecha de validación —
-        // separado del desglose de ventas de arriba, que va por día de cobro.
+        // Ingresos reales por tipo, por fecha de validación.
         Map<Long, String> nombreTipoIngresado = new HashMap<>();
         Map<Long, Long> ingresadosPuertaPorTipo = new HashMap<>();
         Map<Long, Long> ingresadosAnticipadaPorTipo = new HashMap<>();
@@ -213,7 +200,7 @@ public class ReporteServiceImpl implements ReporteService {
         Map<TipoListadoCompra, BigDecimal> montoPorOrigen = new EnumMap<>(TipoListadoCompra.class);
         BigDecimal totalDescuentos = BigDecimal.ZERO;
         long cantidadComprasConDescuento = 0;
-        /** Gente que realmente cruzó la puerta: venta en puerta (siempre) + reservas anticipadas ya validadas por DNI. */
+        /** Gente que entró: venta en puerta + anticipadas validadas. */
         long personasIngresadas = 0;
 
         Map<Long, ArticuloVario> articulosPorId = new HashMap<>();
@@ -232,8 +219,6 @@ public class ReporteServiceImpl implements ReporteService {
         BigDecimal sumaCotizacionPonderada = BigDecimal.ZERO;
 
         for (Compra compra : compras) {
-            // Venta de un turno que un admin deshabilitó: se descarta de TODO (como si el turno
-            // nunca hubiera existido). Las compras online no tienen caja.
             Caja cajaCompra = compra.getCaja();
             if (cajaCompra != null && cajasDeshabilitadas.contains(cajaCompra.getId())) {
                 continue;
@@ -243,9 +228,6 @@ public class ReporteServiceImpl implements ReporteService {
             // La venta de puerta es lo único que nunca fue una reserva anticipada.
             boolean esBoleteria = compra.getEstado() == EstadoCompra.VENDIDO_EN_PUERTA;
 
-            // Día de cobro: Mercado Pago, cuando se aprobó el pago (fechaPago; las compras de antes
-            // de guardarla no la tienen y van por el día en que se compró, que casi siempre es el
-            // mismo); efectivo/tarjeta/QR se cobran en la puerta, al validar (sin validar, no entró plata).
             LocalDateTime momentoPagoOnline = compra.getFechaPago() != null ? compra.getFechaPago() : compra.getFechaCreacion();
             LocalDate diaCobro = esMercadoPago
                     ? momentoPagoOnline.toLocalDate()
@@ -266,10 +248,8 @@ public class ReporteServiceImpl implements ReporteService {
             boolean cuentaCompra = enRango(compra.getFechaCreacion().toLocalDate(), desde, hasta)
                     && ESTADOS_VENDIDOS.contains(compra.getEstado());
 
-            // "Compras por estado" muestra también las que no son una venta (pago pendiente,
-            // cancelada, reembolsada): ésas no cuentan en ninguna métrica de arriba, que sólo miran
-            // compras cobradas o vendidas, así que van por su día de creación o de visita. Sin esto
-            // el gráfico siempre las mostraba en 0.
+            // Las que no son venta (pendientes, canceladas, reembolsadas) no entran arriba: van por su día de
+            // creación o de visita.
             boolean cuentaEstado = cuentaRecaudacion || cuentaIngreso || cuentaDemanda || cuentaCompra
                     || (!ESTADOS_VENDIDOS.contains(compra.getEstado())
                         && (enRango(compra.getFechaCreacion().toLocalDate(), desde, hasta)
@@ -299,8 +279,7 @@ public class ReporteServiceImpl implements ReporteService {
                     totalDescuentos = totalDescuentos.add(compra.getDescuentoAplicado());
                     cantidadComprasConDescuento++;
                 }
-                // Pago mixto: la compra aporta a las DOS formas de pago (cada una con su parte
-                // real, ver Compra.montoPorForma), no sólo a la principal.
+                // Pago mixto: aporta a las dos formas, cada una con su parte.
                 cantidadPorFormaPago.merge(compra.getFormaPago(), 1L, Long::sum);
                 montoPorFormaPago.merge(compra.getFormaPago(), compra.montoPorForma(compra.getFormaPago()), BigDecimal::add);
                 // Tarjeta + tarjeta: montoPorForma ya devolvió las dos partes juntas (y es una compra).
@@ -349,14 +328,8 @@ public class ReporteServiceImpl implements ReporteService {
                     cantidadPasesAnticipadaPorHora.merge(claveHora, pasesEntrada, Long::sum);
                 }
 
-                // Bruto de cada línea YA con el precio por grupo aplicado (el tramo de
-                // DescuentoEfectivo, si corresponde: ver CalculoPrecioServiceImpl) — a diferencia
-                // de tipo.getPrecio() a secas, que es precio de lista y ciego a cualquier
-                // promoción. El bruto total de la compra sirve para repartir descuentoAplicado
-                // (promo con nombre o manual, cargado una sola vez por compra entera, nunca por
-                // línea) proporcional al peso de cada línea, así el desglose por tipo/extra/
-                // artículo suma exactamente compra.montoTotal en vez de sumar de más cuando hubo
-                // cualquiera de los dos descuentos.
+                // Bruto de cada línea con el precio de grupo aplicado. Sirve para repartir descuentoAplicado
+                // proporcionalmente, así el desglose suma exactamente montoTotal.
                 List<CompraDetalle> detallesCompra = compra.getDetalles();
                 List<BigDecimal> brutoPorLinea = new ArrayList<>(detallesCompra.size());
                 BigDecimal brutoCompra = BigDecimal.ZERO;
@@ -382,8 +355,7 @@ public class ReporteServiceImpl implements ReporteService {
                                     .divide(brutoCompra, 2, RoundingMode.HALF_UP)
                             : BigDecimal.ZERO;
 
-                    // Las líneas de artículo vario (venta en puerta) no tienen tipoEntrada: no
-                    // entran en el desglose por tipo/extra, van al reporte de artículos varios aparte.
+                    // Los artículos varios no tienen tipoEntrada: van a su propio reporte.
                     if (detalle.getTipoEntrada() == null) {
                         if (detalle.getArticuloVario() != null) {
                             ArticuloVario articulo = detalle.getArticuloVario();
@@ -458,8 +430,7 @@ public class ReporteServiceImpl implements ReporteService {
             }
         }
 
-        // Los tipos activos se listan aunque no hayan tenido ventas en el rango, para que
-        // el desglose no cambie de forma según lo que se vendió.
+        // Los tipos activos se listan aunque no hayan vendido, para que el desglose no cambie de forma.
         for (TipoEntrada tipo : tipoEntradaRepository.findAll()) {
             if (!tipo.getActivo()) {
                 continue;
@@ -505,12 +476,8 @@ public class ReporteServiceImpl implements ReporteService {
         List<DesgloseTipoEntradaDTO> desgloseExtras = ordenarPorNombre(extrasPorId,
                 cantidadAnticipadaPorExtra, montoAnticipadaPorExtra, cantidadBoleteriaPorExtra, montoBoleteriaPorExtra);
 
-        // Ajustes de caja (Cajas > resumen del cierre, modo revisión): el admin corrigió en qué
-        // forma de pago se cobró algo sin tocar las compras ("se anotó en efectivo y fue con
-        // tarjeta", una venta duplicada, una que faltó). Se aplican a la torta por forma de pago,
-        // que si no seguiría mostrando lo que se tocó por error en el POS. Van al día en que se
-        // abrió la caja (el de sus ventas) y no cuentan los de cajas deshabilitadas. La
-        // Recaudación total no cambia: es la suma de las compras.
+        // Los ajustes de caja corrigen la torta por forma de pago. Van al día de apertura de la caja y no
+        // cuentan los de cajas deshabilitadas. La recaudación total no cambia.
         for (AjusteCaja ajuste : ajusteCajaRepository.findAllDeCajasAbiertasEntre(desdeDt, hastaDt)) {
             if (cajasDeshabilitadas.contains(ajuste.getCaja().getId())) continue;
             if (ajuste.getFormaOrigen() != null) {
@@ -525,8 +492,7 @@ public class ReporteServiceImpl implements ReporteService {
 
         List<RecaudacionPorFormaPagoDTO> recaudacionPorFormaPago = new ArrayList<>();
         for (FormaPago formaPago : FormaPago.values()) {
-            // Nunca negativo: un ajuste de una venta cobrada fuera del rango podría restar más de
-            // lo que esa forma juntó en el rango.
+            // Nunca negativo: un ajuste de una venta fuera del rango podría restar de más.
             recaudacionPorFormaPago.add(new RecaudacionPorFormaPagoDTO(
                     formaPago,
                     formaPago.getDescripcion(),
@@ -539,9 +505,7 @@ public class ReporteServiceImpl implements ReporteService {
             comprasPorEstado.add(new ComprasPorEstadoDTO(estado, cantidadPorEstado.get(estado)));
         }
 
-        // Las 168 combinaciones (7 días x 24 horas) siempre, aunque no haya ventas en algunas:
-        // el front arma el gráfico sumando las horas de los días que estén tildados, y necesita
-        // la grilla completa para no tener que adivinar qué falta.
+        // Siempre las 168 combinaciones: el front suma las horas de los días tildados.
         List<VentasPorHoraDTO> ventasPorHora = new ArrayList<>();
         for (DayOfWeek dia : DayOfWeek.values()) {
             for (int hora = 0; hora < 24; hora++) {
@@ -563,9 +527,7 @@ public class ReporteServiceImpl implements ReporteService {
                     montoPorOrigen.getOrDefault(origen, BigDecimal.ZERO)));
         }
 
-        // Las cajas van por el día del turno (cuándo se abrieron), no por cuándo se cerraron ni por
-        // fechaVisita: una caja que se dejó abierta el domingo y se cerró el sábado siguiente es del
-        // domingo, que es cuando se cobraron sus ventas (y donde las cuenta la recaudación).
+        // Las cajas van por el día de apertura, que es el de sus ventas.
         List<Caja> cajasCerradas = cajaRepository.findAllByFechaAperturaBetweenAndFechaCierreIsNotNullOrderByFechaAperturaDesc(
                 desde.atStartOfDay(), hasta.atTime(LocalTime.MAX));
 
@@ -582,22 +544,19 @@ public class ReporteServiceImpl implements ReporteService {
         Map<Long, BigDecimal> retirosPorCaja = netoRetirosPorCaja(idsHabilitadas);
 
         for (Caja caja : cajasCerradas) {
-            // Deshabilitada por un admin: fuera de la sección "cajas" del reporte y de los totales
-            // de retiros/faltantes/sobrantes (mismo criterio que `if (!tipo.getActivo()) continue`).
+            // Deshabilitada: fuera de la sección cajas y sus totales.
             if (!caja.estaHabilitada()) {
                 continue;
             }
             BigDecimal retirosCaja = retirosPorCaja.getOrDefault(caja.getId(), BigDecimal.ZERO);
             totalRetirosCajas = totalRetirosCajas.add(retirosCaja);
 
-            // "Sin control": no hubo conteo, así que no hay diferencia que medir. Sin esto la de
-            // posnet daría como faltante todo lo cobrado con tarjeta/QR (nadie cargó un cierre).
+            // Sin control no hay conteo: el posnet daría todo como faltante.
             boolean sinControl = Boolean.TRUE.equals(caja.getControlOmitido());
             BigDecimal diferencia = sinControl || caja.getDiferencia() == null ? BigDecimal.ZERO : caja.getDiferencia();
             BigDecimal diferenciaPosnet = sinControl ? BigDecimal.ZERO
                     : difPosnetPorCaja.getOrDefault(caja.getId(), BigDecimal.ZERO);
-            // Faltante/sobrante neteando efectivo + Tarjeta/QR: si la plata está en otra forma de
-            // pago sigue estando, no falta como tal.
+            // Neto de efectivo + tarjeta/QR: la plata en otra forma de pago no falta.
             BigDecimal neto = diferencia.add(diferenciaPosnet);
             if (neto.signum() < 0) {
                 totalFaltantesCajas = totalFaltantesCajas.add(neto.negate());
@@ -652,8 +611,7 @@ public class ReporteServiceImpl implements ReporteService {
                 .sorted((a, b) -> a.getNombre().compareToIgnoreCase(b.getNombre()))
                 .toList();
 
-        // Facturado: por fecha de emisión del comprobante (lo que ve ARCA), sin importar si la
-        // caja de la venta después se deshabilitó — el comprobante ya existe igual.
+        // Por fecha de emisión, aunque la caja se haya deshabilitado: el comprobante existe igual.
         BigDecimal totalFacturado = BigDecimal.ZERO;
         long cantidadFacturas = 0;
         long cantidadNotasCredito = 0;
@@ -705,9 +663,7 @@ public class ReporteServiceImpl implements ReporteService {
                                                            Map<Long, BigDecimal> montoAnticipadaPorTipo,
                                                            Map<Long, Long> cantidadBoleteriaPorTipo,
                                                            Map<Long, BigDecimal> montoBoleteriaPorTipo) {
-        // getOrDefault y no get(): un tipo que se vendió en el período pero ya está inactivo entra
-        // en tiposPorId por el desglose, pero el loop de "tipos activos" lo saltea, así que puede
-        // no tener sus cuatro entradas.
+        // getOrDefault: un tipo inactivo vendido en el período puede no tener las cuatro entradas.
         return tiposPorId.values().stream()
                 .sorted((a, b) -> a.getNombre().compareToIgnoreCase(b.getNombre()))
                 .map(tipo -> new DesgloseTipoEntradaDTO(

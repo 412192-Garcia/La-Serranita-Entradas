@@ -12,8 +12,7 @@ import java.util.List;
 
 @Repository
 public interface NotificacionVistaRepository extends JpaRepository<NotificacionVista, NotificacionVistaId> {
-    /** De estos refIds, cuáles ya vio este usuario para este tipo — para calcular pendientes o
-     * filtrar cuáles faltan marcar como vistas (ver NotificacionServiceImpl). */
+    /** De estos refIds, cuáles ya vio el usuario. */
     List<NotificacionVista> findAllByTipoAndUsuarioIdAndRefIdIn(TipoNotificacion tipo, Long usuarioId, List<Long> refIds);
 
     /** De estos refIds, cuáles ya vio alguien (cualquier usuario). */

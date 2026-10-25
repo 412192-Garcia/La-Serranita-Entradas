@@ -21,16 +21,11 @@ public interface CuponService {
     Cupon actualizar(Long id, ActualizarCuponRequest request);
 
     /**
-     * Consume un uso del cupón de forma atómica. Devuelve true si quedaba disponible (y lo
-     * descontó), false si estaba agotado, inactivo o vencido. Es el único punto que puede
-     * autorizar el uso de un cupón: validarlo leyéndolo y escribirlo después deja pasar dos
-     * compras simultáneas con el mismo cupón de un solo uso.
+     * Consume un uso de forma atómica. false si estaba agotado, inactivo o vencido. Es lo único que autoriza
+     * el uso.
      */
     boolean consumirUso(Long cuponId);
 
-    /**
-     * Devuelve un uso del cupón (compra cancelada o reembolsada) y lo reactiva si vuelve a
-     * haber lugar. Idempotente: llamarlo de más no deja el contador en negativo.
-     */
+    /** Devuelve un uso y reactiva el cupón si vuelve a haber lugar. Idempotente. */
     void liberarUso(Long cuponId);
 }

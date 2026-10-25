@@ -60,16 +60,14 @@ public class FacturaServiceImpl implements FacturaService {
     private static final BigDecimal DIVISOR_IVA_21 = new BigDecimal("1.21");
 
     /**
-     * Zona de las fechas fiscales (la fecha que va a ARCA, la del servicio y la hora impresa).
-     * Explícita a propósito: el contenedor tiene TZ de Argentina, pero si faltara quedaría en UTC y
-     * entre las 21 y las 24 la factura saldría con el día siguiente.
+     * Explícita: sin TZ del contenedor quedaría en UTC y entre las 21 y las 24 la factura saldría con el día
+     * siguiente.
      */
     public static final ZoneId ZONA_ARGENTINA = ZoneId.of("America/Argentina/Buenos_Aires");
     private static final int CONCEPTO_PRODUCTOS = 1;
     private static final int CONCEPTO_SERVICIOS = 2;
     private static final int CONCEPTO_PRODUCTOS_Y_SERVICIOS = 3;
-    /** Pasados estos intentos fallidos transitorios la factura pasa a ERROR para que alguien la
-     * mire: con el backoff de abajo son ~15 horas reintentando. */
+    /** Después de estos intentos pasa a ERROR (~15 h con el backoff). */
     private static final int MAX_INTENTOS = 20;
     private static final long BACKOFF_MAX_MINUTOS = 60;
 
@@ -89,15 +87,12 @@ public class FacturaServiceImpl implements FacturaService {
     private final ModulosService modulos;
 
     /**
-     * ARCA numera en orden estricto por punto de venta: dos emisiones a la vez pedirían el mismo
-     * "último + 1" y una de las dos sería rechazada. Se emite de a una. Un lock en memoria
-     * alcanza porque el backend corre como una sola instancia; si algún día se escala a varias,
-     * esto tiene que pasar a un lock en la base.
+     * ARCA numera en orden estricto por punto de venta: se emite de a una. Lock en memoria porque hay una
+     * sola instancia; con varias tiene que ir a la base.
      */
     private final ReentrantLock lockEmision = new ReentrantLock();
 
-    /** Punto de venta de ARCA para la boletería (tipo "Web Services"). Distinto del 0010 de la
-     * cantina: comparten CUIT pero cada uno lleva su propia numeración. */
+    /** Punto de venta de boletería. La cantina (0010) comparte CUIT pero tiene su propia numeración. */
     @Value("${afip.punto-venta.boleteria:1}")
     private int puntoVentaBoleteria;
 
@@ -139,14 +134,12 @@ public class FacturaServiceImpl implements FacturaService {
             return Optional.empty();
         }
         if (pedido.getDestino() == DestinoFactura.NINGUNO) {
-            // Sólo para las facturas que arma el sistema (refacturar una venta corregida): pedida
-            // desde afuera sería una factura que no se imprime ni se manda.
+            // Sólo para facturas que arma el sistema (refacturar una venta corregida).
             throw new IllegalArgumentException("La factura se imprime o se manda por mail");
         }
         String email = pedido.getEmail() == null ? null : pedido.getEmail().trim();
         boolean sinEmail = email == null || email.isEmpty();
-        // "Enviar por mail" con el campo vacío = no facturar. No es un error: es lo que pasa
-        // casi siempre al cobrar en efectivo, el cajero ni toca el campo.
+        // Mail con el campo vacío = no facturar. No es un error.
         if (pedido.getDestino() == DestinoFactura.MAIL && sinEmail) {
             return Optional.empty();
         }
@@ -177,8 +170,7 @@ public class FacturaServiceImpl implements FacturaService {
                 pedido.getDestino() == DestinoFactura.MAIL ? email : null, impresora));
     }
 
-    /** Crea una factura B PENDIENTE por el total actual de la compra y la deja lista para emitir
-     * cuando commitee la transacción en curso (la de la venta, o la de la cancelación/edición). */
+    /** Factura B PENDIENTE por el total actual; se emite al commitear la transacción en curso. */
     private Factura crearFactura(Compra compra, DestinoFactura destino, String email, String impresora) {
         return crearFactura(compra, destino, email, impresora, puntoVentaBoleteria);
     }
@@ -203,8 +195,7 @@ public class FacturaServiceImpl implements FacturaService {
                 .detalle(detalleTexto(compra, total))
                 .build();
         factura = facturaRepository.save(factura);
-        // Se emite recién cuando commitea la transacción (ver EmisionFacturasScheduler): si hiciera
-        // rollback, no puede quedar un comprobante autorizado en ARCA.
+        // Se emite después del commit: si hay rollback no puede quedar nada autorizado en ARCA.
         eventPublisher.publishEvent(new FacturaSolicitadaEvent(factura.getId()));
         return factura;
     }
@@ -217,15 +208,9 @@ public class FacturaServiceImpl implements FacturaService {
     }
 
     /**
-     * Copia de los ítems al facturar: "cantidad<TAB>descripción<TAB>subtotal" por línea, más una línea
-     * "0<TAB>Descuento<TAB>-monto" si hubo descuento, para que el ticket muestre cuánto salió cada
-     * cosa y la cuenta cierre con el total.
-     *
-     * El subtotal de una entrada se calcula con la misma regla de precios que usó la venta (precio de
-     * grupo si se cobró en efectivo, ver CompraServiceImpl#construirDetalles), y el de un artículo con
-     * el precio que cargó el cajero. Si aun así la suma diera MENOS que el total (no debería: sería un
-     * precio que cambió entre la venta y la factura), se guardan las líneas sin subtotal: un ticket
-     * con números que no cierran es peor que uno sin el detalle.
+     * Ítems al facturar: "cantidad<TAB>descripción<TAB>subtotal" por línea, más "0<TAB>Descuento<TAB>-monto"
+     * si hubo. Si la suma diera menos que el total, se guardan sin subtotal: mejor sin detalle que con
+     * números que no cierran.
      */
     private String detalleTexto(Compra compra, BigDecimal total) {
         List<CompraDetalle> detalles = compra.getDetalles();
@@ -266,8 +251,7 @@ public class FacturaServiceImpl implements FacturaService {
         try {
             if (d.getTipoEntrada() != null) {
                 if (compra.getFormaPago() == null) return null;
-                // Con el precio de lista congelado al armar la compra (una reserva cobrada tras un
-                // aumento no puede mostrar un "descuento" que en realidad es el aumento).
+                // Con el precio congelado, para que un aumento no aparezca como "descuento".
                 return d.getPrecioUnitario() != null
                         ? calculoPrecioService.calcularTotal(d.getTipoEntrada(), d.getCantidad(), compra.getFormaPago(), d.getPrecioUnitario())
                         : calculoPrecioService.calcularTotal(d.getTipoEntrada(), d.getCantidad(), compra.getFormaPago());
@@ -293,17 +277,15 @@ public class FacturaServiceImpl implements FacturaService {
         facturaVigente(compra.getId()).ifPresent(vieja -> {
             boolean mismoTotal = montoAnterior != null && compra.getMontoTotal() != null
                     && montoAnterior.compareTo(compra.getMontoTotal()) == 0;
-            // Mismo total y mismos ítems (ej. sólo se corrigió la forma de pago sin mover precios):
-            // la factura sigue siendo correcta. Si cambió lo que dice (otro artículo del mismo
-            // precio, otras cantidades), va nota de crédito y factura nueva igual.
+            // Mismo total y mismos ítems: la factura sigue valiendo.
             if (mismoTotal && (vieja.getDetalle() == null
                     || vieja.getDetalle().equals(detalleTexto(compra, compra.getMontoTotal())))) {
                 return;
             }
             anular(vieja);
             if (compra.getMontoTotal() != null && compra.getMontoTotal().signum() > 0) {
-                // La corrección la hace un admin desde la oficina: si iba por mail se le manda la
-                // nueva al mismo cliente; si era impresa no se imprime sola en la boletería.
+                // La corrige un admin desde la oficina: si iba por mail se manda la nueva; si era impresa no
+                // se imprime sola.
                 boolean porMail = vieja.getDestino() == DestinoFactura.MAIL;
                 crearFactura(compra, porMail ? DestinoFactura.MAIL : DestinoFactura.NINGUNO,
                         porMail ? vieja.getEmail() : null, null);
@@ -312,13 +294,8 @@ public class FacturaServiceImpl implements FacturaService {
     }
 
     /**
-     * Deja sin efecto una factura. Si nunca llegó a ARCA, alcanza con anularla acá. Si ya está
-     * autorizada, ARCA no permite borrarla: se emite una nota de crédito por el total. Y si está
-     * en camino (pidió número y no se sabe si quedó autorizada) se marca, y lo resuelve la
-     * emisión: nota de crédito si quedó autorizada, anulada si no.
-     *
-     * Corre dentro de la transacción de la cancelación/edición, con la fila bloqueada: la emisión
-     * reserva el número también con la fila bloqueada, así que las dos cosas no se cruzan.
+     * Si no llegó a ARCA se anula acá; si está autorizada, nota de crédito; si está en camino se marca y lo
+     * resuelve la emisión. Corre con la fila bloqueada, igual que la emisión.
      */
     private void anular(Factura vigente) {
         Factura f = bloquear(vigente.getId()).orElse(vigente);
@@ -340,8 +317,7 @@ public class FacturaServiceImpl implements FacturaService {
             eventPublisher.publishEvent(new FacturaSolicitadaEvent(nc.getId()));
             return;
         }
-        // En ERROR con número pedido tampoco se sabe si quedó autorizada: vuelve a la cola para
-        // que la emisión lo consulte y lo resuelva.
+        // En ERROR con número pedido tampoco se sabe si quedó autorizada: vuelve a la cola.
         f.setEstado(EstadoFactura.PENDIENTE);
         f.setIntentos(0);
         f.setProximoIntento(null);
@@ -350,14 +326,8 @@ public class FacturaServiceImpl implements FacturaService {
     }
 
     /**
-     * La factura con su fila bloqueada hasta el fin de la transacción, y RELEÍDA de la base.
-     *
-     * Todo cambio de estado pasa por acá: así la cancelación de una venta y la emisión contra ARCA
-     * (que corren en hilos distintos) no se pisan. El refresh es la parte importante: un SELECT
-     * ... FOR UPDATE bloquea la fila, pero si la entidad ya estaba cargada en la sesión (la
-     * cancelación la busca antes, y con open-in-view la sesión dura todo el request) Hibernate
-     * devuelve esa instancia vieja sin pisarla con lo que acaba de leer, y se decidía con datos
-     * desactualizados.
+     * La factura con su fila bloqueada y RELEÍDA. Todo cambio de estado pasa por acá. El refresh importa: si
+     * la entidad ya estaba en la sesión, Hibernate devuelve la vieja.
      */
     private Optional<Factura> bloquear(Long id) {
         return facturaRepository.findById(id).map(f -> {
@@ -406,9 +376,7 @@ public class FacturaServiceImpl implements FacturaService {
 
     @Override
     public void emitir(Long facturaId) {
-        // Con el módulo apagado nada va a ARCA, venga de donde venga (el evento de una venta, una
-        // nota de crédito al cancelar o editar, una compra online): la factura queda PENDIENTE y la
-        // toma emitirPendientes cuando se vuelve a prender.
+        // Con el módulo apagado nada va a ARCA: queda PENDIENTE hasta que se prenda.
         if (!estaHabilitada()) {
             log.info("Factura ID {} queda pendiente: la facturación está apagada", facturaId);
             return;
@@ -435,15 +403,12 @@ public class FacturaServiceImpl implements FacturaService {
                 marcarAnulada(id);
                 return;
             }
-            // Un intento anterior mandó el pedido con este número y nunca supo la respuesta
-            // (timeout, corte): antes de pedir otro número hay que preguntar si ese quedó
-            // autorizado. Si no se hace esto, un timeout = la misma venta facturada dos veces.
+            // Un intento anterior usó este número sin saber la respuesta: hay que consultarlo antes de pedir
+            // otro, o la venta se factura dos veces.
             if (factura.getNumeroIntentado() != null) {
                 long intentado = factura.getNumeroIntentado();
                 Optional<WsfeService.ComprobanteAutorizado> previo = wsfe.consultar(pv, tipo, intentado);
-                // Mismo importe no alcanza para saber que es nuestro: mientras ésta esperaba su
-                // reintento, otra factura de acá pudo haber sacado ese mismo número por el mismo
-                // monto. Si otra ya lo tiene, no es de ésta.
+                // Mismo importe no alcanza: otra factura pudo sacar ese número por el mismo monto.
                 boolean esDeOtra = previo.isPresent()
                         && facturaRepository.existsByPuntoVentaAndTipoComprobanteAndNumeroAndIdNot(pv, tipo, intentado, id);
                 if (previo.isPresent() && !esDeOtra && previo.get().total().compareTo(factura.getImporteTotal()) == 0) {
@@ -459,17 +424,15 @@ public class FacturaServiceImpl implements FacturaService {
             }
 
             resolverReservasDeOtras(pv, tipo, id);
-            // Primer intento con el número que sale de la base (en producción); si ARCA lo rechaza
-            // por no ser el próximo, un segundo intento enseguida con el que informa ARCA.
+            // Primero con el número de la base; si ARCA lo rechaza, enseguida con el que informa ARCA.
             boolean preguntarAArca = false;
             for (int intento = 1; intento <= 2; intento++) {
                 Numero proximo = proximoNumero(pv, tipo, preguntarAArca);
                 long numero = proximo.valor();
                 LocalDate fecha = LocalDate.now(ZONA_ARGENTINA);
-                // Se reserva el número ANTES de pedir el CAE, en su propia transacción y con la fila
-                // bloqueada: si la respuesta se pierde, el próximo intento sabe qué número consultar.
-                // Y si mientras se consultaba el último número la venta se canceló, acá se ve y no se
-                // pide nada (antes se reservaba igual y se autorizaba la factura de una venta cancelada).
+                // El número se reserva antes de pedir el CAE, en su propia transacción, para saber qué
+                // consultar si se pierde la respuesta. Si la venta se canceló mientras tanto, no se pide
+                // nada.
                 boolean reservado = Boolean.TRUE.equals(tx.execute(st -> bloquear(id).map(f -> {
                     if (f.getEstado() != EstadoFactura.PENDIENTE || Boolean.TRUE.equals(f.getAnulacionPedida())) {
                         return false;
@@ -498,16 +461,13 @@ public class FacturaServiceImpl implements FacturaService {
                 if (resultado.codigos().contains(WsfeService.ERROR_NUMERO_NO_ES_EL_PROXIMO)) {
                     liberarNumero(id);
                     if (proximo.deLaBase()) {
-                        // La base quedó desfasada de ARCA (ej. se restauró un backup viejo): se le
-                        // pregunta a ARCA el último y se reintenta ya, sin esperar la cola.
+                        // La base quedó desfasada (ej. backup viejo): se pregunta a ARCA y se reintenta ya.
                         log.warn("Factura ID {}: ARCA rechazó el número {} sacado de la base; se pide el último a ARCA", id, numero);
                         preguntarAArca = true;
                         continue;
                     }
-                    // Otro comprobante tomó ese número entre la consulta y el pedido (no debería
-                    // pasar con un punto de venta propio, pero sí en homologación si otra base de
-                    // prueba factura con el mismo certificado). No es un error de la factura: se
-                    // reintenta con el número que siga.
+                    // Otro comprobante tomó el número (pasa en homologación con otra base de prueba). Se
+                    // reintenta con el siguiente.
                     reprogramar(id, "ARCA: " + String.join(" | ", resultado.mensajes()));
                     return;
                 }
@@ -529,10 +489,8 @@ public class FacturaServiceImpl implements FacturaService {
     }
 
     /**
-     * Antes de pedir un número, resuelve las otras facturas de este punto de venta que pidieron uno
-     * y no supieron la respuesta (timeout): o quedó autorizado y es suyo, o se libera. Si no, ésta
-     * podría reservar ese mismo número y, si las dos pierden la respuesta, una quedarse con la
-     * autorización de la otra (o la misma venta facturada dos veces).
+     * Resuelve antes las otras facturas del punto de venta con número pedido y sin respuesta, para que ésta
+     * no reserve el mismo número.
      */
     private void resolverReservasDeOtras(int pv, int tipo, Long id) {
         for (Long otraId : facturaRepository.reservasSinResolver(pv, tipo, id,
@@ -557,10 +515,8 @@ public class FacturaServiceImpl implements FacturaService {
     private record Emision(Factura factura, Long notaDeCreditoId) {}
 
     private void marcarEmitida(Long id, long numero, String cae, LocalDate caeVencimiento, LocalDate fecha) {
-        // Autorización y (si la venta ya se había cancelado) nota de crédito en la MISMA
-        // transacción: si el backend se cae justo después, la nota de crédito ya quedó PENDIENTE y
-        // el job la emite. Antes eran dos commits y en el medio podía quedar una venta cancelada
-        // facturada sin su nota de crédito, sin nada que la reparara.
+        // Autorización y nota de crédito (si la venta se canceló) en la misma transacción: si el backend se
+        // cae, la NC queda PENDIENTE y la emite el job.
         Emision emision = tx.execute(s -> bloquear(id).map(f -> {
             f.setEstado(EstadoFactura.EMITIDA);
             f.setNumero(numero);
@@ -579,15 +535,12 @@ public class FacturaServiceImpl implements FacturaService {
         }).orElse(null));
         if (emision == null) return;
         if (emision.notaDeCreditoId() != null) {
-            // Quedó autorizada pero la venta ya se había cancelado: ni mail ni ticket, va directo
-            // la nota de crédito.
+            // Autorizada pero con la venta cancelada: directo a la nota de crédito.
             emitir(emision.notaDeCreditoId());
             return;
         }
         Factura emitida = emision.factura();
-        // Ya commiteada como EMITIDA: el mail sale en segundo plano (si falla, queda como rechazo
-        // para reenviar) y el ticket va a la cola del agente de impresión. En los dos casos la
-        // factura sigue siendo válida aunque el envío falle.
+        // Ya EMITIDA: el mail o el ticket salen en segundo plano y la factura vale aunque fallen.
         if (emitida.getDestino() == DestinoFactura.MAIL) {
             emailService.enviarFactura(id);
         } else if (emitida.getDestino() == DestinoFactura.IMPRIMIR) {
@@ -629,15 +582,9 @@ public class FacturaServiceImpl implements FacturaService {
     private record Numero(long valor, boolean deLaBase) {}
 
     /**
-     * El próximo número del punto de venta. En producción sale de la base (el último emitido + 1):
-     * el punto de venta web services es exclusivo de este sistema (desde "Comprobantes en línea"
-     * no se puede usar), así que nadie más saca números ahí. Ahorra un request a ARCA por
-     * factura. Se le pregunta a ARCA si la base no tiene ninguno (la primera factura) o si ARCA
-     * rechazó el número de la base.
-     *
-     * En homologación se pregunta siempre: las bases de prueba se borran seguido (y varias pueden
-     * usar el mismo certificado) mientras ARCA conserva todo lo emitido, así que el de la base casi
-     * nunca sería el próximo.
+     * En producción el número sale de la base (el punto de venta web services es exclusivo de este sistema);
+     * se pregunta a ARCA si la base no tiene ninguno o si ARCA rechazó el de la base. En homologación se
+     * pregunta siempre: las bases de prueba se borran seguido.
      */
     private Numero proximoNumero(int pv, int tipo, boolean preguntarAArca) {
         if (!preguntarAArca && afipClient.esProduccion()) {
@@ -658,8 +605,7 @@ public class FacturaServiceImpl implements FacturaService {
 
     private void marcarError(Long id, String mensaje, boolean liberarNumero) {
         tx.executeWithoutResult(s -> bloquear(id).ifPresent(f -> {
-            // Si mientras se emitía la venta se canceló (ANULADA), una falla que llega tarde no la
-            // puede volver a ERROR: un reintento manual después autorizaría una venta cancelada.
+            // Si la venta se canceló mientras se emitía, una falla tardía no la vuelve a ERROR.
             if (f.getEstado() != EstadoFactura.PENDIENTE) return;
             f.setIntentos(f.getIntentos() + 1);
             f.setUltimoError(recortar(mensaje));
@@ -667,8 +613,7 @@ public class FacturaServiceImpl implements FacturaService {
             if (liberarNumero) {
                 f.setNumeroIntentado(null);
             }
-            // Rechazada (sin número usado) y con la venta ya cancelada: no hay nada que corregir,
-            // queda anulada en vez de esperar que un admin la reintente.
+            // Rechazada y con la venta cancelada: queda anulada.
             boolean anulada = Boolean.TRUE.equals(f.getAnulacionPedida()) && f.getNumeroIntentado() == null;
             f.setEstado(anulada ? EstadoFactura.ANULADA : EstadoFactura.ERROR);
             log.warn("Factura ID {} en {}: {}", id, f.getEstado(), mensaje);
@@ -701,8 +646,7 @@ public class FacturaServiceImpl implements FacturaService {
         if (!estaHabilitada()) {
             throw new IllegalStateException("La facturación está apagada (Sistema > Módulos): se reintenta cuando se vuelva a prender");
         }
-        // Sólo ERROR: una ANULADA es de una venta cancelada y reintentarla autorizaría una factura
-        // sin su nota de crédito. Se chequea con la fila bloqueada, no antes.
+        // Sólo ERROR: reintentar una ANULADA autorizaría una factura sin su nota de crédito.
         tx.executeWithoutResult(s -> {
             Factura f = bloquear(facturaId)
                     .orElseThrow(() -> new IllegalArgumentException("Factura no encontrada ID: " + facturaId));
@@ -752,11 +696,7 @@ public class FacturaServiceImpl implements FacturaService {
         return toDto(factura);
     }
 
-    /**
-     * Varias facturas manuales de una vez, para las ventas que quedaron sin facturar en el día. Todo
-     * o nada: si una tiene un error no se pide ninguna (se arregla y se manda el lote de nuevo). Sin
-     * entrega: el cliente ya se fue, quedan los PDF en la lista.
-     */
+    /** Varias facturas manuales sin entrega. Todo o nada. */
     @Override
     @Transactional
     public List<FacturaResponseDTO> emitirManualLote(FacturaManualLoteDTO lote) {
@@ -800,9 +740,7 @@ public class FacturaServiceImpl implements FacturaService {
             // Recién creadas: no tienen trabajos de impresión (no se busca uno por factura).
             salida.add(toDto(factura, Optional.empty()));
         }
-        // Un solo evento para todo el lote, que se emite de a una en un mismo hilo: con un evento por
-        // factura, cien tareas ocupaban todo el pool @Async (esperando el mismo lock de emisión) y
-        // las facturas del POS y los mails quedaban en fila detrás de ellas.
+        // Un solo evento para el lote: uno por factura llenaba el pool @Async y frenaba al POS y los mails.
         eventPublisher.publishEvent(new LoteFacturasSolicitadoEvent(ids));
         log.info("Lote de {} facturas manuales pedido por {}", armadas.size(), total);
         return salida;
@@ -942,9 +880,7 @@ public class FacturaServiceImpl implements FacturaService {
             return false;
         }
         Long compraId = compra.getId();
-        // Recién cuando la aprobación del pago ya quedó guardada, y en segundo plano (ver
-        // EmisionFacturasScheduler): adentro de la misma transacción, un error de la factura la
-        // desharía y se perdería la aprobación de alguien que ya pagó.
+        // Después de guardar la aprobación y en segundo plano: un error de factura no puede deshacer el pago.
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
@@ -959,9 +895,8 @@ public class FacturaServiceImpl implements FacturaService {
     }
 
     /**
-     * Pide la factura, espera a ARCA (normalmente 2-3 s) y manda la confirmación con la factura
-     * adjunta. Si ARCA tarda o falla, la confirmación sale sola y la factura queda para mandarse
-     * sola cuando se emita. Pase lo que pase, la confirmación sale (el finally).
+     * Pide la factura, espera a ARCA (2-3 s) y manda la confirmación con la factura. Si ARCA tarda, la
+     * confirmación sale sola y la factura después. La confirmación sale siempre (finally).
      */
     @Override
     public void procesarCompraOnlinePagada(Long compraId) {
@@ -992,9 +927,8 @@ public class FacturaServiceImpl implements FacturaService {
     }
 
     /**
-     * La confirmación ya salió sin la factura: que la factura se mande sola al emitirse. Si justo se
-     * emitió (entre el chequeo y acá) el UPDATE condicional no la toca y se manda ya, así no se pierde
-     * ni sale dos veces (marcarEmitida decide con la fila bloqueada, igual que este UPDATE).
+     * Que la factura se mande sola al emitirse. Si justo se emitió, el UPDATE condicional no la toca y se
+     * manda ya.
      */
     private void mandarFacturaCuandoSeEmita(Long facturaId, String email) {
         if (facturaRepository.pasarAMailSiNoEmitida(facturaId, email) > 0) return;
@@ -1014,9 +948,8 @@ public class FacturaServiceImpl implements FacturaService {
     }
 
     /**
-     * Crea la factura de una compra online paga. Con `estricto` (pedido de un admin) los motivos
-     * para no facturar son errores que se le muestran; si no (automático, al confirmarse el pago),
-     * simplemente no se factura.
+     * Con `estricto` (pedido de un admin) los motivos para no facturar son errores; si no, simplemente no se
+     * factura.
      */
     private Factura crearFacturaOnline(Long compraId, boolean estricto) {
         return crearFacturaOnline(compraId, estricto, false);
@@ -1025,8 +958,7 @@ public class FacturaServiceImpl implements FacturaService {
     /** @param conLaConfirmacion la factura viaja adjunta a la confirmación: se crea sin mail propio */
     private Factura crearFacturaOnline(Long compraId, boolean estricto, boolean conLaConfirmacion) {
         Integer pv = puntoVentaOnline();
-        // Bloqueada: el webhook y la verificación directa pueden confirmar el mismo pago casi a la
-        // vez, y la segunda tiene que ver la factura de la primera, no crear otra.
+        // Bloqueada: webhook y verificación directa pueden llegar a la vez.
         Compra compra = em.find(Compra.class, compraId, LockModeType.PESSIMISTIC_WRITE);
         String motivo = null;
         if (pv == null || !estaHabilitada()) motivo = "La facturación de compras online no está configurada";
@@ -1050,9 +982,10 @@ public class FacturaServiceImpl implements FacturaService {
     }
 
     @Override
-    /** Se factura sola cada compra online pagada: configurada y prendida en Sistema > Módulos
-     * (la general y la online). Facturar a mano una compra online (facturarOnlineAhora) no depende
-     * del módulo online: se puede igual con él apagado. */
+    /**
+     * Se factura sola cada compra online: configurada y prendida (general y online). Facturar a mano no
+     * depende del módulo online.
+     */
     public boolean facturacionOnlineActiva() {
         return puntoVentaOnline() != null && estaHabilitada() && modulos.activo(Modulo.FACTURACION_ONLINE);
     }
@@ -1105,9 +1038,7 @@ public class FacturaServiceImpl implements FacturaService {
     }
 
     /**
-     * Bloquea la fila de la compra (SELECT ... FOR UPDATE, sin pisar los cambios en memoria) antes
-     * de mirar su factura vigente: así cancelar, editar y "Facturar" desde Ventas y facturas no
-     * pueden decidir a la vez sobre la misma venta (una factura de más, o una sin nota de crédito).
+     * Bloquea la compra antes de mirar su factura, para que cancelar, editar y facturar no decidan a la vez.
      */
     private void bloquear(Compra compra) {
         if (compra.getId() != null && em.contains(compra)) {
@@ -1188,11 +1119,9 @@ public class FacturaServiceImpl implements FacturaService {
         Integer online = puntoVentaOnline();
         if (online != null) puntos.add(online);
         List<ControlFacturacionDTO.Desfase> encontrados = new ArrayList<>();
-        // Cada punto de venta por separado: uno que ARCA no reconoce (ej. el de pruebas de facturas
-        // viejas de homologación, "11002 - punto de venta no habilitado") no frena el control de los demás.
+        // Cada punto de venta por separado: uno que ARCA no reconoce no frena a los demás.
         java.util.Map<Integer, String> sinConsultar = new java.util.TreeMap<>();
-        // Con la emisión frenada mientras tanto: una factura que se autoriza entre la consulta a la
-        // base y la de ARCA daría un desfase que no existe.
+        // Con la emisión frenada, para no ver un desfase que no existe.
         lockEmision.lock();
         try {
             for (int pv : puntos) {
@@ -1246,8 +1175,7 @@ public class FacturaServiceImpl implements FacturaService {
     @Transactional(readOnly = true)
     public List<Long> idsAlertasFacturacion() {
         if (!afipClient.estaConfigurado()) return List.of();
-        // Con el módulo apagado las pendientes esperan a propósito (no son "trabadas"), pero las que
-        // quedaron en ERROR y el vencimiento del certificado se siguen avisando.
+        // Con el módulo apagado las pendientes esperan a propósito; ERROR y certificado se siguen avisando.
         boolean apagada = !modulos.activo(Modulo.FACTURACION);
         List<Long> ids = new ArrayList<>(facturaRepository.conProblemas(LocalDateTime.now(ZONA_ARGENTINA).minusMinutes(MINUTOS_PARA_TRABADA))
                 .stream().filter(f -> !apagada || f.getEstado() == EstadoFactura.ERROR).map(Factura::getId).toList());

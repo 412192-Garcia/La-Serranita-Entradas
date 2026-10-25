@@ -21,14 +21,8 @@ public class EfectivoBoleteriaServiceImpl implements PagoService {
 
     @Override
     public PagoResponseDTO procesarPago(Compra compra) {
-        // A diferencia de Mercado Pago, acá no hay que esperar ninguna confirmación externa:
-        // la reserva ya queda comprometida en el momento de crearla, así que el comprobante
-        // se manda al instante (no recién cuando se cobra en boletería).
-        //
-        // Esto se llama desde dentro de la transacción que crea la compra (iniciarCompraConPago
-        // en CompraServiceImpl es @Transactional), así que no se puede mandar el mail ahora
-        // mismo: como el envío es @Async, correría en otro hilo que todavía no vería la fila
-        // recién insertada (no se commiteó). Se registra para recién disparar después del commit.
+        // Sin confirmación externa: el comprobante sale ya, pero después del commit, porque el envío es
+        // @Async y otro hilo no vería la compra.
         Long compraId = compra.getId();
         boolean esRegalo = compra.getFechaVisita() == null;
         if (TransactionSynchronizationManager.isSynchronizationActive()) {

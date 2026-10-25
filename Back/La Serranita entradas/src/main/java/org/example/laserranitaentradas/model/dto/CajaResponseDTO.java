@@ -7,10 +7,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
-/**
- * Sirve tanto para la caja abierta (montoContado/diferencia todavía null, los totales
- * son "hasta ahora") como para la caja recién cerrada (todo completo).
- */
+/** Caja abierta (contado y diferencia en null, totales parciales) o recién cerrada. */
 @Data
 @Builder
 public class CajaResponseDTO {
@@ -24,7 +21,7 @@ public class CajaResponseDTO {
     private BigDecimal efectivoEsperado;
     private BigDecimal montoContado;
     private BigDecimal diferencia;
-    /** Total en billetes chicos cargado de una vez; ya está incluido en montoContado. Null hasta el cierre. */
+    /** Billetes chicos cargados de una vez; incluidos en montoContado. */
     private BigDecimal cambioContado;
     private List<RetiroCajaResponseDTO> retiros;
 
@@ -39,18 +36,15 @@ public class CajaResponseDTO {
     private BigDecimal totalCerradoQr;
     private BigDecimal diferenciaTarjeta;
     private BigDecimal diferenciaQr;
-    /** Si el cierre se cargó combinado (Tarjeta+QR juntos, sin distinguir), estos tres reemplazan a los de arriba; si no, quedan null. */
+    /** Con cierre combinado (Tarjeta + QR juntos) reemplazan a los de arriba; si no, null. */
     private BigDecimal totalVentasPosnet;
     private BigDecimal totalCerradoPosnet;
     private BigDecimal diferenciaPosnet;
     private List<CierrePosnetResponseDTO> cierresPosnet;
 
     /**
-     * Si hubo o no alguna venta pagada en dólares en esta caja (sigue siendo un cobro en
-     * EFECTIVO_BOLETERIA, sólo cambia la moneda física). A diferencia de los totales, esto se
-     * expone SIEMPRE (aunque la caja siga ABIERTA): es sólo un booleano, no un monto, así que
-     * no le sirve al boletero para "calcar" el cierre — pero el frontend lo necesita para saber
-     * si mostrar el campo de dólares contados al cerrar.
+     * Si hubo ventas en dólares. Se muestra aunque la caja esté abierta (es un booleano): el front lo usa
+     * para pedir el conteo de dólares.
      */
     private Boolean huboVentaDolares;
     /** Dólares esperados (según lo que entró de cada venta en dólares) — null hasta el cierre. */
@@ -60,53 +54,46 @@ public class CajaResponseDTO {
     private BigDecimal diferenciaDolares;
 
     private Integer entradasFisicasInicial;
-    /** Cuántas entradas quedaron sin cortar en el talonario, contadas al cerrar. Null mientras sigue ABIERTA. */
+    /** Entradas que quedaron en el talonario al cerrar. Null con la caja abierta. */
     private Integer entradasFisicasRestantes;
-    /** Cuántas DEBERÍAN quedar en el talonario (inicial + ingresos − entregadas). Null si la caja no tiene inicial cargado o sigue ABIERTA. */
+    /** inicial + ingresos − entregadas. Null sin inicial o con la caja abierta. */
     private Integer entradasFisicasEsperadas;
     /** restantes − esperadas: negativo = faltan en el talonario, positivo = sobran. */
     private Integer diferenciaEntradas;
-    /** Anticipadas (compradas online) que este boletero validó en su turno y a las que igual se
-     * les entregó talonario físico (ya restadas de entradasFisicasEsperadas). Null mientras sigue ABIERTA. */
+    /** Anticipadas validadas en el turno a las que se les dio talonario. Null con la caja abierta. */
     private Integer entradasAnticipadasEntregadas;
     private Integer totalIngresosEntradas;
     private List<IngresoEntradasResponseDTO> ingresosEntradas;
 
-    /** Ventas + retiros en orden cronológico. Null mientras sigue ABIERTA (mismo motivo anti-trampa que los totales esperados). */
+    /** Ventas y retiros en orden. Null con la caja abierta. */
     private List<OperacionCajaDTO> operaciones;
 
-    /**
-     * Ajustes manuales de la repartición por forma de pago cargados por un admin sobre este
-     * cierre (traspasos entre efectivo/tarjeta/QR). Vacío si no se ajustó nada. Los esperados
-     * y diferencias de arriba ya vienen con estos ajustes aplicados.
-     */
+    /** Traspasos entre formas de pago cargados por un admin. Los totales de arriba ya los incluyen. */
     private List<AjusteCajaResponseDTO> ajustes;
 
-    /** Unidades de tipos de entrada con precio > 0 (excluye las gratis, los extras y los
-     * artículos): venta de puerta + anticipadas cobradas acá + anticipadas validadas sin cobro
-     * (entraron igual, aunque esta caja no haya cobrado nada por ellas). Null mientras sigue ABIERTA. */
+    /**
+     * Entradas con precio > 0: venta de puerta + anticipadas cobradas acá + anticipadas validadas. Null con
+     * la caja abierta.
+     */
     private Integer totalEntradasPagas;
-    /** De totalEntradasPagas, cuántas son anticipadas (reservas) cobradas en esta caja. Null
-     * mientras sigue ABIERTA. */
+    /** Cuántas son reservas cobradas en esta caja. Null con la caja abierta. */
     private Integer entradasPagasAnticipadas;
-    /** De totalEntradasPagas, cuántas son anticipadas validadas SIN cobrar nada en esta caja (ya
-     * estaban pagas online). El resto (totalEntradasPagas − estas dos) es venta de puerta. Null
-     * mientras sigue ABIERTA. */
+    /**
+     * Cuántas son anticipadas validadas sin cobrar acá. El resto es venta de puerta. Null con la caja
+     * abierta.
+     */
     private Integer entradasPagasValidadas;
     private List<EntradasPorTipoDTO> entradasVendidasPorTipo;
 
-    /** false = un admin deshabilitó esta caja (no figura en listados ni reportes). El detalle por id la sigue devolviendo. Nunca null. */
+    /** false = caja deshabilitada. Nunca null. */
     private Boolean habilitada;
 
-    /** true = se abrió con "vender sin control de caja" (sólo ADMIN vendiendo él mismo): sin
-     * conteo de apertura ni de cierre, se cierra sola a fin de día. Null/false en una caja normal. */
+    /** true = abierta sin control: sin conteos, se cierra sola a fin de día. */
     private Boolean controlOmitido;
 
-    /** Facturado ante ARCA por las ventas de esta caja: Facturas B emitidas menos las notas de
-     * crédito emitidas. Null mientras sigue ABIERTA. */
+    /** Facturas B emitidas menos notas de crédito. Null con la caja abierta. */
     private BigDecimal totalFacturado;
-    /** Facturas B de esta caja que todavía no tienen CAE (pendientes o con error): no están en
-     * totalFacturado. Null mientras sigue ABIERTA. */
+    /** Facturas B sin CAE (pendientes o con error). Null con la caja abierta. */
     private Integer facturasSinEmitir;
     /** Suma de esas facturas sin emitir. Null mientras sigue ABIERTA. */
     private BigDecimal montoSinEmitir;

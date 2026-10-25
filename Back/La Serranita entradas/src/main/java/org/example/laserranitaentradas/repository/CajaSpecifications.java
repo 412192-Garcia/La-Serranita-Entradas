@@ -5,7 +5,7 @@ import org.example.laserranitaentradas.model.entity.Caja;
 import org.example.laserranitaentradas.model.entity.Usuario;
 import org.springframework.data.jpa.domain.Specification;
 
-/** Predicados reutilizables para el listado paginado de "Cajas cerradas" (GET /api/interno/caja/cerradas). */
+/** Predicados del listado de cajas cerradas. */
 public class CajaSpecifications {
 
     private CajaSpecifications() {}
@@ -15,9 +15,7 @@ public class CajaSpecifications {
         return (root, query, cb) -> cb.isNotNull(root.get("fechaCierre"));
     }
 
-    /** Mismo criterio de identidad que ya usa el resto de la pantalla de Cajas (nombre + apellido
-     * concatenados, ver CajaAbiertaDTO/CajaResumenReporteDTO): no hay un filtro por id de usuario
-     * expuesto todavía en esa pantalla, así que se compara contra el texto que ya manda el chip. */
+    /** Compara contra "nombre apellido", que es lo que manda el filtro. */
     public static Specification<Caja> deUsuarioNombre(String usuarioNombre) {
         if (usuarioNombre == null || usuarioNombre.isBlank()) return null;
         return (root, query, cb) -> {

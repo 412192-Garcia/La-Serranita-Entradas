@@ -3,11 +3,7 @@ package org.example.laserranitaentradas.model.dto;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
-/**
- * Personas que cruzaron la puerta en el rango, por tipo de entrada, separadas según cómo
- * entraron. Se atribuye por fecha de validación (día que la persona entró), no por día de
- * cobro — por eso una anticipada pre-pagada aparece acá el día que se usó.
- */
+/** Personas que entraron en el rango por tipo, por fecha de validación. */
 @Data
 @AllArgsConstructor
 public class IngresoPorTipoDTO {

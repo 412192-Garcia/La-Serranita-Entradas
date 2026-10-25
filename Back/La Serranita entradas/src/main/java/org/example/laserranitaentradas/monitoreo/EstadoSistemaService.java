@@ -41,9 +41,8 @@ import java.util.Comparator;
 import java.util.List;
 
 /**
- * Sistema > Estado: arma una tarjeta por área con lo que puede estar fallando en silencio. Cada
- * tarjeta en ALERTA prende la campanita (ver idsAlertas). Ninguna habla con servicios externos
- * (ARCA, Mercado Pago): se puede consultar seguido sin costo.
+ * Sistema > Estado: una tarjeta por área con lo que puede fallar en silencio. Las tarjetas en ALERTA prenden
+ * la campanita. No llama a servicios externos.
  */
 @Service
 public class EstadoSistemaService {
@@ -52,7 +51,7 @@ public class EstadoSistemaService {
     private static final DateTimeFormatter FECHA = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final DateTimeFormatter HORA = DateTimeFormatter.ofPattern("HH:mm");
     private static final List<EstadoCompra> PAGADAS = List.of(EstadoCompra.APROBADO, EstadoCompra.USADO);
-    /** Resumen de una tarjeta que no se pudo armar (AlertasService no la toma ni como alerta ni como resuelta). */
+    /** Tarjeta que no se pudo armar: no cuenta ni como alerta ni como resuelta. */
     static final String NO_SE_PUDO_CONSULTAR = "No se pudo consultar";
 
     private final FacturaService facturaService;
@@ -241,10 +240,7 @@ public class EstadoSistemaService {
         return new Tarjeta("backups", "Backups", viejo || problemaDrive != null ? "ALERTA" : "OK", resumen, detalles, null, accion);
     }
 
-    /**
-     * Estado del "hacer backup ahora" (ver PedidoBackup) en los detalles, y el botón si se puede pedir
-     * uno: no se ofrece mientras hay otro en marcha ni si el servidor no tiene la carpeta de pedidos.
-     */
+    /** Estado del backup a pedido y el botón, si se puede pedir uno. */
     private String accionBackup(List<String> detalles) {
         PedidoBackup.Estado p = pedidoBackup.estado();
         switch (p.situacion()) {
@@ -261,8 +257,8 @@ public class EstadoSistemaService {
     }
 
     /**
-     * La copia en Google Drive la hace el contenedor "backup" (rclone) y deja el resultado en
-     * .drive-estado: "OK <fecha> <archivo>" o "ERROR <fecha> <motivo>". Devuelve el problema, o null.
+     * El contenedor backup deja el resultado en .drive-estado: "OK <fecha> <archivo>" o "ERROR <fecha>
+     * <motivo>". Devuelve el problema o null.
      */
     private String copiaDrive(File carpeta, List<String> detalles) {
         if (driveRemoto.isBlank()) {
@@ -302,8 +298,7 @@ public class EstadoSistemaService {
         boolean alerta = falloReciente || incidentes > 0;
         return new Tarjeta("mails", "Mails", alerta ? "ALERTA" : "OK",
                 falloReciente ? "El último envío falló" : incidentes > 0 ? "Hubo errores al mandar mails" : "Funcionando",
-                // Un mail que no salió queda como operación rechazada (se reenvía desde ahí); los
-                // errores sueltos, en Errores. Ya no viven en Acciones.
+                // Un mail que no salió va a rechazos; los errores sueltos, a Errores.
                 detalles, falloReciente ? "/sistema?tab=rechazos" : incidentes > 0 ? "/sistema?tab=errores&area=MAILS" : null);
     }
 
@@ -336,10 +331,7 @@ public class EstadoSistemaService {
             detalles.add("Caja de " + c.getUsuario().getNombre() + " del " + c.getFechaApertura().format(FECHA) + ": "
                     + (d.signum() < 0 ? "faltan " : "sobran ") + pesos(d.abs()));
         }
-        // Una caja de días anteriores sin cerrar avisa hasta que un admin la ve en Cajas (la misma
-        // marca que apaga la campanita de Cajas). Después sigue figurando acá, pero sin alerta: puede
-        // ser a propósito (una caja que se deja abierta para controlarla otro día) y no tiene sentido
-        // que prenda el punto rojo ni mande el mail todos los días. Una caja atrasada nueva avisa de nuevo.
+        // Una caja atrasada avisa hasta que un admin la ve en Cajas; después sigue acá sin alerta.
         List<Long> atrasadas = cajaService.getIdsCajasAtrasadas();
         java.util.Set<Long> vistas = notificacionService.vistosPorAlguien(TipoNotificacion.CAJA_ATRASADA, atrasadas);
         long sinVer = atrasadas.stream().filter(id -> !vistas.contains(id)).count();
@@ -475,7 +467,7 @@ public class EstadoSistemaService {
         detalles.add(lentasHora + " request(s) de " + umbral + " o más en la última hora");
         long total = r.endpoints().stream().mapToLong(MetricasRequests.Endpoint::cantidad).sum();
         detalles.add(total + " requests desde el " + r.desde().format(FECHA_HORA));
-        // Sólo los que de verdad tardan: listar "el más lento" cuando tarda 2 ms confunde más de lo que ayuda.
+        // Sólo los que de verdad tardan.
         r.endpoints().stream().filter(e -> e.cantidad() >= 5 && e.promedioMs() * 2 >= r.umbralMs()).limit(3)
                 .forEach(e -> detalles.add("Lento en promedio: " + e.endpoint() + " (" + e.promedioMs() + " ms)"));
         boolean alerta = lentasHora >= lentasPorHora;
@@ -504,8 +496,7 @@ public class EstadoSistemaService {
         detalles.add(latidoUrl.isBlank() ? "Monitor externo: sin latido (falta ALERTAS_LATIDO_URL)" : "Monitor externo: latido cada 5 min");
         BuildProperties b = build.getIfAvailable();
         if (b != null && b.getTime() != null) {
-            // La release (release-X.Y.Z mergeada a main) y el commit los pone el CI; la <version>
-            // del pom no se mantiene. Compilado a mano dice "dev".
+            // La release y el commit los pone el CI. Compilado a mano dice "dev".
             String release = b.get("release");
             String commit = b.get("commit");
             detalles.add("Versión: " + (release != null && !release.isBlank() ? release : b.getVersion())

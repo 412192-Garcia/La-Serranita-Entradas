@@ -9,15 +9,12 @@ import java.time.LocalDate;
 @AllArgsConstructor
 public class AfluenciaDiariaDTO {
     private LocalDate fecha;
-    /** Demanda: pases de entrada reservados para venir ESE día (por fechaVisita), estén validados o no.
-     * No incluye regalos (no tienen día elegido). */
+    /** Pases reservados para ese día (fechaVisita). Sin regalos. */
     private long pasesVendidosAnticipada;
-    /** Ingreso real de anticipadas y regalos ESE día (por fechaValidacion, el día que la persona
-     * cruzó la puerta — puede no coincidir con el día que había reservado). */
+    /** Anticipadas y regalos que entraron ese día (fechaValidacion). */
     private long pasesValidadosAnticipada;
     /** Pases vendidos directamente en la puerta (POS) ese día: ingresan en el momento. */
     private long pasesVendidosBoleteria;
-    /** Pases de anticipada COMPRADOS ese día (por fechaCreacion), para venir cualquier otro día.
-     * Es el ritmo de venta anticipada, independiente de cuándo se use. */
+    /** Pases anticipados comprados ese día (fechaCreacion). */
     private long pasesCompradosAnticipada;
 }

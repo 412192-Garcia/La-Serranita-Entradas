@@ -19,13 +19,11 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * API de órdenes de Point de Mercado Pago (POST /v1/orders con type "point"), que reemplazó a la
- * vieja "Point Integration API" de payment-intents. Va por HTTP directo y no por el SDK: el SDK de
- * Java no cubre las órdenes de Point ni el listado/configuración de terminales.
+ * API de órdenes de Point (POST /v1/orders, type "point"). HTTP directo: el SDK no cubre órdenes de Point ni
+ * terminales.
  *
- * El flujo: se crea una orden para un terminal_id, el Point la recibe por su propia conexión, el
- * cliente pasa la tarjeta y la orden queda processed (o failed/expired/canceled). El resultado
- * llega por webhook (tópico "order") y además se puede consultar con GET /v1/orders/{id}.
+ * Se crea una orden para un terminal_id, el cliente pasa la tarjeta y queda processed (o
+ * failed/expired/canceled). El resultado llega por webhook ("order") o con GET /v1/orders/{id}.
  */
 @Component
 public class MercadoPagoPointClient {
@@ -41,8 +39,7 @@ public class MercadoPagoPointClient {
             // El Point puede estar en otra cuenta que la del checkout online: si no, usa la misma.
             @Value("${mercadopago.point.access-token:}") String tokenPoint,
             @Value("${mercadopago.accessToken:}") String tokenCheckout,
-            // Lo que tiene el cliente para pasar la tarjeta: el default de MP (15 min) es demasiado
-            // para una fila en la boletería, y una orden vencida se vuelve a mandar en un toque.
+            // El default de MP (15 min) es mucho para una fila.
             @Value("${mercadopago.point.expiracion:PT5M}") String expiracion) {
         this(tokenPoint != null && !tokenPoint.isBlank() ? tokenPoint : tokenCheckout, expiracion, restClientConTimeouts());
     }
@@ -54,10 +51,8 @@ public class MercadoPagoPointClient {
     }
 
     private static RestClient restClientConTimeouts() {
-        // El boletero está esperando con el cliente adelante: mejor un error rápido que una
-        // pantalla colgada. Con el HttpClient del JDK y no con HttpURLConnection
-        // (SimpleClientHttpRequestFactory): ése no sabe mandar PATCH, que es lo que pide MP para
-        // pasar un Point a integrado/manual.
+        // Timeout corto: el boletero espera con el cliente adelante. HttpClient del JDK porque
+        // HttpURLConnection no manda PATCH.
         HttpClient httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(8)).build();
         JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
         requestFactory.setReadTimeout(Duration.ofSeconds(20));
@@ -89,11 +84,7 @@ public class MercadoPagoPointClient {
             return status;
         }
 
-        /**
-         * No se sabe si MP hizo lo pedido: se cortó la conexión, venció el tiempo o MP falló de
-         * su lado (5xx). Una orden pedida así puede estar igual en el Point esperando la tarjeta;
-         * un 4xx, en cambio, es un rechazo seguro.
-         */
+        /** Sin conexión, timeout o 5xx: la orden puede estar igual en el Point. Un 4xx es rechazo seguro. */
         public boolean incierto() {
             return status >= 500;
         }
@@ -110,17 +101,14 @@ public class MercadoPagoPointClient {
         return terminales;
     }
 
-    /** PDV = la maneja el sistema (sólo cobra lo que le mandan); STANDALONE = se cobra a mano en el propio Point. */
+    /** PDV = cobra lo que manda el sistema; STANDALONE = se cobra a mano en el Point. */
     public void cambiarModo(String terminalId, String modo) {
         Map<String, Object> body = Map.of("terminals", List.of(Map.of("id", terminalId, "operating_mode", modo)));
         ejecutar(() -> http.patch().uri("/terminals/v1/setup").headers(h -> h.setBearerAuth(accessToken))
                 .contentType(MediaType.APPLICATION_JSON).body(body).retrieve().toBodilessEntity());
     }
 
-    /**
-     * medio = config.payment_method.default_type: "qr" (el Point muestra el QR), "debit_card" o
-     * "credit_card" (sólo acepta esa tarjeta). Null = el Point le pregunta al cliente con qué paga.
-     */
+    /** medio: "qr", "debit_card" o "credit_card". Null = el Point pregunta. */
     public Orden crearOrden(String terminalId, BigDecimal monto, String externalReference, String claveIdempotencia, String medio) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("type", "point");
@@ -146,9 +134,8 @@ public class MercadoPagoPointClient {
     }
 
     /**
-     * Cancela la orden. Si el Point ya la tomó (at_terminal) la cancelación es asincrónica: MP
-     * responde 202, la orden sigue at_terminal con el pago en cancellation_requested y la
-     * confirmación llega después (puede que no, si el cliente ya estaba pagando).
+     * Si el Point ya la tomó, la cancelación es asincrónica (202) y puede no confirmarse si el cliente ya
+     * estaba pagando.
      */
     public Orden cancelarOrden(String ordenId, String claveIdempotencia) {
         return orden(ejecutar(() -> http.post().uri("/v1/orders/{id}/cancel", ordenId).headers(h -> {
@@ -205,11 +192,7 @@ public class MercadoPagoPointClient {
         }
     }
 
-    /**
-     * MP devuelve {"errors":[{"code":"...","message":"...","details":[...]}]} o {"message":"..."}:
-     * se queda con lo legible. Los details dicen qué campo falló, y sin ellos un "property_value"
-     * no le dice nada al boletero.
-     */
+    /** Se queda con lo legible de la respuesta de error, incluidos los details que dicen qué campo falló. */
     static String mensajeDe(HttpStatusCode status, String cuerpo) {
         try {
             JsonNode r = new com.fasterxml.jackson.databind.ObjectMapper().readTree(cuerpo);

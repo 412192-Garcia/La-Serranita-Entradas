@@ -21,11 +21,8 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
- * El precio por grupo (efectivo en boletería) tiene tres reglas que importan probar
- * porque no son obvias a simple vista: sin promo definida se cobra precio de lista,
- * grupos más chicos que el primer escalón NO tienen descuento, y grupos más grandes
- * que el último escalón pagan el precio por persona de ese escalón en vez de volver a
- * precio de lista completo (el bug que se corrigió en esta clase).
+ * Precio de grupo: sin promo es precio de lista, por debajo del primer escalón no hay descuento, y por encima
+ * del último se paga el precio por persona de ese escalón.
  */
 @ExtendWith(MockitoExtension.class)
 class CalculoPrecioServiceImplTest {
@@ -125,8 +122,7 @@ class CalculoPrecioServiceImplTest {
 
     @Test
     void efectivo_porEncimaDelEscalonMaximo_extrapolaElPrecioPorPersonaDelUltimoEscalon() {
-        // Escalón máximo: 10 pases por 307000 -> 30700 por persona. Para 11, no vuelve a
-        // precio de lista: sigue pagando 30700 por persona (era el bug original).
+        // Escalón máximo 10 por 307000 = 30700 c/u; 11 pases siguen a 30700.
         when(descuentoEfectivoRepository.findByTipoEntradaAndCantidadPases(paseGeneral, 11))
                 .thenReturn(Optional.empty());
         when(descuentoEfectivoRepository.findFirstByTipoEntradaOrderByCantidadPasesDesc(paseGeneral))

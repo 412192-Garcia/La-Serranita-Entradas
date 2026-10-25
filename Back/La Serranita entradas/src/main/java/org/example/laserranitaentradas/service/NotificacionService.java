@@ -5,27 +5,19 @@ import org.example.laserranitaentradas.model.entity.TipoNotificacion;
 import java.util.List;
 
 /**
- * Sistema genérico de avisos (punto rojo en la cabecera interna): cada feature (cajas atrasadas,
- * rechazos pendientes, lo que se agregue a futuro) calcula su propia lista de "candidatos"
- * vigentes (ids de la entidad que sea) y este servicio decide si eso cuenta como pendiente para
- * un usuario puntual, según si el tipo se apaga con sólo verlo (TipoNotificacion.
- * desapareceAlVerse) o exige una acción explícita sobre la entidad referida.
+ * Avisos del punto rojo: cada feature calcula sus candidatos y esto decide si están pendientes para un
+ * usuario, según TipoNotificacion.desapareceAlVerse.
  */
 public interface NotificacionService {
 
-    /** De estos refIds, los que ya vio algún usuario (para avisos que no son de una persona en
-     * particular, como la tarjeta Cajas de Sistema > Estado). */
+    /** De estos refIds, los que ya vio alguien. */
     java.util.Set<Long> vistosPorAlguien(TipoNotificacion tipo, List<Long> refIds);
 
     /** true si, de los candidatos vigentes, hay algo pendiente de avisarle a este usuario. */
     boolean hayPendientes(TipoNotificacion tipo, List<Long> refIdsActuales, Long usuarioId);
 
-    /** Marca estos ids como vistos por este usuario para este tipo. Sólo tiene efecto real en
-     * tipos con desapareceAlVerse=true; en los demás no rompe nada, simplemente no se consulta.
-     *
-     * Devuelve los ids que hasta este momento estaban SIN ver para este usuario, o sea los que
-     * estaban prendiendo el aviso: la pantalla los usa para señalar cuáles son las novedades entre
-     * todos los candidatos (ej. cuál de las cajas atrasadas es la nueva). Vacío si no había nada
-     * nuevo o el tipo no se apaga al verse. */
+    /**
+     * Marca los ids como vistos por el usuario. Devuelve los que estaban sin ver, para señalar las novedades.
+     */
     List<Long> marcarVistas(TipoNotificacion tipo, List<Long> refIds, Long usuarioId);
 }

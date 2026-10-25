@@ -1,10 +1,8 @@
 package org.example.laserranitaentradas.model.entity;
 
 /**
- * Por dónde se enteró la app de que una compra online quedó paga (Compra.pagoConfirmadoPor). Lo
- * normal es el webhook de Mercado Pago; si muchas se confirman por los otros dos caminos, el
- * webhook no está llegando (Sistema > Estado > Ventas). Se guarda como texto, no como enum de la
- * base, por el CHECK que deja ddl-auto con la lista de valores vieja.
+ * Por dónde se confirmó el pago de una compra online. Si muchas no llegan por el webhook, el webhook está
+ * fallando. Texto por el CHECK de ddl-auto.
  */
 public enum ConfirmacionPago {
     /** Aviso de Mercado Pago (POST /api/pagos/webhook). */

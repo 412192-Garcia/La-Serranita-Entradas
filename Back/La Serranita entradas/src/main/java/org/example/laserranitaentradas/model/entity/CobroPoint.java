@@ -12,11 +12,9 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * Un cobro con tarjeta o QR mandado al Point de Mercado Pago desde el POS (una orden de MP). Se
- * cobra ANTES de registrar la venta: el POS espera a que quede APROBADO y recién ahí manda la venta
- * por la cola, con el id de este cobro, y el backend los vincula ({@link #compra}). Una venta con
- * pago mixto tarjeta + QR tiene dos. Un cobro aprobado sin compra es plata cobrada sin venta: o la
- * venta está por llegar (cola offline), o hay que devolverlo.
+ * Cobro con tarjeta o QR en el Point (una orden de MP). Se cobra ANTES de registrar la venta y el backend los
+ * vincula ({@link #compra}). Un pago mixto tarjeta + QR tiene dos. Aprobado sin compra = la venta está por
+ * llegar o hay que devolverlo.
  */
 @Entity
 @Table(name = "cobros_point")
@@ -32,7 +30,7 @@ public class CobroPoint extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    /** La genera el POS por cada intento: si el pedido se repite (respuesta perdida), devuelve el mismo cobro. */
+    /** Una por intento: si el pedido se repite, devuelve el mismo cobro. */
     @Column(name = "clave_idempotencia", nullable = false, unique = true, length = 64)
     private String claveIdempotencia;
 
@@ -55,15 +53,14 @@ public class CobroPoint extends BaseEntity {
     @Column(nullable = false, length = 30)
     private EstadoCobroPoint estado;
 
-    /** status_detail de MP (rejected_by_issuer, insufficient_amount...) o el error, para explicar un rechazo. */
+    /** status_detail de MP o el error. */
     @Column(length = 300)
     private String detalle;
 
     @Column(name = "pago_id", length = 64)
     private String pagoId;
 
-    /** DEBITO o CREDITO: lo que eligió el boletero para una tarjeta, así el Point pide directo esa
-     * (sin él, el Point le pregunta al cliente con qué paga, QR incluido). Null en QR. */
+    /** DEBITO o CREDITO, para que el Point pida esa tarjeta directo. Null en QR. */
     @Column(name = "tipo_tarjeta", length = 10)
     private String tipoTarjeta;
 
@@ -91,10 +88,8 @@ public class CobroPoint extends BaseEntity {
     private LocalDateTime ultimaConsultaMp;
 
     /**
-     * El cobro se actualiza desde tres lados a la vez (el webhook, la consulta del POS y la venta
-     * que lo vincula), cada uno con su copia: sin versión, el último en guardar pisaba lo de los
-     * otros (por ejemplo, un webhook lento le volvía a poner id_compra = NULL a un cobro recién
-     * vinculado). Con default en la base para que ddl-auto pueda agregarla a una tabla con filas.
+     * Lo actualizan el webhook, el POS y la venta a la vez: sin versión el último pisaba a los otros. Con
+     * default para ddl-auto.
      */
     @Version
     @Column(nullable = false, columnDefinition = "bigint default 0")

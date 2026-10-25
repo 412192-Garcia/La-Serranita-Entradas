@@ -6,12 +6,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-/**
- * Cierra solas, a la madrugada, las cajas "sin control" (ver CajaServiceImpl.abrirSinControl)
- * que hayan quedado abiertas de un día anterior: no llevan conteo real, así que no tiene
- * sentido pedirle a un admin que las cierre a mano — quedan en "Cajas cerradas" con
- * diferencia 0, como si alguien las hubiera cerrado justo a tiempo.
- */
+/** Cierra a la madrugada las cajas sin control de días anteriores, con diferencia 0. */
 @Component
 public class CierreAutomaticoCajasEspecialesScheduler {
 

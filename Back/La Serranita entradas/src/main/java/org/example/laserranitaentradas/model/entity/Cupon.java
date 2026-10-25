@@ -51,17 +51,11 @@ public class Cupon extends BaseEntity {
     @Column
     private Integer usosMaximos;
 
-    /**
-     * Primer día de compra en que el cupón vale (inclusive). null = desde siempre. El último
-     * día es fechaExpiracion.
-     */
+    /** Primer día de compra en que vale (inclusive). null = desde siempre. */
     @Column
     private LocalDate fechaDesde;
 
-    /**
-     * Sobre qué se aplica el monto fijo. columnDefinition con default porque la tabla ya
-     * tiene filas y ddl-auto=update no puede agregar una columna NOT NULL sin él.
-     */
+    /** Sobre qué se aplica el monto fijo. Con default para ddl-auto. */
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, columnDefinition = "varchar(20) default 'COMPRA' not null")
     @Builder.Default

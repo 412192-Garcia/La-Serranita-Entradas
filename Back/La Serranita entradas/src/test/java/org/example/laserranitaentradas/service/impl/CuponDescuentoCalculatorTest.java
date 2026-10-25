@@ -57,7 +57,7 @@ class CuponDescuentoCalculatorTest {
 
     @Test
     void precioFijoPorEntradaDejaCadaEntradaEnEseValor() {
-        // Precio fijo 8.000: los mayores (10.000) bajan 2.000 c/u; los menores (6.000) ya son más baratos y no cambian.
+        // Precio fijo 8.000: las de 10.000 bajan 2.000; las de 6.000 no cambian.
         assertMonto("4000", CuponDescuentoCalculator.calcular(
                 cupon().montoDescuento(new BigDecimal("8000")).aplicaPor(AplicacionDescuento.PRECIO_ENTRADA).build(), LINEAS));
     }

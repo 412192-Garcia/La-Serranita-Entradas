@@ -6,9 +6,7 @@ import lombok.NoArgsConstructor;
 
 import java.io.Serializable;
 
-/** Clave compuesta de NotificacionVista: qué tipo de aviso, sobre qué entidad (refId), visto por
- * qué usuario. Los nombres y tipos de estos campos tienen que coincidir exactamente con los @Id
- * de NotificacionVista (así lo exige @IdClass). */
+/** Clave de NotificacionVista. Tiene que coincidir con sus @Id (@IdClass). */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

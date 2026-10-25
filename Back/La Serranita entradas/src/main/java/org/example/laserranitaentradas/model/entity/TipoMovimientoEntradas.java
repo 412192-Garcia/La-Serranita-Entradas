@@ -1,6 +1,6 @@
 package org.example.laserranitaentradas.model.entity;
 
-/** INGRESO suma entradas físicas al talonario de la caja, RETIRO se las saca (ej. para dárselas a otro boletero). */
+/** INGRESO suma entradas al talonario, RETIRO las saca. */
 public enum TipoMovimientoEntradas {
     INGRESO,
     RETIRO

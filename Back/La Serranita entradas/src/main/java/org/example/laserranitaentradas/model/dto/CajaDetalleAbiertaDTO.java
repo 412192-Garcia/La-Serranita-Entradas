@@ -7,11 +7,8 @@ import java.math.BigDecimal;
 import java.util.List;
 
 /**
- * Detalle de una caja para el admin (ADMIN-only, gateado en SecurityConfig): a diferencia del
- * detalle de una caja ya cerrada (ver CajaResponseDTO), funciona con la caja todavía ABIERTA —
- * ventas/retiros/ingresos en orden cronológico, más un resumen de lo vendido hasta el momento
- * (por forma de pago y por tipo de entrada). No incluye "esperado vs contado": eso recién existe
- * al cerrar.
+ * Detalle de una caja, también abierta, para el admin: operaciones y resumen de lo vendido. Sin esperado vs
+ * contado.
  */
 @Data
 @Builder
@@ -20,27 +17,20 @@ public class CajaDetalleAbiertaDTO {
     private BigDecimal totalVentasEfectivo;
     private BigDecimal totalVentasTarjeta;
     private BigDecimal totalVentasQr;
-    /** Unidades de tipos de entrada con precio > 0 (excluye gratis, extras y artículos): venta de
-     * puerta + anticipadas cobradas acá + anticipadas validadas sin cobro. */
+    /** Entradas con precio > 0: venta de puerta + anticipadas cobradas acá + anticipadas validadas. */
     private Integer totalEntradasPagas;
     /** De totalEntradasPagas, cuántas son anticipadas (reservas) cobradas en esta caja. */
     private Integer entradasPagasAnticipadas;
-    /** De totalEntradasPagas, cuántas son anticipadas validadas SIN cobrar nada en esta caja. El
-     * resto (totalEntradasPagas − estas dos) es venta de puerta. */
+    /** Cuántas son anticipadas validadas sin cobrar acá. El resto es venta de puerta. */
     private Integer entradasPagasValidadas;
     private List<EntradasPorTipoDTO> entradasVendidasPorTipo;
     private boolean huboVentaDolares;
-    /** Anticipadas (compradas online) que este boletero validó en su turno y a las que igual se
-     * les entregó talonario físico (ya restadas de entradasFisicasRestantes). */
+    /** Anticipadas validadas a las que se les dio talonario. */
     private Integer entradasAnticipadasEntregadas;
-    /** Inicial + ingresos − retiros de entradas físicas − las que ya se cortaron vendiendo hasta
-     * ahora (incluidas las anticipadas validadas): cuántas le quedan al boletero en el talonario
-     * en este momento. Null si esta caja no tiene cargado un inicial (cajas abiertas antes de
-     * agregar ese campo). */
+    /** Las que le quedan ahora en el talonario. Null si la caja no tiene inicial. */
     private Integer entradasFisicasRestantes;
 
-    /** Facturado hasta ahora ante ARCA (Facturas B con CAE − notas de crédito con CAE). Mismo
-     * criterio que CajaResponseDTO.totalFacturado. */
+    /** Facturas B con CAE − notas de crédito con CAE. */
     private BigDecimal totalFacturado;
     /** Facturas B que todavía esperan CAE (pendientes o con error), y cuánto suman. */
     private Integer facturasSinEmitir;

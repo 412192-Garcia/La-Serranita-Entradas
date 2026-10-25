@@ -35,8 +35,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                 return promo.get().getPrecioPromocionalTotal();
             }
 
-            // Grupos más grandes que el escalón máximo configurado pagan el precio por
-            // persona de ese último escalón (no vuelven a precio de lista completo).
+            // Grupos más grandes que el último escalón pagan el precio de ese escalón.
             Optional<DescuentoEfectivo> escalonMasAlto = descuentoEfectivoRepository
                     .findFirstByTipoEntradaOrderByCantidadPasesDesc(tipoEntrada);
             if (escalonMasAlto.isPresent() && cantidad > escalonMasAlto.get().getCantidadPases()) {

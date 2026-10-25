@@ -15,10 +15,8 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Los cambios de estado de un trabajo son UPDATEs condicionales y no "leer, cambiar, guardar": el
- * agente puede confirmar un ticket milisegundos después de recibirlo, mientras el despacho todavía
- * está terminando. Con leer-y-guardar, el despacho pisaba el IMPRESO con ENVIADO y la tablet se
- * quedaba esperando un ticket que ya había salido.
+ * Los cambios de estado son UPDATEs condicionales: el agente puede confirmar milisegundos después y un
+ * leer-y-guardar pisaba el IMPRESO.
  */
 @Repository
 public interface TrabajoImpresionRepository extends JpaRepository<TrabajoImpresion, Long> {
@@ -29,11 +27,7 @@ public interface TrabajoImpresionRepository extends JpaRepository<TrabajoImpresi
 
     List<TrabajoImpresion> findByFacturaIdIn(Collection<Long> facturaIds);
 
-    /**
-     * Facturas cuyo último ticket (pedido desde `desde`) quedó en ERROR: las que siguen sin
-     * imprimirse. Si después se reimprimió bien, o la factura se anuló (sus trabajos se cancelan
-     * como ERROR), ya no hay nada que hacer y no cuenta.
-     */
+    /** Facturas cuyo último ticket desde `desde` quedó en ERROR. */
     @Query("SELECT COUNT(t) FROM TrabajoImpresion t WHERE t.estado = :error AND t.fechaCreacion > :desde " +
             "AND (t.factura.anulacionPedida IS NULL OR t.factura.anulacionPedida = false) " +
             "AND t.id = (SELECT MAX(t2.id) FROM TrabajoImpresion t2 WHERE t2.factura = t.factura)")

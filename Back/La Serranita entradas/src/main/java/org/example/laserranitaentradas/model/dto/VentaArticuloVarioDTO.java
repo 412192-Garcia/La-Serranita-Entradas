@@ -5,7 +5,7 @@ import lombok.Data;
 
 import java.math.BigDecimal;
 
-/** Una fila del reporte de ventas de artículos varios. articuloVarioId null = líneas sin catálogo (descripción libre). */
+/** Fila del reporte de artículos varios. articuloVarioId null = descripción libre. */
 @Data
 @AllArgsConstructor
 public class VentaArticuloVarioDTO {

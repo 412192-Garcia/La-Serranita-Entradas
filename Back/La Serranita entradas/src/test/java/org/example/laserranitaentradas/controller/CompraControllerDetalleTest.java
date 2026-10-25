@@ -10,10 +10,7 @@ import java.math.BigDecimal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/**
- * El POS arma el cobro de una reserva con lo que devuelve el detalle: tiene que ver el precio
- * con el que se reservó, no el que tiene hoy el tipo.
- */
+/** El detalle tiene que traer el precio con el que se reservó. */
 class CompraControllerDetalleTest {
 
     private TipoEntrada generalQueHoyVale150() {

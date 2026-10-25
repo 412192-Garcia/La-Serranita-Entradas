@@ -110,7 +110,7 @@ public class CuponController {
     }
 
     @GetMapping("/individuales")
-    @Operation(summary = "Obtener cupones individuales", description = "Obtiene los cupones creados de forma individual, sin incluir los generados como parte de un lote/familia")
+    @Operation(summary = "Obtener cupones individuales", description = "Cupones individuales, sin los de lotes")
     @ApiResponse(responseCode = "200", description = "Lista de cupones individuales obtenida exitosamente")
     public ResponseEntity<List<Cupon>> obtenerCuponesIndividuales() {
         List<Cupon> cupones = cuponService.getAllIndividuales();

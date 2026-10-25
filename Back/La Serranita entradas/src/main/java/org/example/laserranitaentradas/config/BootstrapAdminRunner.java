@@ -11,16 +11,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 /**
- * En producción data.sql no corre (son credenciales de desarrollo), así que la base
- * arranca sin ningún usuario y nadie podría loguearse para crear al resto. Este runner
- * crea el primer ADMIN una única vez, sólo si todavía no existe ningún usuario y vienen
- * seteadas las env vars de bootstrap — así se autodesactiva solo después del primer
- * arranque real (usuarioRepository.count() > 0 en cualquier arranque posterior).
+ * En producción data.sql no corre: crea el primer ADMIN si no hay usuarios y vienen las variables de
+ * bootstrap.
  *
- * Aparte, con BOOTSTRAP_SUPERADMIN_USERNAME/PASSWORD crea el usuario SUPERADMIN (soporte de la app,
- * el único que ve Sistema) si todavía no hay ningún usuario con ese nombre, aunque la base ya
- * tenga usuarios: es la forma de dar de alta el primero en una instalación que ya está andando
- * (desde Usuarios no se puede asignar ese rol).
+ * Con BOOTSTRAP_SUPERADMIN_USERNAME/PASSWORD crea el SUPERADMIN si no existe, aunque ya haya usuarios.
  */
 @Slf4j
 @Component

@@ -15,28 +15,23 @@ public class OperacionCajaDTO {
     /** "VENTA", "ANTICIPADA_VALIDADA", "RETIRO", "APORTE", "INGRESO_ENTRADAS" o "RETIRO_ENTRADAS". */
     private String tipo;
     private LocalDateTime fecha;
-    /** Null en los ingresos de entradas físicas: no mueven plata. En una ANTICIPADA_VALIDADA es
-     * el valor de la entrada, informativo: esa plata no la cobró esta caja (ver el comentario de
-     * Compra.caja), así que no suma a ningún total de "vendido" ni de efectivo esperado. */
+    /** Null en ingresos de entradas. En ANTICIPADA_VALIDADA es informativo: no lo cobró esta caja. */
     private BigDecimal monto;
-    /** Sólo para ventas: parte del monto que corresponde a artículos varios (no entradas). 0 si la venta es sólo entradas. */
+    /** Sólo ventas: parte del monto de artículos varios. */
     private BigDecimal montoArticulos;
-    /** Sólo para ventas: una entrada por cada línea de entrada paga (tipo + cantidad + su parte del monto). */
+    /** Sólo ventas: un segmento por línea de entrada paga. */
     private List<SegmentoEntradaDTO> segmentosEntrada;
     /** Ventas: forma en que se cobró. Anticipadas validadas: forma con la que se pagó originalmente. */
     private FormaPago formaPago;
-    /** Sólo para ventas: true si se cobró en efectivo-dólares (entró otra moneda, no pesos al cajón). Ese monto no se puede reasignar entre formas de pago. */
+    /** Sólo ventas: true si se cobró en dólares. No se puede reasignar entre formas de pago. */
     private Boolean pagoEnDolares;
-    /** Venta: "2x Pase General, 1x Cuadrito recuerdo". Retiro: el motivo. Ingreso de entradas: "+50 entradas — motivo". */
+    /** Venta: "2x Pase General, 1x Cuadrito". Retiro: el motivo. Entradas: "+50 entradas — motivo". */
     private String detalle;
-    /** Sólo para ventas: id de la Compra, para poder cancelarla o editarla desde el detalle de caja
-     * (ADMIN). Null en retiros/ingresos y también en ANTICIPADA_VALIDADA a propósito: esa compra
-     * no pasó por esta caja, así que no se edita ni cancela desde acá (el backend lo rechazaría
-     * igual — ver cancelarVenta/editarVenta — esto evita mostrar el botón). */
+    /** Sólo ventas, para cancelarla o editarla. Null en ANTICIPADA_VALIDADA: no pasó por esta caja. */
     private Long compraId;
-    /** Sólo en tipo VENTA: true si esta venta es una anticipada (reserva) que se cobró acá — el
-     * visitante ya la tenía reservada de antes, no llegó de la calle. A diferencia de
-     * ANTICIPADA_VALIDADA, esta plata SÍ es de esta caja (cuenta en todos los totales); sólo
-     * cambia la etiqueta para no confundirla con una venta de puerta. Null/false en el resto. */
+    /**
+     * Sólo VENTA: true si es una reserva cobrada acá. A diferencia de ANTICIPADA_VALIDADA, cuenta en los
+     * totales.
+     */
     private Boolean anticipada;
 }
