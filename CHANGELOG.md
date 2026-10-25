@@ -6,6 +6,8 @@ número y el CI la usa como nota de la Release de GitHub.
 
 ## Sin publicar
 
+## 0.10.5 — 2026-10-25
+
 - Configuración > Cobros (antes "Points"): nueva tarjeta "Factura por forma de pago" para elegir
   qué queda marcado en la pantalla de venta al elegir efectivo, tarjeta o QR: "Imprimir factura"
   o "Enviar por mail" (con el mail vacío no se factura). De fábrica sigue como antes: efectivo
