@@ -33,6 +33,9 @@ número y el CI la usa como nota de la Release de GitHub.
   queda fijo abajo, con el motivo si está gris. Antes, con pago mixto o efectivo con vuelto,
   había que scrollear para encontrarlo. Mientras se escribe en "Paga con" o en un monto, el botón
   vuelve a su lugar para no tapar el vuelto.
+  
+## 0.10.4 — 2026-10-22
+
 - Control de accesos: nueva acción "Cambiar fecha" en el menú ⋮ de las reservas que todavía no
   ingresaron (pagadas online, a cobrar en caja o generadas desde Acciones). Se elige el día en el
   calendario y, si la reserva tiene mail, se le puede mandar el comprobante con la fecha nueva. El
