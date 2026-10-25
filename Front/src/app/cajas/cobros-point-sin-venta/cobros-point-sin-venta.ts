@@ -55,7 +55,7 @@ export class CobrosPointSinVenta {
   async devolver(c: CobroPoint): Promise<void> {
     const confirmado = await this.confirmacion.pedir({
       titulo: 'Devolver el cobro',
-      mensaje: `Se le devuelve al cliente el cobro con Point de $${c.monto}, que no tiene una venta registrada en esta caja.`,
+      mensaje: `Se le devuelve al cliente el cobro con Point de $${c.monto}.`,
       aceptar: 'Devolver',
       peligro: true,
     });

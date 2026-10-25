@@ -40,7 +40,7 @@
         } @else {
           <p class="kpi-numero kpi-numero-secundario">—</p>
         }
-        <p class="ayuda">Reservas hechas de antemano: pagadas online o cobradas al llegar al parque</p>
+        <p class="ayuda">Reservas pagadas online o al llegar</p>
       </div>
       <div>
         <h2>Recaudación en puerta</h2>
@@ -85,7 +85,7 @@
 
   <div class="tarjeta tarjeta-ancha tarjeta-grafico-tabla" [class.oculta]="!resumen()">
     <h2>Anticipación de compra</h2>
-    <p class="ayuda">De las anticipadas que se usaron en el rango, con cuántos días de antelación se habían comprado.</p>
+    <p class="ayuda">Con cuántos días de anticipación se compraron las entradas.</p>
     <div class="grafico-contenedor">
       <canvas #anticipacionCanvas></canvas>
     </div>
@@ -130,7 +130,7 @@
 
   <div class="tarjeta" [class.oculta]="!resumen()">
     <h2>Recaudación por forma de pago</h2>
-    <p class="ayuda">Solo compras aprobadas o ya validadas, con los ajustes de caja hechos al revisar los cierres (por ejemplo, una venta anotada en efectivo que fue con tarjeta).</p>
+    <p class="ayuda">Incluye las correcciones hechas en los cierres de caja.</p>
     <div class="grafico-contenedor grafico-torta">
       <canvas #formaPagoCanvas></canvas>
     </div>
@@ -138,7 +138,7 @@
 
   <div class="tarjeta" [class.oculta]="!resumen()">
     <h2>Compras por estado</h2>
-    <p class="ayuda">Todas las compras del rango, incluidas las de pago pendiente, canceladas y reembolsadas.</p>
+    <p class="ayuda">Todas las compras del período, también las pendientes, canceladas y reembolsadas.</p>
     <div class="grafico-contenedor grafico-torta">
       <canvas #estadoCanvas></canvas>
     </div>
@@ -146,7 +146,7 @@
 
   <div class="tarjeta" [class.oculta]="!resumen()">
     <h2>Boletería vs. anticipada</h2>
-    <p class="ayuda">Cuánto se cobró por ventas en la puerta contra lo cobrado por reservas hechas de antemano (online o pagadas al llegar).</p>
+    <p class="ayuda">Lo vendido en la puerta contra lo reservado antes.</p>
     <div class="grafico-contenedor grafico-torta">
       <canvas #origenCanvas></canvas>
     </div>
@@ -155,7 +155,7 @@
   @if (resumen(); as r) {
     <div class="tarjeta tarjeta-ancha">
       <h2>Cancelaciones</h2>
-      <p class="ayuda">Por qué se cancelaron las compras del rango (mismo criterio de fechas que "Compras por estado"). No suman en ningún total.</p>
+      <p class="ayuda">Por qué se cancelaron las compras del período.</p>
       @if (r.cancelaciones.length === 0) {
         <p class="ayuda">No hubo compras canceladas en el rango.</p>
       } @else {
@@ -278,7 +278,7 @@
 
   <div class="tarjeta tarjeta-ancha tarjeta-grafico-tabla" [class.oculta]="!resumen()">
     <h2>Ventas de artículos varios</h2>
-    <p class="ayuda">Souvenirs y demás artículos vendidos en boletería, aparte de las entradas.</p>
+    <p class="ayuda">Souvenirs y otros artículos vendidos en boletería.</p>
     @if ((resumen()?.ventasArticulosVarios?.length ?? 0) > 0) {
       <div class="grafico-contenedor">
         <canvas #articulosVariosCanvas></canvas>
@@ -328,7 +328,7 @@
 
     <div class="tarjeta tarjeta-ancha" data-tour="ranking-boleteros">
       <h2>Ranking de boleteros</h2>
-      <p class="ayuda">Desempeño acumulado por boletero en las cajas cerradas del rango (por el día en que se abrió cada caja, que es el de sus ventas): turnos trabajados, efectivo vendido en puerta, retiros y las diferencias de efectivo y de posnet (tarjeta + QR). Las cajas sin control no suman a las diferencias.</p>
+      <p class="ayuda">Turnos, ventas en efectivo, retiros y diferencias de caja de cada boletero en el período.</p>
       @if (rankingBoleteros(r).length === 0) {
         <p class="ayuda">No se cerró ninguna caja en este rango.</p>
       } @else {
@@ -367,7 +367,7 @@
     @if (mostrarFacturado(r)) {
       <div class="tarjeta">
         <h2>Facturado</h2>
-        <p class="ayuda">Facturas (A y B) con CAE menos notas de crédito, por fecha de emisión.</p>
+        <p class="ayuda">Facturas emitidas menos notas de crédito.</p>
         <p class="kpi-numero kpi-numero-secundario">{{ r.totalFacturado | pesos }}</p>
         <p class="ayuda">
           {{ r.cantidadFacturas | number }} factura{{ r.cantidadFacturas === 1 ? '' : 's' }}
@@ -385,7 +385,7 @@
   @if (vista() === 'comparacion') {
     <div class="tarjeta tarjeta-ancha" data-tour="comparar-periodos">
       <h2>Comparar períodos</h2>
-      <p class="ayuda">Agregá los rangos que quieras comparar (años, temporadas, fechas móviles como Semana Santa) y compará sus números lado a lado.</p>
+      <p class="ayuda">Agregá los períodos que quieras comparar, como años o temporadas.</p>
 
       <div class="lista-periodos-comparar">
         @for (p of periodos(); track $index) {

@@ -13,12 +13,12 @@ const PASOS_TUTORIAL: TourStep[] = [
   {
     selector: '[data-tour="resumen-hoy"]',
     titulo: 'Cómo viene el día',
-    texto: 'Cuánto se vendió hoy, cuánta gente entró al parque y cuánto se recaudó (parque vs. anticipadas web), actualizado en vivo. Para el análisis fino de ventas está Reportes.',
+    texto: 'Lo vendido hoy, la gente que entró y lo recaudado, en vivo.',
   },
   {
     selector: '[data-tour="cajas-abiertas"]',
     titulo: 'Quién está trabajando',
-    texto: 'Vés qué boleteros tienen caja abierta ahora mismo y cuánto llevan vendido.',
+    texto: 'Qué boleteros tienen caja abierta y cuánto llevan vendido.',
   },
 ];
 

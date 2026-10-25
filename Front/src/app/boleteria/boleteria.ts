@@ -32,12 +32,12 @@ const PASOS_TUTORIAL: TourStep[] = [
   {
     selector: '[data-tour="caja"]',
     titulo: 'Tu caja',
-    texto: 'Acá ves si tenés una caja abierta. No hace falta para validar ni cobrar acá — es sólo si querés que ese efectivo quede sumado a una caja para poder cerrarla y contarla después; si no abrís ninguna, el cobro queda igual registrado (aparece en Reportes) pero sin nada contra qué compararlo.',
+    texto: 'Si querés que lo que cobrás acá se sume a una caja, abrila. Para validar o cobrar no hace falta.',
   },
   {
     selector: '[data-tour="buscador"]',
     titulo: 'Buscar una reserva',
-    texto: 'Buscá por DNI, nombre, email o código de reserva. También podés escanear el DNI: el lector actúa como si tipearas y apretaras Enter.',
+    texto: 'Buscá por DNI, nombre, email o código de reserva. También podés escanear el DNI.',
   },
   {
     selector: '[data-tour="fecha"]',
@@ -49,7 +49,7 @@ const PASOS_TUTORIAL: TourStep[] = [
     // El botón sólo existe si hay regalos: sin ellos se resalta la barra de fecha, que siempre está.
     alternativo: '[data-tour="fecha"]',
     titulo: 'Regalos y reservas sin fecha',
-    texto: 'Los regalos y las reservas sin fecha generadas desde Acciones no tienen día de visita, así que no aparecen en la lista del día: van en este botón, que sólo se ve cuando hay alguna. Tocalo para desplegarlas. En un regalo, el nombre y DNI de arriba son de quien lo recibe y se presenta en la puerta, no de quien compró; en una reserva sin fecha entra el titular.',
+    texto: 'Acá están los regalos y las reservas sin fecha. En un regalo, el nombre y DNI son de quien lo recibe.',
   },
   {
     selector: '[data-tour="estado"]',
@@ -59,12 +59,12 @@ const PASOS_TUTORIAL: TourStep[] = [
   {
     selector: '[data-tour="mas-filtros"]',
     titulo: 'Más filtros',
-    texto: 'Acá encontrás el resto de los estados (ya utilizada, pago pendiente, cancelada, reembolsada), el tipo de listado (Anticipada o venta de Boletería) y la forma de pago, por si necesitás afinar más la búsqueda.',
+    texto: 'Más filtros: otros estados, tipo de venta y forma de pago.',
   },
   {
     selector: '[data-tour="resultados"]',
     titulo: 'Validar o cobrar',
-    texto: 'Cada resultado tiene un botón para validar el ingreso o cobrar y validar (si te equivocás, tenés unos segundos para "Cancelar validación"), y un menú ⋮ para editar el contacto, cambiar la fecha, reenviar el mail, ver la factura y reembolsar (o cancelar, si es una reserva generada desde Acciones). Ese menú es sólo de esta pantalla: los boleteros validan y cobran desde el POS.',
+    texto: 'Validá el ingreso o cobrá con el botón de cada reserva. En el menú ⋮ podés editar el contacto, cambiar la fecha, reenviar el mail, ver la factura o reembolsar.',
   },
 ];
 
@@ -248,7 +248,7 @@ export class Boleteria implements OnInit, OnDestroy {
     if (dniTitularCambio || dniReceptorCambio) {
       const confirmado = await this.confirmacion.pedir({
         titulo: 'Cambiar el DNI',
-        mensaje: 'Estás por cambiar el DNI de esta reserva: es lo que se compara contra el documento real al validar el ingreso.',
+        mensaje: 'Vas a cambiar el DNI de esta reserva. Es el que se pide al ingresar.',
         aceptar: 'Cambiar el DNI',
       });
       if (!confirmado) return;
@@ -370,7 +370,7 @@ export class Boleteria implements OnInit, OnDestroy {
     this.menuAbiertoId.set(null);
     const confirmado = await this.confirmacion.pedir({
       titulo: 'Reembolsar la compra',
-      mensaje: `Se le devuelve al cliente la compra #${reserva.codigoReserva} por $${reserva.montoTotal} a través de Mercado Pago. No se puede deshacer.`,
+      mensaje: `Se le devuelve al cliente la compra #${reserva.codigoReserva} por $${reserva.montoTotal} por Mercado Pago. No se puede deshacer.`,
       aceptar: 'Reembolsar',
       peligro: true,
     });

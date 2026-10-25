@@ -2,7 +2,7 @@
 
   <div class="tarjeta tarjeta-horario-general" data-tour="horario-general">
     <h2>Horario general</h2>
-    <p class="ayuda">Rige todos los días abiertos salvo que definas un horario especial puntual.</p>
+    <p class="ayuda">Para todos los días abiertos que no tengan un horario especial.</p>
     <div class="fila-horario">
       <label>
         Apertura
@@ -32,8 +32,7 @@
       </button>
     </div>
     <p class="ayuda ayuda-limite-compra">
-      Pasado ese momento ya no se puede comprar online para el mismo día (el calendario público deja de ofrecerlo), aunque el parque siga abierto.
-      Cuenta contra el cierre de ese día: con un horario especial, contra el suyo. Con 0 se compra hasta la hora de cierre. No afecta a las ventas en boletería ni a las reservas que carga un admin.
+      Después de esa hora ya no se puede comprar online para el mismo día. Con 0, se puede hasta el cierre. No afecta a la boletería.
     </p>
     @if (mensajeHorarioGeneral()) {
       <p class="alerta-error">{{ mensajeHorarioGeneral() }}</p>
@@ -47,7 +46,7 @@
       <button type="button" class="btn-mes" (click)="cambiarMes(1)">›</button>
     </div>
 
-    <p class="ayuda ayuda-tip">Tip: Ctrl+click suma días (o un día de la semana entero) a la selección; Shift+click selecciona todo el rango entre dos días.</p>
+    <p class="ayuda ayuda-tip">Con Ctrl+click elegís varios días y con Shift+click un rango.</p>
 
     @if (errorDias()) {
       <p class="alerta-error">{{ errorDias() }}</p>

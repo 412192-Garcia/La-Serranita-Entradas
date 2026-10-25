@@ -1,6 +1,6 @@
 @if (resumen()?.sinVenta?.length) {
   <div class="aviso-cobros-sin-venta" role="alert">
-    <p><strong>Cobros con Point sin venta:</strong> el Point los cobró pero no quedaron como venta en esta caja. Si el cliente no se llevó nada, devolvelos.</p>
+    <p><strong>Cobros con Point sin venta:</strong> el Point los cobró pero no quedaron como venta. Si el cliente no se llevó nada, devolvelos.</p>
     <ul>
       @for (c of resumen()!.sinVenta; track c.id) {
         <li>

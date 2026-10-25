@@ -1,13 +1,12 @@
 <div class="tarjeta tarjeta-formulario" data-tour="factura-lote">
   <h2>Facturar en lote</h2>
   <p class="ayuda">
-    Para las ventas que quedaron sin facturar. Armá cada venta tocando los ítems (cada toque suma uno), poné cuántas
-    veces se repitió y agregala al lote. Al final se emiten todas juntas, una Factura B por venta. No se imprimen ni se
-    mandan por mail: quedan los PDF en la lista de abajo. Lo que es sin cargo no va en la factura.
+    Para las ventas que quedaron sin factura. Armá cada venta tocando los ítems, poné cuántas veces se repitió y
+    agregala al lote. Los PDF quedan en la lista de abajo.
   </p>
 
   @if (!habilitada()) {
-    <p class="alerta">La facturación no está configurada en el servidor: no se pueden emitir facturas.</p>
+    <p class="alerta">La facturación no está configurada.</p>
   }
 
   <!-- ---------- catálogo ---------- -->
@@ -106,8 +105,7 @@
         <div class="confirmacion" role="alert">
           <p>
             Vas a emitir <strong>{{ cantidadFacturas() }} {{ cantidadFacturas() === 1 ? 'Factura B' : 'Facturas B' }}
-            por {{ totalLote() | pesos }}</strong> en total en ARCA. Son comprobantes fiscales: si después hay un error,
-            cada una se anula con su nota de crédito.
+            por {{ totalLote() | pesos }}</strong> en total.
           </p>
           <div class="acciones-confirmacion">
             <button type="button" class="btn-secundario" [disabled]="emitiendo()" (click)="confirmando.set(false)">Revisar</button>

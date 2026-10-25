@@ -17,42 +17,42 @@ const PASOS_POR_TAB: Record<Tab, TourStep[]> = {
     {
       selector: '[data-tour="estado-sistema"]',
       titulo: 'Estado del sistema',
-      texto: 'Una tarjeta por área: verde si anda bien, roja si hay algo para resolver (también prende el aviso del menú), gris si no aplica ahora. Tocá "Ver" para ir a resolverlo.',
+      texto: 'Una tarjeta por área: verde si anda bien, roja si hay algo para resolver. Tocá "Ver" para ir.',
     },
   ],
   historial: [
     {
       selector: '[data-tour="historial-acciones"]',
       titulo: 'Historial de acciones',
-      texto: 'Quién hizo qué y cuándo: cancelaciones, ediciones, reembolsos, facturas, cajas, cambios de precios y de configuración, usuarios e inicios de sesión. En lo importante, con el antes y el después.',
+      texto: 'Quién hizo qué y cuándo, con el antes y el después en los cambios importantes.',
     },
   ],
   errores: [
     {
       selector: '[data-tour="errores-sistema"]',
       titulo: 'Errores del sistema',
-      texto: 'Los errores del servidor y los de JavaScript de los navegadores (área Navegador), agrupados: los repetidos suman. Si un usuario te pasa un código de error, buscalo acá. Cuando esté resuelto, marcalo: el aviso se apaga.',
+      texto: 'Errores del servidor y de JavaScript, agrupados. Buscá acá el código que te pasen y marcalo como resuelto para apagar el aviso.',
     },
   ],
   rendimiento: [
     {
       selector: '[data-tour="rendimiento-sistema"]',
       titulo: 'Rendimiento',
-      texto: 'Cuánto tarda cada endpoint de la API desde que arrancó el servidor (promedio, p95, máximo y tiempo total, con los errores 4xx y 5xx), y las últimas requests lentas con su id: con ese id se encuentran sus líneas en el log del servidor. Tocá una columna para ordenar por ella.',
+      texto: 'Tiempos por endpoint desde que arrancó el servidor (promedio, p95, máximo, 4xx/5xx) y las últimas requests lentas, con su id para buscarlas en el log.',
     },
   ],
   rechazos: [
     {
       selector: '[data-tour="rechazos-operaciones"]',
       titulo: 'Operaciones rechazadas',
-      texto: 'Ventas, retiros/aportes, ingresos o retiros de entradas y mails que el servidor rechazó (dato inválido, caja ya cerrada, etc.). Desde acá se resuelven o reintentan.',
+      texto: 'Operaciones y mails que el servidor rechazó. Desde acá se resuelven o reintentan.',
     },
   ],
   modulos: [
     {
       selector: '[data-tour="modulos-sistema"]',
       titulo: 'Módulos',
-      texto: 'Prendé o apagá partes del sistema: la facturación (con sus partes de boletería y de compras online, que se apagan por separado), las reservas a pagar en el parque y el cobro con Point. Apagar pide confirmar con un segundo toque. Los Points en sí se manejan en Configuración > Points.',
+      texto: 'Prendé o apagá la facturación, las reservas a pagar en el parque y el cobro con Point.',
     },
   ],
 };

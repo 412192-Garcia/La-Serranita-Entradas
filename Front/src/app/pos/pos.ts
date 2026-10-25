@@ -76,7 +76,7 @@ export class Pos implements OnInit, OnDestroy {
     {
       selector: '[data-tour="acciones-caja"]',
       titulo: 'Tu caja',
-      texto: 'Desde el botón Caja hacés un Retiro/Aporte de efectivo o reponés el talonario (funciona también sin conexión). Este tutorial explica las dos partes del POS: primero la venta y después Anticipadas, para validar a quien ya compró o cobrar una reserva.',
+      texto: 'Con el botón Caja hacés un retiro o aporte, o reponés el talonario. Primero vemos la venta y después Anticipadas.',
       antes: () => this.consultaAnticipada.set(null),
     },
     {
@@ -94,7 +94,7 @@ export class Pos implements OnInit, OnDestroy {
     {
       selector: '[data-tour="carrito"]',
       titulo: 'Venta: cobrar',
-      texto: 'Revisá el resumen, elegí la forma de pago y tocá Cobrar para cerrar la venta. Con tarjeta o QR y un Point elegido, el botón dice "Cobrar con Point": el monto se manda al Point y la venta se registra sola cuando el pago sale aprobado. Las reservas "a cobrar en caja" también se cobran acá: las carga la pantalla de Anticipadas, que viene ahora.',
+      texto: 'Revisá el resumen, elegí la forma de pago y tocá Cobrar. Con un Point elegido, el cobro va al Point y la venta se guarda sola cuando se aprueba.',
       antes: () => this.consultaAnticipada.set(null),
     },
     {
@@ -102,12 +102,12 @@ export class Pos implements OnInit, OnDestroy {
       alternativo: '[data-tour="barra-caja"]',
       titulo: 'Venta: ticketera y Point',
       antes: () => this.consultaAnticipada.set(null),
-      texto: 'El botón de dispositivos (aparece cuando hay facturación o cobro con Point) elige la ticketera y el Point de esta tablet; el punto de color dice si están andando. Si el Point no anda, elegí "Sin posnet": la tarjeta y el QR se anotan a mano.',
+      texto: 'Acá elegís la ticketera y el Point de esta tablet; el punto de color dice si andan. Si el Point no anda, elegí "Sin posnet".',
     },
     {
       selector: '[data-tour="boton-anticipadas"]',
       titulo: 'Anticipadas: cómo se llega',
-      texto: 'Este botón abre Anticipadas. También se abre con F2, o escaneando el DNI del cliente en cualquier momento. Al tocar Siguiente lo abrimos por vos: vas a ver que el título cambia y que este mismo botón pasa a decir "Volver a la venta".',
+      texto: 'Abre Anticipadas. También se abre con F2 o escaneando un DNI. Al tocar Siguiente lo abrimos.',
       // Todavía en la venta: se muestra el botón antes de tocarlo. El paso siguiente (buscar) es el
       // que abre el panel, o sea que "Siguiente" hace de toque.
       antes: () => this.consultaAnticipada.set(null),
@@ -115,13 +115,13 @@ export class Pos implements OnInit, OnDestroy {
     {
       selector: '[data-tour="buscador"]',
       titulo: 'Anticipadas: buscar',
-      texto: 'Buscá por DNI, nombre, email o código de reserva (también funciona con el DNI de quien recibe un regalo). Al escanear un DNI se busca solo.',
+      texto: 'Buscá por DNI, nombre, email o código de reserva. Al escanear un DNI se busca solo.',
       antes: () => this.abrirAnticipadasParaTutorial(),
     },
     {
       selector: '[data-tour="fecha"]',
       titulo: 'Anticipadas: qué día ver',
-      texto: 'Al abrir ves las reservas de hoy. Elegí otro día, o "Ver todas las fechas" para buscar sin importar cuándo es la visita.',
+      texto: 'Se ven las reservas de hoy. Elegí otro día o tocá "Ver todas las fechas".',
       antes: () => this.abrirAnticipadasParaTutorial(),
     },
     {
@@ -129,13 +129,13 @@ export class Pos implements OnInit, OnDestroy {
       // El botón sólo existe si hay regalos: sin ellos se resalta la barra de fecha, que siempre está.
       alternativo: '[data-tour="fecha"]',
       titulo: 'Anticipadas: regalos y sin fecha',
-      texto: 'Los regalos y las reservas sin fecha no tienen día de visita, así que no aparecen en la lista del día: van en este botón, que sólo se ve cuando hay alguna. Tocalo para desplegarlas. En un regalo, el nombre y DNI de arriba son de quien lo recibe: pedile ese DNI, no el de quien compró. En una reserva sin fecha entra el titular.',
+      texto: 'Acá están los regalos y las reservas sin fecha. En un regalo, el nombre y DNI son de quien lo recibe.',
       antes: () => this.abrirAnticipadasParaTutorial(),
     },
     {
       selector: '[data-tour="resultados"]',
       titulo: 'Anticipadas: validar o cobrar',
-      texto: '"Validar Ingreso" habilita a quien ya pagó online: la fila se pone roja unos segundos por si te equivocaste ("Cancelar validación"). "Cobrar" es para las reservas a cobrar en caja: te lleva a la venta con esa reserva cargada, para elegir efectivo, tarjeta o QR.',
+      texto: '"Validar Ingreso" es para quien ya pagó online; si te equivocás, tenés unos segundos para cancelar. "Cobrar" es para las reservas a pagar en caja.',
       antes: () => this.abrirAnticipadasParaTutorial(),
     },
   ];

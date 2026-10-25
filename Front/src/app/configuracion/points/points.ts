@@ -91,8 +91,8 @@ export class ConfiguracionPoints implements OnInit {
       t,
       this.point.cambiarModo(t.id, modo),
       modo === 'PDV'
-        ? `${t.nombre} pasó a integrado: ahora sólo cobra lo que le mandan las tablets.`
-        : `${t.nombre} pasó a manual: se cobra en el propio Point y la venta se anota a mano.`,
+        ? `${t.nombre} ahora cobra lo que le manda la tablet.`
+        : `${t.nombre} ahora cobra a mano.`,
       // Se actualiza en el lugar: recargar enseguida le preguntaba a MP, que tarda en reflejar el
       // cambio (el Point volvía con el modo viejo o directamente no aparecía).
       () => this.reemplazar({ ...t, modo, integrado: modo === 'PDV' })

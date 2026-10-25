@@ -7,17 +7,14 @@
       </button>
     </div>
     <p class="ayuda">
-      Las tablets sólo ven los Points <strong>habilitados</strong> acá: activá los que se usan en la boletería. Para que un Point
-      reciba los cobros tiene que estar además <strong>integrado</strong> y asociado a una caja (punto de venta) en Mercado Pago,
-      una por Point. Cada tablet elige el suyo en el botón de dispositivos de la pantalla de venta.
+      Las tablets sólo ven los Points <strong>habilitados</strong>. Para cobrar desde la tablet, el Point tiene que estar
+      <strong>integrado</strong>.
     </p>
     <p class="ayuda">
-      Si se corta internet en la boletería, las tablets anotan la tarjeta a mano, pero un Point integrado no cobra solo: pasalo a
-      <strong>manual</strong> desde acá (por ejemplo, con el celular) y volvelo a integrado cuando vuelva la señal. Si el Point no
-      toma el cambio, reinicialo.
+      Si se corta internet, pasá el Point a <strong>manual</strong> desde acá y volvelo a integrado cuando vuelva la señal.
     </p>
     @if (!moduloActivo()) {
-      <p class="ayuda nota">El cobro con Point está apagado (se prende en Sistema &gt; Módulos): las tablets anotan la tarjeta a mano.</p>
+      <p class="ayuda nota">El cobro con Point está apagado (Sistema &gt; Módulos).</p>
     }
 
     @if (cargando() && terminales() === null) {

@@ -2,14 +2,12 @@
   <div class="tarjeta" data-tour="factura-predeterminada">
     <h2>Factura por forma de pago</h2>
     <p class="ayuda">
-      Qué queda marcado en la pantalla de venta al elegir cada forma de pago. El boletero lo puede
-      cambiar en cada venta.
-      <strong>Enviar por mail</strong> con el email vacío es no facturar. Si la ticketera no está
-      disponible, arranca en mail.
+      Qué factura viene marcada en la venta según la forma de pago. El boletero la puede cambiar.
+      <strong>Enviar por mail</strong> sin email es no facturar.
     </p>
     @if (!facturacionBoleteria()) {
       <p class="ayuda nota">
-        La facturación en boletería está apagada (Sistema &gt; Módulos): el POS no ofrece facturar.
+        La facturación en boletería está apagada (Sistema &gt; Módulos).
       </p>
     }
 

@@ -69,7 +69,7 @@
               @default {
                 @if (facturaDemorada()) {
                   <svg lucideCircleAlert class="icono-factura-demorada" [strokeWidth]="2"></svg>
-                  <span>La PC de la entrada no responde (apagada o sin internet). El ticket sale solo si vuelve en los próximos minutos.</span>
+                  <span>La PC de la entrada no responde. El ticket sale si vuelve en unos minutos.</span>
                 } @else {
                   <svg lucideLoaderCircle class="icono-girando" [strokeWidth]="2"></svg>
                   <span>Imprimiendo…</span>
@@ -123,7 +123,7 @@
       <div class="comprobante-factura">
         @if (facturaDemorada()) {
           <svg lucideCircleAlert class="icono-factura-demorada" [strokeWidth]="2"></svg>
-          <span>ARCA está demorando: la factura se sigue intentando sola en segundo plano.</span>
+          <span>ARCA está demorando. La factura se sigue intentando sola.</span>
         } @else {
           <svg lucideLoaderCircle class="icono-girando" [strokeWidth]="2"></svg>
           <span>Emitiendo factura…</span>

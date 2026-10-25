@@ -103,8 +103,7 @@
       @if (accion() === 'anular') {
         <div class="confirmar">
           <p>
-            Se emite una nota de crédito B por {{ factura()?.importeTotal | pesos }}. La venta queda como está, sin factura
-            (después se puede volver a facturar).
+            Se emite una nota de crédito por {{ factura()?.importeTotal | pesos }}. La venta queda sin factura.
           </p>
           <div class="botones">
             <button type="button" class="btn-secundario" (click)="accion.set(null)">No</button>

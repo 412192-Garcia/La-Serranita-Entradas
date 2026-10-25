@@ -203,7 +203,7 @@ export class FacturacionLote implements OnInit {
         if (status === 0 || status >= 500) {
           // Sin respuesta clara: el lote pudo haberse pedido igual. Volver a mandarlo es seguro
           // (misma clave: el servidor devuelve las ya pedidas, no las duplica).
-          this.error.set('No se pudo confirmar si el lote se pidió. Tocá "Facturar" de nuevo: si ya estaba pedido, no se duplica.');
+          this.error.set('No sabemos si el lote se pidió. Tocá "Facturar" de nuevo: no se va a duplicar.');
           return;
         }
         this.error.set(this.conVenta(this.mensaje(err, 'No se pudo emitir el lote. No se pidió ninguna factura.')));

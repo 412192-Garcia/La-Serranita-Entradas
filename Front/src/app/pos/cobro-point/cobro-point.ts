@@ -163,7 +163,7 @@ export class CobroPointModal implements OnInit {
         this.consultando = false;
         this.error.set(
           err instanceof HttpErrorResponse && err.status === 0
-            ? 'Sin conexión con el servidor: el cobro sigue en el Point. Cuando vuelva la señal se actualiza solo.'
+            ? 'Sin conexión. El cobro sigue en el Point y se actualiza cuando vuelva la señal.'
             : this.mensaje(err, 'No se pudo consultar el cobro.')
         );
       },

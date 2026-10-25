@@ -6,6 +6,9 @@ número y el CI la usa como nota de la Release de GitHub.
 
 ## Sin publicar
 
+- Textos más cortos y claros en toda la app: tutoriales, ayudas de cada pantalla, avisos y
+  confirmaciones. Se sacaron explicaciones de más y términos técnicos.
+
 ## 0.10.5 — 2026-10-25
 
 - Configuración > Cobros (antes "Points"): nueva tarjeta "Factura por forma de pago" para elegir

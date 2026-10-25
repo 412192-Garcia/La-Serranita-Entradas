@@ -64,7 +64,7 @@ const SUGERENCIAS_VENTA: { patron: RegExp; sugerencia: string }[] = [
 
 const SUGERENCIA_VENTA_GENERICA = 'Avisale al boletero para que revise el motivo y reintente la venta.';
 const SUGERENCIA_SIN_CAJA_GUARDADA =
-  'Este rechazo es de antes de que se guardara la caja de origen: no se puede reabrir solo, hay que cargar la operación a mano desde acá cuando el boletero abra su próxima caja.';
+  'No se sabe de qué caja es. Cargá la operación a mano cuando el boletero abra su próxima caja.';
 
 @Component({
   selector: 'app-rechazos-operaciones',
@@ -282,8 +282,8 @@ export class RechazosOperaciones implements OnInit {
     const lote = this.loteDeLaMismaCaja(r);
     const mensaje =
       lote.length > 1
-        ? `Esto va a reabrir la caja de origen, aplicar las ${lote.length} operaciones rechazadas de esa caja (ventas, retiros/aportes o entradas), y volver a cerrarla una sola vez con el mismo conteo que ya tenía.`
-        : 'Esto va a reabrir la caja de origen, aplicar la operación rechazada, y volver a cerrarla con el mismo conteo que ya tenía.';
+        ? `Se reabre la caja, se cargan las ${lote.length} operaciones y se vuelve a cerrar con el mismo conteo.`
+        : 'Se reabre la caja, se carga la operación y se vuelve a cerrar con el mismo conteo.';
     const confirmado = await this.confirmacion.pedir({ titulo: 'Reabrir la caja y reintentar', mensaje, aceptar: 'Reabrir y reintentar' });
     if (!confirmado) return;
 
