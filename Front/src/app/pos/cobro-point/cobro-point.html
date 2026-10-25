@@ -15,7 +15,12 @@
       }
       <span>{{ monto() | pesos }}</span>
     </div>
-    <p class="terminal-point">{{ terminal().nombre }}</p>
+    <p class="terminal-point">
+      {{ terminal().nombre }}
+      @if (tipoTarjeta(); as tipo) {
+        · {{ tipo === 'DEBITO' ? 'Débito' : 'Crédito' }}
+      }
+    </p>
 
     @if (eligiendoTarjeta()) {
       <p class="ayuda-point">¿La tarjeta del cliente es de débito o de crédito?</p>
@@ -23,8 +28,13 @@
       @if (c.estado === 'APROBADO') {
         <p class="estado-point estado-ok">Pago aprobado. Registrando la venta…</p>
       } @else if (c.enCurso) {
-        <div class="estado-point estado-espera">
-          <span class="indicador" aria-hidden="true"></span>
+        <!-- Revisar no es "esperando": hay que mirar el Point y decidir, por eso va en ámbar y quieto. -->
+        <div class="estado-point" [class.estado-espera]="c.estado !== 'REVISAR_EN_POINT'" [class.estado-revisar]="c.estado === 'REVISAR_EN_POINT'">
+          @if (c.estado === 'REVISAR_EN_POINT') {
+            <svg lucideTriangleAlert [strokeWidth]="2.25" aria-hidden="true"></svg>
+          } @else {
+            <span class="indicador" aria-hidden="true"></span>
+          }
           <span>{{ c.motivo }}</span>
         </div>
         @if (c.estado === 'REVISAR_EN_POINT') {

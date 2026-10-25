@@ -115,8 +115,8 @@ export class CarritoVenta {
   precioFijoDeseado = signal<number | null>(null);
 
   // ---------- Factura: "Imprimir factura" o "Enviar por mail", una u otra. Mail con el campo
-  // vacío = no facturar, sin error. La forma de pago sólo cambia cuál arranca marcada: tarjeta y
-  // QR arrancan en Imprimir, efectivo en mail vacío (el cajero ni toca nada). ----------
+  // vacío = no facturar, sin error. La forma de pago sólo cambia cuál arranca marcada, según
+  // Configuración > Cobros (de fábrica: tarjeta y QR en Imprimir, efectivo en mail vacío). ----------
   /** Facturación de boletería (submódulo de Facturación): apagada, el POS no ofrece facturar. */
   readonly facturacionHabilitada = this.facturaService.habilitadaBoleteria;
   destinoFactura = signal<DestinoFactura>('MAIL');
@@ -411,7 +411,10 @@ export class CarritoVenta {
   motivoBloqueo = computed(() => {
     if (!this.hayItems()) return null;
     if (this.faltaElegirPoint()) {
-      return 'Elegí el Point de esta tablet en el botón de dispositivos (o "Sin Point" para anotar la tarjeta a mano).';
+      return 'Elegí el Point de esta tablet en el botón de dispositivos (o "Sin posnet" para anotar la tarjeta a mano).';
+    }
+    if (this.cobraConPoint() && this.cobrosQueSobran().length > 0) {
+      return 'Antes de volver a cobrar con el Point, devolvé o resolvé el cobro de arriba.';
     }
     // Una venta sólo de artículos (sin entradas) no exige ningún pase obligatorio.
     if (this.tieneEntradas() && !this.tieneObligatorio()) {
@@ -603,14 +606,17 @@ export class CarritoVenta {
     }
   }
 
-  /** Tarjeta/QR arrancan en Imprimir; efectivo en mail (vacío = sin factura). El email que ya
-   * se haya tipeado no se borra: cambiar de forma de pago no debería hacer perder lo cargado. */
   /** El cajero eligió Imprimir/Mail a mano en esta venta: ya no se lo cambia solo. */
   private destinoElegidoAMano = signal(false);
 
+  /** Lo que diga Configuración > Cobros para esa forma de pago; sin ticketera, mail (vacío = sin
+   * factura). El email que ya se haya tipeado no se borra: cambiar de forma de pago no debería
+   * hacer perder lo cargado. */
   private aplicarDestinoFacturaPorDefecto(formaPago: FormaPagoPos): void {
-    const imprimir = formaPago !== 'EFECTIVO_BOLETERIA' && this.imprimirFacturaDisponible();
-    this.destinoFactura.set(imprimir ? 'IMPRIMIR' : 'MAIL');
+    const predeterminada = this.facturaService.predeterminada();
+    const destino =
+      formaPago === 'EFECTIVO_BOLETERIA' ? predeterminada.efectivo : formaPago === 'TARJETA' ? predeterminada.tarjeta : predeterminada.qr;
+    this.destinoFactura.set(destino === 'IMPRIMIR' && this.imprimirFacturaDisponible() ? 'IMPRIMIR' : 'MAIL');
   }
 
   setDestinoFactura(destino: DestinoFactura): void {
@@ -748,8 +754,13 @@ export class CarritoVenta {
   }
 
   /** El Point no confirmó pero el boletero vio que el pago salió: la venta se registra con ese
-   * cobro igual (el backend lo acepta en curso), así cuando MP lo apruebe ya es de esta venta. */
+   * cobro igual (el backend lo acepta en curso), así cuando MP lo apruebe ya es de esta venta.
+   *
+   * Queda recordado como cobrado hasta que la venta se registre: si se rechaza, o si se retomó
+   * después de recargar (no hay carrito esperándolo), el aviso de "cobro sin venta" lo ofrece para
+   * la próxima venta en vez de que se pierda y se le vuelva a cobrar al cliente. */
   onPointAMano(cobro: CobroPoint): void {
+    this.point.recordarCobro({ ...cobro, estado: 'APROBADO', enCurso: false, motivo: null });
     this.cerrarPoint(cobro);
   }
 

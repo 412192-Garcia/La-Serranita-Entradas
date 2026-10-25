@@ -89,8 +89,8 @@ public class PointController {
     }
 
     @PutMapping("/api/interno/point/terminales/{id}/modo")
-    @Operation(summary = "Pasar un Point a integrado (PDV) o a manual (STANDALONE)",
-            description = "También el boletero: si se corta internet en la boletería, pasa el Point a manual (por ejemplo desde el celular) para seguir cobrando.")
+    @Operation(summary = "Pasar un Point a integrado (PDV) o a manual (STANDALONE) (ADMIN)",
+            description = "Desde Configuración > Cobros: si se corta internet en la boletería, se pasa a manual (por ejemplo desde el celular) para seguir cobrando.")
     public ResponseEntity<Void> cambiarModo(@PathVariable String id, @RequestBody Map<String, String> body) {
         service.cambiarModo(id, body.get("modo"));
         return ResponseEntity.noContent().build();

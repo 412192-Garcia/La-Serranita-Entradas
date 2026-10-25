@@ -8,7 +8,9 @@
   box-shadow: var(--shadow-card-lg);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  /* clip y no hidden: recorta igual las esquinas, pero hidden la volvía contenedor de scroll y
+     el .pie-cobro (sticky) se pegaba a la tarjeta en vez de a la pantalla. */
+  overflow: clip;
   /* Para el @container de .valor-total más abajo: en tablet vertical esta columna queda
      angosta (ver .pos-layout en pos.css) y un total de varios dígitos no entra al 2.6rem
      de siempre — achicarlo ahí evita que se recorte contra el borde de la tarjeta. */
@@ -94,6 +96,32 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+/* El botón de cobrar (con el motivo si está gris): queda pegado abajo de la pantalla mientras el
+   carrito siga más abajo. Mismo fondo que .carrito-cobro, que es lo que pasa por detrás; el
+   margen negativo extiende ese fondo hasta los bordes de la tarjeta. */
+.pie-cobro {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: -8px -18px -18px;
+  padding: 8px 18px 18px;
+  background-color: var(--color-bg-soft);
+  /* Cuando está pegado, que se note que el carrito sigue por detrás (sin esto cortaba una fila
+     de botones al ras). Sin pegar, cae en el hueco entre la factura y el botón y no se ve. */
+  box-shadow: 0 -10px 12px -12px rgb(0 0 0 / 0.35);
+}
+
+/* Escribiendo en el carrito (Paga con, montos del pago mixto, mail) deja de pegarse: si no,
+   tapaba el vuelto, que aparece justo debajo de "Paga con". Sólo inputs: con un botón
+   enfocado (Efectivo, Tarjeta...) sigue pegado. */
+.carrito:has(input:focus) .pie-cobro {
+  position: static;
+  box-shadow: none;
 }
 
 /* Agrupa las 3 formas de pago con el toggle de pago mixto en una sola fila: separado no
@@ -260,31 +288,33 @@
   margin: 8px 0 0;
 }
 
-/* Los dos labels de la fila (texto plano "Efectivo" vs. el mini-toggle "Tarjeta/QR") tienen
-   que ocupar la misma altura: si no, el que tiene el toggle (con su borde y padding) queda
-   más alto y el input de abajo arranca un poco más abajo que el de al lado. */
+/* Los dos montos uno debajo del otro. Lado a lado, el selector de la 2ª forma (Efectivo /
+   Tarjeta 2 / QR) tenía media tarjeta del carrito: quedaba "Efect… Tarje…" en botones de
+   20px, imposibles de tocar en la tablet (el carrito mide 350-450px en cualquier pantalla). */
+.bloque-pago-mixto .fila-descuento-manual {
+  flex-direction: column;
+  gap: 10px;
+}
+
 .etiqueta-monto-mixto {
   display: flex;
   align-items: center;
-  height: 20px;
 }
 
-/* Elegir la 2ª forma no necesita un botón de tamaño completo (sólo quedan 2 opciones): un
-   mini-toggle metido en el label del segundo monto, mismo alto que el texto que reemplaza. */
 .mini-toggle-forma {
-  gap: 4px;
+  gap: 6px;
 }
 
 .btn-mini-forma {
   flex: 1;
   min-width: 0;
-  height: 100%;
+  height: 36px;
   box-sizing: border-box;
-  padding: 0 2px;
+  padding: 0 8px;
   border: 1.5px solid var(--color-border);
   background-color: var(--color-card-bg);
   border-radius: var(--radius-sm);
-  font-size: 0.68rem;
+  font-size: 0.8rem;
   font-weight: 700;
   color: var(--color-text-secondary);
   cursor: pointer;
@@ -727,31 +757,16 @@
     padding: 8px 6px;
   }
 
-  /* Pago mixto: los dos montos uno debajo del otro. Lado a lado, el selector de la 2ª forma
-     (Efectivo / Tarjeta / QR) tenía media tarjeta y quedaba "Efect… Tarje…". */
-  .bloque-pago-mixto .fila-descuento-manual {
-    flex-direction: column;
-    gap: 10px;
-  }
-
-  .bloque-pago-mixto .etiqueta-monto-mixto {
-    height: auto;
-  }
-
-  .bloque-pago-mixto .mini-toggle-forma {
-    gap: 6px;
-  }
-
-  .btn-mini-forma {
-    height: 36px;
-    padding: 0 8px;
-    font-size: 0.8rem;
-  }
 }
 
 @media (pointer: coarse) and (max-width: 600px) {
-  .btn-modo-descuento,
-  .btn-mini-forma {
+  .btn-modo-descuento {
     min-height: 40px;
+  }
+}
+
+@media (pointer: coarse) {
+  .btn-mini-forma {
+    height: 44px;
   }
 }

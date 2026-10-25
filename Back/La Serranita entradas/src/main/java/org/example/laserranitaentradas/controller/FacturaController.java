@@ -7,6 +7,7 @@ import org.example.laserranitaentradas.config.UsuarioAutenticado;
 import org.example.laserranitaentradas.model.dto.ControlFacturacionDTO;
 import org.example.laserranitaentradas.model.dto.FacturaManualDTO;
 import org.example.laserranitaentradas.model.dto.FacturaManualLoteDTO;
+import org.example.laserranitaentradas.model.dto.FacturaPredeterminadaDTO;
 import org.example.laserranitaentradas.model.dto.FacturaResponseDTO;
 import org.example.laserranitaentradas.model.dto.FacturacionPosDTO;
 import org.example.laserranitaentradas.model.dto.PadronContribuyenteDTO;
@@ -14,6 +15,7 @@ import org.example.laserranitaentradas.service.afip.PadronService;
 import org.example.laserranitaentradas.model.dto.VentaFacturaDTO;
 import org.example.laserranitaentradas.service.factura.VentasFacturasService;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.example.laserranitaentradas.service.ConfiguracionParqueService;
 import org.example.laserranitaentradas.service.FacturaService;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -31,19 +33,23 @@ public class FacturaController {
     private final FacturaService facturaService;
     private final VentasFacturasService ventasFacturasService;
     private final PadronService padronService;
+    private final ConfiguracionParqueService configuracionParqueService;
 
     public FacturaController(FacturaService facturaService, VentasFacturasService ventasFacturasService,
-                             PadronService padronService) {
+                             PadronService padronService, ConfiguracionParqueService configuracionParqueService) {
         this.facturaService = facturaService;
         this.ventasFacturasService = ventasFacturasService;
         this.padronService = padronService;
+        this.configuracionParqueService = configuracionParqueService;
     }
 
     @GetMapping("/estado-servicio")
-    @Operation(summary = "Si la facturación está configurada", description = "El POS lo usa para mostrar u ocultar las opciones de factura.")
-    public Map<String, Boolean> estadoServicio() {
+    @Operation(summary = "Si la facturación está configurada", description = "El POS lo usa para mostrar u ocultar las opciones de factura, "
+            + "y \"predeterminada\" para saber cuál arranca marcada según la forma de pago.")
+    public Map<String, Object> estadoServicio() {
         return Map.of("habilitada", facturaService.estaHabilitada(), "boleteria", facturaService.facturacionBoleteriaActiva(),
-                "online", facturaService.facturacionOnlineActiva());
+                "online", facturaService.facturacionOnlineActiva(),
+                "predeterminada", FacturaPredeterminadaDTO.de(configuracionParqueService.getHorarioGeneral()));
     }
 
     @PostMapping("/compra/{compraId}/online")

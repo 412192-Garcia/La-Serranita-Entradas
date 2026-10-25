@@ -1,12 +1,10 @@
 import { Component, DestroyRef, ElementRef, HostListener, computed, inject, input, signal } from '@angular/core';
-import { ConfirmacionService } from '../../shared/confirmacion/confirmacion.service';
-import { HttpErrorResponse } from '@angular/common/http';
 import { LucideCheck, LucideCreditCard, LucidePrinter } from '@lucide/angular';
 import { FacturaService } from '../../services/factura.service';
 import { ConectividadService } from '../../services/conectividad.service';
 import { ImpresorasService } from '../../services/impresoras.service';
 import { ModulosService } from '../../services/modulos.service';
-import { PointService, SIN_POINT, TerminalPoint } from '../../services/point.service';
+import { PointService, SIN_POINT } from '../../services/point.service';
 
 type EstadoDispositivo = 'ok' | 'mal' | 'elegir' | 'manual' | 'cargando';
 
@@ -17,8 +15,8 @@ const GRAVEDAD: EstadoDispositivo[] = ['mal', 'elegir', 'cargando', 'manual', 'o
  * Botón "Dispositivos" de la barra de la pantalla de venta: un solo botón con un solo punto de
  * estado para la ticketera donde imprime esta tablet y el Point de Mercado Pago con el que cobra.
  * Verde = todo listo; si algo falla, el botón dice qué. El menú tiene el detalle de cada uno, para
- * cambiarlos, y el modo de cada Point (integrado o manual: si se corta internet en la boletería,
- * el boletero lo pasa a manual desde el celular para seguir cobrando).
+ * cambiarlos. El modo de cada Point (integrado o manual) no se toca acá: es de Configuración >
+ * Cobros, porque confundía a los boleteros y el Point suele necesitar un reinicio para tomarlo.
  *
  * Está acá y no en Configuración porque lo usan los boleteros, que no ven esa pestaña; y no en el
  * carrito porque se elige una vez y queda guardado en la tablet, no venta por venta.
@@ -31,7 +29,6 @@ const GRAVEDAD: EstadoDispositivo[] = ['mal', 'elegir', 'cargando', 'manual', 'o
 })
 export class SelectorDispositivos {
   private facturaService = inject(FacturaService);
-  private confirmacion = inject(ConfirmacionService);
   private host = inject(ElementRef<HTMLElement>);
   readonly impresoras = inject(ImpresorasService);
   readonly point = inject(PointService);
@@ -61,7 +58,7 @@ export class SelectorDispositivos {
     return efectiva.disponible ? 'ok' : 'mal';
   });
 
-  /** ok = cobra con ese Point; manual = eligieron "Sin Point"; elegir = hay varios y ninguno
+  /** ok = cobra con ese Point; manual = eligieron "Sin posnet"; elegir = hay varios y ninguno
    * elegido; mal = no hay ninguno integrado o no se pudo consultar. */
   estadoPoint = computed<EstadoDispositivo>(() => {
     if (this.point.elegida() === SIN_POINT) return 'manual';
@@ -102,17 +99,17 @@ export class SelectorDispositivos {
       const efectiva = this.point.efectiva();
       partes.push(
         this.estadoPoint() === 'manual'
-          ? 'Sin Point: la tarjeta y el QR se anotan a mano'
+          ? 'Sin posnet: la tarjeta y el QR se anotan a mano'
           : efectiva
             ? `Point: ${efectiva.nombre}`
-            : (this.point.errorTerminales() ?? 'Sin Point integrado elegido: la tarjeta y el QR se anotan a mano')
+            : (this.point.errorTerminales() ??
+              (this.estadoPoint() === 'elegir'
+                ? 'Elegí el Point de esta tablet'
+                : 'Ningún Point integrado: la tarjeta y el QR se anotan a mano'))
       );
     }
     return partes.join(' · ');
   });
-
-  cambiandoModo = signal<string | null>(null);
-  errorModo = signal<string | null>(null);
 
   constructor() {
     const destroyRef = inject(DestroyRef);
@@ -129,36 +126,6 @@ export class SelectorDispositivos {
   elegirPoint(id: string): void {
     this.point.elegir(id);
     this.abierto.set(false);
-  }
-
-  /** Integrado ↔ manual. Pasar a manual se confirma: deja de recibir los cobros de TODAS las tablets. */
-  async cambiarModo(t: TerminalPoint): Promise<void> {
-    const modo = t.integrado ? 'STANDALONE' : 'PDV';
-    if (
-      modo === 'STANDALONE' &&
-      !(await this.confirmacion.pedir({
-        titulo: `Pasar "${t.nombre}" a manual`,
-        mensaje:
-          'Deja de recibir los cobros de las tablets: se cobra desde el propio Point y la venta se anota a mano. Sirve si se cortó internet en la boletería; cuando vuelva, pasalo de nuevo a integrado.',
-        aceptar: 'Pasar a manual',
-      }))
-    ) {
-      return;
-    }
-    this.cambiandoModo.set(t.id);
-    this.errorModo.set(null);
-    this.point.cambiarModo(t.id, modo).subscribe({
-      next: () => {
-        this.cambiandoModo.set(null);
-        this.point.actualizar();
-      },
-      error: (err) => {
-        this.cambiandoModo.set(null);
-        this.errorModo.set(
-          err instanceof HttpErrorResponse && typeof err.error === 'string' && err.error ? err.error : 'No se pudo cambiar el modo del Point.'
-        );
-      },
-    });
   }
 
   /** Se cierra al tocar afuera, como cualquier menú desplegable. */

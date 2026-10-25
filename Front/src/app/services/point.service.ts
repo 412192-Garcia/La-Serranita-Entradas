@@ -20,6 +20,16 @@ export interface TerminalPoint {
   habilitado: boolean;
 }
 
+/** Los que se usan arriba: primero los que ven las tablets, después los integrados, y por nombre. */
+export function ordenarTerminales(lista: TerminalPoint[]): TerminalPoint[] {
+  return [...lista].sort(
+    (a, b) =>
+      Number(b.habilitado) - Number(a.habilitado) ||
+      Number(b.integrado) - Number(a.integrado) ||
+      a.nombre.localeCompare(b.nombre, 'es', { numeric: true })
+  );
+}
+
 export type EstadoCobroPoint =
   | 'CREADO'
   | 'EN_TERMINAL'
@@ -65,7 +75,7 @@ export type TipoTarjetaPoint = 'DEBITO' | 'CREDITO';
 
 /** Point elegido en ESTA tablet (cada tablet tiene el suyo al lado, como la ticketera). */
 const CLAVE_POINT = 'pos-point';
-/** Elegido a propósito "Sin Point": la tarjeta se cobra en el posnet y se anota a mano. */
+/** Elegido a propósito "Sin posnet": la tarjeta se cobra en el posnet y se anota a mano. */
 export const SIN_POINT = 'NINGUNO';
 /** Cobros mandados al Point que todavía no terminaron en una venta registrada (sobreviven a recargar
  * la página). Uno por usuario: la tablet se comparte entre turnos, y los cobros de un boletero no
@@ -108,7 +118,7 @@ export class PointService {
     return lista.length === 1 ? lista[0] : null;
   });
 
-  /** Hay varios Points integrados y esta tablet todavía no eligió el suyo (ni "Sin Point"). */
+  /** Hay varios Points integrados y esta tablet todavía no eligió el suyo (ni "Sin posnet"). */
   readonly faltaElegir = computed(
     () => this.habilitado() && this.consultado() && this.efectiva() === null && this.elegida() !== SIN_POINT && this.integradas().length > 1
   );
@@ -144,7 +154,7 @@ export class PointService {
     if (!this.habilitado() || !this.conectividad.enLinea()) return;
     this.http.get<TerminalPoint[]>(`${this.url}/terminales`).subscribe({
       next: (lista) => {
-        this.terminales.set(lista);
+        this.terminales.set(ordenarTerminales(lista));
         this.consultado.set(true);
         this.errorTerminales.set(null);
       },
@@ -200,8 +210,8 @@ export class PointService {
     return this.http.get<ResumenCajaPoint>(`${this.url}/caja/${cajaId}/resumen`);
   }
 
-  /** PDV = integrado; STANDALONE = manual. También el boletero: si se corta internet en la boletería,
-   * pasa el Point a manual desde el celular para seguir cobrando con él. */
+  /** PDV = integrado; STANDALONE = manual. Desde Configuración > Cobros: si se corta internet en la
+   * boletería, se pasa a manual (por ejemplo, desde el celular) para seguir cobrando con él. */
   cambiarModo(id: string, modo: 'PDV' | 'STANDALONE'): Observable<void> {
     return this.http.put<void>(`${this.url}/terminales/${encodeURIComponent(id)}/modo`, { modo });
   }

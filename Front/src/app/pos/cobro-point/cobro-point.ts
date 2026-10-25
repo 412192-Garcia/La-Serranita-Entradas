@@ -2,7 +2,7 @@ import { Component, OnInit, computed, inject, input, output, signal } from '@ang
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { HttpErrorResponse } from '@angular/common/http';
 import { interval } from 'rxjs';
-import { LucideCreditCard, LucideQrCode } from '@lucide/angular';
+import { LucideCreditCard, LucideQrCode, LucideTriangleAlert } from '@lucide/angular';
 import { Modal } from '../../shared/modal/modal';
 import { PesosPipe } from '../../shared/pesos.pipe';
 import { ConectividadService } from '../../services/conectividad.service';
@@ -21,7 +21,7 @@ const INTERVALO_MS = 2_000;
  */
 @Component({
   selector: 'app-cobro-point',
-  imports: [Modal, PesosPipe, LucideCreditCard, LucideQrCode],
+  imports: [Modal, PesosPipe, LucideCreditCard, LucideQrCode, LucideTriangleAlert],
   templateUrl: './cobro-point.html',
   styleUrl: './cobro-point.css',
 })

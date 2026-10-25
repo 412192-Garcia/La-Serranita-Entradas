@@ -1,5 +1,6 @@
 package org.example.laserranitaentradas.controller;
 
+import org.example.laserranitaentradas.model.dto.FacturaPredeterminadaDTO;
 import org.example.laserranitaentradas.model.dto.HorarioRequest;
 import org.example.laserranitaentradas.model.dto.HorarioResponseDTO;
 import org.example.laserranitaentradas.model.entity.ConfiguracionParque;
@@ -51,5 +52,19 @@ public class ConfiguracionParqueController {
         ConfiguracionParque actualizado = configuracionParqueService.actualizarHorarioGeneral(
                 request.getHoraApertura(), request.getHoraCierre(), request.getMinutosLimiteCompra());
         return ResponseEntity.ok(actualizado);
+    }
+
+    @GetMapping("/factura-predeterminada")
+    @Operation(summary = "Factura por defecto de cada forma de pago (ADMIN)",
+            description = "Qué arranca marcado en el POS al elegir efectivo, tarjeta o QR: IMPRIMIR o MAIL (mail vacío = no facturar). "
+                    + "El POS lo recibe en /api/interno/facturas/estado-servicio.")
+    public FacturaPredeterminadaDTO obtenerFacturaPredeterminada() {
+        return FacturaPredeterminadaDTO.de(configuracionParqueService.getHorarioGeneral());
+    }
+
+    @PutMapping("/factura-predeterminada")
+    @Operation(summary = "Cambiar la factura por defecto de cada forma de pago (ADMIN)")
+    public FacturaPredeterminadaDTO actualizarFacturaPredeterminada(@RequestBody FacturaPredeterminadaDTO request) {
+        return FacturaPredeterminadaDTO.de(configuracionParqueService.actualizarFacturaPredeterminada(request));
     }
 }

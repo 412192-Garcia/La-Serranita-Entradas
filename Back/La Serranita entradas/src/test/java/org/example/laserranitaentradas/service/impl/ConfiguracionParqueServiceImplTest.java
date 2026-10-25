@@ -1,6 +1,8 @@
 package org.example.laserranitaentradas.service.impl;
 
+import org.example.laserranitaentradas.model.dto.FacturaPredeterminadaDTO;
 import org.example.laserranitaentradas.model.entity.ConfiguracionParque;
+import org.example.laserranitaentradas.model.entity.DestinoFactura;
 import org.example.laserranitaentradas.repository.ConfiguracionParqueRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -76,6 +78,39 @@ class ConfiguracionParqueServiceImplTest {
         assertThatThrownBy(() -> service.actualizarHorarioGeneral(LocalTime.of(9, 0), LocalTime.of(18, 0), -1))
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> service.actualizarHorarioGeneral(LocalTime.of(9, 0), LocalTime.of(18, 0), 721))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void laFacturaPorDefectoEsMailEnEfectivoEImprimirEnTarjetaYQr() {
+        ConfiguracionParque config = ConfiguracionParque.builder().build();
+
+        assertThat(config.getFacturaEfectivo()).isEqualTo(DestinoFactura.MAIL);
+        assertThat(config.getFacturaTarjeta()).isEqualTo(DestinoFactura.IMPRIMIR);
+        assertThat(config.getFacturaQr()).isEqualTo(DestinoFactura.IMPRIMIR);
+    }
+
+    @Test
+    void guardaLaFacturaPorDefectoDeCadaFormaDePago() {
+        conConfiguracionExistente();
+
+        ConfiguracionParque r = service.actualizarFacturaPredeterminada(
+                new FacturaPredeterminadaDTO(DestinoFactura.IMPRIMIR, DestinoFactura.MAIL, DestinoFactura.MAIL));
+
+        assertThat(r.getFacturaEfectivo()).isEqualTo(DestinoFactura.IMPRIMIR);
+        assertThat(r.getFacturaTarjeta()).isEqualTo(DestinoFactura.MAIL);
+        assertThat(r.getFacturaQr()).isEqualTo(DestinoFactura.MAIL);
+    }
+
+    @Test
+    void rechazaUnaFacturaPorDefectoSinElegirOQueNoEsDelPos() {
+        assertThatThrownBy(() -> service.actualizarFacturaPredeterminada(
+                new FacturaPredeterminadaDTO(null, DestinoFactura.IMPRIMIR, DestinoFactura.IMPRIMIR)))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> service.actualizarFacturaPredeterminada(
+                new FacturaPredeterminadaDTO(DestinoFactura.MAIL, DestinoFactura.NINGUNO, DestinoFactura.IMPRIMIR)))
                 .isInstanceOf(IllegalArgumentException.class);
 
         verify(repository, never()).save(any());

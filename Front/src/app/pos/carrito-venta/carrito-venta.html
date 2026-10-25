@@ -297,8 +297,8 @@
     }
 
     @if (facturacionHabilitada() && hayItems() && !sinCobro()) {
-      <!-- Una u otra, nunca las dos. "Enviar por mail" con el campo vacío = no se factura, y es
-           lo que queda marcado por defecto en efectivo: el cajero no tiene que tocar nada. -->
+      <!-- Una u otra, nunca las dos. "Enviar por mail" con el campo vacío = no se factura. Cuál
+           arranca marcada según la forma de pago sale de Configuración > Cobros. -->
       <div class="bloque-factura">
         <div class="destino-factura" role="radiogroup" aria-label="Factura">
           <button
@@ -345,10 +345,6 @@
       </div>
     }
 
-    @if (motivoBloqueo(); as motivo) {
-      <p class="motivo-bloqueo">{{ motivo }}</p>
-    }
-
     @if (cobraConPoint() && cobrosQueSirven().length) {
       <div class="aviso-cobro-point aviso-cobro-point-sirve">
         @for (c of cobrosQueSirven(); track c.id) {
@@ -368,26 +364,34 @@
       </div>
     }
 
-    @if (error()) {
-      <p class="alerta-error">{{ error() }}</p>
-    }
-
-    <div class="acciones">
-      <button type="button" class="btn-cobrar" [disabled]="!puedeCobrar()" (click)="cobrar()">
-        @if (cobrando()) {
-          Registrando…
-        } @else if (cobraConPoint()) {
-          {{ todoCobradoEnPoint() ? 'Registrar venta' : 'Cobrar con Point' }}
-        } @else {
-          {{ compraReservada() ? 'Cobrar reserva' : 'Cobrar' }}
-        }
-      </button>
+    <!-- Pegado al borde de abajo de la pantalla cuando el carrito no entra entero (tablet apaisada
+         de 600px de alto, o el carrito debajo del catálogo en vertical): sin esto, con pago mixto o
+         efectivo con vuelto había que scrollear para encontrar el botón de cobrar. Con él va el
+         motivo de por qué está gris. -->
+    <div class="pie-cobro">
+      @if (motivoBloqueo(); as motivo) {
+        <p class="motivo-bloqueo">{{ motivo }}</p>
+      }
+      @if (error()) {
+        <p class="alerta-error">{{ error() }}</p>
+      }
+      <div class="acciones">
+        <button type="button" class="btn-cobrar" [disabled]="!puedeCobrar()" (click)="cobrar()">
+          @if (cobrando()) {
+            Registrando…
+          } @else if (cobraConPoint()) {
+            {{ todoCobradoEnPoint() ? 'Registrar venta' : 'Cobrar con Point' }}
+          } @else {
+            {{ compraReservada() ? 'Cobrar reserva' : 'Cobrar' }}
+          }
+        </button>
+      </div>
+      @if (partesPoint().length && point.habilitado() && !cobraConPoint() && !faltaElegirPoint()) {
+        <p class="aviso-factura">
+          {{ point.efectiva() ? 'Sin conexión: cobrá en el Point y la venta se anota a mano.' : 'Esta tablet no cobra con Point: la tarjeta y el QR se anotan a mano.' }}
+        </p>
+      }
     </div>
-    @if (partesPoint().length && point.habilitado() && !cobraConPoint() && !faltaElegirPoint()) {
-      <p class="aviso-factura">
-        {{ point.efectiva() ? 'Sin conexión: cobrá en el Point y la venta se anota a mano.' : 'Esta tablet no cobra con Point: la tarjeta y el QR se anotan a mano.' }}
-      </p>
-    }
 
     <!-- Una ventana nueva por cada parte (track por identidad): en un pago tarjeta + QR la segunda
          parte no puede heredar el estado "aprobado" de la primera. -->

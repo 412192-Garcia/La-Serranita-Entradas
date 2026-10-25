@@ -6,13 +6,14 @@ import { ConfiguracionPromociones } from './promociones/promociones';
 import { ConfiguracionArticulos } from './articulos/articulos';
 import { ConfiguracionUsuarios } from './usuarios/usuarios';
 import { ConfiguracionPoints } from './points/points';
+import { ConfiguracionFacturaPredeterminada } from './factura-predeterminada/factura-predeterminada';
 import { CabeceraInterna } from '../shared/cabecera-interna/cabecera-interna';
 import { TourStep } from '../shared/tour/tour';
 
 /** Cada pestaña muestra componentes hijos distintos (el resto ni existe en el DOM), así que
  * el tutorial tiene que cambiar de pasos según la pestaña activa — no hay un único recorrido
  * que sirva para las 4 a la vez. */
-const PASOS_POR_TAB: Record<'dias' | 'descuentos' | 'catalogo' | 'usuarios' | 'points', TourStep[]> = {
+const PASOS_POR_TAB: Record<'dias' | 'descuentos' | 'catalogo' | 'usuarios' | 'cobros', TourStep[]> = {
   dias: [
     {
       selector: '[data-tour="horario-general"]',
@@ -61,11 +62,16 @@ const PASOS_POR_TAB: Record<'dias' | 'descuentos' | 'catalogo' | 'usuarios' | 'p
       texto: 'Acá creás las cuentas del personal: administradores o boleteros.',
     },
   ],
-  points: [
+  cobros: [
+    {
+      selector: '[data-tour="factura-predeterminada"]',
+      titulo: 'Factura por forma de pago',
+      texto: 'Qué factura queda marcada en la pantalla de venta al elegir efectivo, tarjeta o QR: imprimirla o mandarla por mail (con el mail vacío no se factura). El boletero la puede cambiar en cada venta.',
+    },
     {
       selector: '[data-tour="points"]',
       titulo: 'Points de Mercado Pago',
-      texto: 'Los Points de la cuenta de Mercado Pago. "En las tablets" decide cuáles se pueden elegir desde el POS (los demás no aparecen). Además, el nombre que ven las tablets y si están integrados (reciben los cobros de la tablet) o en manual.',
+      texto: 'Los Points de la cuenta de Mercado Pago. "En las tablets" decide cuáles se pueden elegir desde el POS (los demás no aparecen). Además, el nombre que ven las tablets y si están integrados (reciben los cobros de la tablet) o en manual. El modo se cambia sólo desde acá: los boleteros no lo ven en la pantalla de venta.',
     },
   ],
 };
@@ -74,6 +80,7 @@ const PASOS_POR_TAB: Record<'dias' | 'descuentos' | 'catalogo' | 'usuarios' | 'p
   selector: 'app-configuracion',
   imports: [
     ConfiguracionPoints,
+    ConfiguracionFacturaPredeterminada,
     ConfiguracionDiasHorarios,
     ConfiguracionCupones,
     ConfiguracionTiposEntrada,
@@ -86,6 +93,6 @@ const PASOS_POR_TAB: Record<'dias' | 'descuentos' | 'catalogo' | 'usuarios' | 'p
   styleUrl: './configuracion.css',
 })
 export class Configuracion {
-  tab = signal<'dias' | 'descuentos' | 'catalogo' | 'usuarios' | 'points'>('dias');
+  tab = signal<'dias' | 'descuentos' | 'catalogo' | 'usuarios' | 'cobros'>('dias');
   pasosTutorial = computed(() => PASOS_POR_TAB[this.tab()]);
 }

@@ -1,11 +1,12 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, tap } from 'rxjs';
 import { environment } from '../../environments/environment';
-import { ControlFacturacion, DesfaseNumeracion, Factura, FacturaManualItem, FacturaManualPedido, FacturacionPos, PadronContribuyente, TotalesFacturacion, ImpresoraConectada, VentaFactura } from '../models/factura';
+import { ControlFacturacion, DesfaseNumeracion, Factura, FACTURA_PREDETERMINADA_INICIAL, FacturaManualItem, FacturaPredeterminada, FacturaManualPedido, FacturacionPos, PadronContribuyente, TotalesFacturacion, ImpresoraConectada, VentaFactura } from '../models/factura';
 
 const CLAVE_HABILITADA = 'facturacion-habilitada';
 const CLAVE_BOLETERIA = 'facturacion-boleteria';
+const CLAVE_PREDETERMINADA = 'facturacion-predeterminada';
 
 @Injectable({ providedIn: 'root' })
 export class FacturaService {
@@ -20,17 +21,23 @@ export class FacturaService {
   readonly habilitada = signal<boolean>(this.leerHabilitadaGuardada());
   /** Facturar las ventas del POS: lo de arriba y además el submódulo Facturación > Boletería prendido. */
   readonly habilitadaBoleteria = signal<boolean>(this.leerHabilitadaGuardada(CLAVE_BOLETERIA));
+  /** Qué factura arranca marcada en el POS según la forma de pago. También se recuerda, para
+   * que sin señal siga arrancando igual. */
+  readonly predeterminada = signal<FacturaPredeterminada>(this.leerPredeterminadaGuardada());
 
   actualizarEstadoServicio(): void {
-    this.http.get<{ habilitada: boolean; boleteria?: boolean }>(`${this.url}/estado-servicio`).subscribe({
-      next: ({ habilitada, boleteria }) => {
+    type Estado = { habilitada: boolean; boleteria?: boolean; predeterminada?: FacturaPredeterminada };
+    this.http.get<Estado>(`${this.url}/estado-servicio`).subscribe({
+      next: ({ habilitada, boleteria, predeterminada }) => {
         // Un backend viejo no manda "boleteria": vale lo general.
         const enBoleteria = boleteria ?? habilitada;
         this.habilitada.set(habilitada);
         this.habilitadaBoleteria.set(enBoleteria);
+        if (predeterminada) this.predeterminada.set(predeterminada);
         try {
           localStorage.setItem(CLAVE_HABILITADA, String(habilitada));
           localStorage.setItem(CLAVE_BOLETERIA, String(enBoleteria));
+          if (predeterminada) localStorage.setItem(CLAVE_PREDETERMINADA, JSON.stringify(predeterminada));
         } catch {
           // Sin storage (modo privado, etc.): sólo se pierde el recuerdo entre sesiones.
         }
@@ -115,6 +122,25 @@ export class FacturaService {
     return this.http.get<{ habilitada: boolean; online: boolean }>(`${this.url}/estado-servicio`);
   }
 
+  /** Factura por defecto de cada forma de pago (ADMIN, Configuración > Cobros). */
+  obtenerPredeterminada(): Observable<FacturaPredeterminada> {
+    return this.http.get<FacturaPredeterminada>(`${environment.apiBase}/configuracion/factura-predeterminada`);
+  }
+
+  guardarPredeterminada(predeterminada: FacturaPredeterminada): Observable<FacturaPredeterminada> {
+    return this.http.put<FacturaPredeterminada>(`${environment.apiBase}/configuracion/factura-predeterminada`, predeterminada).pipe(
+      // Esta misma tablet la usa al toque, sin esperar al próximo estado-servicio.
+      tap((guardada) => {
+        this.predeterminada.set(guardada);
+        try {
+          localStorage.setItem(CLAVE_PREDETERMINADA, JSON.stringify(guardada));
+        } catch {
+          // Sin storage: vale para esta sesión.
+        }
+      })
+    );
+  }
+
   /** Factura una compra online paga que quedó sin factura. */
   facturarOnline(compraId: number): Observable<Factura> {
     return this.http.post<Factura>(`${this.url}/compra/${compraId}/online`, null);
@@ -143,6 +169,16 @@ export class FacturaService {
   /** CSV de los comprobantes del período, para el contador. */
   exportar(desde: string, hasta: string): Observable<Blob> {
     return this.http.get(`${this.url}/exportar?desde=${desde}&hasta=${hasta}`, { responseType: 'blob' });
+  }
+
+  private leerPredeterminadaGuardada(): FacturaPredeterminada {
+    try {
+      const guardada = localStorage.getItem(CLAVE_PREDETERMINADA);
+      if (guardada) return { ...FACTURA_PREDETERMINADA_INICIAL, ...JSON.parse(guardada) };
+    } catch {
+      // Sin storage o algo ilegible: lo de siempre.
+    }
+    return FACTURA_PREDETERMINADA_INICIAL;
   }
 
   private leerHabilitadaGuardada(clave = CLAVE_HABILITADA): boolean {
