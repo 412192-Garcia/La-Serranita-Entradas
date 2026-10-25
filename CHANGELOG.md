@@ -6,6 +6,10 @@ número y el CI la usa como nota de la Release de GitHub.
 
 ## Sin publicar
 
+- Compra online: los campos de DNI, su confirmación y la edad le piden al navegador que no los
+  complete solo con datos guardados. Si el navegador pone el nombre completo en "Apellido", se
+  corrige solo y queda sólo el apellido.
+
 - Textos más cortos y claros en toda la app: tutoriales, ayudas de cada pantalla, avisos y
   confirmaciones. Se sacaron explicaciones de más y términos técnicos.
 - Compra online: la página siempre abre con la última versión (antes, después de una

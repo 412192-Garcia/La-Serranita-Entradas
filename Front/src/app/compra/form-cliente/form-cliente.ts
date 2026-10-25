@@ -2,6 +2,7 @@ import {Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges
 import {CurrencyPipe} from "@angular/common";
 import {AbstractControl, FormBuilder, FormGroup, ReactiveFormsModule, ValidationErrors, Validators} from '@angular/forms';
 import {Spinner} from '../../shared/spinner/spinner';
+import {apellidoSinNombre} from './apellido-autocompletado.util';
 
 /**
  * Acepta cualquier formato humano de teléfono (con espacios, guiones, paréntesis,
@@ -124,6 +125,22 @@ export class FormCliente implements OnInit, OnChanges {
       this.formGroup.get('dniConfirmacion')!.updateValueAndValidity());
     this.formGroup.get('receptor.dni')!.valueChanges.subscribe(() =>
       this.formGroup.get('receptor.dniConfirmacion')!.updateValueAndValidity());
+
+    this.corregirApellidoAutocompletado();
+  }
+
+  /** Sólo cuando el texto llega todo junto (autocompletado o pegado), no mientras se escribe. */
+  private corregirApellidoAutocompletado(): void {
+    const anterior = { nombre: this.f['nombre'].value ?? '', apellido: this.f['apellido'].value ?? '' };
+    for (const campo of ['nombre', 'apellido'] as const) {
+      this.f[campo].valueChanges.subscribe((valor: string | null) => {
+        const saltoDeTexto = (valor ?? '').length - anterior[campo].length > 1;
+        anterior[campo] = valor ?? '';
+        if (!saltoDeTexto) return;
+        const corregido = apellidoSinNombre(this.f['nombre'].value, this.f['apellido'].value);
+        if (corregido !== null) this.f['apellido'].setValue(corregido);
+      });
+    }
   }
 
   ngOnChanges(changes: SimpleChanges): void {
