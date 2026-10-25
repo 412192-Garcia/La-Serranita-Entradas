@@ -5,7 +5,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { LucideRefreshCw } from '@lucide/angular';
 import { Spinner } from '../../shared/spinner/spinner';
 import { ModulosService } from '../../services/modulos.service';
-import { PointService, TerminalPoint } from '../../services/point.service';
+import { PointService, TerminalPoint, ordenarTerminales } from '../../services/point.service';
 
 /**
  * Configuración > Points (ADMIN): los Points de Mercado Pago de la cuenta, el nombre que ven las
@@ -44,7 +44,8 @@ export class ConfiguracionPoints implements OnInit {
     this.point.terminalesActualizadas().subscribe({
       next: (lista) => {
         this.cargando.set(false);
-        this.terminales.set(lista);
+        // Se ordena al cargar y no en cada cambio: si no, el Point se movería de lugar al tocarlo.
+        this.terminales.set(ordenarTerminales(lista));
         this.nombres.set(Object.fromEntries(lista.map((t) => [t.id, t.nombre])));
       },
       error: (err) => {

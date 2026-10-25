@@ -1,0 +1,38 @@
+<div class="seccion">
+  <div class="tarjeta" data-tour="factura-predeterminada">
+    <h2>Factura por forma de pago</h2>
+    <p class="ayuda">
+      Qué queda marcado en la pantalla de venta al elegir cada forma de pago. El boletero lo puede
+      cambiar en cada venta.
+      <strong>Enviar por mail</strong> con el email vacío es no facturar. Si la ticketera no está
+      disponible, arranca en mail.
+    </p>
+    @if (!facturacionBoleteria()) {
+      <p class="ayuda nota">
+        La facturación en boletería está apagada (Sistema &gt; Módulos): el POS no ofrece facturar.
+      </p>
+    }
+
+    @if (error(); as e) {
+      <p class="alerta-error">{{ e }}</p>
+    } @else if (actual(); as p) {
+      <div class="lista-formas">
+        @for (f of formas; track f.clave) {
+          <label class="forma">
+            <span class="forma-nombre">{{ f.etiqueta }}</span>
+            <select
+              [ngModel]="p[f.clave]"
+              [disabled]="guardando()"
+              (ngModelChange)="cambiar(f.clave, $event)"
+            >
+              <option value="IMPRIMIR">Imprimir factura</option>
+              <option value="MAIL">Enviar por mail</option>
+            </select>
+          </label>
+        }
+      </div>
+    } @else {
+      <app-spinner />
+    }
+  </div>
+</div>

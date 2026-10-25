@@ -45,4 +45,24 @@ public class ConfiguracionParque extends BaseEntity {
     @Builder.Default
     private Integer minutosLimiteCompra = 60;
 
+    /**
+     * Factura que arranca marcada en el POS según la forma de pago ("Imprimir factura" o "Enviar
+     * por mail", que con el email vacío es no facturar). El boletero la puede cambiar venta por
+     * venta; esto es sólo el punto de partida. Sólo IMPRIMIR o MAIL.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "factura_efectivo", nullable = false, columnDefinition = "varchar(20) default 'MAIL'")
+    @Builder.Default
+    private DestinoFactura facturaEfectivo = DestinoFactura.MAIL;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "factura_tarjeta", nullable = false, columnDefinition = "varchar(20) default 'IMPRIMIR'")
+    @Builder.Default
+    private DestinoFactura facturaTarjeta = DestinoFactura.IMPRIMIR;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "factura_qr", nullable = false, columnDefinition = "varchar(20) default 'IMPRIMIR'")
+    @Builder.Default
+    private DestinoFactura facturaQr = DestinoFactura.IMPRIMIR;
+
 }

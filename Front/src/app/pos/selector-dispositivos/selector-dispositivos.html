@@ -54,35 +54,22 @@
             <p class="menu-vacio">No hay Points en la cuenta de Mercado Pago.</p>
           }
           @for (t of point.terminales(); track t.id) {
-            <div class="fila-point">
-              <button
-                type="button"
-                role="menuitemradio"
-                class="opcion"
-                [disabled]="!t.integrado"
-                [attr.aria-checked]="point.efectiva()?.id === t.id"
-                (click)="elegirPoint(t.id)">
-                <span [class]="'punto ' + (t.integrado ? 'punto-ok' : 'punto-manual')"></span>
-                <span class="opcion-texto">
-                  <span class="opcion-nombre">{{ t.nombre }}</span>
-                  <span class="opcion-estado">{{ t.integrado ? 'Integrado' : 'Manual: se cobra desde el propio Point' }}</span>
-                </span>
-                @if (point.efectiva()?.id === t.id) {
-                  <svg lucideCheck class="opcion-check" [strokeWidth]="2.5"></svg>
-                }
-              </button>
-              <button
-                type="button"
-                class="btn-modo"
-                [disabled]="cambiandoModo() === t.id"
-                [attr.aria-label]="(t.integrado ? 'Pasar a manual ' : 'Pasar a integrado ') + t.nombre"
-                (click)="cambiarModo(t)">
-                {{ cambiandoModo() === t.id ? '…' : t.integrado ? 'Pasar a manual' : 'Integrar' }}
-              </button>
-            </div>
-          }
-          @if (errorModo(); as e) {
-            <p class="menu-vacio menu-error">{{ e }}</p>
+            <button
+              type="button"
+              role="menuitemradio"
+              class="opcion"
+              [disabled]="!t.integrado"
+              [attr.aria-checked]="point.efectiva()?.id === t.id"
+              (click)="elegirPoint(t.id)">
+              <span [class]="'punto ' + (t.integrado ? 'punto-ok' : 'punto-manual')"></span>
+              <span class="opcion-texto">
+                <span class="opcion-nombre">{{ t.nombre }}</span>
+                <span class="opcion-estado">{{ t.integrado ? 'Integrado' : 'Manual: se cobra desde el propio Point' }}</span>
+              </span>
+              @if (point.efectiva()?.id === t.id) {
+                <svg lucideCheck class="opcion-check" [strokeWidth]="2.5"></svg>
+              }
+            </button>
           }
           <button
             type="button"
@@ -92,7 +79,7 @@
             (click)="elegirPoint(SIN_POINT)">
             <span class="punto punto-manual"></span>
             <span class="opcion-texto">
-              <span class="opcion-nombre">Sin Point</span>
+              <span class="opcion-nombre">Sin posnet</span>
               <span class="opcion-estado">Esta tablet anota la tarjeta y el QR a mano</span>
             </span>
             @if (point.elegida() === SIN_POINT) {

@@ -1,6 +1,8 @@
 package org.example.laserranitaentradas.service.impl;
 
+import org.example.laserranitaentradas.model.dto.FacturaPredeterminadaDTO;
 import org.example.laserranitaentradas.model.entity.ConfiguracionParque;
+import org.example.laserranitaentradas.model.entity.DestinoFactura;
 import org.example.laserranitaentradas.repository.ConfiguracionParqueRepository;
 import org.example.laserranitaentradas.service.ConfiguracionParqueService;
 import org.springframework.stereotype.Service;
@@ -43,5 +45,25 @@ public class ConfiguracionParqueServiceImpl implements ConfiguracionParqueServic
             config.setMinutosLimiteCompra(minutosLimiteCompra);
         }
         return configuracionParqueRepository.save(config);
+    }
+
+    @Override
+    public ConfiguracionParque actualizarFacturaPredeterminada(FacturaPredeterminadaDTO predeterminada) {
+        DestinoFactura efectivo = validarDestino(predeterminada.efectivo(), "efectivo");
+        DestinoFactura tarjeta = validarDestino(predeterminada.tarjeta(), "tarjeta");
+        DestinoFactura qr = validarDestino(predeterminada.qr(), "QR");
+        ConfiguracionParque config = getHorarioGeneral();
+        config.setFacturaEfectivo(efectivo);
+        config.setFacturaTarjeta(tarjeta);
+        config.setFacturaQr(qr);
+        return configuracionParqueRepository.save(config);
+    }
+
+    /** NINGUNO es de las facturas hechas desde la oficina: en el POS no es una opción. */
+    private static DestinoFactura validarDestino(DestinoFactura destino, String formaPago) {
+        if (destino != DestinoFactura.IMPRIMIR && destino != DestinoFactura.MAIL) {
+            throw new IllegalArgumentException("La factura por defecto de " + formaPago + " tiene que ser imprimir o enviar por mail.");
+        }
+        return destino;
     }
 }

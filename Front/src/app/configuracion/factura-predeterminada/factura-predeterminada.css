@@ -1,0 +1,26 @@
+.nota {
+  font-weight: 600;
+}
+
+.lista-formas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+}
+
+.forma {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 180px;
+}
+
+.forma-nombre {
+  font-weight: 600;
+}
+
+@media (max-width: 600px) {
+  .forma {
+    flex: 1 1 100%;
+  }
+}

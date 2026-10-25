@@ -102,7 +102,7 @@ export class Pos implements OnInit, OnDestroy {
       alternativo: '[data-tour="barra-caja"]',
       titulo: 'Venta: ticketera y Point',
       antes: () => this.consultaAnticipada.set(null),
-      texto: 'El botón de dispositivos (aparece cuando hay facturación o cobro con Point) elige la ticketera y el Point de esta tablet; el punto de color dice si están andando. Si se corta internet en la boletería, desde ahí se pasa el Point a manual: se cobra en el propio Point y la venta se anota a mano.',
+      texto: 'El botón de dispositivos (aparece cuando hay facturación o cobro con Point) elige la ticketera y el Point de esta tablet; el punto de color dice si están andando. Si el Point no anda, elegí "Sin posnet": la tarjeta y el QR se anotan a mano.',
     },
     {
       selector: '[data-tour="boton-anticipadas"]',

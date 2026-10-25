@@ -1,5 +1,16 @@
 export type DestinoFactura = 'IMPRIMIR' | 'MAIL' | 'NINGUNO';
 
+/** Factura que arranca marcada en el POS para cada forma de pago (Configuración > Cobros).
+ * MAIL con el email vacío = no se factura. */
+export interface FacturaPredeterminada {
+  efectivo: 'IMPRIMIR' | 'MAIL';
+  tarjeta: 'IMPRIMIR' | 'MAIL';
+  qr: 'IMPRIMIR' | 'MAIL';
+}
+
+/** Lo de siempre: efectivo sin factura (mail vacío), tarjeta y QR impresas. */
+export const FACTURA_PREDETERMINADA_INICIAL: FacturaPredeterminada = { efectivo: 'MAIL', tarjeta: 'IMPRIMIR', qr: 'IMPRIMIR' };
+
 export type EstadoFactura = 'PENDIENTE' | 'EMITIDA' | 'ERROR' | 'ANULADA';
 
 export type EstadoImpresion = 'PENDIENTE' | 'ENVIADO' | 'IMPRESO' | 'ERROR';

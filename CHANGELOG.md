@@ -6,6 +6,33 @@ número y el CI la usa como nota de la Release de GitHub.
 
 ## Sin publicar
 
+- Configuración > Cobros (antes "Points"): nueva tarjeta "Factura por forma de pago" para elegir
+  qué queda marcado en la pantalla de venta al elegir efectivo, tarjeta o QR: "Imprimir factura"
+  o "Enviar por mail" (con el mail vacío no se factura). De fábrica sigue como antes: efectivo
+  por mail, tarjeta y QR impresas. El boletero lo puede cambiar en cada venta.
+- Pantalla de venta: el menú de dispositivos ya no tiene el botón para pasar un Point a manual o
+  a integrado (confundía, y el Point suele necesitar un reinicio para tomarlo). Se hace desde
+  Configuración > Cobros. La opción "Sin Point" pasa a llamarse "Sin posnet".
+- Configuración > Cobros: los Points aparecen primero los que se ven en las tablets y, dentro de
+  esos, los integrados. En el menú de dispositivos del POS, los integrados van primero.
+- Cambiar un Point a manual o integrado queda sólo para administradores (antes lo podía hacer
+  cualquier usuario desde el POS).
+- Cobro con Point: "Salió aprobado: anotar a mano" ya no pierde el cobro si la venta no se llega a
+  registrar (rechazada, o retomada después de recargar la página). Antes desaparecía y al
+  reintentar se le volvía a cobrar al cliente; ahora queda como "el Point ya cobró" y se usa en la
+  venta.
+- Cobro con Point: cuando Mercado Pago no confirma el resultado, el aviso sale en ámbar con un
+  ícono de alerta en vez de verde con el indicador de espera. La ventana muestra si se eligió
+  débito o crédito.
+- Pantalla de venta: si "Cobrar con Point" queda gris por un cobro aprobado que no coincide con la
+  venta, abajo dice por qué. Pago mixto: los dos montos van uno debajo del otro y los botones de
+  la segunda forma de pago tienen el nombre completo y tamaño para tocar en la tablet (antes
+  decían "Efect…" / "Tarje…" y medían 20px).
+- Pantalla de venta en tablets chicas (7"): cuando el carrito no entra en la pantalla (apaisada
+  de 600px de alto, o en vertical con el carrito debajo de las entradas), el botón de cobrar
+  queda fijo abajo, con el motivo si está gris. Antes, con pago mixto o efectivo con vuelto,
+  había que scrollear para encontrarlo. Mientras se escribe en "Paga con" o en un monto, el botón
+  vuelve a su lugar para no tapar el vuelto.
 - Control de accesos: nueva acción "Cambiar fecha" en el menú ⋮ de las reservas que todavía no
   ingresaron (pagadas online, a cobrar en caja o generadas desde Acciones). Se elige el día en el
   calendario y, si la reserva tiene mail, se le puede mandar el comprobante con la fecha nueva. El

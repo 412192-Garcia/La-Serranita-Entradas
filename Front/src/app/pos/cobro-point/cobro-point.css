@@ -46,6 +46,17 @@
   color: var(--color-primary-dark);
 }
 
+.estado-revisar {
+  background-color: var(--color-accent-light);
+  color: var(--color-accent-dark);
+}
+
+.estado-revisar svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
 .estado-ok {
   background-color: var(--color-primary-light);
   color: var(--color-primary-dark);
