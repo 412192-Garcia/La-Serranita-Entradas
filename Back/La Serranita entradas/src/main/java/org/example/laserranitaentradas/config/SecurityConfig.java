@@ -55,8 +55,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/dias-apertura/ultima-abierta").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/dias-apertura/compra-de-hoy-cerrada").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/configuracion/horario").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/tipos-entrada/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/cupones/codigo/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/tipos-entrada/online").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/compras", "/api/compras/iniciar-pago", "/api/compras/cotizar").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/compras/opciones-pago").permitAll()
                 // {id:\d+} y no {id}: si no matchea /api/compras/buscar y la deja abierta sin login.

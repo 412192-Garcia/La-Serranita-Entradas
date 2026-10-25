@@ -13,10 +13,10 @@ import { aFechaISO } from '../../shared/fecha.util';
 import { ThemeService } from '../../services/theme.service';
 import { PagoExitoso } from '../../resultado-pago/pago-exitoso/pago-exitoso';
 import {FormaPagoType, ResumenCompraData} from "../../models/compra";
-import { Cupon } from '../../models/cupon';
+import { DiaAbierto } from '../../services/dia-apertura.service';
 import { LucideClock, LucideCloudRain, LucideTriangleAlert } from '@lucide/angular';
 import { Modal } from '../../shared/modal/modal';
-import { Observable, Subscription, of, timer } from 'rxjs';
+import { Observable, Subscription, concat, of, timer } from 'rxjs';
 import { catchError, map, switchMap, take } from 'rxjs/operators';
 
 interface HorarioVista {
@@ -52,10 +52,10 @@ enum etapaCompra {
   styleUrl: './entradas.css',
 })
 export class Entradas implements OnInit, OnDestroy {
-  /** Cada cuánto se le pregunta al backend si el pago se acreditó. */
-  private static readonly INTERVALO_POLL_MS = 3000;
-  /** Techo de consultas (~10 min): pasado eso se deja de insistir. */
-  private static readonly MAX_CONSULTAS_POLL = 200;
+  /** Cada cuánto se le pregunta al backend si el pago se acreditó: seguido los primeros 2 minutos, */
+  private static readonly POLL_RAPIDO = { cadaMs: 3000, veces: 40 };
+  /** y más espaciado los 8 siguientes. Pasados ~10 min se deja de insistir. */
+  private static readonly POLL_LENTO = { cadaMs: 10000, veces: 48 };
   /** Estado sintético para distinguir "cerró la ventana" de un estado real del backend. */
   private static readonly VENTANA_CERRADA = 'VENTANA_CERRADA';
   /** El sitio embebido escucha este "type" para saber que el mensaje es nuestro y no de otra cosa. */
@@ -178,16 +178,13 @@ export class Entradas implements OnInit, OnDestroy {
   ocultarInfoUtil = false;
 
   /**
-   * Se trae de GET /api/configuracion/horario (público) en vez de estar fijo, para que un
-   * cambio del ADMIN en "Días y Horarios" se vea acá. Al abrir, el general; al elegir un día,
-   * el de ese día (su horario especial si tiene uno). Null mientras carga o si falla la
+   * Al abrir, el horario general (GET /api/configuracion/horario); al elegir un día, el de ese
+   * día, que ya viene con los días abiertos del calendario. Null mientras carga o si falla la
    * consulta: el renglón no se muestra antes que mostrar un horario que ya no es el real.
    */
   horario: HorarioVista | null = null;
-  /** Para volver a él al sacar la fecha (regalo) sin pedirlo de nuevo. */
-  private horarioGeneral: HorarioVista | null = null;
-  /** La última fecha pedida: si se tocan dos días seguidos, la respuesta del primero se descarta. */
-  private fechaDelHorarioPedido: string | null = null;
+  private horarioGeneral: HorarioGeneral | null = null;
+  private diaElegido: DiaAbierto | null = null;
 
   /** "45 minutos", "1 hora", "1 hora y 30 minutos"; null si no hay corte (0 minutos) o el dato no llegó. */
   private textoLapso(minutos: number | null | undefined): string | null {
@@ -200,16 +197,16 @@ export class Entradas implements OnInit, OnDestroy {
     return partes.join(' y ');
   }
 
-  private aHorarioVista(h: HorarioGeneral, fecha: Date | null): HorarioVista {
-    return {
-      apertura: h.horaApertura.slice(0, 5),
-      cierre: h.horaCierre.slice(0, 5),
-      limiteCompra: this.textoLapso(h.minutosLimiteCompra),
-      fechaEspecial: h.especial ? fecha : null,
+  /** El del día elegido, o el general. El límite de compra sale siempre del general. */
+  private actualizarHorario(): void {
+    const general = this.horarioGeneral;
+    const dia = this.diaElegido;
+    const horario: HorarioVista | null = !general ? null : {
+      apertura: (dia?.horaApertura ?? general.horaApertura).slice(0, 5),
+      cierre: (dia?.horaCierre ?? general.horaCierre).slice(0, 5),
+      limiteCompra: this.textoLapso(general.minutosLimiteCompra),
+      fechaEspecial: dia?.especial ? this.compraAcumulada.fechaVisita : null,
     };
-  }
-
-  private mostrarHorario(horario: HorarioVista | null): void {
     this.ngZone.run(() => {
       this.horario = horario;
       this.cdr.detectChanges();
@@ -218,30 +215,16 @@ export class Entradas implements OnInit, OnDestroy {
 
   private cargarHorarioGeneral(): void {
     this.configuracionService.getHorarioGeneral().pipe(
-      map((h) => this.aHorarioVista(h, null)),
       catchError(() => of(null))
-    ).subscribe((horario) => {
-      this.horarioGeneral = horario;
-      // Si ya se eligió un día mientras cargaba, manda el horario de ese día.
-      if (!this.fechaDelHorarioPedido) this.mostrarHorario(horario);
+    ).subscribe((general) => {
+      this.horarioGeneral = general;
+      this.actualizarHorario();
     });
   }
 
-  private cargarHorarioDelDia(fecha: Date | null): void {
-    if (!fecha) {
-      this.fechaDelHorarioPedido = null;
-      this.mostrarHorario(this.horarioGeneral);
-      return;
-    }
-    const pedida = aFechaISO(fecha);
-    this.fechaDelHorarioPedido = pedida;
-    this.configuracionService.getHorarioDelDia(pedida).pipe(
-      map((h) => this.aHorarioVista(h, fecha)),
-      // Sin el del día, el general es mejor que nada: es el que rige salvo excepciones.
-      catchError(() => of(this.horarioGeneral))
-    ).subscribe((horario) => {
-      if (this.fechaDelHorarioPedido === pedida) this.mostrarHorario(horario);
-    });
+  onDiaAbiertoCambio(dia: DiaAbierto | null): void {
+    this.diaElegido = dia;
+    this.actualizarHorario();
   }
 
   /**
@@ -322,14 +305,14 @@ export class Entradas implements OnInit, OnDestroy {
   linkPagoBloqueado: string | null = null;
 
   /**
-   * El cupón se aplica en el resumen (ya elegida la forma de pago), pero el
-   * objeto vive acá porque tiene que sobrevivir a un cambio de forma de pago:
-   * si es porcentual, el monto a descontar depende del subtotal vigente
-   * (precio de lista o precio de grupo), que sólo se conoce en este nivel.
+   * Código del cupón aplicado. Se ingresa en el resumen pero vive acá porque tiene que sobrevivir a
+   * un cambio de forma de pago: el descuento depende del subtotal vigente.
    */
-  cuponAplicado: Cupon | null = null;
+  cuponAplicado: string | null = null;
   /** Por qué el cupón aplicado no descuenta con las entradas elegidas (mínimo, tipo de entrada...), o null. */
   avisoCupon: string | null = null;
+  /** Por qué no se pudo aplicar el código ingresado (no existe, vencido...), o null. */
+  errorCupon: string | null = null;
 
   compraAcumulada: ResumenCompraData = {
     fechaVisita: null,
@@ -348,7 +331,6 @@ export class Entradas implements OnInit, OnDestroy {
 
   onFechaSeleccionada(fecha: Date | null): void {
     this.compraAcumulada.fechaVisita = fecha;
-    this.cargarHorarioDelDia(fecha);
     // En el celular las entradas se despliegan abajo del calendario y del cartel: se lleva la vista ahí.
     if (fecha && this.estaApilado) this.llevarVistaA('entradas');
   }
@@ -357,7 +339,6 @@ export class Entradas implements OnInit, OnDestroy {
     this.compraAcumulada.esRegalo = esRegalo;
     if (esRegalo) {
       this.compraAcumulada.fechaVisita = null;
-      this.cargarHorarioDelDia(null);
       if (this.estaApilado) this.llevarVistaA('entradas');
       // Un regalo tiene que estar pagado de antemano: si quedó en efectivo de un
       // paso anterior, el receptor terminaría pagando de su bolsillo lo que le
@@ -370,7 +351,8 @@ export class Entradas implements OnInit, OnDestroy {
     this.actualizarCotizacion();
   }
 
-  private actualizarCotizacion(): void {
+  /** Cotiza con el cupón aplicado o, si viene `codigoCupon`, con uno nuevo que se valida en el mismo pedido. */
+  private actualizarCotizacion(codigoCupon: string | null = this.cuponAplicado): void {
     const entradasPayload = this.compraAcumulada.entradas
       .filter(e => e.cantidad > 0)
       .map(e => ({
@@ -383,10 +365,18 @@ export class Entradas implements OnInit, OnDestroy {
     this.compraService.cotizar({
       formaPago: this.compraAcumulada.formaPago,
       entradas: entradasPayload,
-      cuponCodigo: this.cuponAplicado?.codigo ?? null
+      cuponCodigo: codigoCupon
     }).subscribe({
       next: (res) => {
         this.ngZone.run(() => {
+          if (codigoCupon && !res.cuponValido) {
+            this.errorCupon = res.avisoCupon ?? 'Cupón inválido o expirado.';
+            this.cuponAplicado = null;
+          } else if (codigoCupon) {
+            this.errorCupon = null;
+            this.cuponAplicado = codigoCupon;
+          }
+          this.compraAcumulada.cuponCodigo = this.cuponAplicado;
           this.compraAcumulada.subtotal = res.subtotal;
           this.compraAcumulada.descuentoGrupo = res.ahorro > 0 ? res.ahorro : 0;
           // El descuento del cupón lo calcula el backend (tipos de entrada, mínimo y máximo de
@@ -398,14 +388,28 @@ export class Entradas implements OnInit, OnDestroy {
           this.cdr.detectChanges();
         });
       },
-      error: (err) => console.error('Error al cotizar el precio:', err)
+      error: (err) => {
+        console.error('Error al cotizar el precio:', err);
+        if (codigoCupon && codigoCupon !== this.cuponAplicado) {
+          this.ngZone.run(() => {
+            this.errorCupon = 'No se pudo revisar el cupón. Probá de nuevo.';
+            this.cdr.detectChanges();
+          });
+        }
+      }
     });
   }
 
-  /** El cupón se aplica o quita desde el resumen; ver el comentario en `cuponAplicado`. */
-  onCuponCambio(cupon: Cupon | null): void {
-    this.cuponAplicado = cupon;
-    this.compraAcumulada.cuponCodigo = cupon?.codigo ?? null;
+  /** El backend valida el código en la misma cotización: un solo pedido. */
+  onAplicarCodigoCupon(codigo: string): void {
+    this.errorCupon = null;
+    this.actualizarCotizacion(codigo);
+  }
+
+  onQuitarCupon(): void {
+    this.cuponAplicado = null;
+    this.errorCupon = null;
+    this.compraAcumulada.cuponCodigo = null;
     this.recalcularTotal();
     this.cdr.detectChanges();
   }
@@ -541,12 +545,8 @@ export class Entradas implements OnInit, OnDestroy {
       this.actualizarDatosCliente = false;
     }
 
-    // 1. Convertimos la fecha al formato YYYY-MM-DD que espera Spring Boot
-    let fechaFormateada = null;
-    if (this.compraAcumulada.fechaVisita) {
-      const d = new Date(this.compraAcumulada.fechaVisita);
-      fechaFormateada = d.toISOString().split('T')[0];
-    }
+    // 1. Fecha local YYYY-MM-DD (nunca toISOString: pasa a UTC y puede cambiar el día)
+    const fechaFormateada = this.compraAcumulada.fechaVisita ? aFechaISO(this.compraAcumulada.fechaVisita) : null;
 
     // 2. Mapeamos exactamente a la estructura del CompraRequestDTO del Backend
     const payloadBackend = {
@@ -659,11 +659,12 @@ export class Entradas implements OnInit, OnDestroy {
   private iniciarMonitoreoPago(): void {
     this.detenerVerificacion();
 
-    this.suscripcionPago = timer(0, Entradas.INTERVALO_POLL_MS)
-      .pipe(
-        take(Entradas.MAX_CONSULTAS_POLL),
-        switchMap(() => this.consultarEstadoPago())
-      )
+    const { POLL_RAPIDO: rapido, POLL_LENTO: lento } = Entradas;
+    this.suscripcionPago = concat(
+      timer(0, rapido.cadaMs).pipe(take(rapido.veces)),
+      timer(lento.cadaMs, lento.cadaMs).pipe(take(lento.veces))
+    )
+      .pipe(switchMap(() => this.consultarEstadoPago()))
       .subscribe({
         next: (estado) => this.procesarEstadoPago(estado),
         complete: () => this.alAgotarseElMonitoreo(),

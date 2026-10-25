@@ -2,8 +2,9 @@ import {Component, Input, OnInit, OnDestroy, ChangeDetectorRef, Output, EventEmi
 import { Semana } from './semana/semana';
 import { DiaCalendario } from './calendario-models';
 import { DatePipe } from '@angular/common';
-import { DiaAperturaService } from '../../services/dia-apertura.service';
-import { Subscription, catchError, forkJoin, of } from 'rxjs';
+import { DiaAbierto, DiaAperturaService } from '../../services/dia-apertura.service';
+import { Observable, Subscription, catchError, forkJoin, of, shareReplay, tap } from 'rxjs';
+import { aFechaISO } from '../../shared/fecha.util';
 import {FormsModule} from '@angular/forms';
 import {Spinner} from '../../shared/spinner/spinner';
 
@@ -41,7 +42,14 @@ export class Calendario implements OnInit, OnDestroy {
   esMesMaximo: boolean = false;
 
   @Output() fechaSeleccionadaChange = new EventEmitter<Date | null>();
+  /** El día elegido con su horario; null sin fecha. Sale junto con fechaSeleccionadaChange. */
+  @Output() diaAbiertoChange = new EventEmitter<DiaAbierto | null>();
   @Output() esRegaloChange = new EventEmitter<boolean>();
+
+  /** Meses ya pedidos ("2026-9"): volver a uno no lo pide de nuevo. */
+  private mesesCargados = new Map<string, DiaAbierto[]>();
+  /** Sólo importa en el mes actual: se pide una vez. */
+  private compraDeHoyCerrada$: Observable<boolean> | null = null;
 
   private fechaBase: Date = new Date();
   /** El día elegido antes de marcar "regalo", para devolverlo si lo desmarca. */
@@ -137,17 +145,23 @@ export class Calendario implements OnInit, OnDestroy {
 
     if (this.subscripcionApertura) this.subscripcionApertura.unsubscribe();
 
+    const clave = `${anioDestino}-${mesDestino}`;
+    const yaCargado = this.mesesCargados.get(clave);
+    // Si esta consulta falla no se rompe el calendario: hoy simplemente se ofrece como siempre y el
+    // servidor rechaza la compra si ya pasó el límite.
+    this.compraDeHoyCerrada$ ??= this.diaService.getCompraDeHoyCerrada().pipe(catchError(() => of(false)), shareReplay(1));
+
     this.subscripcionApertura = forkJoin({
-      fechasAbiertas: this.diaService.getDiasApertura(mesDestino, anioDestino),
-      // Si esta consulta falla no se rompe el calendario: hoy simplemente se ofrece como siempre y el
-      // servidor rechaza la compra si ya pasó el límite.
-      compraDeHoyCerrada: this.diaService.getCompraDeHoyCerrada().pipe(catchError(() => of(false))),
+      diasAbiertos: yaCargado
+        ? of(yaCargado)
+        : this.diaService.getDiasApertura(mesDestino, anioDestino).pipe(tap((dias) => this.mesesCargados.set(clave, dias))),
+      compraDeHoyCerrada: this.esMesMinimo ? this.compraDeHoyCerrada$ : of(false),
     }).subscribe({
-      next: ({ fechasAbiertas, compraDeHoyCerrada }) => {
+      next: ({ diasAbiertos, compraDeHoyCerrada }) => {
         this.nombreMes = MESES_LETRAS[mesDestino];
         this.anioActual = anioDestino;
 
-        const setFechasAbiertas = new Set(fechasAbiertas);
+        const setFechasAbiertas = new Set(diasAbiertos.map((d) => d.fecha));
         this.animarCambioDeAltura(() => this.generarCalendario(anioDestino, mesDestino, setFechasAbiertas, compraDeHoyCerrada));
 
         this.cargando = false;
@@ -232,8 +246,19 @@ export class Calendario implements OnInit, OnDestroy {
         seleccionado: dia.numero ? dia.fecha.getTime() === fecha.getTime() : false
       }))
     );
-    this.fechaSeleccionadaChange.emit(this.fechaSeleccionada);
+    this.emitirFecha(fecha);
     this.cdr.detectChanges();
+  }
+
+  private emitirFecha(fecha: Date | null): void {
+    this.fechaSeleccionadaChange.emit(fecha);
+    if (!fecha) {
+      this.diaAbiertoChange.emit(null);
+      return;
+    }
+    const iso = aFechaISO(fecha);
+    const dias = this.mesesCargados.get(`${fecha.getFullYear()}-${fecha.getMonth()}`) ?? [];
+    this.diaAbiertoChange.emit(dias.find((d) => d.fecha === iso) ?? null);
   }
 
   onCambioRegalo(valor: boolean): void {
@@ -241,7 +266,7 @@ export class Calendario implements OnInit, OnDestroy {
     if (this.esRegalo) {
       this.fechaAntesDelRegalo = this.fechaSeleccionada;
       this.fechaSeleccionada = null;
-      this.fechaSeleccionadaChange.emit(null);
+      this.emitirFecha(null);
     }
     this.esRegaloChange.emit(this.esRegalo);
     // Al desmarcar el regalo vuelve el día que había elegido: si no, las entradas se ocultaban

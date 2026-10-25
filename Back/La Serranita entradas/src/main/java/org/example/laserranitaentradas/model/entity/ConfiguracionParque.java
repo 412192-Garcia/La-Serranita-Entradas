@@ -40,17 +40,17 @@ public class ConfiguracionParque extends BaseEntity {
 
     /** Factura que arranca marcada en el POS según la forma de pago. Sólo IMPRIMIR o MAIL. */
     @Enumerated(EnumType.STRING)
-    @Column(name = "factura_efectivo", nullable = false, columnDefinition = "varchar(20) default 'MAIL'")
+    @Column(name = "factura_efectivo", nullable = false, length = 20, columnDefinition = "varchar(20) default 'MAIL'")
     @Builder.Default
     private DestinoFactura facturaEfectivo = DestinoFactura.MAIL;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "factura_tarjeta", nullable = false, columnDefinition = "varchar(20) default 'IMPRIMIR'")
+    @Column(name = "factura_tarjeta", nullable = false, length = 20, columnDefinition = "varchar(20) default 'IMPRIMIR'")
     @Builder.Default
     private DestinoFactura facturaTarjeta = DestinoFactura.IMPRIMIR;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "factura_qr", nullable = false, columnDefinition = "varchar(20) default 'IMPRIMIR'")
+    @Column(name = "factura_qr", nullable = false, length = 20, columnDefinition = "varchar(20) default 'IMPRIMIR'")
     @Builder.Default
     private DestinoFactura facturaQr = DestinoFactura.IMPRIMIR;
 

@@ -1,5 +1,6 @@
 package org.example.laserranitaentradas.controller;
 
+import org.example.laserranitaentradas.model.dto.DiaAbiertoDTO;
 import org.example.laserranitaentradas.model.dto.HorarioRequest;
 import org.example.laserranitaentradas.model.entity.DiaApertura;
 import org.example.laserranitaentradas.service.DiaAperturaService;
@@ -76,18 +77,18 @@ public class DiaAperturaController {
     }
 
     @GetMapping("/abiertos")
-    @Operation(summary = "Obtener días abiertos de un mes", description = "Devuelve una lista de fechas abiertas en el formato YYYY-MM-DD para un mes y año específicos.")
+    @Operation(summary = "Obtener días abiertos de un mes", description = "Días abiertos del mes con el horario de cada uno. Público.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Lista de días abiertos obtenida exitosamente"),
             @ApiResponse(responseCode = "400", description = "Parámetros inválidos")
     })
-    public ResponseEntity<List<String>> obtenerDiasAbiertos(@RequestParam @Parameter(description = "Año en formato YYYY") Integer year,
-                                                            @RequestParam @Parameter(description = "Mes en formato MM") Integer month) {
+    public ResponseEntity<List<DiaAbiertoDTO>> obtenerDiasAbiertos(@RequestParam @Parameter(description = "Año en formato YYYY") Integer year,
+                                                                   @RequestParam @Parameter(description = "Mes en formato MM") Integer month) {
         if (year == null || month == null || month < 1 || month > 12) {
             return ResponseEntity.badRequest().build();
         }
 
-        List<String> diasAbiertos = diaAperturaService.getDiasAbiertos(year, month);
+        List<DiaAbiertoDTO> diasAbiertos = diaAperturaService.getDiasAbiertos(year, month);
         return ResponseEntity.ok(diasAbiertos);
     }
 

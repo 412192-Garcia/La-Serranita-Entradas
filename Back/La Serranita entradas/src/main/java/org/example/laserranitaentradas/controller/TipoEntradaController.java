@@ -68,6 +68,14 @@ public class TipoEntradaController {
         return ResponseEntity.ok(tiposEntrada);
     }
 
+    @GetMapping("/online")
+    @Operation(summary = "Tipos de entrada de la compra online", description = "Sólo los activos que no son exclusivos del POS. Público.")
+    public ResponseEntity<List<TipoEntrada>> obtenerTiposEntradaOnline() {
+        return ResponseEntity.ok(tipoEntradaService.getAll().stream()
+                .filter(t -> Boolean.TRUE.equals(t.getActivo()) && !Boolean.TRUE.equals(t.getSoloPos()))
+                .toList());
+    }
+
     @PutMapping("/{id}")
     @Operation(summary = "Actualizar tipo de entrada", description = "Actualiza los datos de un tipo de entrada existente")
     @ApiResponses(value = {

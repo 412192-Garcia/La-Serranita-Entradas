@@ -900,6 +900,7 @@ public class CompraServiceImpl implements CompraService {
             return;
         }
         CuponDescuentoCalculator.Resultado resultado = CuponDescuentoCalculator.calcular(cupon, lineas);
+        dto.setCuponValido(true);
         dto.setAvisoCupon(resultado.motivoNoAplica());
         dto.setDescuentoCupon(resultado.descuento());
     }

@@ -8,6 +8,18 @@ número y el CI la usa como nota de la Release de GitHub.
 
 - Textos más cortos y claros en toda la app: tutoriales, ayudas de cada pantalla, avisos y
   confirmaciones. Se sacaron explicaciones de más y términos técnicos.
+- Compra online: la página siempre abre con la última versión (antes, después de una
+  actualización, se podía ver un rato la anterior y recargarse sola). Además ya no se descarga la
+  parte de gestión del parque, así que pesa menos para el visitante.
+- La página de compra se marca como en español: el navegador ya no ofrece traducirla.
+- Compra online más liviana: los tipos de entrada, las formas de pago y los meses del calendario
+  se piden una sola vez, elegir un día ya no hace esperar para ver su horario y aplicar un cupón
+  responde en un solo paso. Mientras se espera el pago, la página pregunta menos seguido pasados
+  los primeros 2 minutos.
+- Reportes, cajas y búsquedas de compras siguen rápidos a medida que se acumulan las ventas de la
+  temporada (la base ahora tiene índices para esas consultas).
+- La compra online ya no muestra públicamente los tipos de entrada inactivos o exclusivos de
+  boletería, ni los datos de un cupón buscado por código.
 
 ## 0.10.5 — 2026-10-25
 

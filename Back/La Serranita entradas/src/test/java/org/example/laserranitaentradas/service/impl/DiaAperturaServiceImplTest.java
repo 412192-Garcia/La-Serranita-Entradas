@@ -1,5 +1,6 @@
 package org.example.laserranitaentradas.service.impl;
 
+import org.example.laserranitaentradas.model.dto.DiaAbiertoDTO;
 import org.example.laserranitaentradas.model.entity.ConfiguracionParque;
 import org.example.laserranitaentradas.model.entity.DiaApertura;
 import org.example.laserranitaentradas.repository.DiaAperturaRepository;
@@ -116,8 +117,21 @@ class DiaAperturaServiceImplTest {
         // Hoy sigue figurando abierto aunque ya se cortó la compra.
         abiertosHoyYManana();
 
-        assertThat(service.getDiasAbiertos(2026, 9)).contains("2026-09-21", "2026-09-22");
+        assertThat(service.getDiasAbiertos(2026, 9)).extracting(DiaAbiertoDTO::getFecha)
+                .contains("2026-09-21", "2026-09-22");
         assertThat(service.compraDelDiaCerrada(HOY, a(17, 30))).isTrue();
+    }
+
+    @Test
+    void cadaDiaTraeSuHorarioYLoQueNoDefineSaleDelGeneral() {
+        when(diaAperturaRepository.findAllByFechaBetween(any(), any())).thenReturn(List.of(
+                DiaApertura.builder().fecha(HOY).abierto(true).build(),
+                DiaApertura.builder().fecha(HOY.plusDays(1)).abierto(true).horaCierre(LocalTime.of(20, 0)).build()));
+
+        List<DiaAbiertoDTO> dias = service.getDiasAbiertos(2026, 9);
+
+        assertThat(dias.get(0)).isEqualTo(new DiaAbiertoDTO("2026-09-21", LocalTime.of(9, 0), LocalTime.of(18, 0), false));
+        assertThat(dias.get(1)).isEqualTo(new DiaAbiertoDTO("2026-09-22", LocalTime.of(9, 0), LocalTime.of(20, 0), true));
     }
 
     @Test
@@ -127,6 +141,7 @@ class DiaAperturaServiceImplTest {
                 DiaApertura.builder().fecha(HOY.minusDays(3)).abierto(false).build(),
                 DiaApertura.builder().fecha(HOY).abierto(true).build()));
 
-        assertThat(service.getDiasAbiertos(2026, 9)).containsExactly("2026-09-17", "2026-09-21");
+        assertThat(service.getDiasAbiertos(2026, 9)).extracting(DiaAbiertoDTO::getFecha)
+                .containsExactly("2026-09-17", "2026-09-21");
     }
 }

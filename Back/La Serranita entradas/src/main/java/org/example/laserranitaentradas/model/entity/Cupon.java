@@ -57,7 +57,7 @@ public class Cupon extends BaseEntity {
 
     /** Sobre qué se aplica el monto fijo. Con default para ddl-auto. */
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, columnDefinition = "varchar(20) default 'COMPRA' not null")
+    @Column(nullable = false, length = 20, columnDefinition = "varchar(20) default 'COMPRA' not null")
     @Builder.Default
     private AplicacionDescuento aplicaPor = AplicacionDescuento.COMPRA;
 

@@ -16,6 +16,7 @@
   <div class="columna-izquierda-contenido">
     <app-calendario
       (fechaSeleccionadaChange)="onFechaSeleccionada($event)"
+      (diaAbiertoChange)="onDiaAbiertoCambio($event)"
       (esRegaloChange)="onEsRegaloCambio($event)">
     </app-calendario>
 
@@ -101,8 +102,10 @@
           [cargandoPago]="procesandoPago"
           [cuponAplicado]="cuponAplicado"
           [avisoCupon]="avisoCupon"
+          [errorCupon]="errorCupon"
           (formaPagoChange)="onFormaPagoCambio($event)"
-          (cuponCambio)="onCuponCambio($event)"
+          (aplicarCodigoCupon)="onAplicarCodigoCupon($event)"
+          (quitarCupon)="onQuitarCupon()"
           (confirmarPago)="iniciarPagoMercadoPago()"
           (volverAtras)="volverPasoAnterior()">
         </app-resumen>

@@ -12,4 +12,6 @@ public class CotizacionResponseDTO {
     private BigDecimal descuentoCupon = BigDecimal.ZERO;
     /** Por qué el cupón no aplica (cantidad mínima, tipo de entrada, todavía no vigente...), o null. */
     private String avisoCupon;
+    /** El cupón existe y está vigente (aunque no descuente con estas entradas). */
+    private boolean cuponValido;
 }

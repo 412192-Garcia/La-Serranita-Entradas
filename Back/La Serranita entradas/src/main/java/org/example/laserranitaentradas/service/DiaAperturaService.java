@@ -1,5 +1,6 @@
 package org.example.laserranitaentradas.service;
 
+import org.example.laserranitaentradas.model.dto.DiaAbiertoDTO;
 import org.example.laserranitaentradas.model.entity.DiaApertura;
 
 import java.time.LocalDate;
@@ -15,10 +16,10 @@ public interface DiaAperturaService {
     List<DiaApertura> getMonthStatus(Integer year, Integer month);
     Boolean getAbiertoByDate(LocalDate fecha);
     /**
-     * Días abiertos del mes para el calendario. No descuenta el límite de compra de hoy (ver
-     * compraDelDiaCerrada).
+     * Días abiertos del mes para el calendario, con su horario. No descuenta el límite de compra de
+     * hoy (ver compraDelDiaCerrada).
      */
-    List<String> getDiasAbiertos(Integer year, Integer month);
+    List<DiaAbiertoDTO> getDiasAbiertos(Integer year, Integer month);
 
     /** Cierre del día (especial o general) menos minutosLimiteCompra. */
     LocalDateTime getLimiteDeCompra(LocalDate fecha);

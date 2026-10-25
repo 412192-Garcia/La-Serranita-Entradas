@@ -14,7 +14,16 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 @Entity
-@Table(name = "compras")
+// Columnas por las que filtran reportes, cajas, boletería y las tareas de Sistema.
+@Table(name = "compras", indexes = {
+        @Index(name = "idx_compras_fecha_visita", columnList = "fecha_visita"),
+        @Index(name = "idx_compras_fecha_creacion", columnList = "fecha_creacion"),
+        @Index(name = "idx_compras_estado_fecha_creacion", columnList = "estado, fecha_creacion"),
+        @Index(name = "idx_compras_fecha_validacion", columnList = "fecha_validacion"),
+        @Index(name = "idx_compras_fecha_pago", columnList = "fecha_pago"),
+        @Index(name = "idx_compras_caja", columnList = "id_caja"),
+        @Index(name = "idx_compras_cliente", columnList = "id_cliente")
+})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

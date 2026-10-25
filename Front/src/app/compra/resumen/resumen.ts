@@ -2,9 +2,7 @@ import {ChangeDetectorRef, Component, EventEmitter, Input, Output} from '@angula
 import {DatePipe} from '@angular/common';
 import {FormsModule} from '@angular/forms';
 import { FormaPagoType, ResumenCompraData } from '../../models/compra';
-import { Cupon } from '../../models/cupon';
 import { CompraService } from '../../services/compra.service';
-import { CuponService } from '../../services/cupon.service';
 import { LucideCalendar, LucideTicket, LucideCreditCard, LucideTag, LucideGift, LucideBanknote } from '@lucide/angular';
 import { PesosPipe } from '../../shared/pesos.pipe';
 
@@ -27,22 +25,24 @@ import { PesosPipe } from '../../shared/pesos.pipe';
 export class Resumen {
   @Input() datosCompra!: ResumenCompraData;
   @Input() cargandoPago: boolean = false;
-  /** Fuente de verdad: vive en el padre porque debe sobrevivir a un cambio de forma de pago. */
-  @Input() cuponAplicado: Cupon | null = null;
+  /** Código del cupón aplicado. Vive en el padre, que lo valida al cotizar. */
+  @Input() cuponAplicado: string | null = null;
   /** Por qué el cupón aplicado no descuenta con las entradas elegidas, o null. */
   @Input() avisoCupon: string | null = null;
+  /** Por qué no se pudo aplicar el código ingresado, o null. */
+  @Input() errorCupon: string | null = null;
 
   @Output() confirmarPago = new EventEmitter<void>();
   @Output() volverAtras = new EventEmitter<void>();
   @Output() formaPagoChange = new EventEmitter<FormaPagoType>();
-  @Output() cuponCambio = new EventEmitter<Cupon | null>();
+  @Output() aplicarCodigoCupon = new EventEmitter<string>();
+  @Output() quitarCupon = new EventEmitter<void>();
 
   codigoInput: string = '';
   /** "Efectivo en Boletería": se puede apagar desde Sistema > Módulos. Mientras no se sabe, se muestra. */
   reservaEfectivo = true;
-  errorCupon: string | null = null;
 
-  constructor(private cuponService: CuponService, private cdr: ChangeDetectorRef, compraService: CompraService) {
+  constructor(private cdr: ChangeDetectorRef, compraService: CompraService) {
     compraService.opcionesPago().subscribe({
       next: ({ reservaEfectivo }) => {
         this.reservaEfectivo = reservaEfectivo;
@@ -71,34 +71,12 @@ export class Resumen {
   }
 
   aplicarCupon(): void {
-    if (!this.codigoInput.trim()) return;
-
-    this.errorCupon = null;
-    this.cuponService.validarCupon(this.codigoInput.toUpperCase().trim()).subscribe({
-      next: (cupon) => {
-        if (cupon && cupon.activo) {
-          this.cuponAplicado = cupon;
-          this.errorCupon = null;
-          this.cuponCambio.emit(cupon);
-        } else {
-          this.errorCupon = 'El cupón no se encuentra activo.';
-          this.cuponAplicado = null;
-        }
-        this.cdr.detectChanges();
-      },
-      error: (err) => {
-        console.error('Cupón inválido o expirado:', err);
-        this.errorCupon = 'Cupón inválido o expirado.';
-        this.cuponAplicado = null;
-        this.cdr.detectChanges();
-      }
-    });
+    const codigo = this.codigoInput.toUpperCase().trim();
+    if (codigo) this.aplicarCodigoCupon.emit(codigo);
   }
 
   removerCupon(): void {
-    this.cuponAplicado = null;
     this.codigoInput = '';
-    this.errorCupon = null;
-    this.cuponCambio.emit(null);
+    this.quitarCupon.emit();
   }
 }

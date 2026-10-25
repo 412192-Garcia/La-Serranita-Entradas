@@ -16,7 +16,9 @@ import java.math.BigDecimal;
  * Exactamente uno, validado en el service.
  */
 @Entity
-@Table(name = "compras_detalle")
+@Table(name = "compras_detalle", indexes = {
+        @Index(name = "idx_compras_detalle_compra", columnList = "id_compra")
+})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

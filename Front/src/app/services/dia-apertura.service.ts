@@ -3,6 +3,16 @@ import {HttpClient, HttpParams} from '@angular/common/http';
 import {Observable} from 'rxjs';
 import {environment} from '../../environments/environment';
 
+/** Día abierto del calendario público, con el horario que rige ese día. */
+export interface DiaAbierto {
+  /** YYYY-MM-DD. */
+  fecha: string;
+  horaApertura: string;
+  horaCierre: string;
+  /** true si el día tiene un horario distinto al general. */
+  especial: boolean;
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -11,7 +21,7 @@ export class DiaAperturaService {
 
   constructor(private http: HttpClient) { }
 
-  getDiasApertura(mes: number, anio: number): Observable<string[]> {
+  getDiasApertura(mes: number, anio: number): Observable<DiaAbierto[]> {
 
     const mesBackend = mes + 1;
 
@@ -19,7 +29,7 @@ export class DiaAperturaService {
       .set('month', mesBackend.toString())
       .set('year', anio.toString());
 
-    return this.http.get<string[]>(this.apiUrl, { params });
+    return this.http.get<DiaAbierto[]>(this.apiUrl, { params });
   }
 
   /** true si hoy ya pasó el límite de compra online (ver ConfiguracionParque.minutosLimiteCompra). */

@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import {HttpClient} from '@angular/common/http';
-import {Observable} from 'rxjs';
+import {Observable, catchError, shareReplay, throwError} from 'rxjs';
 import {environment} from '../../environments/environment';
 
 export interface EstadoCompraResponse {
@@ -27,8 +27,10 @@ export interface CotizacionResponseDTO {
   ahorro: number;
   /** Lo que descuenta el cupón sobre las entradas (0 si no vino cupón o no aplica). */
   descuentoCupon?: number;
-  /** Por qué el cupón no aplica con estas entradas, o null. */
+  /** Por qué el cupón no aplica con estas entradas (o por qué no sirve), o null. */
   avisoCupon?: string | null;
+  /** El cupón existe y está vigente, aunque no descuente con estas entradas. */
+  cuponValido?: boolean;
 }
 
 @Injectable({
@@ -41,9 +43,18 @@ export class CompraService {
   /**
    * Inicia la compra en el backend (crea la compra PENDIENTE + preferencia MP)
    */
-  /** Formas de pago que ofrece hoy la compra online (la reserva en efectivo se apaga en Sistema > Módulos). */
+  private opcionesPago$: Observable<{ reservaEfectivo: boolean }> | null = null;
+
+  /** Formas de pago que ofrece hoy la compra online (la reserva en efectivo se apaga en Sistema > Módulos). Se pide una vez. */
   opcionesPago(): Observable<{ reservaEfectivo: boolean }> {
-    return this.http.get<{ reservaEfectivo: boolean }>(`${this.apiUrl}/opciones-pago`);
+    this.opcionesPago$ ??= this.http.get<{ reservaEfectivo: boolean }>(`${this.apiUrl}/opciones-pago`).pipe(
+      catchError((err) => {
+        this.opcionesPago$ = null;
+        return throwError(() => err);
+      }),
+      shareReplay(1)
+    );
+    return this.opcionesPago$;
   }
 
   iniciarCompraConPago(compraRequest: any): Observable<CompraResponseDTO> {

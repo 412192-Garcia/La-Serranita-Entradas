@@ -1,5 +1,6 @@
 package org.example.laserranitaentradas.service.impl;
 
+import org.example.laserranitaentradas.model.dto.DiaAbiertoDTO;
 import org.example.laserranitaentradas.model.entity.DiaApertura;
 import org.example.laserranitaentradas.repository.DiaAperturaRepository;
 import org.example.laserranitaentradas.service.ConfiguracionParqueService;
@@ -91,11 +92,17 @@ public class DiaAperturaServiceImpl implements DiaAperturaService {
     }
 
     @Override
-    public List<String> getDiasAbiertos(Integer year, Integer month) {
-        List<DiaApertura> dias = getMonthStatus(year, month);
-        return dias.stream()
+    public List<DiaAbiertoDTO> getDiasAbiertos(Integer year, Integer month) {
+        var config = configuracionParqueService.getHorarioGeneral();
+        return getMonthStatus(year, month).stream()
                 .filter(DiaApertura::getAbierto)
-                .map(dia -> dia.getFecha().toString())
+                .map(dia -> {
+                    // Lo que el día no define sale del horario general.
+                    LocalTime apertura = dia.getHoraApertura() != null ? dia.getHoraApertura() : config.getHoraApertura();
+                    LocalTime cierre = dia.getHoraCierre() != null ? dia.getHoraCierre() : config.getHoraCierre();
+                    boolean especial = !apertura.equals(config.getHoraApertura()) || !cierre.equals(config.getHoraCierre());
+                    return new DiaAbiertoDTO(dia.getFecha().toString(), apertura, cierre, especial);
+                })
                 .toList();
     }
 
