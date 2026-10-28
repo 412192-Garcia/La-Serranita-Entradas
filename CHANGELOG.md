@@ -6,6 +6,8 @@ número y el CI la usa como nota de la Release de GitHub.
 
 ## Sin publicar
 
+- Se corrigió un problema que, con mucho uso, podía dejar el sistema sin responder hasta
+  reiniciarlo.
 - Compra online: los campos de DNI, su confirmación y la edad le piden al navegador que no los
   complete solo con datos guardados. Si el navegador pone el nombre completo en "Apellido", se
   corrige solo y queda sólo el apellido.
