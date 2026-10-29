@@ -108,7 +108,7 @@ public class MercadoPagoPointClient {
                 .contentType(MediaType.APPLICATION_JSON).body(body).retrieve().toBodilessEntity());
     }
 
-    /** medio: "qr", "debit_card" o "credit_card". Null = el Point pregunta. */
+    /** medio: "qr" o null (el Point le pregunta al cliente). */
     public Orden crearOrden(String terminalId, BigDecimal monto, String externalReference, String claveIdempotencia, String medio) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("type", "point");

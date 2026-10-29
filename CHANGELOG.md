@@ -6,6 +6,10 @@ número y el CI la usa como nota de la Release de GitHub.
 
 ## Sin publicar
 
+- Cobro con Point: con el Point integrado, la venta muestra **Efectivo** y **Posnet** en vez de
+  Tarjeta y QR. El cliente elige en el Point si paga con tarjeta o con QR, y la venta queda con lo
+  que usó. Ya no se pregunta débito o crédito. Si el Point no responde y se anota a mano, la tablet
+  pregunta si fue tarjeta o QR. Un pago mixto puede ser con dos QR.
 - Se corrigió un problema que, con mucho uso, podía dejar el sistema sin responder hasta
   reiniciarlo.
 - El monitor externo (healthchecks.io) ahora también avisa si el sistema sigue prendido pero deja

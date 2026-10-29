@@ -80,13 +80,11 @@ public class CobroPointService {
                                 EstadoCobroPoint estado, boolean enCurso, String detalle, String motivo, String tipoMedio,
                                 String medioPago, Integer cuotas, Long compraId, LocalDateTime fecha) {}
 
-    /** formaPago: TARJETA (por defecto) o MERCADO_PAGO_QR. */
-    /** tipoTarjeta: DEBITO o CREDITO, sólo para TARJETA (null = el Point pregunta). */
-    /** Tarjeta elegida en la tablet → default_type de la orden de MP. */
-    private static final Map<String, String> MEDIO_TARJETA = Map.of("DEBITO", "debit_card", "CREDITO", "credit_card");
+    /** Tipos de medio de MP que son tarjeta; el resto (qr, account_money...) cuenta como QR. */
+    private static final Set<String> MEDIOS_TARJETA = Set.of("credit_card", "debit_card", "prepaid_card");
 
-    public record CrearCobroRequest(String terminalId, BigDecimal monto, String claveIdempotencia, FormaPago formaPago,
-                                    String tipoTarjeta) {}
+    /** formaPago: TARJETA, MERCADO_PAGO_QR o null (posnet: el cliente elige en el Point). */
+    public record CrearCobroRequest(String terminalId, BigDecimal monto, String claveIdempotencia, FormaPago formaPago) {}
 
     /** Para el cierre de caja: lo que cobró el Point (ya atado a ventas) y lo cobrado sin venta. */
     public record ResumenCajaPoint(BigDecimal tarjeta, BigDecimal qr, long cantidad, List<CobroPointDTO> sinVenta) {}
@@ -224,13 +222,10 @@ public class CobroPointService {
         if (pedido.monto() == null || pedido.monto().signum() <= 0) {
             throw new IllegalArgumentException("El monto a cobrar tiene que ser mayor a cero");
         }
-        FormaPago forma = pedido.formaPago() != null ? pedido.formaPago() : FormaPago.TARJETA;
+        boolean posnet = pedido.formaPago() == null;
+        FormaPago forma = posnet ? FormaPago.TARJETA : pedido.formaPago();
         if (!FORMAS_POINT.contains(forma)) {
             throw new IllegalArgumentException("El Point sólo cobra tarjeta o QR");
-        }
-        String tipoTarjeta = forma == FormaPago.TARJETA ? pedido.tipoTarjeta() : null;
-        if (tipoTarjeta != null && !MEDIO_TARJETA.containsKey(tipoTarjeta)) {
-            throw new IllegalArgumentException("La tarjeta tiene que ser de débito o de crédito");
         }
         Caja caja = cajaService.getAbiertaOrThrow(operador.id());
 
@@ -239,7 +234,7 @@ public class CobroPointService {
                 .terminalId(pedido.terminalId())
                 .monto(pedido.monto())
                 .formaPago(forma)
-                .tipoTarjeta(tipoTarjeta)
+                .posnet(posnet)
                 .estado(EstadoCobroPoint.CREADO)
                 .caja(caja)
                 .build());
@@ -251,10 +246,18 @@ public class CobroPointService {
      * Crea la orden con clave de idempotencia (si se repite, MP devuelve la misma). 4xx: ERROR. Sin respuesta
      * o 5xx: queda CREADO sin orden y se vuelve a pedir, porque puede estar igual en el Point.
      */
-    /** Lo que se le pide al Point (default_type de la orden): QR, la tarjeta elegida o nada (pregunta). */
+    /** default_type de la orden: QR, o nada y el Point le pregunta al cliente (MP no acepta "tarjeta" a secas). */
     static String medioDe(CobroPoint cobro) {
-        if (cobro.getFormaPago() == FormaPago.MERCADO_PAGO_QR) return "qr";
-        return cobro.getTipoTarjeta() == null ? null : MEDIO_TARJETA.get(cobro.getTipoTarjeta());
+        return !cobro.isPosnet() && cobro.getFormaPago() == FormaPago.MERCADO_PAGO_QR ? "qr" : null;
+    }
+
+    /** Posnet sin saber todavía si fue tarjeta o QR. */
+    static boolean formaSinDefinir(CobroPoint cobro) {
+        return cobro.isPosnet() && cobro.getTipoMedio() == null && cobro.getCompra() == null;
+    }
+
+    static FormaPago formaDeMedio(String tipoMedio) {
+        return MEDIOS_TARJETA.contains(tipoMedio) ? FormaPago.TARJETA : FormaPago.MERCADO_PAGO_QR;
     }
 
     private void mandarOrden(CobroPoint cobro) {
@@ -513,8 +516,18 @@ public class CobroPointService {
     /** Lo cobrado por cada forma tiene que ser exactamente esa parte de la venta. */
     private static void validarMontos(List<CobroPoint> cobros, Compra venta) {
         Map<FormaPago, BigDecimal> porForma = new java.util.EnumMap<>(FormaPago.class);
+        List<CobroPoint> sinDefinir = new java.util.ArrayList<>();
         for (CobroPoint c : cobros) {
-            porForma.merge(c.getFormaPago() != null ? c.getFormaPago() : FormaPago.TARJETA, c.getMonto(), BigDecimal::add);
+            if (formaSinDefinir(c)) sinDefinir.add(c);
+            else porForma.merge(c.getFormaPago() != null ? c.getFormaPago() : FormaPago.TARJETA, c.getMonto(), BigDecimal::add);
+        }
+        // Posnet anotado a mano antes de que MP diga con qué pagó: toma la forma que la venta tiene sin cubrir.
+        for (CobroPoint c : sinDefinir) {
+            FormaPago forma = List.of(FormaPago.TARJETA, FormaPago.MERCADO_PAGO_QR).stream()
+                    .filter(f -> venta.montoPorForma(f).subtract(porForma.getOrDefault(f, BigDecimal.ZERO)).compareTo(c.getMonto()) >= 0)
+                    .findFirst().orElse(FormaPago.TARJETA);
+            c.setFormaPago(forma);
+            porForma.merge(forma, c.getMonto(), BigDecimal::add);
         }
         porForma.forEach((forma, cobrado) -> {
             // La misma cuenta que usan la caja y los reportes para repartir un pago mixto.
@@ -556,6 +569,16 @@ public class CobroPointService {
         cobro.setDetalle(recortar(orden.pagoStatusDetail() != null ? orden.pagoStatusDetail() : orden.statusDetail()));
         if (orden.pagoId() != null) cobro.setPagoId(orden.pagoId());
         if (orden.medioPago() != null) cobro.setMedioPago(orden.medioPago());
+        if (orden.tipoMedio() != null && cobro.getTipoMedio() == null && cobro.isPosnet()) {
+            FormaPago real = formaDeMedio(orden.tipoMedio());
+            if (cobro.getCompra() == null) {
+                cobro.setFormaPago(real);
+            } else if (real != cobro.getFormaPago()) {
+                // Se anotó a mano con la otra forma: la venta queda como la cargó el boletero.
+                alertas.warn("La venta {} anotó el cobro con Point {} por {} como {}, pero Mercado Pago dice {}",
+                        cobro.getCompra().getCodigoReserva(), cobro.getId(), cobro.getMonto(), cobro.getFormaPago(), orden.tipoMedio());
+            }
+        }
         if (orden.tipoMedio() != null) cobro.setTipoMedio(orden.tipoMedio());
         if (orden.cuotas() != null) cobro.setCuotas(orden.cuotas());
         cobro.setUltimaConsultaMp(LocalDateTime.now());
@@ -603,7 +626,8 @@ public class CobroPointService {
         if (porDetalle != null) return porDetalle;
         return switch (cobro.getEstado()) {
             case CREADO -> "Mandando el cobro al Point...";
-            case EN_TERMINAL -> cobro.getFormaPago() == FormaPago.MERCADO_PAGO_QR
+            case EN_TERMINAL -> cobro.isPosnet() ? "Esperando el pago en el Point"
+                    : cobro.getFormaPago() == FormaPago.MERCADO_PAGO_QR
                     ? "Esperando que el cliente escanee el QR del Point" : "Esperando la tarjeta en el Point";
             case REVISAR_EN_POINT -> "Revisá en el Point si el pago salió";
             case APROBADO -> "Pago aprobado";
@@ -617,7 +641,8 @@ public class CobroPointService {
 
     static CobroPointDTO toDto(CobroPoint c) {
         return new CobroPointDTO(c.getId(), c.getOrdenId(), c.getTerminalId(), c.getMonto(),
-                c.getFormaPago() != null ? c.getFormaPago() : FormaPago.TARJETA, c.getEstado(), c.getEstado().enCurso(),
+                formaSinDefinir(c) ? null : c.getFormaPago() != null ? c.getFormaPago() : FormaPago.TARJETA,
+                c.getEstado(), c.getEstado().enCurso(),
                 c.getDetalle(), motivo(c), c.getTipoMedio(), c.getMedioPago(), c.getCuotas(),
                 c.getCompra() != null ? c.getCompra().getId() : null, c.getFechaCreacion());
     }

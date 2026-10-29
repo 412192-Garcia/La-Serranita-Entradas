@@ -54,7 +54,7 @@
     } @else {
       <div class="fila-formas-pago">
         <div class="formas-pago" [class.formas-pago-sin-elegir]="hayItems() && formaPago() === null">
-          @for (f of formasPago; track f.valor) {
+          @for (f of formasPago(); track f.valor) {
             <button
               type="button"
               class="btn-forma-pago"

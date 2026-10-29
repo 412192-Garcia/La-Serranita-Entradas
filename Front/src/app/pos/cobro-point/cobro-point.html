@@ -15,15 +15,10 @@
       }
       <span>{{ monto() | pesos }}</span>
     </div>
-    <p class="terminal-point">
-      {{ terminal().nombre }}
-      @if (tipoTarjeta(); as tipo) {
-        · {{ tipo === 'DEBITO' ? 'Débito' : 'Crédito' }}
-      }
-    </p>
+    <p class="terminal-point">{{ terminal().nombre }}</p>
 
-    @if (eligiendoTarjeta()) {
-      <p class="ayuda-point">¿La tarjeta del cliente es de débito o de crédito?</p>
+    @if (eligiendoFormaAMano()) {
+      <p class="ayuda-point">¿Cómo pagó el cliente?</p>
     } @else if (cobro(); as c) {
       @if (c.estado === 'APROBADO') {
         <p class="estado-point estado-ok">Pago aprobado. Registrando la venta…</p>
@@ -44,7 +39,13 @@
           </p>
         } @else {
           <p class="ayuda-point">
-            {{ forma() === 'MERCADO_PAGO_QR' ? 'Pedile al cliente que escanee el QR de la pantalla del Point con su app.' : 'Pedile al cliente que pase o acerque la tarjeta en el Point.' }}
+            {{
+              forma() === 'MERCADO_PAGO_QR'
+                ? 'Pedile al cliente que escanee el QR de la pantalla del Point con su app.'
+                : forma() === 'TARJETA'
+                  ? 'Pedile al cliente que pase o acerque la tarjeta en el Point.'
+                  : 'Pedile al cliente que pague en el Point con tarjeta o QR.'
+            }}
           </p>
         }
       } @else {
@@ -62,10 +63,10 @@
     }
 
     <div class="acciones">
-      @if (eligiendoTarjeta()) {
-        <button type="button" class="btn-limpiar" (click)="cerrar()">Cancelar</button>
-        <button type="button" class="btn-cobrar" (click)="elegirTarjeta('DEBITO')">Débito</button>
-        <button type="button" class="btn-cobrar" (click)="elegirTarjeta('CREDITO')">Crédito</button>
+      @if (eligiendoFormaAMano()) {
+        <button type="button" class="btn-limpiar" (click)="eligiendoFormaAMano.set(false)">Volver</button>
+        <button type="button" class="btn-cobrar" (click)="confirmarAMano('TARJETA')">Tarjeta</button>
+        <button type="button" class="btn-cobrar" (click)="confirmarAMano('MERCADO_PAGO_QR')">QR</button>
       } @else if (enCurso()) {
         @if (cobro()?.estado === 'REVISAR_EN_POINT' || !enLinea()) {
           <button type="button" class="btn-limpiar" (click)="confirmarAMano()">Salió aprobado: anotar a mano</button>

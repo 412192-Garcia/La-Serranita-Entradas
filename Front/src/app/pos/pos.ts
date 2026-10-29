@@ -94,7 +94,7 @@ export class Pos implements OnInit, OnDestroy {
     {
       selector: '[data-tour="carrito"]',
       titulo: 'Venta: cobrar',
-      texto: 'Revisá el resumen, elegí la forma de pago y tocá Cobrar. Con un Point elegido, el cobro va al Point y la venta se guarda sola cuando se aprueba.',
+      texto: 'Revisá el resumen, elegí la forma de pago y tocá Cobrar. Con un Point elegido, tocá Posnet: el cliente paga en el Point con tarjeta o QR y la venta se guarda sola.',
       antes: () => this.consultaAnticipada.set(null),
     },
     {

@@ -44,10 +44,14 @@ public class CobroPoint extends BaseEntity {
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal monto;
 
-    /** Qué parte de la venta paga: TARJETA o MERCADO_PAGO_QR (el Point muestra el QR en pantalla). */
+    /** Qué parte de la venta paga: TARJETA o MERCADO_PAGO_QR. Con {@link #posnet}, provisoria hasta saber con qué pagó. */
     @Enumerated(EnumType.STRING)
     @Column(name = "forma_pago", nullable = false, length = 30)
     private FormaPago formaPago;
+
+    /** El cliente elige tarjeta o QR en el Point. */
+    @Column(nullable = false, columnDefinition = "boolean default false")
+    private boolean posnet;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
@@ -59,10 +63,6 @@ public class CobroPoint extends BaseEntity {
 
     @Column(name = "pago_id", length = 64)
     private String pagoId;
-
-    /** DEBITO o CREDITO, para que el Point pida esa tarjeta directo. Null en QR. */
-    @Column(name = "tipo_tarjeta", length = 10)
-    private String tipoTarjeta;
 
     /** visa, debmaster, account_money... */
     @Column(name = "medio_pago", length = 50)

@@ -130,7 +130,7 @@ class CobroPointServiceTest {
         when(repository.findByClaveIdempotencia("k")).thenReturn(Optional.empty());
         when(terminalRepository.findById("OTRO")).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.crear(new CobroPointService.CrearCobroRequest("OTRO", BigDecimal.TEN, "k", null, null), boletero))
+        assertThatThrownBy(() -> service.crear(new CobroPointService.CrearCobroRequest("OTRO", BigDecimal.TEN, "k", null), boletero))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("habilitado");
         verify(client, never()).crearOrden(anyString(), any(), anyString(), anyString(), any());
@@ -144,7 +144,7 @@ class CobroPointServiceTest {
         when(cajaService.getAbiertaOrThrow(7L)).thenReturn(caja);
         when(client.crearOrden(eq("T"), eq(new BigDecimal("15000")), eq("POINT-50"), eq("k"), isNull())).thenReturn(orden("created", "created"));
 
-        var dto = service.crear(new CobroPointService.CrearCobroRequest("T", new BigDecimal("15000"), "k", null, null), boletero);
+        var dto = service.crear(new CobroPointService.CrearCobroRequest("T", new BigDecimal("15000"), "k", null), boletero);
 
         assertThat(dto.estado()).isEqualTo(EstadoCobroPoint.CREADO);
         assertThat(dto.ordenId()).isEqualTo("ORD1");
@@ -155,7 +155,7 @@ class CobroPointServiceTest {
     void crear_conLaMismaClave_devuelveElMismoCobroSinOtraOrden() {
         when(repository.findByClaveIdempotencia("k")).thenReturn(Optional.of(cobro(EstadoCobroPoint.EN_TERMINAL, "100")));
 
-        var dto = service.crear(new CobroPointService.CrearCobroRequest("T", new BigDecimal("100"), "k", null, null), boletero);
+        var dto = service.crear(new CobroPointService.CrearCobroRequest("T", new BigDecimal("100"), "k", null), boletero);
 
         assertThat(dto.id()).isEqualTo(50L);
         verify(client, never()).crearOrden(anyString(), any(), anyString(), anyString(), any());
@@ -167,7 +167,7 @@ class CobroPointServiceTest {
         when(cajaService.getAbiertaOrThrow(7L)).thenReturn(caja);
         when(client.crearOrden(anyString(), any(), anyString(), anyString(), any())).thenThrow(new PointException(404, "Terminal no encontrada"));
 
-        var dto = service.crear(new CobroPointService.CrearCobroRequest("T", new BigDecimal("100"), "k", null, null), boletero);
+        var dto = service.crear(new CobroPointService.CrearCobroRequest("T", new BigDecimal("100"), "k", null), boletero);
 
         assertThat(dto.estado()).isEqualTo(EstadoCobroPoint.ERROR);
         assertThat(dto.motivo()).isEqualTo("Terminal no encontrada");
@@ -177,7 +177,7 @@ class CobroPointServiceTest {
     @Test
     void crear_conElModuloApagado_rechaza() {
         when(modulos.activo(Modulo.POINT)).thenReturn(false);
-        assertThatThrownBy(() -> service.crear(new CobroPointService.CrearCobroRequest("T", BigDecimal.TEN, "k", null, null), boletero))
+        assertThatThrownBy(() -> service.crear(new CobroPointService.CrearCobroRequest("T", BigDecimal.TEN, "k", null), boletero))
                 .isInstanceOf(IllegalStateException.class);
     }
 
@@ -355,7 +355,7 @@ class CobroPointServiceTest {
         when(client.crearOrden(anyString(), any(), anyString(), anyString(), any()))
                 .thenThrow(new PointException(504, "No se pudo contactar a Mercado Pago: timeout"));
 
-        var dto = service.crear(new CobroPointService.CrearCobroRequest("T", new BigDecimal("100"), "k", null, null), boletero);
+        var dto = service.crear(new CobroPointService.CrearCobroRequest("T", new BigDecimal("100"), "k", null), boletero);
 
         // No es ERROR: la orden puede estar igual en el Point esperando la tarjeta.
         assertThat(dto.estado()).isEqualTo(EstadoCobroPoint.CREADO);
@@ -410,36 +410,86 @@ class CobroPointServiceTest {
         when(cajaService.getAbiertaOrThrow(7L)).thenReturn(caja);
         when(client.crearOrden(eq("T"), any(), anyString(), eq("k"), eq("qr"))).thenReturn(orden("created", "created"));
 
-        var dto = service.crear(new CobroPointService.CrearCobroRequest("T", new BigDecimal("5000"), "k", FormaPago.MERCADO_PAGO_QR, null), boletero);
+        var dto = service.crear(new CobroPointService.CrearCobroRequest("T", new BigDecimal("5000"), "k", FormaPago.MERCADO_PAGO_QR), boletero);
 
         assertThat(dto.formaPago()).isEqualTo(FormaPago.MERCADO_PAGO_QR);
     }
 
-    @Test
-    void crear_tarjetaDeDebito_leDiceAlPointQueSoloAcepteDebito() {
-        when(repository.findByClaveIdempotencia("k")).thenReturn(Optional.empty());
-        when(cajaService.getAbiertaOrThrow(7L)).thenReturn(caja);
-        when(client.crearOrden(eq("T"), any(), anyString(), eq("k"), eq("debit_card"))).thenReturn(orden("created", "created"));
+    // ---------- Posnet: el cliente elige tarjeta o QR en el Point ----------
 
-        var dto = service.crear(new CobroPointService.CrearCobroRequest("T", new BigDecimal("5000"), "k", FormaPago.TARJETA, "DEBITO"), boletero);
+    private static Orden ordenSinMedio(String status) {
+        return new Orden("ORD1", status, status, null, null, null, null, null, null, "POINT-50");
+    }
 
-        assertThat(dto.estado()).isEqualTo(EstadoCobroPoint.CREADO);
+    private static Orden ordenCon(String tipoMedio) {
+        return new Orden("ORD1", "processed", "accredited", "PAY1", "processed", "accredited", "x", tipoMedio, 1, "POINT-50");
+    }
+
+    private CobroPoint posnet(EstadoCobroPoint estado, String monto) {
+        CobroPoint c = cobro(estado, monto);
+        c.setPosnet(true);
+        return c;
     }
 
     @Test
-    void crear_conUnTipoDeTarjetaDesconocido_rechazaSinMandarOrden() {
+    void crear_posnet_noLeDiceAlPointConQuéCobrar() {
         when(repository.findByClaveIdempotencia("k")).thenReturn(Optional.empty());
+        when(cajaService.getAbiertaOrThrow(7L)).thenReturn(caja);
+        when(client.crearOrden(eq("T"), any(), anyString(), eq("k"), isNull())).thenReturn(ordenSinMedio("at_terminal"));
 
-        assertThatThrownBy(() -> service.crear(new CobroPointService.CrearCobroRequest("T", BigDecimal.TEN, "k", FormaPago.TARJETA, "PREPAGA"), boletero))
-                .isInstanceOf(IllegalArgumentException.class);
-        verify(client, never()).crearOrden(anyString(), any(), anyString(), anyString(), any());
+        var dto = service.crear(new CobroPointService.CrearCobroRequest("T", new BigDecimal("5000"), "k", null), boletero);
+
+        assertThat(dto.formaPago()).isNull();
+        assertThat(dto.motivo()).isEqualTo("Esperando el pago en el Point");
+    }
+
+    @Test
+    void consultar_posnet_tomaLaFormaDeLoQueUsóElCliente() {
+        CobroPoint qr = posnet(EstadoCobroPoint.EN_TERMINAL, "100");
+        when(repository.findConCajaById(50L)).thenReturn(Optional.of(qr));
+        when(client.obtenerOrden("ORD1")).thenReturn(ordenCon("account_money"));
+        assertThat(service.consultar(50L, boletero).formaPago()).isEqualTo(FormaPago.MERCADO_PAGO_QR);
+
+        CobroPoint tarjeta = posnet(EstadoCobroPoint.EN_TERMINAL, "100");
+        when(repository.findConCajaById(50L)).thenReturn(Optional.of(tarjeta));
+        when(client.obtenerOrden("ORD1")).thenReturn(ordenCon("debit_card"));
+        assertThat(service.consultar(50L, boletero).formaPago()).isEqualTo(FormaPago.TARJETA);
+    }
+
+    @Test
+    void vincular_posnetAnotadoAMano_tomaLaFormaQueLaVentaTieneSinCubrir() {
+        CobroPoint conTarjeta = posnet(EstadoCobroPoint.APROBADO, "6000");
+        conTarjeta.setTipoMedio("credit_card");
+        CobroPoint aMano = posnet(EstadoCobroPoint.REVISAR_EN_POINT, "4000");
+        aMano.setId(51L);
+        when(repository.findParaVincular(50L)).thenReturn(Optional.of(conTarjeta));
+        when(repository.findParaVincular(51L)).thenReturn(Optional.of(aMano));
+        Compra v = venta(FormaPago.TARJETA, "10000", FormaPago.MERCADO_PAGO_QR, "4000");
+
+        service.vincular(java.util.List.of(50L, 51L), v);
+
+        assertThat(aMano.getFormaPago()).isEqualTo(FormaPago.MERCADO_PAGO_QR);
+        assertThat(aMano.getCompra()).isSameAs(v);
+    }
+
+    @Test
+    void aviso_posnetAnotadoAManoConOtraForma_noCambiaLaVenta() {
+        CobroPoint c = posnet(EstadoCobroPoint.REVISAR_EN_POINT, "100");
+        c.setCompra(venta(FormaPago.TARJETA, "100", null, null));
+        when(repository.findByOrdenId("ORD1")).thenReturn(Optional.of(c));
+        when(client.obtenerOrden("ORD1")).thenReturn(ordenCon("account_money"));
+
+        service.actualizarDesdeMercadoPago("ORD1");
+
+        assertThat(c.getFormaPago()).isEqualTo(FormaPago.TARJETA);
+        assertThat(c.getEstado()).isEqualTo(EstadoCobroPoint.APROBADO);
     }
 
     @Test
     void crear_conEfectivo_rechaza() {
         when(repository.findByClaveIdempotencia("k")).thenReturn(Optional.empty());
         assertThatThrownBy(() -> service.crear(
-                new CobroPointService.CrearCobroRequest("T", BigDecimal.TEN, "k", FormaPago.EFECTIVO_BOLETERIA, null), boletero))
+                new CobroPointService.CrearCobroRequest("T", BigDecimal.TEN, "k", FormaPago.EFECTIVO_BOLETERIA), boletero))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
