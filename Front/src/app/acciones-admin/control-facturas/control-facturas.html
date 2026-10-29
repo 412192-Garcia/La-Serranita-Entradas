@@ -26,12 +26,12 @@
               <strong [class.texto-error]="certificadoEnRiesgo(c)">Vence el {{ c.certificadoVence | date: 'dd/MM/yyyy' }}</strong>
               <span class="secundario">
                 En {{ c.diasParaVencer }} días.
-                @if (certificadoEnRiesgo(c)) { Renovarlo ya: generar un pedido nuevo y que lo firme ARCA. }
+                @if (certificadoEnRiesgo(c)) { Hay que renovarlo. }
               </span>
             }
           } @else {
             <strong>Sin certificado</strong>
-            <span class="secundario">La facturación está apagada: falta el certificado y la clave de ARCA en el servidor.</span>
+            <span class="secundario">La facturación está apagada: falta el certificado de ARCA.</span>
           }
         </div>
 
@@ -119,8 +119,7 @@
   <div class="tarjeta">
     <h2>Listado para el contador</h2>
     <p class="ayuda">
-      Facturas y notas de crédito autorizadas en el período, por punto de venta. El CSV tiene un renglón por comprobante
-      (fecha, número, CAE, total, neto e IVA) y se abre con Excel.
+      Facturas y notas de crédito del período. El CSV se abre con Excel.
     </p>
 
     <div class="periodo">

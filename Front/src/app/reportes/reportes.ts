@@ -22,18 +22,18 @@ const PASOS_RESUMEN: TourStep[] = [
   {
     selector: '[data-tour="kpis-reportes"]',
     titulo: 'Números principales',
-    texto: 'Recaudación total, anticipada (reservas hechas de antemano), en puerta y entradas vendidas, para el rango elegido.',
+    texto: 'Lo recaudado, separado en anticipadas y puerta, y las entradas vendidas.',
   },
   {
     selector: '[data-tour="graficos-reportes"]',
     titulo: 'Gráficos y desgloses',
-    texto: 'Más abajo hay gráficos con el detalle: afluencia diaria, desglose por tipo, forma de pago, boletería contra anticipadas, por qué se cancelaron compras, horarios y más.',
+    texto: 'Más abajo, los gráficos con el detalle.',
   },
   {
     selector: '[data-tour="ranking-boleteros"]',
     alternativo: '[data-tour="kpis-reportes"]',
     titulo: 'Ranking de boleteros',
-    texto: 'Lo acumulado por boletero en las cajas cerradas del rango (por el día en que se abrió cada caja, que es el de sus ventas): turnos, efectivo vendido en puerta, retiros y las diferencias de efectivo y de posnet. Sirve para ver quién suele tener faltantes. Para revisar o corregir un turno puntual, está la pantalla de Cajas.',
+    texto: 'Lo de cada boletero en el período: turnos, ventas en efectivo, retiros y diferencias de caja.',
   },
 ];
 
@@ -41,7 +41,7 @@ const PASOS_COMPARACION: TourStep[] = [
   {
     selector: '[data-tour="comparar-periodos"]',
     titulo: 'Comparar períodos',
-    texto: 'Agregá los rangos que quieras comparar (por ejemplo años o temporadas distintas), ponele una etiqueta a cada uno y tocá Comparar. Los resultados y gráficos aparecen debajo.',
+    texto: 'Agregá los períodos que quieras comparar, ponele un nombre a cada uno y tocá Comparar.',
   },
 ];
 

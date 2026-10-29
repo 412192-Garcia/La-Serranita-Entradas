@@ -14,12 +14,11 @@
   <div class="tarjeta tarjeta-formulario" data-tour="factura-manual">
     <h2>Nueva factura manual</h2>
     <p class="ayuda">
-      Factura sin venta detrás, por el punto de venta de boletería. Elegí ítems del catálogo o escribilos a mano; el
-      precio se puede cambiar y siempre va con IVA incluido.
+      Elegí ítems del catálogo o escribilos a mano. Los precios van con IVA incluido.
     </p>
 
     @if (!habilitada()) {
-      <p class="alerta">La facturación no está configurada en el servidor: no se pueden emitir facturas.</p>
+      <p class="alerta">La facturación no está configurada.</p>
     }
 
     <div class="tipo-factura">
@@ -93,8 +92,7 @@
             [ngModel]="domicilio()" (ngModelChange)="cambiarReceptor('domicilio', $event)" />
         </label>
         <p class="nota-receptor">
-          Al completar el CUIT se traen razón social, domicilio fiscal y condición frente al IVA del padrón de ARCA. Se
-          pueden corregir; ARCA rechaza la factura si la condición no coincide con la del CUIT.
+          Los datos se completan solos con el CUIT. Revisá que la condición frente al IVA sea la correcta.
         </p>
       </div>
     }
@@ -204,12 +202,11 @@
           <p>
             Vas a emitir una <strong>Factura A por {{ total() | pesos }}</strong> (neto {{ neto() | pesos }} + IVA
             {{ iva() | pesos }}) a <strong>{{ razonSocial().trim() }}</strong>, CUIT {{ formatearCuit(cuitLimpio()) }},
-            {{ nombreCondicion() }}. Es un comprobante fiscal: si después hay un error, se anula con una nota de crédito.
+            {{ nombreCondicion() }}.
           </p>
         } @else {
           <p>
-            Vas a emitir una <strong>Factura B por {{ total() | pesos }}</strong> en ARCA. Es un comprobante fiscal:
-            si después hay un error, se anula con una nota de crédito.
+            Vas a emitir una <strong>Factura B por {{ total() | pesos }}</strong>.
           </p>
         }
         <div class="acciones-confirmacion">

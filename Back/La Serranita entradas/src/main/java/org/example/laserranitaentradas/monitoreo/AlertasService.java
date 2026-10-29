@@ -31,17 +31,12 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * Avisos que llegan sin entrar a la app:
- *
- * - Mail a ALERTAS_MAIL cuando una tarjeta de Sistema > Estado se pone en rojo, cuando cambia lo que
- *   dice (ej. de 1 a 3 errores, como mucho una vez por hora), cuando vuelve a estar bien, y un
- *   recordatorio diario mientras siga en rojo. También cuando el servidor arranca (un reinicio que
- *   nadie hizo es una caída).
- * - Latido a ALERTAS_LATIDO_URL (healthchecks.io o similar) cada 5 minutos si el backend y la base
- *   andan: el servicio externo avisa cuando el latido deja de llegar. Es lo único que se entera
- *   si se cae el servidor entero, porque entonces esta app no puede mandar nada.
- *
- * Sin ALERTAS_MAIL / ALERTAS_LATIDO_URL cada parte queda apagada.
+ * Avisos por fuera de la app:
+ * - Mail a ALERTAS_MAIL cuando una tarjeta se pone en rojo, cambia (máximo una vez por hora), vuelve a estar
+ * bien, y un recordatorio diario. También al arrancar el servidor.
+ * - Latido a ALERTAS_LATIDO_URL cada 5 min si /api/salud responde: es lo único que avisa si se cae el
+ * servidor entero o deja de atender.
+ * Sin esas variables cada parte queda apagada.
  */
 @Service
 public class AlertasService {
@@ -61,6 +56,8 @@ public class AlertasService {
     private String destinatarios;
     @Value("${app.alertas.latido-url:}")
     private String latidoUrl;
+    @Value("${server.port:8080}")
+    private int puerto;
     @Value("${app.alertas.recordatorio-horas:24}")
     private long horasRecordatorio;
     @Value("${app.alertas.avisar-arranque:true}")
@@ -94,9 +91,11 @@ public class AlertasService {
     @Scheduled(fixedDelay = 300_000, initialDelay = 60_000)
     public void latidoExterno() {
         if (latidoUrl.isBlank()) return;
-        // Sin base la app no sirve: mejor que el monitor externo lo note y avise.
-        if (!baseResponde()) {
-            log.error("La base de datos no responde: no se manda el latido al monitor externo");
+        // Se pide a sí mismo /api/salud por el mismo camino que una request de verdad: si no atiende (o no
+        // hay base), no hay latido y el monitor externo avisa.
+        String problema = problemaSalud();
+        if (problema != null) {
+            log.error("El backend no responde a /api/salud ({}): no se manda el latido al monitor externo", problema);
             return;
         }
         try {
@@ -108,6 +107,21 @@ public class AlertasService {
         } catch (Exception e) {
             // Sin internet o el servicio caído: el monitor externo igual va a avisar por la falta de latido.
             log.warn("No se pudo mandar el latido al monitor externo: {}", e.getMessage());
+        }
+    }
+
+    /** null si /api/salud respondió 200; si no, qué pasó. */
+    private String problemaSalud() {
+        try {
+            HttpResponse<Void> r = http.send(HttpRequest.newBuilder(URI.create("http://localhost:" + puerto + "/api/salud"))
+                            .timeout(Duration.ofSeconds(10)).GET().build(),
+                    HttpResponse.BodyHandlers.discarding());
+            return r.statusCode() == 200 ? null : "respondió " + r.statusCode();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return "interrumpido";
+        } catch (Exception e) {
+            return e.getClass().getSimpleName();
         }
     }
 

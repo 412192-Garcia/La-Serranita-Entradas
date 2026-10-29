@@ -31,10 +31,7 @@ public class PagoController {
     private final CompraService compraService;
     private final CobroPointService cobroPointService;
 
-    // Sin valor por defecto: si no está seteada, se salta la validación de firma (para
-    // no romper el flujo de dev con ngrok, donde nunca se configuró) pero avisando fuerte
-    // por log. En producción es obligatoria — sin ella, cualquiera podría pegarle a este
-    // endpoint y forzar la revisión de un pago ajeno.
+    // Sin default: si falta se salta la firma con un warning (dev). En producción es obligatoria.
     @Value("${mercadopago.webhook-secret:}")
     private String webhookSecret;
 
@@ -58,18 +55,14 @@ public class PagoController {
         if (!firmaValida(xSignature, xRequestId, idParaFirma)) {
             Object cuenta = payload != null ? payload.get("user_id") : null;
             if (type == null && topic != null) {
-                // Formato viejo (IPN: ?topic=payment|merchant_order&id=...): MP lo manda además del
-                // aviso nuevo por cada pago, firmado de otra forma, así que nunca valida. No es un
-                // problema (el aviso nuevo, type=payment firmado con data.id, ya confirma el pago):
-                // se ignora con 200, porque con un error MP lo reintenta durante horas.
+                // Formato viejo (IPN): MP lo manda además del nuevo y nunca valida. Se ignora con 200 para
+                // que MP no reintente.
                 log.debug("Aviso de Mercado Pago en formato viejo ignorado: topic={}, id={}, cuenta MP (user_id) {}",
                         topic, idParaFirma, cuenta != null ? cuenta : "?");
                 return ResponseEntity.ok().build();
             }
-            // Formato nuevo (type=...) que no valida: o MP_WEBHOOK_SECRET no es el de la aplicación
-            // que manda los avisos, o vienen de OTRA cuenta de MP que tiene esta URL configurada
-            // (user_id dice cuál, para encontrarla y sacarle la URL). Las dos cosas hay que
-            // arreglarlas: 401 y aviso en el log, para que se note.
+            // Formato nuevo con firma inválida: MP_WEBHOOK_SECRET equivocado u otra cuenta de MP con esta URL
+            // (user_id dice cuál). 401 y log.
             log.warn("Notificación de Mercado Pago con firma inválida o faltante: type={}, id={}, cuenta MP (user_id) {}, "
                             + "x-signature {}, x-request-id {}, IP {}",
                     type, idParaFirma, cuenta != null ? cuenta : "?", xSignature != null ? "presente" : "ausente",
@@ -107,15 +100,14 @@ public class PagoController {
                 }
 
             } else if ("merchant_order".equals(evento)) {
-                // Mercado Pago no siempre notifica el topic "payment": el merchant_order
-                // agrega todos los pagos asociados a la preferencia y es la vía recomendada
-                // para no depender de que llegue el webhook de "payment".
+                // merchant_order agrupa los pagos de la preferencia: no depende de que llegue el aviso de
+                // "payment".
                 String merchantOrderId = id != null ? id : dataId;
                 if (merchantOrderId != null) {
                     MerchantOrder order = new MerchantOrderClient().get(Long.parseLong(merchantOrderId));
                     if (order.getPayments() != null) {
-                        // El resumen de pagos de la orden no trae la fecha de creación que hace falta
-                        // validar: se trae cada pago aprobado completo, igual que en el aviso "payment".
+                        // El resumen de la orden no trae la fecha de creación: se trae cada pago aprobado
+                        // completo.
                         PaymentClient pagos = new PaymentClient();
                         for (var p : order.getPayments()) {
                             if ("approved".equals(p.getStatus())) {
@@ -129,19 +121,15 @@ public class PagoController {
             return ResponseEntity.ok().build();
 
         } catch (Exception e) {
-            // Se responde 200 igual: Mercado Pago reintenta el webhook si recibe un error,
-            // y el reintento volvería a fallar por la misma causa.
+            // 200 igual: MP reintentaría y fallaría por lo mismo.
             log.error("Error procesando la notificación de Mercado Pago", e);
             return ResponseEntity.ok().build();
         }
     }
 
     /**
-     * Valida el header x-signature según el esquema documentado por Mercado Pago:
-     * HMAC-SHA256("id:{data.id};request-id:{x-request-id};ts:{timestamp};", secreto)
-     * tiene que coincidir con el "v1" que viene en el header. Sin mercadopago.webhook-secret
-     * configurado no hay forma de validar nada, así que se deja pasar (con warning) para
-     * no romper el dev local donde nunca se configuró un secreto de firma.
+     * x-signature según MP: HMAC-SHA256("id:{data.id};request-id:{x-request-id};ts:{timestamp};", secreto)
+     * contra el "v1" del header. Sin secreto se deja pasar con warning.
      */
     private boolean firmaValida(String xSignature, String xRequestId, String dataId) {
         if (webhookSecret == null || webhookSecret.isBlank()) {
@@ -182,7 +170,7 @@ public class PagoController {
         }
     }
 
-    /** Validación (monto, fecha) e idempotencia viven en el service, compartidas con la verificación directa. */
+    /** Validación e idempotencia están en el service. */
     private void confirmar(Payment pago) {
         if (compraService.confirmarPagoMercadoPago(pago)) {
             log.info("Pago {} de Mercado Pago APROBADO confirmado en BD para la compra {}", pago.getId(), pago.getExternalReference());

@@ -17,13 +17,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 import java.util.Map;
 
-/**
- * Arma el ticket de la factura en ESC/POS, el lenguaje de las ticketeras térmicas (la SOL 802 de
- * la boletería lo habla). Mismo contenido que el PDF: los dos salen de {@link ComprobanteFactura}.
- *
- * El QR va como imagen (raster, GS v 0) y no con el comando nativo de QR (GS ( k): el raster lo
- * entiende cualquier ticketera ESC/POS, el nativo no todas.
- */
+/** Ticket de la factura en ESC/POS. Mismo contenido que el PDF ({@link ComprobanteFactura}). */
 @Component
 public class TicketEscPosGenerator {
 
@@ -39,19 +33,13 @@ public class TicketEscPosGenerator {
     private int columnas = 48;
 
     /**
-     * Cómo se imprime el QR. "nativo" (por defecto): se le manda el texto y la ticketera lo dibuja
-     * ella misma (GS ( k). Con la SOL 802 se lee mucho mejor que la imagen: sale nítido y con su
-     * propio margen. "imagen": el QR se arma acá como imagen (GS v 0), para una ticketera que no
-     * tenga el comando de QR.
+     * "nativo" (default): la ticketera dibuja el QR (GS ( k), con la SOL 802 sale más nítido. "imagen":
+     * raster (GS v 0), para ticketeras sin comando de QR.
      */
     @Value("${impresion.qr-modo:nativo}")
     private String qrModo = "nativo";
 
-    /**
-     * Puntos de impresora por cuadradito del QR (1 a 16). El contenido que exige ARCA (una URL con los
-     * datos del comprobante en base64) da un QR muy denso, de 57×57 cuadraditos: lo que lo hace
-     * legible en papel térmico es que cada cuadradito sea grande. Con 6 el QR mide ~43 mm.
-     */
+    /** Puntos por cuadradito del QR (1 a 16). El QR de ARCA es muy denso (57×57): con 6 mide ~43 mm. */
     @Value("${impresion.qr-puntos-por-modulo:6}")
     private int puntosPorModulo = 6;
 
@@ -179,10 +167,7 @@ public class TicketEscPosGenerator {
 
         void saltos(int n) { comando(ESC, 'd', n); }
 
-        /**
-         * GS ( k: la ticketera arma y dibuja el QR (modelo 2, corrección L, la mínima: con un contenido
-         * tan largo, más corrección = más cuadraditos). Primero se guardan los datos, después se imprime.
-         */
+        /** GS ( k, modelo 2, corrección L (más corrección = más cuadraditos). */
         void qrNativo(String contenido) {
             byte[] datos = contenido.getBytes(StandardCharsets.US_ASCII);
             int modulo = Math.max(1, Math.min(16, puntosPorModulo));
@@ -196,11 +181,7 @@ public class TicketEscPosGenerator {
             out.write('\n');
         }
 
-        /**
-         * GS v 0: el QR como imagen monocromo (1 bit por punto, filas de ancho múltiplo de 8), para
-         * ticketeras sin comando de QR. Con margen blanco de 4 cuadraditos alrededor: sin él (y pegado
-         * al texto de arriba y abajo) el celular no encuentra el código.
-         */
+        /** GS v 0, 1 bit por punto, con margen de 4 cuadraditos para que el celular lo encuentre. */
         void qrImagen(String contenido) {
             BitMatrix m;
             try {

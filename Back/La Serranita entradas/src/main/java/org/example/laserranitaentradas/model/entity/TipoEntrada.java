@@ -39,7 +39,7 @@ public class TipoEntrada extends BaseEntity {
     @Builder.Default
     private Boolean activo = true;
 
-    /** Si es true, toda compra que incluya entradas debe tener al menos una unidad de algún tipo obligatorio (ej: un adulto responsable). */
+    /** Toda compra con entradas tiene que llevar al menos uno de un tipo obligatorio. */
     @Column(nullable = false)
     @Builder.Default
     private Boolean obligatorio = false;
@@ -49,10 +49,8 @@ public class TipoEntrada extends BaseEntity {
     private Integer maximoPorDia;
 
     /**
-     * Si es true, vender este tipo consume talonario físico (ej: Pase General adulto); los
-     * tipos de menores no entregan entrada física. Sin nullable=false a propósito: agregar
-     * una columna NOT NULL con Hibernate ddl-auto=update falla contra una tabla que ya tiene
-     * filas (Postgres no puede completar el default solo). Se trata como false si es null.
+     * Vender este tipo consume talonario. Nullable porque ddl-auto no puede agregar NOT NULL a una tabla con
+     * filas; null = false.
      */
     @Column(name = "entrega_entrada")
     @Builder.Default
@@ -62,30 +60,17 @@ public class TipoEntrada extends BaseEntity {
     @Column(nullable = false, length = 50)
     private Tipo tipo;
 
-    /**
-     * Posición manual en los listados de venta (POS, compra online). Sin nullable=false a
-     * propósito, mismo motivo que entregaEntrada: agregar una columna NOT NULL con Hibernate
-     * ddl-auto=update falla contra una tabla que ya tiene filas. Los tipos existentes quedan
-     * con orden=null (Postgres los ordena al final en ASC) hasta que se reordenen a mano.
-     */
+    /** Orden manual en los listados de venta. Nullable por lo mismo que entregaEntrada; null va al final. */
     private Integer orden;
 
-    /**
-     * Si es true, este tipo sólo se puede vender desde el POS (boletería) — no aparece en la
-     * compra pública online. Para entradas que se manejan de forma especial en persona (ej. un
-     * cupón físico, un tipo interno). Sin nullable=false a propósito, mismo motivo que
-     * entregaEntrada/orden. Se trata como false (visible en la compra pública) si es null.
-     */
+    /** Sólo se vende en el POS, no online. Nullable; null = false. */
     @Column(name = "solo_pos")
     @Builder.Default
     private Boolean soloPos = false;
 
     /**
-     * Si es true, el POS muestra para este tipo la grilla de cantidad de un toque (1 a 10 y
-     * "10+") en vez del +/- simple: para los tipos que se venden en grupo (ej. Pase General,
-     * pase de menores). Sin nullable=false a propósito, mismo motivo que entregaEntrada/orden.
-     * Se trata como false si es null; en una base existente, scripts/accesos-rapidos-tipos-entrada.sql
-     * lo completa para los tipos que ya los tenían.
+     * El POS muestra botones de 1 a 10 y "10+" en vez de +/-. Nullable; null = false
+     * (scripts/accesos-rapidos-tipos-entrada.sql completa los existentes).
      */
     @Column(name = "accesos_rapidos")
     @Builder.Default

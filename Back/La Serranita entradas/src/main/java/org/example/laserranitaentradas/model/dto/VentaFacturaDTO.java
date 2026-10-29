@@ -6,12 +6,10 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * Una venta de un turno de caja con su factura (o sin ella), para la ventana "Ventas y facturas":
- * desde ahí se reimprime o se manda por mail una factura, o se factura una venta que se cobró sin
- * factura (típico: efectivo con el mail vacío, y el cliente después la pide).
+ * Una venta del turno con su factura, para "Ventas y facturas".
  *
- * @param detalle  resumen de lo vendido ("2x General, 1x Souvenir")
- * @param factura  la factura vigente; null si la venta no se facturó
+ * @param detalle resumen ("2x General, 1x Souvenir")
+ * @param factura la vigente; null si no se facturó
  */
 public record VentaFacturaDTO(
         Long compraId,

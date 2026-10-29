@@ -17,10 +17,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Cobro con el Point de Mercado Pago desde el POS (BOLETERO o ADMIN), y la configuración de los
- * Points desde Sistema > Módulos (SUPERADMIN, por la ruta /api/interno/sistema/**).
- */
+/** Cobro con Point desde el POS y configuración de los Points. */
 @RestController
 @Tag(name = "Point", description = "Cobros con tarjeta en el Point de Mercado Pago")
 public class PointController {
@@ -90,7 +87,7 @@ public class PointController {
 
     @PutMapping("/api/interno/point/terminales/{id}/modo")
     @Operation(summary = "Pasar un Point a integrado (PDV) o a manual (STANDALONE) (ADMIN)",
-            description = "Desde Configuración > Cobros: si se corta internet en la boletería, se pasa a manual (por ejemplo desde el celular) para seguir cobrando.")
+            description = "Si se corta internet, se pasa a manual para seguir cobrando.")
     public ResponseEntity<Void> cambiarModo(@PathVariable String id, @RequestBody Map<String, String> body) {
         service.cambiarModo(id, body.get("modo"));
         return ResponseEntity.noContent().build();
@@ -102,8 +99,7 @@ public class PointController {
         return service.resumenCaja(cajaId);
     }
 
-    /** Mercado Pago caído o el token mal: es un problema de afuera, no del pedido ni del servidor
-     * (por eso no va a Sistema > Errores: un aviso en el log alcanza). */
+    /** Mercado Pago caído o token mal: no va a Sistema > Errores, alcanza con el log. */
     @ExceptionHandler(PointException.class)
     public ResponseEntity<String> errorDeMercadoPago(PointException e) {
         log.warn("Mercado Pago (Point): {}", e.getMessage());

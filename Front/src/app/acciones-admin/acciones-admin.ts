@@ -20,26 +20,26 @@ const PASOS_POR_TAB: Record<Tab, TourStep[]> = {
     {
       selector: '[data-tour="panel-paso"]',
       titulo: 'Tres pasos',
-      texto: 'Acá se completa la reserva: primero las entradas, después los datos del cliente y por último confirmar. Se genera aprobada, sin cobro.',
+      texto: 'Cargá las entradas y los datos del cliente, y confirmá. La reserva queda aprobada, sin cobro.',
     },
   ],
   factura: [
     {
       selector: '[data-tour="modos-factura"]',
       titulo: 'Una o en lote',
-      texto: '"Una factura" para un caso puntual. "En lote" para las ventas del día que quedaron sin facturar: se arma cada venta tocando los ítems, se repite las veces que haga falta y se emiten todas juntas, una factura por venta.',
+      texto: '"Una factura" para un caso puntual. "En lote" para facturar juntas varias ventas que quedaron sin factura.',
     },
     {
       selector: '[data-tour="factura-manual"]',
       titulo: 'Factura manual',
-      texto: 'Factura B (o A, con el CUIT del cliente) sin venta: elegí ítems del catálogo o escribilos a mano, ajustá precios y elegí si se descarga en PDF, se manda por mail o se imprime. Antes de emitir pide confirmación. Abajo quedan las últimas, con la opción de anularlas (nota de crédito).',
+      texto: 'Una factura sin venta: elegí los ítems, ajustá los precios y elegí cómo entregarla. Abajo están las últimas, por si hay que anular alguna.',
     },
   ],
   control: [
     {
       selector: '[data-tour="control-facturas"]',
       titulo: 'Control de facturas',
-      texto: 'El estado de la facturación: cuándo vence el certificado de ARCA, si la numeración coincide con ARCA (se controla sola todas las noches) y las facturas que no se pudieron emitir, para reintentarlas. Abajo, el listado del período para el contador, con los totales y un CSV para Excel.',
+      texto: 'Cuándo vence el certificado de ARCA y qué facturas no se pudieron emitir. Abajo, el listado del período para el contador.',
     },
   ],
 };

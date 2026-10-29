@@ -18,25 +18,10 @@ public interface CuponRepository extends JpaRepository<Cupon, Long> {
     List<Cupon> findAllByFamiliaCuponIsNull();
 
     /**
-     * Consume un uso del cupón, pero sólo si todavía queda alguno. Chequeo e incremento pasan
-     * a ser la MISMA sentencia: la base evalúa el WHERE sobre la fila que acaba de bloquear,
-     * así que dos compras simultáneas no pueden pasar las dos.
-     *
-     * Antes esto eran dos pasos separados (leer usosActuales, validar, y más abajo escribir
-     * usosActuales + 1). Con diez compras a la vez, las diez leían 0, las diez pasaban la
-     * validación y las diez se llevaban el descuento: un cupón de un solo uso se canjeaba diez
-     * veces y el contador terminaba en 1, sin ningún error ni log que lo delatara.
-     *
-     * Un cupón sin fecha de expiración no vence y uno sin usos máximos no se agota.
-     *
-     * Devuelve la cantidad de filas afectadas: 1 si se pudo consumir, 0 si el cupón ya estaba
-     * agotado, inactivo o vencido — quien llama tiene que rechazar la compra en ese caso.
+     * Consume un uso sólo si queda alguno: chequeo e incremento en la misma sentencia, así dos compras
+     * simultáneas no pasan las dos. Devuelve 1 si se pudo, 0 si estaba agotado, inactivo o vencido.
      */
-    /* flushAutomatically sí, clearAutomatically NO: limpiar el contexto acá desprendería el
-       cliente y los tipos de entrada que create() ya tiene cargados y todavía usa para armar
-       la compra. No hace falta: después de esto nadie vuelve a leer los contadores del cupón
-       en memoria, y como ya no se lo modifica desde Java, el dirty checking no puede pisar
-       el incremento que hizo esta sentencia. */
+    // Sin clearAutomatically: desprendería entidades que create() todavía usa.
     @Modifying(flushAutomatically = true)
     @Query("""
             UPDATE Cupon c
@@ -51,17 +36,8 @@ public interface CuponRepository extends JpaRepository<Cupon, Long> {
     int consumirUso(@Param("id") Long id, @Param("hoy") LocalDate hoy);
 
     /**
-     * Devuelve un uso del cupón, cuando la compra que lo había consumido se cancela o se
-     * reembolsa. Si al liberarlo vuelve a haber lugar y no está vencido, se reactiva (un cupón
-     * se apaga solo al agotarse; ver consumirUso).
-     *
-     * Atómico por el mismo motivo que consumirUso, pero al revés: antes esto se hacía leyendo
-     * la entidad, restándole uno en Java y guardándola entera. Si en el medio otra compra
-     * consumía un uso, ese save pisaba el incremento con un valor viejo — el uso de esa otra
-     * compra desaparecía del contador y el cupón podía revivir antes de tiempo.
-     *
-     * El guard usosActuales > 0 lo hace idempotente: liberar dos veces no deja el contador en
-     * negativo ni regala usos.
+     * Devuelve un uso al cancelar o reembolsar, y reactiva el cupón si vuelve a haber lugar y no venció.
+     * Atómico para no pisar un uso concurrente; el guard usosActuales > 0 lo hace idempotente.
      */
     @Modifying(flushAutomatically = true)
     @Query("""
@@ -75,11 +51,7 @@ public interface CuponRepository extends JpaRepository<Cupon, Long> {
             """)
     int liberarUso(@Param("id") Long id, @Param("hoy") LocalDate hoy);
 
-    /**
-     * Cambia usos máximos, vencimiento y activo de UN cupón sin tocar usosActuales, que sigue
-     * siendo cosa de consumirUso/liberarUso: guardar la entidad entera pisaría con un valor
-     * viejo el uso que otra compra acaba de consumir.
-     */
+    /** Cambia usos máximos, vencimiento y activo sin tocar usosActuales. */
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("""
             UPDATE Cupon c
@@ -96,10 +68,7 @@ public interface CuponRepository extends JpaRepository<Cupon, Long> {
     @Query("UPDATE Cupon c SET c.activo = false WHERE c.familiaCupon.id = :familiaId")
     int desactivarFamilia(@Param("familiaId") Long familiaId);
 
-    /**
-     * Prende los cupones de un lote que todavía pueden usarse: un cupón agotado o vencido se
-     * queda apagado (reactivarlo sólo lo dejaría rechazando compras).
-     */
+    /** Prende los cupones del lote que todavía se pueden usar. */
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("""
             UPDATE Cupon c

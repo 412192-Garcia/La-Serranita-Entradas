@@ -5,10 +5,9 @@ import lombok.Data;
 
 import java.time.LocalTime;
 
-/** Horario general del parque para consumo público (GET /api/configuracion/horario, sin
- * autenticación): sólo horaApertura/horaCierre y el lapso de corte de la compra del día — nunca el ConfiguracionParque completo, que
- * hereda de BaseEntity y expondría usuarioCreacion/usuarioModificacion (nombres de admin) a
- * cualquier visitante anónimo. */
+/**
+ * Horario general público (sin login): sólo apertura, cierre y límite de compra, nunca la entidad completa.
+ */
 @Data
 @AllArgsConstructor
 public class HorarioResponseDTO {

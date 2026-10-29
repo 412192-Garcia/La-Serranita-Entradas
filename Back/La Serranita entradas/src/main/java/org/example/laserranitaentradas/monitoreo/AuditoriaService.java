@@ -21,10 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
-/**
- * Arma y guarda el historial de acciones (ver AuditoriaFilter), y lo busca para Sistema >
- * Historial de acciones.
- */
+/** Guarda y busca el historial de acciones. */
 @Service
 public class AuditoriaService {
 

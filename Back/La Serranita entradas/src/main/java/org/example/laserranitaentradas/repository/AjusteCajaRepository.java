@@ -23,7 +23,7 @@ public interface AjusteCajaRepository extends JpaRepository<AjusteCaja, Long> {
     List<AjusteCaja> findAllDeCajasAbiertasEntre(@Param("desde") java.time.LocalDateTime desde,
                                                  @Param("hasta") java.time.LocalDateTime hasta);
 
-    /** [idCaja, neto de ajustes hacia esas formas] por caja, en lote: lo que entró (formaDestino) menos lo que salió (formaOrigen). */
+    /** [idCaja, neto de ajustes] por caja: destino menos origen. */
     @Query("SELECT a.caja.id, " +
             "COALESCE(SUM(CASE WHEN a.formaDestino IN :formas THEN a.monto ELSE 0 END), 0) - " +
             "COALESCE(SUM(CASE WHEN a.formaOrigen IN :formas THEN a.monto ELSE 0 END), 0) " +

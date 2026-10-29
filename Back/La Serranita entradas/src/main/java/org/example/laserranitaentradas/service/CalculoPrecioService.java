@@ -11,12 +11,7 @@ public interface CalculoPrecioService {
      */
     BigDecimal calcularTotal(TipoEntrada tipoEntrada, int cantidad, FormaPago formaPago);
 
-    /**
-     * Igual que la anterior, pero partiendo de un precio de lista dado en vez del actual del
-     * tipo: para cobrar una reserva al precio que tenía cuando se reservó, aunque el tipo haya
-     * subido después. Los escalones por grupo (efectivo) son importes absolutos, así que no
-     * dependen del precio de lista.
-     */
+    /** Como la anterior, con un precio de lista dado (el de la reserva). */
     BigDecimal calcularTotal(TipoEntrada tipoEntrada, int cantidad, FormaPago formaPago, BigDecimal precioLista);
 
     /**

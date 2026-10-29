@@ -5,13 +5,10 @@ import lombok.Data;
 import java.math.BigDecimal;
 import java.util.List;
 
-/**
- * Corrección unificada de un cierre ya hecho: el recuento (efectivo/posnet/entradas/dólares) y,
- * en la misma pasada, los traspasos entre formas de pago. Todo se persiste en una transacción.
- */
+/** Corrección de un cierre: recuento y traspasos entre formas de pago, en una transacción. */
 @Data
 public class CorreccionCajaRequestDTO {
-    /** Cuántos billetes de cada denominación se contaron; montoContado = Σ denominación×cantidad + cambioContado. */
+    /** Billetes por denominación; montoContado = Σ denominación×cantidad + cambioContado. */
     private List<ConteoDenominacionDTO> conteoEfectivo;
     private List<CierrePosnetRequestDTO> cierresPosnet;
     /** Cuántas entradas físicas quedan sin cortar en el talonario (contadas al cerrar). */

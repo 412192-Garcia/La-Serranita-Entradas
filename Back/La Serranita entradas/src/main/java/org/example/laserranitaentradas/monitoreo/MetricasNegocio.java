@@ -19,18 +19,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * Métricas propias de la app para Grafana (además de las que Spring ya publica: requests por
- * endpoint, JVM, pool de conexiones). Se recalculan una vez por minuto y Prometheus lee el último
- * valor, así cada lectura no le pega a la base.
- *
- * - serranita_tarjeta_alerta{tarjeta="..."}: 1 si esa tarjeta de Sistema > Estado está en rojo.
- *   Sirve para armar alertas en Grafana con el historial de cuándo pasó y cuánto duró.
+ * Métricas propias para Grafana, recalculadas cada minuto:
+ * - serranita_tarjeta_alerta{tarjeta="..."}: 1 si la tarjeta está en rojo.
  * - serranita_ventas_ultima_hora{canal="online|puerta"}, serranita_validaciones_ultima_hora.
  * - serranita_incidentes_pendientes, serranita_terminales_operaciones_pendientes.
- *
- * Sólo existe con Grafana configurado (GRAFANA_PROM_URL): sin nadie que lea las métricas, armar
- * cada minuto todo Sistema > Estado (con sus consultas a la base) es trabajo tirado, y la tarea
- * aparecía en Tareas programadas como si Grafana estuviera andando.
+ * Sólo con GRAFANA_PROM_URL configurado.
  */
 @Component
 @ConditionalOnExpression("!'${app.monitoreo.grafana-prom-url:}'.isBlank()")

@@ -37,9 +37,7 @@ public class EmailServiceImpl implements EmailService {
 
     private static final Logger log = LoggerFactory.getLogger(EmailServiceImpl.class);
 
-    // ---------- Paleta del mail (calcada de la marca: ver Front/src/styles.css --color-primary
-    // y el fondo oscuro de app.css) para que el comprobante se vea como parte de la misma app,
-    // no como una plantilla genérica. ----------
+    // ---------- Paleta del mail, la misma de la app ----------
     private static final String COLOR_FONDO = "#f0f2ef";
     private static final String COLOR_HEADER = "#39a935";
     private static final String COLOR_HEADER_TEXTO_MUTED = "#eafbe7";
@@ -69,38 +67,26 @@ public class EmailServiceImpl implements EmailService {
     @Value("${spring.mail.username}")
     private String remitente;
 
-    // Nombre para mostrar del remitente: sin esto el cliente de mail muestra la casilla cruda
-    // (ej. "reservas@...") en vez del nombre del parque.
+    // Sin esto el cliente de mail muestra la casilla cruda en vez del nombre del parque.
     private static final String NOMBRE_REMITENTE = "La Serranita Parque Recreativo";
 
-    // Cada mail que sale de la app va también, en copia oculta, a esta casilla del parque: es el
-    // mismo mensaje (un solo envío con BCC), así el destinatario no ve la copia. Viene de la env
-    // MAIL_COPIA; si está vacía no se manda copia.
+    // Copia oculta de cada mail a esta casilla del parque (MAIL_COPIA). Vacía = sin copia.
     @Value("${app.mail.copia:}")
     private String copia;
 
-    // Mismo dominio público que usa Mercado Pago para el back_url: es donde vive el logo
-    // (Front/public/img/logo-la-serranita.png, servido en la raíz por Angular) que el header
-    // del mail carga como <img> con URL absoluta — un mail no puede resolver rutas relativas.
+    // Dominio público del front: de ahí se carga el logo con URL absoluta.
     @Value("${mercadopago.frontend-url}")
     private String frontendUrl;
 
-    // Teléfono/mail de contacto del parque, mostrados en el mail para que el cliente pueda
-    // consultar o pedir un cambio sin tener que responder al remitente (una casilla no-reply).
-    // Con default porque son datos públicos del negocio, no un secreto — a diferencia de
-    // MAIL_RESERVAS_USERNAME/MAIL_RESERVAS_PASSWORD no hace falta configurarlos para que la app arranque.
+    // Contacto del parque en el mail, porque el remitente es no-reply. Con default: son datos públicos.
     @Value("${app.contacto.telefono:+5493547642649}")
     private String contactoTelefono;
 
     @Value("${app.contacto.email:info@laserranita.com.ar}")
     private String contactoEmail;
 
-    // @Lazy en rechazoService: RechazoOperacionServiceImpl ahora también depende de
-    // CompraService (para reintentar una VENTA rechazada), que a su vez depende de
-    // EmailService — sin el @Lazy acá se cierra un ciclo real en la construcción de los beans
-    // (EmailService → RechazoOperacionService → CompraService → EmailService). Con @Lazy, este
-    // constructor recibe un proxy que recién resuelve el bean real la primera vez que
-    // registrarRechazoEnvio() lo usa, momento en el que el contexto ya terminó de armarse.
+    // @Lazy en rechazoService corta el ciclo EmailService → RechazoOperacionService → CompraService →
+    // EmailService.
     public EmailServiceImpl(JavaMailSender mailSender, CompraRepository compraRepository,
                              @Lazy RechazoOperacionService rechazoService,
                              FacturaRepository facturaRepository,
@@ -145,10 +131,7 @@ public class EmailServiceImpl implements EmailService {
             log.info("Email de confirmación enviado para la compra ID {}", compraId);
 
         } catch (Exception e) {
-            // mailSender.send(...) tira MailException (no checked) si falla el SMTP en sí, y
-            // MimeMessageHelper tira MessagingException al armar el mensaje: como esto corre
-            // @Async sin nadie mirando la pantalla, atrapar ambas acá es lo único que evita que
-            // el fallo se pierda en un log que nadie lee — por eso también se avisa al admin.
+            // Corre @Async: si falla el envío, además del log se avisa al admin.
             log.error("Error al enviar el email de confirmación de la compra ID {}", compraId, e);
             registrarRechazoEnvio(compra, "comprobante de compra", e);
         }
@@ -194,11 +177,7 @@ public class EmailServiceImpl implements EmailService {
         }
     }
 
-    /**
-     * Un regalo es una compra sin fecha CON receptor. Sin fecha y sin receptor es una reserva
-     * abierta del propio titular (la genera un admin desde Acciones): lleva el mismo
-     * comprobante que una reserva con fecha, sólo que vale para cualquier día.
-     */
+    /** Un regalo es sin fecha y con receptor. Sin fecha y sin receptor es una reserva abierta del titular. */
     private static boolean esRegalo(Compra compra) {
         return compra.getFechaVisita() == null && compra.getReceptorNombre() != null;
     }
@@ -282,8 +261,8 @@ public class EmailServiceImpl implements EmailService {
             throw new IllegalStateException("La factura no tiene un email al que mandarla");
         }
         if (Boolean.TRUE.equals(factura.getAnulacionPedida())) {
-            // La venta se canceló (o se corrigió el monto) antes de que saliera el mail: mandarle
-            // una factura que ya tiene nota de crédito sólo confundiría al cliente.
+            // La venta se canceló o cambió antes del mail: no se manda una factura que ya tiene nota de
+            // crédito.
             log.info("No se envía la factura ID {}: la venta se canceló o cambió", facturaId);
             return;
         }
@@ -305,8 +284,7 @@ public class EmailServiceImpl implements EmailService {
             throw new IllegalStateException("No se pudo armar el mail de la factura", e);
         }
 
-        // Sólo esa columna: guardar la entidad leída antes del envío (que tarda) pisaría una
-        // cancelación hecha mientras tanto.
+        // Sólo esa columna: guardar la entidad entera pisaría una cancelación hecha mientras tanto.
         if (destinatario != null) {
             facturaRepository.marcarMailEnviadoA(facturaId, destinatario, LocalDateTime.now());
         } else {
@@ -333,9 +311,7 @@ public class EmailServiceImpl implements EmailService {
         }
     }
 
-    /** Ningún llamador de estos métodos (webhook, verificación de pago, "reenviar comprobante"
-     * desde Boletería) espera el resultado: al ser @Async, el fallo no vuelve a nadie que lo esté
-     * mirando, así que es esto o que se pierda para siempre en un log del servidor. */
+    /** Es @Async y nadie espera el resultado: esto es lo único que deja rastro del fallo. */
     private void registrarRechazoEnvio(Compra compra, String tipoEmail, Exception causa) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("compraId", compra.getId());
@@ -350,9 +326,7 @@ public class EmailServiceImpl implements EmailService {
 
     // ---------- Layout compartido ----------
 
-    /** Franja oscura de arriba con el logo (en un chip blanco: el isologo de La Serranita tiene
-     * texto verde/marrón que se pierde contra un fondo oscuro sin ese respaldo), el título/bajada
-     * del mail y una píldora de estado. */
+    /** Franja de arriba con el logo (en un chip blanco para que se lea), título, bajada y estado. */
     private String construirHeader(String titulo, String bajada, String estadoTexto, String estadoColorTexto, String estadoColorFondo) {
         return """
             <tr>
@@ -398,9 +372,7 @@ public class EmailServiceImpl implements EmailService {
                 contactoTelefono, contactoEmail, COLOR_HEADER_TEXTO_MUTED, contactoEmail);
     }
 
-    /** Franja gris con los medios de contacto: no reemplaza al remitente (una casilla no-reply
-     * que nadie lee si el cliente le responde), así que el mail necesita decir explícitamente
-     * a dónde escribir para pedir un cambio o hacer una consulta. */
+    /** Contacto del parque, porque el remitente es no-reply. */
     private String construirTarjetaAyuda() {
         return """
             <table role="presentation" width="100%%" cellpadding="0" cellspacing="0" style="background-color:#f7f8f6; border-radius:10px; margin-bottom:16px;">
@@ -455,8 +427,7 @@ public class EmailServiceImpl implements EmailService {
             """.formatted(COLOR_FONDO, COLOR_FONDO, header, cuerpo, footer);
     }
 
-    // ---------- Íconos (trazos al estilo Lucide, inline: nada de emojis en la UI de la app,
-    // ver memoria del proyecto — acá aplica igual) ----------
+    // ---------- Íconos inline al estilo Lucide (sin emojis) ----------
 
     private String icono(String path, String color) {
         return """
@@ -473,11 +444,10 @@ public class EmailServiceImpl implements EmailService {
         return FORMATO_MONEDA.format(monto == null ? BigDecimal.ZERO : monto);
     }
 
-    /** Filas de la tabla de entradas: nombre a la izquierda, cantidad a la derecha. Sin precio
-     * por línea a propósito: CompraDetalle.precioUnitario sólo lo completan los artículos del
-     * POS (ver CompraServiceImpl#construirLineasArticulos) — en una entrada online ese campo
-     * queda null, y el precio real puede variar por cupón/promo/forma de pago, así que mostrar
-     * "cantidad x tipoEntrada.getPrecio()" podría no coincidir con lo que de verdad se cobró. */
+    /**
+     * Nombre y cantidad, sin precio por línea: en una entrada online el precio real depende de cupón, promo y
+     * forma de pago.
+     */
     private String construirFilasDetalle(Compra compra) {
         StringBuilder filas = new StringBuilder();
         if (compra.getDetalles() != null) {
@@ -520,10 +490,10 @@ public class EmailServiceImpl implements EmailService {
                 construirFilasDetalle(compra), filaTotal);
     }
 
-    /** etiquetaFecha/valorFecha y etiquetaPersona son parametrizables porque una compra-regalo
-     * (ver esRegalo en construirHtmlEmail) le muestra al comprador "Vigencia" en vez de "Fecha
-     * de visita" (no hay una: la elige quien recibe el regalo) y "Se lo regalás a" en vez de
-     * "Titular" (el titular de esta tarjeta no es el comprador, es el destinatario). */
+    /**
+     * Las etiquetas cambian en un regalo: "Vigencia" en vez de "Fecha de visita" y "Se lo regalás a" en vez
+     * de "Titular".
+     */
     private String construirTarjetaReserva(Compra compra, String etiquetaFecha, String valorFecha,
                                             String etiquetaPersona, String nombrePersona, String dniPersona) {
         return """
@@ -577,8 +547,7 @@ public class EmailServiceImpl implements EmailService {
     /** @param numeroFactura con factura adjunta (compra online), su número; si no, null */
     private String construirHtmlEmail(Compra compra, String numeroFactura) {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
-        // Sin fecha y sin receptor es una reserva abierta generada por un admin: el titular
-        // viene el día que quiera.
+        // Sin fecha ni receptor: reserva abierta, viene el día que quiera.
         String fechaVisitaStr = compra.getFechaVisita() != null ? compra.getFechaVisita().format(formatter) : "Cualquier día";
 
         String nombreCliente = compra.getCliente() != null
@@ -587,16 +556,12 @@ public class EmailServiceImpl implements EmailService {
 
         String dniCliente = compra.getCliente() != null ? compra.getCliente().getDni() : "-";
 
-        // En un regalo este comprobante es del COMPRADOR, no de quien va a entrar al parque, así
-        // que no puede decirle "presentá tu DNI en la boletería" con el DNI del propio comprador
-        // — el que entra (y paga, si quedó pendiente) es el destinatario del regalo.
+        // En un regalo el mail es del comprador: no puede pedirle su DNI en la boletería.
         boolean esRegalo = esRegalo(compra);
         String nombreReceptor = compra.getReceptorNombre() != null ? compra.getReceptorNombre() : "la persona que elijas";
         String dniReceptor = compra.getReceptorDni() != null ? compra.getReceptorDni() : "-";
 
-        // Una reserva en efectivo todavía no cobró nada: el mail no puede decir "pago confirmado"
-        // ni "NO necesitas imprimir nada" como si ya hubiese pagado, porque le falta abonar en la
-        // boletería al llegar. El pagado online sí entra directo con el DNI, sin nada pendiente.
+        // Una reserva en efectivo todavía no pagó: el mail no puede decir "pago confirmado".
         boolean pendienteDePago = compra.getEstado() == EstadoCompra.RESERVADO_EFECTIVO;
 
         String header;
@@ -641,11 +606,7 @@ public class EmailServiceImpl implements EmailService {
             colorTotal = COLOR_PRIMARIO_OSCURO;
         }
 
-        // Una reserva RESERVA_ADMIN (invitados, o ventas por agencia donde el cobro real se
-        // hizo por fuera) no tiene un "monto pagado acá" honesto para mostrar: o es gratis, o
-        // lo cobró la agencia con su propio margen — mostrarle nuestro precio de lista al
-        // comprador filtraría esa comisión sin que venga al caso. Por eso el total se omite
-        // sólo para ese caso (ver ReservaAdminServiceImpl).
+        // RESERVA_ADMIN no muestra total: o es gratis o lo cobró una agencia por fuera.
         boolean mostrarTotal = compra.getFormaPago() != FormaPago.RESERVA_ADMIN;
 
         String tarjetaReserva = esRegalo

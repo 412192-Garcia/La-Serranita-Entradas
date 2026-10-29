@@ -25,12 +25,9 @@ import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * Errores del servidor, para Sistema > Errores. Los captura RegistroIncidentesAppender (todo
- * log.error de la app, incluidos los procesos en segundo plano) y se guardan cada pocos segundos
- * desde una cola: así un log nunca espera a la base, y si la base es la que falla no se arma un
- * círculo de errores que generan errores.
- *
- * Los repetidos (misma firma, sin resolver) se agrupan: suma la cantidad y actualiza la última vez.
+ * Errores para Sistema > Errores. Los captura RegistroIncidentesAppender (todo log.error) y se guardan desde
+ * una cola: un log nunca espera a la base, y si la base falla no se arma un círculo de errores. Los repetidos
+ * sin resolver se agrupan.
  */
 @Service
 public class IncidenteService {
@@ -67,10 +64,7 @@ public class IncidenteService {
         contexto.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME).addAppender(appender);
     }
 
-    /**
-     * Si la cola está llena (una avalancha de errores, o la base caída un buen rato) se descarta y se
-     * cuenta: el log del contenedor lo tiene igual, y al volver se registra cuántos se perdieron.
-     */
+    /** Cola llena: se descarta y se cuenta. El log del contenedor lo tiene igual. */
     void encolar(Evento evento) {
         if (!cola.offer(evento)) contarDescarte(evento.momento());
     }
@@ -91,8 +85,7 @@ public class IncidenteService {
                 try {
                     tx.executeWithoutResult(s -> guardar(e));
                 } catch (org.springframework.dao.DataAccessException | org.springframework.transaction.TransactionException ex) {
-                    // La base no responde: cada intento esperaría el timeout de conexión, así que no se
-                    // sigue probando. Lo que falta vuelve al frente de la cola para la próxima vuelta.
+                    // La base no responde: no se sigue probando; lo que falta vuelve al frente de la cola.
                     devolver(eventos.subList(i, eventos.size()));
                     log.warn("No se pudieron registrar errores del sistema (se reintenta): {}", ex.getMessage());
                     return;
@@ -129,10 +122,9 @@ public class IncidenteService {
     }
 
     /**
-     * Un error de JavaScript que mandó el navegador (ver ErroresClienteController). Área FRONT; se
-     * agrupa como los del servidor (mismo mensaje en la misma pantalla = el mismo error).
+     * Error de JavaScript del navegador. Área FRONT; mismo mensaje en la misma pantalla = mismo error.
      *
-     * @param pantalla ruta de la app donde pasó ("/pos"), sin query string
+     * @param pantalla ruta donde pasó ("/pos"), sin query string
      */
     public void registrarDelNavegador(String mensaje, String stack, String pantalla, String navegador, String usuario) {
         String detalle = (stack == null || stack.isBlank() ? "(sin stack)" : stack)
@@ -167,7 +159,7 @@ public class IncidenteService {
         repository.save(i);
     }
 
-    /** "El mismo error": mismo origen, mismo mensaje (sin números, ids ni montos), misma excepción y misma ruta. */
+    /** Mismo origen, mensaje (sin números ni ids), excepción y ruta. */
     static String firma(Evento e) {
         String base = e.area() + "|" + e.origen() + "|" + normalizar(e.mensaje()) + "|" + e.excepcion() + "|" + normalizar(e.request());
         try {

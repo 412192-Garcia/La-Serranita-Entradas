@@ -49,7 +49,8 @@ export interface CobroPoint {
   ordenId: string | null;
   terminalId: string;
   monto: number;
-  formaPago: FormaPagoPoint;
+  /** Null: posnet, todavía no se sabe si el cliente pagó con tarjeta o QR. */
+  formaPago: FormaPagoPoint | null;
   estado: EstadoCobroPoint;
   /** Todavía puede cambiar solo: hay que seguir esperando al Point. */
   enCurso: boolean;
@@ -70,8 +71,6 @@ export interface ResumenCajaPoint {
   cantidad: number;
   sinVenta: CobroPoint[];
 }
-
-export type TipoTarjetaPoint = 'DEBITO' | 'CREDITO';
 
 /** Point elegido en ESTA tablet (cada tablet tiene el suyo al lado, como la ticketera). */
 const CLAVE_POINT = 'pos-point';
@@ -172,15 +171,9 @@ export class PointService {
 
   // ---------- Cobros ----------
 
-  /** tipoTarjeta: con tarjeta, el Point pide directo ésa; sin él le pregunta al cliente con qué paga (QR incluido). */
-  crearCobro(
-    terminalId: string,
-    monto: number,
-    claveIdempotencia: string,
-    formaPago: FormaPagoPoint,
-    tipoTarjeta: TipoTarjetaPoint | null
-  ): Observable<CobroPoint> {
-    return this.http.post<CobroPoint>(`${this.url}/cobros`, { terminalId, monto, claveIdempotencia, formaPago, tipoTarjeta });
+  /** formaPago null = posnet: el Point le pregunta al cliente si paga con tarjeta o QR. */
+  crearCobro(terminalId: string, monto: number, claveIdempotencia: string, formaPago: FormaPagoPoint | null): Observable<CobroPoint> {
+    return this.http.post<CobroPoint>(`${this.url}/cobros`, { terminalId, monto, claveIdempotencia, formaPago });
   }
 
   consultarCobro(id: number): Observable<CobroPoint> {

@@ -28,8 +28,7 @@ public interface CobroPointRepository extends JpaRepository<CobroPoint, Long> {
     @Query("SELECT c FROM CobroPoint c WHERE c.id = :id")
     Optional<CobroPoint> findConCajaById(@Param("id") Long id);
 
-    /** Para atarlo a una venta (dentro de su transacción): bloquea la fila, así dos ventas que
-     * llegan juntas con el mismo cobro no lo vinculan las dos. */
+    /** Bloqueado, para que dos ventas no vinculen el mismo cobro. */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @EntityGraph(attributePaths = {"caja", "compra"})
     @Query("SELECT c FROM CobroPoint c WHERE c.id = :id")
@@ -39,11 +38,7 @@ public interface CobroPointRepository extends JpaRepository<CobroPoint, Long> {
     @Query("SELECT c.compra.id FROM CobroPoint c WHERE c.id = :id")
     Optional<Long> compraIdActual(@Param("id") Long id);
 
-    /**
-     * Deja asentado el resultado de una devolución en Mercado Pago en su propia transacción: la
-     * devolución ya pasó y no se deshace, así que tampoco tiene que deshacerse en la base si
-     * después falla la cancelación de la venta. No toca la venta del cobro.
-     */
+    /** Guarda la devolución en su propia transacción: ya pasó y no se deshace. No toca la venta. */
     @Modifying
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     @Query("UPDATE CobroPoint c SET c.estado = :estado, c.detalle = :detalle, c.ultimaConsultaMp = :ahora, "

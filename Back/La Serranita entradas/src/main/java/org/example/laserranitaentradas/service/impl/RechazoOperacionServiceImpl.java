@@ -48,8 +48,7 @@ public class RechazoOperacionServiceImpl implements RechazoOperacionService {
         try {
             payloadJson = objectMapper.writeValueAsString(payload);
         } catch (JsonProcessingException e) {
-            // No debería pasar (son DTOs simples), pero registrar el rechazo importa más que el
-            // payload exacto: mejor un placeholder que perder el registro entero.
+            // Mejor un placeholder que perder el registro.
             log.warn("No se pudo serializar el payload de una operación rechazada", e);
             payloadJson = "{}";
         }
@@ -95,10 +94,10 @@ public class RechazoOperacionServiceImpl implements RechazoOperacionService {
         return reabrirYReintentarLote(List.of(id)).get(0);
     }
 
-    /** Un rechazo ya parseado a su DTO real, listo para volver a mandarse tal cual — reusar el
-     * DTO original (con su mismo idempotencyKey) es lo que hace que cada operación se revalide
-     * en vivo (cupo, promo vigente, tipo de entrada, etc.) en vez de forzarse a ciegas, y que un
-     * reintento accidental doble no duplique nada. */
+    /**
+     * Un rechazo parseado a su DTO original, con su idempotencyKey: se revalida en vivo y un reintento doble
+     * no duplica.
+     */
     private record OperacionAAplicar(Object datos) {}
 
     @Transactional
@@ -114,10 +113,7 @@ public class RechazoOperacionServiceImpl implements RechazoOperacionService {
         if (rechazos.stream().anyMatch(OperacionRechazada::isResuelto)) {
             throw new IllegalStateException("Alguno de estos rechazos ya está resuelto");
         }
-        // Se aplican en el mismo orden en que se rechazaron (= el orden en que el POS los
-        // intentó, ver OperacionesPendientesService.sincronizar), para no invertir operaciones
-        // que dependen entre sí (ej. un retiro grande seguido de un aporte que lo compensa, o
-        // una venta que agota el cupo antes que otra).
+        // En el orden en que se rechazaron, para no invertir operaciones que dependen entre sí.
         rechazos.sort(Comparator.comparing(OperacionRechazada::getFechaCreacion));
 
         Long cajaId = null;
@@ -157,9 +153,7 @@ public class RechazoOperacionServiceImpl implements RechazoOperacionService {
             throw new IllegalStateException("No se pudieron leer los datos guardados de alguno de estos rechazos");
         }
 
-        // El usuario sale de la caja recién reabierta, no de cada rechazo (que no lo guarda): es
-        // la misma caja para todos en el lote, así que su dueño es el usuario correcto para
-        // volver a mandar cada operación por el camino real de siempre.
+        // El usuario sale de la caja reabierta: es la misma para todo el lote.
         Caja caja = cajaService.reabrir(cajaId);
         Long usuarioId = caja.getUsuario().getId();
         for (OperacionAAplicar op : aAplicar) {

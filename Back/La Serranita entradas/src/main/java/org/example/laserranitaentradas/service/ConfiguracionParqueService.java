@@ -7,7 +7,7 @@ import java.time.LocalTime;
 
 public interface ConfiguracionParqueService {
     ConfiguracionParque getHorarioGeneral();
-    /** `minutosLimiteCompra` null = dejar el que ya estaba. Tiene que estar entre 0 y ConfiguracionParqueService.MAX_MINUTOS_LIMITE_COMPRA. */
+    /** `minutosLimiteCompra` null = no cambiarlo. Entre 0 y MAX_MINUTOS_LIMITE_COMPRA. */
     ConfiguracionParque actualizarHorarioGeneral(LocalTime horaApertura, LocalTime horaCierre, Integer minutosLimiteCompra);
 
     /** Factura por defecto de cada forma de pago en el POS. Cada una tiene que ser IMPRIMIR o MAIL. */

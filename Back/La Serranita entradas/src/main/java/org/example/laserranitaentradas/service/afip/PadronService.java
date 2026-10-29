@@ -13,11 +13,8 @@ import java.util.Locale;
 import java.util.stream.Collectors;
 
 /**
- * Consulta un CUIT en el padrón de constancia de inscripción de ARCA y lo traduce a lo que lleva
- * una Factura A: razón social, domicilio y condición frente al IVA.
- *
- * Es una ayuda para no tipear: si ARCA no contesta o no da la constancia, el admin carga los datos
- * a mano igual. Por eso los problemas vuelven como estado en la respuesta y no como error HTTP.
+ * Consulta un CUIT en el padrón para una Factura A. Es una ayuda: si ARCA no contesta, se cargan los datos a
+ * mano, por eso los problemas vuelven como estado y no como error.
  */
 @Service
 public class PadronService {
@@ -73,8 +70,7 @@ public class PadronService {
         JsonNode generales = persona.path("datosGenerales");
         JsonNode errorConstancia = persona.path("errorConstancia");
         if (generales.isMissingNode() && !errorConstancia.isMissingNode()) {
-            // ARCA no da la constancia (CUIT cancelada, bloqueada...): se devuelve el motivo y, si
-            // vino, el nombre, pero no se arma nada para facturar.
+            // ARCA no da la constancia: se devuelve el motivo y no se arma nada.
             String motivo = textos(errorConstancia.path("error")).stream().collect(Collectors.joining(" "));
             return new PadronContribuyenteDTO(cuit, Estado.CON_ERROR, nombre(errorConstancia), null, null, null, false,
                     "ARCA no da la constancia de este CUIT" + (motivo.isBlank() ? "." : ": " + motivo));
@@ -102,11 +98,7 @@ public class PadronService {
                 condicion, condicionTexto, admiteA, avisos.isEmpty() ? null : String.join(" ", avisos));
     }
 
-    /**
-     * Monotributo activo (con la variante según la categoría), si no IVA activo = responsable
-     * inscripto, si no IVA exento. Monotributo primero: en el padrón de homologación hay CUITs con
-     * los dos activos y, si es monotributista, una A como responsable inscripto la rechazaría ARCA.
-     */
+    /** Monotributo primero: en homologación hay CUITs con los dos y ARCA rechazaría la A como inscripto. */
     private static Integer condicionIva(JsonNode persona) {
         JsonNode mono = persona.path("datosMonotributo");
         if (impuestoActivo(mono, IMPUESTO_MONOTRIBUTO)) {

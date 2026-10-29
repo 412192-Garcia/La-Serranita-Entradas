@@ -12,9 +12,8 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Qué módulos están prendidos (Sistema > Módulos). Se consulta en caminos calientes (cada venta,
- * cada vuelta del scheduler de facturas), así que se guarda en memoria: hay un solo backend y el
- * único que lo cambia es {@link #cambiar}, que actualiza la memoria junto con la base.
+ * Módulos prendidos, en memoria porque se consultan en cada venta. Hay un solo backend y {@link #cambiar}
+ * actualiza memoria y base.
  */
 @Service
 public class ModulosService {

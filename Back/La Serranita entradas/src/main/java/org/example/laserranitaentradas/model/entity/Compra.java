@@ -14,7 +14,16 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 @Entity
-@Table(name = "compras")
+// Columnas por las que filtran reportes, cajas, boletería y las tareas de Sistema.
+@Table(name = "compras", indexes = {
+        @Index(name = "idx_compras_fecha_visita", columnList = "fecha_visita"),
+        @Index(name = "idx_compras_fecha_creacion", columnList = "fecha_creacion"),
+        @Index(name = "idx_compras_estado_fecha_creacion", columnList = "estado, fecha_creacion"),
+        @Index(name = "idx_compras_fecha_validacion", columnList = "fecha_validacion"),
+        @Index(name = "idx_compras_fecha_pago", columnList = "fecha_pago"),
+        @Index(name = "idx_compras_caja", columnList = "id_caja"),
+        @Index(name = "idx_compras_cliente", columnList = "id_cliente")
+})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -69,12 +78,7 @@ public class Compra extends BaseEntity {
     @JoinColumn(name = "id_cupon")
     private Cupon cupon;
 
-    /**
-     * Promo de venta en puerta aplicada (si hubo una): a diferencia del cupón online, hasta
-     * ahora sólo quedaba el monto de descuento en descuentoAplicado, sin registro de CUÁL
-     * promo se usó. Null si la venta no usó promo (cupón online, descuento manual, o sin
-     * descuento). No se toca nada del cálculo existente: es sólo para poder reportar por promo.
-     */
+    /** Promo de venta en puerta usada, para reportar por promo. Null si no hubo. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_promocion")
     private Promocion promocion;
@@ -101,11 +105,9 @@ public class Compra extends BaseEntity {
     private FormaPago formaPago;
 
     /**
-     * Ids de los pagos aprobados en Mercado Pago que pagaron la compra, separados por coma: uno,
-     * o varios si pagó con más de una tarjeta. El reembolso va por estos ids y no buscando por
-     * external_reference: el código de reserva vuelve a empezar si se reinicia la base, y esa
-     * búsqueda podía encontrar (y devolver) un pago viejo de otra compra. Es texto y no una
-     * tabla aparte para que se escriba en la misma sentencia que aprueba la compra.
+     * Ids de los pagos de MP que pagaron la compra, separados por coma. El reembolso usa estos ids porque
+     * external_reference se repite si se reinicia la base. Texto para escribirlo en la misma sentencia que
+     * aprueba.
      */
     @Column(name = "mp_payment_ids", length = 200)
     private String mpPaymentIds;
@@ -137,8 +139,7 @@ public class Compra extends BaseEntity {
     @Column(name = "motivo_cancelacion", length = 30)
     private String motivoCancelacion;
 
-    /** Qué pasó: lo que escribió quien la anuló a mano (opcional), o lo que contestó Mercado Pago
-     * en una cancelación automática (intentos rechazados, error al iniciar el pago). */
+    /** Lo que escribió quien la anuló, o lo que contestó Mercado Pago en una cancelación automática. */
     @Column(name = "detalle_cancelacion", length = 300)
     private String detalleCancelacion;
 
@@ -149,47 +150,30 @@ public class Compra extends BaseEntity {
     @Column(name = "cancelada_por", length = 100)
     private String canceladaPor;
 
-    /** No se guarda: true cuando create() devolvió un checkout pendiente reusado en vez de una
-     * compra nueva. Esa compra ya tiene un link de pago vigente del intento anterior. */
+    /** No se guarda: true si create() devolvió un checkout reusado, que ya tiene link de pago. */
     @Transient
     private boolean reusada;
 
-    /**
-     * Turno de caja en el que se cobró (venta de puerta o cobro de una reserva en
-     * efectivo). Null en las compras online: esas nunca pasan efectivo por una caja.
-     */
+    /** Caja en la que se cobró. Null en las compras online. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_caja")
     private Caja caja;
 
-    /**
-     * Pago en efectivo hecho en dólares (sigue siendo EFECTIVO_BOLETERIA: es la misma forma
-     * de pago, sólo cambia la moneda física con la que se cobra). Null en pesos.
-     * Cotización usada para este cobro (ARS por USD).
-     */
+    /** Cotización (ARS por USD) si se cobró en dólares. Null en pesos. */
     @Column(name = "cotizacion_dolar")
     private BigDecimal cotizacionDolar;
 
-    /** Dólares que entregó el cliente. Junto con cotizacionDolar y montoTotal permite
-     * reconstruir el vuelto en pesos que hubo que darle. Null si no pagó en dólares. */
+    /** Dólares que entregó el cliente, para reconstruir el vuelto. Null si pagó en pesos. */
     @Column(name = "dolares_recibidos")
     private BigDecimal dolaresRecibidos;
 
-    /**
-     * Clave que genera el cliente antes de mandar la venta, para que un reintento no duplique:
-     * si la petición original llegó y se procesó pero la respuesta se perdió (corte de conexión
-     * justo ahí), el reintento trae la misma clave y el servicio devuelve la compra ya guardada.
-     * Null para compras que no vienen de la cola offline del POS (ej. la compra online).
-     */
+    /** Clave del POS para que un reintento no duplique la venta. Null fuera de la cola offline. */
     @Column(name = "idempotency_key", unique = true, length = 64)
     private String idempotencyKey;
 
     /**
-     * Pago mixto (ej. mitad efectivo, mitad tarjeta): forma de pago SECUNDARIA con su propio
-     * monto. `formaPago` sigue siendo la principal; su parte implícita es
-     * montoTotal − montoFormaPagoSecundaria. Null en el 99% de las ventas (una sola forma).
-     * Restringido a las 3 formas presenciales (ver CompraServiceImpl) — no aplica a dólares
-     * ni al precio de grupo de DescuentoEfectivo, ambos específicos de efectivo puro.
+     * Pago mixto: forma secundaria con su monto; la principal se lleva montoTotal − montoFormaPagoSecundaria.
+     * Sólo formas presenciales, sin dólares ni precio de grupo.
      */
     @Enumerated(EnumType.STRING)
     @Column(name = "forma_pago_secundaria", length = 30)
@@ -199,12 +183,8 @@ public class Compra extends BaseEntity {
     private BigDecimal montoFormaPagoSecundaria;
 
     /**
-     * Cuánto de esta compra corresponde a la forma de pago dada, contemplando el pago mixto:
-     * si `forma` es la principal, su parte es el total menos lo que se llevó la secundaria; si
-     * es la secundaria, es directamente montoFormaPagoSecundaria. 0 si la compra no tiene nada
-     * cobrado con esa forma. Con tarjeta + tarjeta (las dos formas iguales) da el total: no
-     * sumarla una vez por forma. Reemplaza a "formaPago == forma ? montoTotal : 0" en todo cálculo
-     * de caja/reportes que antes asumía una sola forma de pago por compra.
+     * Parte de la compra cobrada con `forma`, con pago mixto. Con tarjeta + tarjeta da el total: no sumarla
+     * una vez por forma.
      */
     public BigDecimal montoPorForma(FormaPago forma) {
         BigDecimal total = BigDecimal.ZERO;

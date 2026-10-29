@@ -2,7 +2,7 @@
 
   <app-cabecera-interna
     titulo="Control de Accesos"
-    descripcion="Buscá por DNI, por nombre, por email o por código de reserva, mirá un día puntual, o listá todas las reservas."
+    descripcion="Buscá reservas por DNI, nombre, email o código."
     [pasosTutorial]="pasosTutorial">
     <div cabecera-acciones data-tour="caja" class="slot-indicador-caja">
       @if (cajaActual() === null) {
@@ -171,7 +171,7 @@
           } @else {
             Ahora no tiene fecha (vale cualquier día).
           }
-          Elegí el día nuevo: el código y el precio no cambian.
+          Elegí el día nuevo.
         </p>
         <app-calendario
           [mostrarOpcionRegalo]="false"
@@ -225,7 +225,7 @@
           <input type="text" [(ngModel)]="formEdit.telefono" name="editTelefono" />
         </label>
         @if (esRegaloDe(reserva)) {
-          <p class="ayuda-receptor">Es un regalo: el DNI de abajo es el de quien lo recibe — es el que vale para entrar.</p>
+          <p class="ayuda-receptor">Es un regalo: el DNI es el de quien lo recibe.</p>
           <label>
             DNI de quien recibe el regalo
             <input type="text" [(ngModel)]="formEdit.receptorDni" name="editReceptorDni" />

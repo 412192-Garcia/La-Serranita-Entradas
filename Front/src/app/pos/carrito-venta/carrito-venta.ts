@@ -49,19 +49,20 @@ export interface VentaPosConfirmada {
 
 const EMAIL_VALIDO = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
-/** Una parte de la venta que se cobra con el Point: la tarjeta o el QR. */
+/** Una parte de la venta que se cobra con el Point. forma null = posnet: el cliente elige tarjeta o QR. */
 interface ParteCobroPoint {
-  forma: FormaPagoPoint;
+  forma: FormaPagoPoint | null;
+  rol: 'principal' | 'secundaria';
   monto: number;
 }
 
 /** La ventana del Point abierta: qué parte se cobra y con qué Point, o un cobro que se retoma. */
 interface PedidoPoint {
   monto: number;
-  forma: FormaPagoPoint;
+  forma: FormaPagoPoint | null;
   terminal: TerminalPoint;
   reanudar: CobroPoint | null;
-  /** "Parte 1 de 2" en un pago mixto tarjeta + QR. */
+  /** "Parte 1 de 2" en un pago mixto. */
   paso: string | null;
 }
 
@@ -98,7 +99,13 @@ export class CarritoVenta {
   limpiar = output<void>();
   ventaRegistrada = output<VentaPosConfirmada>();
 
-  readonly formasPago = FORMAS_PAGO;
+  /** Con el Point integrado, tarjeta y QR son un solo botón "Posnet": el cliente elige en el Point. */
+  modoPosnet = computed(() => this.point.usable());
+  formasPago = computed(() =>
+    this.modoPosnet()
+      ? FORMAS_PAGO.filter((f) => f.valor !== 'MERCADO_PAGO_QR').map((f) => (f.valor === 'TARJETA' ? { ...f, etiqueta: 'Posnet' } : f))
+      : FORMAS_PAGO
+  );
 
   /** Arranca sin elegir a propósito: si viniera Efectivo por defecto, es muy fácil cobrar en
    * efectivo una venta que en realidad fue con tarjeta por olvidarse de cambiarlo. */
@@ -139,17 +146,17 @@ export class CarritoVenta {
   partesPoint = computed<ParteCobroPoint[]>(() => {
     if (this.sinCobro()) return [];
     const partes: ParteCobroPoint[] = [];
-    const agregar = (forma: FormaPagoPos | null, monto: number | null) => {
+    const agregar = (forma: FormaPagoPos | null, monto: number | null, rol: ParteCobroPoint['rol']) => {
       // En centavos exactos: lo que cobra el Point vuelve de la base con 2 decimales, y una resta
       // como total − secundaria puede dar 7747.449999999999.
       if ((forma === 'TARJETA' || forma === 'MERCADO_PAGO_QR') && monto !== null && monto > 0)
-        partes.push({ forma, monto: Math.round(monto * 100) / 100 });
+        partes.push({ forma: forma === 'TARJETA' && this.modoPosnet() ? null : forma, rol, monto: Math.round(monto * 100) / 100 });
     };
     if (this.pagoMixtoActivo()) {
-      agregar(this.formaPago(), this.montoFormaPagoPrincipal());
-      agregar(this.formaPagoSecundaria(), this.montoFormaPagoSecundaria());
+      agregar(this.formaPago(), this.montoFormaPagoPrincipal(), 'principal');
+      agregar(this.formaPagoSecundaria(), this.montoFormaPagoSecundaria(), 'secundaria');
     } else {
-      agregar(this.formaPago(), this.total());
+      agregar(this.formaPago(), this.total(), 'principal');
     }
     return partes;
   });
@@ -173,7 +180,9 @@ export class CarritoVenta {
   private asignacionCobros = computed<(CobroPoint | null)[]>(() => {
     const libres = [...this.cobrosSinVenta()];
     return this.partesPoint().map((parte) => {
-      const i = libres.findIndex((c) => c.formaPago === parte.forma && Math.round(c.monto * 100) === Math.round(parte.monto * 100));
+      const i = libres.findIndex(
+        (c) => (parte.forma === null || c.formaPago === parte.forma) && Math.round(c.monto * 100) === Math.round(parte.monto * 100)
+      );
       return i >= 0 ? libres.splice(i, 1)[0] : null;
     });
   });
@@ -225,12 +234,12 @@ export class CarritoVenta {
   /** Lo que se cobra con formaPagoSecundaria; lo de la forma principal es el resto del total. */
   montoFormaPagoSecundaria = signal<number | null>(null);
 
-  /** Opciones para la segunda forma: las 3 presenciales salvo la ya elegida como principal. La
+  /** Opciones para la segunda forma: las presenciales salvo la ya elegida como principal. La
    * tarjeta es la excepción: tarjeta + tarjeta = dos tarjetas distintas ("Tarjeta 1" y "Tarjeta 2"). */
   opcionesFormaPagoSecundaria = computed(() =>
-    FORMAS_PAGO.filter((f) => f.valor !== this.formaPago() || f.valor === 'TARJETA').map((f) =>
-      f.valor === this.formaPago() ? { ...f, etiqueta: 'Tarjeta 2' } : f
-    )
+    this.formasPago()
+      .filter((f) => f.valor !== this.formaPago() || f.valor === 'TARJETA')
+      .map((f) => (f.valor === this.formaPago() ? { ...f, etiqueta: `${f.etiqueta} 2` } : f))
   );
   /** Pago mixto con dos tarjetas distintas. */
   dosTarjetas = computed(
@@ -238,14 +247,15 @@ export class CarritoVenta {
   );
 
   /** Etiqueta de la forma principal elegida, para mostrar "Efectivo: $X" en el pago mixto. */
-  etiquetaFormaPagoActual = computed(() =>
-    this.dosTarjetas() ? 'Tarjeta 1' : (FORMAS_PAGO.find((f) => f.valor === this.formaPago())?.etiqueta ?? '')
-  );
+  etiquetaFormaPagoActual = computed(() => {
+    const etiqueta = this.formasPago().find((f) => f.valor === this.formaPago())?.etiqueta ?? '';
+    return this.dosTarjetas() ? `${etiqueta} 1` : etiqueta;
+  });
 
   /** Etiqueta de la segunda forma ya elegida, para el label "Monto en Tarjeta". Genérico
    * mientras no eligió ninguna todavía (el input queda deshabilitado hasta entonces). */
   etiquetaFormaPagoSecundariaActual = computed(
-    () => FORMAS_PAGO.find((f) => f.valor === this.formaPagoSecundaria())?.etiqueta ?? 'la 2ª forma'
+    () => this.formasPago().find((f) => f.valor === this.formaPagoSecundaria())?.etiqueta ?? 'la 2ª forma'
   );
 
   /** Lo que se cobra con la forma principal cuando hay pago mixto: el resto del total. */
@@ -441,6 +451,15 @@ export class CarritoVenta {
       };
       this.pedidoPoint.set({ monto: pendiente.monto, forma: pendiente.formaPago, terminal, reanudar: pendiente, paso: null });
     }
+
+    // Volvió el Point con QR elegido: en modo posnet ese botón no está, pasa a Posnet.
+    effect(() => {
+      if (!this.modoPosnet()) return;
+      untracked(() => {
+        if (this.formaPago() === 'MERCADO_PAGO_QR') this.setFormaPago('TARJETA');
+        if (this.formaPagoSecundaria() === 'MERCADO_PAGO_QR') this.formaPagoSecundaria.set('TARJETA');
+      });
+    });
 
     // Si se corta la señal con "Imprimir" marcado, pasa a mail (vacío = sin factura): imprimir
     // no se puede, y así el botón Cobrar no queda trabado sin que se entienda por qué.
@@ -707,7 +726,7 @@ export class CarritoVenta {
   async cobrar(): Promise<void> {
     if (!this.puedeCobrar()) return;
     if (!this.cobraConPoint()) {
-      await this.registrar([]);
+      await this.registrar();
       return;
     }
     // Primero se cobra en el Point cada parte que falta (tarjeta y/o QR, de a una); la venta se
@@ -716,19 +735,19 @@ export class CarritoVenta {
     const partes = this.partesPoint();
     const asignados = this.asignacionCobros();
     const terminal = this.point.efectiva()!;
-    const ids: number[] = [];
+    const cobros: CobroPoint[] = [];
     for (let i = 0; i < partes.length; i++) {
       const ya = asignados[i];
       if (ya) {
-        ids.push(ya.id);
+        cobros.push(ya);
         continue;
       }
       const paso = partes.length > 1 ? `Parte ${i + 1} de ${partes.length}` : null;
       const r = await this.cobrarParteEnPoint({ monto: partes[i].monto, forma: partes[i].forma, terminal, reanudar: null, paso });
       if (r === null) return; // no salió o se canceló: el carrito queda como estaba
-      ids.push(r.id);
+      cobros.push(r);
     }
-    await this.registrar(ids);
+    await this.registrar(cobros, partes);
   }
 
   private cobrarParteEnPoint(pedido: PedidoPoint): Promise<CobroPoint | null> {
@@ -789,12 +808,22 @@ export class CarritoVenta {
     this.point.olvidarCobros([c.id]);
   }
 
-  etiquetaFormaPoint(forma: FormaPagoPoint): string {
-    return forma === 'MERCADO_PAGO_QR' ? 'QR' : 'tarjeta';
+  etiquetaFormaPoint(forma: FormaPagoPoint | null): string {
+    return forma === 'MERCADO_PAGO_QR' ? 'QR' : forma === 'TARJETA' ? 'tarjeta' : 'posnet';
   }
 
-  private async registrar(cobrosPointIds: number[]): Promise<void> {
-    const formaPago: FormaPagoVentaPos | null = this.sinCobro() ? 'SIN_COBRO' : this.formaPago();
+  /** cobros va alineado con partes: la venta se registra con lo que el cliente usó en el Point. */
+  private async registrar(cobros: CobroPoint[] = [], partes: ParteCobroPoint[] = []): Promise<void> {
+    let principal = this.formaPago();
+    let secundaria = this.formaPagoSecundaria();
+    partes.forEach((p, i) => {
+      const real = cobros[i]?.formaPago;
+      if (!real) return;
+      if (p.rol === 'principal') principal = real;
+      else secundaria = real;
+    });
+    const cobrosPointIds = cobros.map((c) => c.id);
+    const formaPago: FormaPagoVentaPos | null = this.sinCobro() ? 'SIN_COBRO' : principal;
     if (formaPago === null) return;
 
     this.cobrando.set(true);
@@ -819,7 +848,7 @@ export class CarritoVenta {
       : {};
 
     const pagoMixtoPayload = this.pagoMixtoActivo()
-      ? { formaPagoSecundaria: this.formaPagoSecundaria(), montoFormaPagoSecundaria: this.montoFormaPagoSecundaria() }
+      ? { formaPagoSecundaria: secundaria, montoFormaPagoSecundaria: this.montoFormaPagoSecundaria() }
       : {};
 
     const reservaId = this.compraReservada()?.id;
@@ -844,7 +873,7 @@ export class CarritoVenta {
     this.cobrando.set(false);
 
     const pagoMixtoConfirmado = this.pagoMixtoActivo()
-      ? { formaPagoSecundaria: this.formaPagoSecundaria(), montoFormaPagoSecundaria: this.montoFormaPagoSecundaria() }
+      ? { formaPagoSecundaria: secundaria, montoFormaPagoSecundaria: this.montoFormaPagoSecundaria() }
       : { formaPagoSecundaria: null, montoFormaPagoSecundaria: null };
 
     // Registrada o guardada en la cola: el cobro del Point ya es de esta venta (si la cola la

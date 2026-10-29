@@ -17,12 +17,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/**
- * Cambiar la contraseña propia es self-service (cualquier usuario logueado, no sólo ADMIN),
- * así que a diferencia de actualizarUsuario tiene que verificar la contraseña actual antes
- * de pisarla: si no, cualquiera con una sesión activa podría cambiarle la contraseña a
- * cualquier otro id sin saber la suya.
- */
+/** Cambiar la contraseña propia verifica la actual. */
 @ExtendWith(MockitoExtension.class)
 class UsuarioServiceImplTest {
 

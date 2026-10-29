@@ -90,7 +90,7 @@ public class FacturaController {
 
     @PostMapping("/compra/{compraId}")
     @Operation(summary = "Facturar una venta que se cobró sin factura",
-            description = "Ej. cobro en efectivo con el mail vacío y el cliente después pide la factura. Mismo pedido que en el POS: imprimir o mandar por mail.")
+            description = "Para una venta que se cobró sin factura. Imprimir o mandar por mail.")
     public FacturaResponseDTO facturar(@PathVariable @Parameter(description = "ID de la venta") Long compraId,
                                        @RequestBody FacturacionPosDTO pedido,
                                        @AuthenticationPrincipal UsuarioAutenticado operador) {
@@ -99,7 +99,7 @@ public class FacturaController {
 
     @PostMapping("/{id}/enviar-mail")
     @Operation(summary = "Mandar una factura emitida a un email",
-            description = "Para cuando el ticket no salió o el cliente la quiere por mail. A diferencia de reenviar-mail, acepta un email nuevo y lo puede usar un boletero.")
+            description = "Acepta un email nuevo y lo puede usar un boletero.")
     public ResponseEntity<Void> enviarMail(@PathVariable @Parameter(description = "ID de la factura") Long id,
                                            @RequestBody Map<String, String> cuerpo,
                                            @AuthenticationPrincipal UsuarioAutenticado operador) {
@@ -137,21 +137,21 @@ public class FacturaController {
 
     @PostMapping("/manual")
     @Operation(summary = "Factura manual (ADMIN)",
-            description = "Factura B sin venta (o A, si viene el receptor con su CUIT), con los ítems e importes que se carguen. Destino IMPRIMIR, MAIL o NINGUNO (sólo PDF).")
+            description = "Factura B sin venta (A con receptor). Destino IMPRIMIR, MAIL o NINGUNO.")
     public FacturaResponseDTO emitirManual(@RequestBody FacturaManualDTO pedido) {
         return facturaService.emitirManual(pedido);
     }
 
     @PostMapping("/manual/lote")
     @Operation(summary = "Lote de facturas manuales (ADMIN)",
-            description = "Varias facturas B sin venta de una vez (las ventas que quedaron sin facturar). Todo o nada; sin entrega, queda el PDF.")
+            description = "Varias facturas B sin venta. Todo o nada, sin entrega.")
     public List<FacturaResponseDTO> emitirManualLote(@RequestBody FacturaManualLoteDTO lote) {
         return facturaService.emitirManualLote(lote);
     }
 
     @GetMapping("/padron/{cuit}")
     @Operation(summary = "Datos de un CUIT en el padrón de ARCA (ADMIN)",
-            description = "Razón social, domicilio fiscal y condición frente al IVA, para completar una Factura A. Si ARCA no contesta o no da la constancia lo dice en `estado` (no es un error HTTP): los datos se cargan a mano.")
+            description = "Datos para una Factura A. Si ARCA no los da, lo dice `estado` (no es error HTTP).")
     public PadronContribuyenteDTO padron(@PathVariable @Parameter(description = "CUIT, con o sin guiones") String cuit) {
         return padronService.consultar(cuit);
     }
@@ -164,7 +164,7 @@ public class FacturaController {
 
     @PostMapping("/{id}/anular")
     @Operation(summary = "Anular una factura (ADMIN)",
-            description = "Emite la nota de crédito (A o B, la de la factura) por el total. Manual o de una venta: la venta queda igual, sin factura, y se puede volver a facturar.")
+            description = "Nota de crédito por el total. La venta queda sin factura.")
     public ResponseEntity<Void> anularFactura(@PathVariable @Parameter(description = "ID de la factura") Long id) {
         facturaService.anularFactura(id);
         return ResponseEntity.ok().build();

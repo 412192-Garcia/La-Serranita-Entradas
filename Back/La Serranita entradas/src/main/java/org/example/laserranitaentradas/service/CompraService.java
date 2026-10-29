@@ -24,15 +24,12 @@ public interface CompraService {
     Optional<Compra> findByCodigoReserva(String codigoReserva);
     Optional<Compra> findByDniandFecha(String dni, LocalDate fechaVisita);
 
-    /** Búsqueda paginada de boletería: texto libre, fecha, boletería/anticipada, estado(s) y forma de pago. */
+    /** Búsqueda paginada de boletería. */
     Page<Compra> buscar(BusquedaComprasFiltroDTO filtro, Pageable pageable);
 
     /**
-     * Días distintos (fechaVisita) con al menos una compra que matchee los mismos filtros que
-     * `buscar`, paginados por cantidad de días (no de compras). Lo usa la vista agrupada por
-     * día de Boletería para paginar sin partir un día a la mitad entre dos páginas: primero se
-     * pide la página de días con este método, y después se trae todo lo de esos días con
-     * `buscar` (fechaDesde/fechaHasta = primer/último día de la página).
+     * Días distintos con compras que matchean los filtros de `buscar`, paginados por día para no partir un
+     * día entre páginas.
      */
     Page<LocalDate> fechasDistintas(BusquedaComprasFiltroDTO filtro, Pageable pageable);
 
@@ -40,20 +37,12 @@ public interface CompraService {
     Compra marcarEntradasComoUsadas(Long compraId, Long usuarioValidadorId);
 
     /**
-     * Cobra en efectivo una reserva y habilita el ingreso. Normalmente la venta tiene que
-     * integrar la caja abierta del usuario para poder reconciliarse al cierre; con
-     * `permitirSinCaja` (ADMIN desde Control de Accesos, que no abre caja para esto) se permite
-     * cobrar igual sin una: la compra queda con caja null, fuera de cualquier cierre — sólo
-     * queda registrada para Reportes y el historial de Control de Accesos.
+     * Cobra en efectivo una reserva y habilita el ingreso. Con `permitirSinCaja` (ADMIN) la compra queda sin
+     * caja, fuera de cualquier cierre.
      */
     Compra confirmarPagoEfectivo(Long compraId, Long usuarioValidadorId, boolean permitirSinCaja);
 
-    /**
-     * Deshace una validación reciente (ventana corta, ver implementación): vuelve la compra
-     * al estado previo (APROBADO o RESERVADO_EFECTIVO según la forma de pago) y limpia
-     * validador/fecha/caja. Pensado para el "cancelar validación" que ofrece boletería
-     * mientras la fila todavía no desapareció de la lista.
-     */
+    /** Deshace una validación reciente: vuelve al estado previo y limpia validador, fecha y caja. */
     Compra deshacerValidacion(Long compraId);
     CotizacionResponseDTO cotizar(CotizacionRequestDTO cotizacionRequest);
     Optional<String> consultarEstadoCompra(Long id);
@@ -61,100 +50,62 @@ public interface CompraService {
     CompraResponseDTO iniciarCompraConPago(CompraRequestDTO compraRequest) throws Exception;
 
     /**
-     * Marca la compra como APROBADO, guarda los ids de los pagos de Mercado Pago que la pagaron
-     * (uno, o varios si pagó con más de una tarjeta; con ellos se reembolsa después) y envía el
-     * comprobante, de forma idempotente.
-     * Devuelve false si no había nada que hacer (no existe, o ya estaba aprobada/usada).
+     * Marca la compra APROBADO, guarda los pagos de Mercado Pago (para reembolsar) y manda el comprobante.
+     * Idempotente: false si no había nada que hacer.
      */
     boolean confirmarAprobado(Long compraId, List<Long> pagosMercadoPago, org.example.laserranitaentradas.model.entity.ConfirmacionPago origen);
 
     /**
-     * Confirma la compra a la que apunta un pago avisado por el webhook de Mercado Pago, con las
-     * mismas reglas que la verificación directa: los pagos aprobados posteriores a la compra
-     * tienen que cubrir exactamente el total, solos o sumados (pago con varias tarjetas).
+     * Confirma la compra de un pago avisado por el webhook. Los pagos aprobados tienen que cubrir exactamente
+     * el total, solos o sumados.
      */
     boolean confirmarPagoMercadoPago(Payment pago);
 
     /**
-     * Si la compra sigue PENDIENTE_PAGO, le pregunta directamente a la API de Mercado
-     * Pago (por external_reference) en vez de esperar al webhook — así una compra no
-     * queda colgada si la notificación nunca llegó (por ejemplo, el túnel de notificaciones
-     * caído). Devuelve el estado resultante.
+     * Si la compra sigue PENDIENTE_PAGO, consulta a Mercado Pago directamente por si el webhook no llegó.
+     * Devuelve el estado resultante.
      */
     String verificarPagoDirecto(Long compraId);
 
-    /** Ids de compras que quedaron PENDIENTE_PAGO hace más de `horasAntiguedad` (checkouts
-     * abandonados: el usuario nunca terminó de pagar). Las procesa {@link #expirarCheckoutAbandonado}. */
+    /** Compras en PENDIENTE_PAGO hace más de `horasAntiguedad`. */
     List<Long> idsCheckoutsAbandonados(int horasAntiguedad);
 
     /**
-     * Cierra un checkout abandonado: primero re-verifica contra Mercado Pago por si el pago
-     * entró y el webhook nunca llegó (en ese caso la confirma, no la cancela); si sigue sin
-     * pagarse, la marca CANCELADO y devuelve el uso del cupón que había consumido al crearse.
-     * Así el cupo diario y los usos de cupón no quedan bloqueados para siempre por compras
-     * que nadie pagó.
+     * Cierra un checkout abandonado: si el pago entró igual la confirma; si no, la cancela y devuelve el uso
+     * del cupón.
      */
     void expirarCheckoutAbandonado(Long compraId);
 
-    /** Corrige nombre/apellido del titular y su contacto (email/teléfono). No toca fecha, entradas ni montos. */
+    /** Corrige titular y contacto. No toca fecha, entradas ni montos. */
     Compra actualizarContacto(Long compraId, EditarContactoRequest request);
 
-    /** Reenvía el comprobante ya enviado; sólo tiene sentido si la compra está APROBADO o USADO. */
+    /** Reenvía el comprobante; sólo para APROBADO o USADO. */
     void reenviarComprobante(Long compraId);
 
-    /**
-     * Venta presencial en boletería: cobra y habilita el ingreso en un solo paso, así que
-     * la compra nace directamente en USADO y sin datos de cliente.
-     */
+    /** Venta en boletería: nace USADO y sin datos de cliente. */
     Compra registrarVentaPos(VentaPosRequestDTO request, Long usuarioVendedorId);
 
-    /**
-     * Igual que registrarVentaPos, pero para que un ADMIN cargue una venta que le faltó
-     * registrar a un boletero, directamente en su caja por id (ADMIN-only, gateado en
-     * SecurityConfig) — ej. mientras revisa el detalle de una caja abierta y nota que falta
-     * una venta. Queda a nombre del dueño de esa caja, no del admin.
-     */
+    /** Como registrarVentaPos, en la caja de otro usuario. Queda a nombre del dueño de la caja. */
     Compra registrarVentaPosComoAdmin(Long cajaId, VentaPosRequestDTO request);
 
-    /**
-     * Reembolsa una compra pagada online (Mercado Pago) que todavía no fue utilizada:
-     * llama a la API de reembolsos de Mercado Pago y, si funciona, pasa la compra a
-     * REEMBOLSADA. Sólo válido en estado APROBADO.
-     */
+    /** Reembolsa por Mercado Pago una compra APROBADO y la pasa a REEMBOLSADA. */
     Compra reembolsarCompra(Long compraId);
 
-    /**
-     * Cancela una reserva generada por un admin (RESERVA_ADMIN) que todavía no ingresó. No se
-     * cobró nada por la app, así que no hay reembolso: sólo pasa a CANCELADO.
-     */
+    /** Cancela una RESERVA_ADMIN que no ingresó. No hay reembolso. */
     Compra cancelarReservaAdmin(Long compraId);
 
     /**
-     * Pasa una reserva anticipada (pagada online, a pagar en efectivo o generada desde Acciones)
-     * a otro día de visita, mientras no haya ingresado. El día nuevo tiene que estar abierto, no
-     * ser pasado y tener cupo para sus entradas. Una reserva sin fecha generada desde Acciones
-     * puede recibir un día; un regalo no (el día lo elige quien lo recibe). El código de reserva
-     * no cambia y el precio tampoco.
+     * Cambia el día de una reserva que no ingresó. El día nuevo tiene que estar abierto y con cupo. Un regalo
+     * no recibe fecha. Código y precio no cambian.
      */
     Compra cambiarFechaVisita(Long compraId, LocalDate nuevaFecha, boolean avisarPorMail);
 
-    /**
-     * Cancela una venta de puerta mal cargada (ADMIN, desde el detalle de una caja): la marca
-     * CANCELADO en vez de borrarla, para no perder el rastro por si hay que auditar el error
-     * después. Al quedar CANCELADO, deja de contar para el cupo diario, los totales de caja y
-     * los reportes (ver construirDetalles/CajaServiceImpl/ReporteServiceImpl, que ya excluyen
-     * este estado). Sólo para compras que pasaron por una caja (compra.caja != null); una
-     * reserva online no se cancela por acá.
-     */
+    /** Cancela una venta de caja (queda CANCELADO, no se borra) y deja de contar en cupo, caja y reportes. */
     Compra cancelarVenta(Long compraId, String motivo);
 
     /**
-     * Corrige las entradas y/o la forma de pago de una venta de puerta ya cargada (ADMIN, desde
-     * el detalle de una caja) — ej. el cajero tocó 3 en vez de 2, o cobró Efectivo en vez de
-     * Tarjeta. Revalida el cupo diario contra las nuevas cantidades (sin contar dos veces lo que
-     * esta misma compra ya tenía) y recalcula el monto de las entradas con el motor de precios
-     * real; el descuento ya aplicado se mantiene como estaba. No toca artículos varios: si el
-     * error está ahí, se cancela la venta y se vuelve a cargar entera.
+     * Corrige entradas y forma de pago de una venta de caja. Revalida el cupo y recalcula el precio; el
+     * descuento queda igual. No toca artículos varios.
      */
     Compra editarVenta(Long compraId, EditarVentaRequestDTO request);
 }

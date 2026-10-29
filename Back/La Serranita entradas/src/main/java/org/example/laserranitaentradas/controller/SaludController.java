@@ -11,10 +11,8 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.Map;
 
 /**
- * Para lo que mira desde afuera: el healthcheck de Docker y un monitor externo (UptimeRobot o
- * similar, apuntando a https://DOMINIO/api/salud). A diferencia de /api/ping, también prueba la
- * base: con la base caída la app no sirve aunque el backend responda. Público y sin ningún dato
- * interno: sólo OK (200) o SIN_BASE (503).
+ * Para el healthcheck de Docker y el monitor externo. A diferencia de /api/ping, prueba la base. Sólo OK
+ * (200) o SIN_BASE (503).
  */
 @RestController
 @RequestMapping("/api")

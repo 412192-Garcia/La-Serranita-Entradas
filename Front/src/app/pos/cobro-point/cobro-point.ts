@@ -6,7 +6,7 @@ import { LucideCreditCard, LucideQrCode, LucideTriangleAlert } from '@lucide/ang
 import { Modal } from '../../shared/modal/modal';
 import { PesosPipe } from '../../shared/pesos.pipe';
 import { ConectividadService } from '../../services/conectividad.service';
-import { CobroPoint, FormaPagoPoint, PointService, TerminalPoint, TipoTarjetaPoint } from '../../services/point.service';
+import { CobroPoint, FormaPagoPoint, PointService, TerminalPoint } from '../../services/point.service';
 
 /** Cada cuánto se pregunta por el cobro mientras se espera la tarjeta (el backend le pregunta a
  * Mercado Pago como mucho cada 3 s; si llega el webhook, antes). */
@@ -31,8 +31,9 @@ export class CobroPointModal implements OnInit {
 
   monto = input.required<number>();
   terminal = input.required<TerminalPoint>();
-  forma = input<FormaPagoPoint>('TARJETA');
-  /** "Parte 1 de 2" en un pago mixto tarjeta + QR. */
+  /** Null = posnet: el cliente elige tarjeta o QR en el Point. */
+  forma = input<FormaPagoPoint | null>(null);
+  /** "Parte 1 de 2" en un pago mixto. */
   paso = input<string | null>(null);
   /** Cobro ya mandado (se recargó la página mientras se esperaba): se sigue ése en vez de crear otro. */
   reanudar = input<CobroPoint | null>(null);
@@ -50,13 +51,8 @@ export class CobroPointModal implements OnInit {
   /** Mercado Pago aceptó cancelar pero el Point todavía no la soltó (la aplica cuando puede, a
    * veces nunca): no se vuelve a pedir, se espera o se cancela en el propio Point. */
   cancelacionPedida = signal(false);
-  /** Débito o crédito: se elige antes de mandar una tarjeta, así el Point pide directo ésa en vez
-   * de preguntarle al cliente con qué paga. */
-  tipoTarjeta = signal<TipoTarjetaPoint | null>(null);
-  /** Falta elegir débito o crédito: todavía no se mandó nada al Point. */
-  eligiendoTarjeta = computed(
-    () => this.forma() === 'TARJETA' && this.tipoTarjeta() === null && this.cobro() === null && this.error() === null
-  );
+  /** Anotando a mano un cobro del posnet: falta que el boletero diga si fue tarjeta o QR. */
+  eligiendoFormaAMano = signal(false);
   /** Un mismo intento usa siempre la misma clave: si se pierde la respuesta, reintentar no crea otra orden. */
   private clave = crypto.randomUUID();
   private consultando = false;
@@ -81,19 +77,14 @@ export class CobroPointModal implements OnInit {
     if (previo) {
       this.cobro.set(previo);
       this.consultar();
-    } else if (this.forma() !== 'TARJETA') {
+    } else {
       this.enviar();
     }
   }
 
-  elegirTarjeta(tipo: TipoTarjetaPoint): void {
-    this.tipoTarjeta.set(tipo);
-    this.enviar();
-  }
-
   enviar(): void {
     this.error.set(null);
-    this.point.crearCobro(this.terminal().id, this.monto(), this.clave, this.forma(), this.tipoTarjeta()).subscribe({
+    this.point.crearCobro(this.terminal().id, this.monto(), this.clave, this.forma()).subscribe({
       next: (c) => this.procesar(c),
       error: (err) => this.error.set(this.mensaje(err, 'No se pudo mandar el cobro al Point.')),
     });
@@ -104,13 +95,6 @@ export class CobroPointModal implements OnInit {
     this.clave = crypto.randomUUID();
     this.cobro.set(null);
     this.cancelacionPedida.set(false);
-    // Un error viejo (ej. falló "Cancelar cobro") taparía la elección de débito o crédito.
-    this.error.set(null);
-    // Con tarjeta se vuelve a preguntar: puede que haya fallado por haber elegido la equivocada.
-    if (this.forma() === 'TARJETA') {
-      this.tipoTarjeta.set(null);
-      return;
-    }
     this.enviar();
   }
 
@@ -137,11 +121,16 @@ export class CobroPointModal implements OnInit {
     this.cerrado.emit();
   }
 
-  confirmarAMano(): void {
+  confirmarAMano(forma?: FormaPagoPoint): void {
     const c = this.cobro();
     if (!c) return;
+    const formaPago = forma ?? c.formaPago;
+    if (formaPago === null) {
+      this.eligiendoFormaAMano.set(true);
+      return;
+    }
     this.olvidar();
-    this.anotarAMano.emit(c);
+    this.anotarAMano.emit({ ...c, formaPago });
   }
 
   private olvidar(): void {
@@ -163,7 +152,7 @@ export class CobroPointModal implements OnInit {
         this.consultando = false;
         this.error.set(
           err instanceof HttpErrorResponse && err.status === 0
-            ? 'Sin conexión con el servidor: el cobro sigue en el Point. Cuando vuelva la señal se actualiza solo.'
+            ? 'Sin conexión. El cobro sigue en el Point y se actualiza cuando vuelva la señal.'
             : this.mensaje(err, 'No se pudo consultar el cobro.')
         );
       },

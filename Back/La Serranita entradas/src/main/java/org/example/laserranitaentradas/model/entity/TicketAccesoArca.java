@@ -7,11 +7,7 @@ import lombok.Setter;
 
 import java.time.LocalDateTime;
 
-/**
- * Último ticket de acceso (TA) de WSAA de cada web service de ARCA (ver ArcaClient). En la base y
- * no sólo en memoria porque WSAA no entrega otro mientras el anterior siga vigente (dura 12 h): si
- * se perdiera en un reinicio o un deploy, la facturación quedaría trabada hasta que venza.
- */
+/** Último ticket de WSAA de cada servicio. En la base porque WSAA no da otro mientras siga vigente (12 h). */
 @Entity
 @Table(name = "tickets_acceso_arca")
 @Getter

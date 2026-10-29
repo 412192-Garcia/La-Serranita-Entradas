@@ -1,7 +1,6 @@
 @if (caja().habilitada === false) {
   <div class="banner-caja-borrada">
-    Esta caja fue <strong>borrada</strong> por un administrador: no aparece en los listados ni en
-    el reporte, y sus ventas tampoco cuentan. No se puede deshacer desde la app.
+    Esta caja fue <strong>borrada</strong>: no aparece en los listados y sus ventas no cuentan.
   </div>
 }
 
@@ -355,7 +354,7 @@
 
     @if (articulosPorForma().length > 0) {
       <p class="linea-articulos">
-        Artículos varios (van aparte de las entradas):
+        Artículos varios:
         @for (a of articulosPorForma(); track a.clave) {
           <span>{{ a.etiqueta }} <strong>{{ a.monto | pesos }}</strong></span>
         }

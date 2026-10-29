@@ -8,11 +8,7 @@ import java.util.List;
 
 @Repository
 public interface ClienteRepository extends JpaRepository<Cliente, Long> {
-    /**
-     * Puede haber más de un cliente con el mismo DNI: no hay una restricción de unicidad
-     * porque un DNI mal tipeado puede coincidir por casualidad con el de otra persona real
-     * (ver CompraServiceImpl.create, que decide con cuál de éstos quedarse según el nombre).
-     */
+    /** Puede haber varios: el DNI no es único porque uno mal tipeado puede coincidir con otra persona. */
     List<Cliente> findAllByDni(String dni);
 }
 

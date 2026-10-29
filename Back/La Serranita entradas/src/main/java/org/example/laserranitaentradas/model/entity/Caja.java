@@ -14,9 +14,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Turno de caja de un boletero: arranca con un monto inicial declarado y, al cerrar,
- * compara el efectivo esperado (inicial + ventas en efectivo − retiros) contra lo que
- * el boletero contó de verdad. Mientras no tenga fechaCierre, está abierta.
+ * Turno de caja de un boletero. Al cerrar compara el efectivo esperado con lo contado. Sin fechaCierre está
+ * abierta.
  */
 @Entity
 @Table(name = "cajas")
@@ -58,19 +57,15 @@ public class Caja extends BaseEntity {
     @Column(name = "diferencia")
     private BigDecimal diferencia;
 
-    /** Total en billetes chicos (50, 20, etc.) que el boletero carga de una sola vez en vez de contarlos uno por uno. Ya está incluido en montoContado. */
+    /** Billetes chicos cargados de una vez; incluidos en montoContado. */
     @Column(name = "cambio_contado")
     private BigDecimal cambioContado;
 
-    /**
-     * Con cuántas entradas físicas (talonario) arranca el boletero el turno. Null en
-     * cajas abiertas antes de agregar este campo: el cierre tolera esa ausencia y no
-     * calcula la diferencia de entradas en ese caso.
-     */
+    /** Talonario al arrancar. Null en cajas viejas: no se calcula la diferencia de entradas. */
     @Column(name = "entradas_fisicas_inicial")
     private Integer entradasFisicasInicial;
 
-    /** Cuántas entradas físicas quedaron sin cortar en el talonario, contadas al cerrar. Null hasta que cierra. */
+    /** Entradas que quedaron en el talonario al cerrar. */
     @Column(name = "entradas_fisicas_restantes")
     private Integer entradasFisicasRestantes;
 
@@ -80,19 +75,13 @@ public class Caja extends BaseEntity {
     @Builder.Default
     private List<ConteoDenominacion> conteoEfectivo = new ArrayList<>();
 
-    /**
-     * Dólares que el boletero contó al cerrar. Null mientras la caja sigue abierta, y
-     * también en cajas cerradas que no tuvieron ninguna venta en dólares (no hay nada
-     * que contar).
-     */
+    /** Dólares contados al cerrar. Null si no hubo ventas en dólares. */
     @Column(name = "dolares_contado")
     private BigDecimal dolaresContado;
 
     /**
-     * false = un admin deshabilitó esta caja: se saca de todos los listados/KPIs de Cajas, del
-     * ranking y del reporte, y sus ventas dejan de sumar. Irreversible desde la app. Null en
-     * cajas previas a este campo (ddl-auto=update no puede backfillear): se tratan como
-     * habilitadas — usar siempre {@link #estaHabilitada()} para leer, nunca el getter directo.
+     * false = caja deshabilitada. Null en cajas viejas, que cuentan como habilitadas: leer con {@link
+     * #estaHabilitada()}.
      */
     @Column(name = "habilitada")
     @Builder.Default
@@ -103,12 +92,7 @@ public class Caja extends BaseEntity {
         return !Boolean.FALSE.equals(habilitada);
     }
 
-    /**
-     * true = esta caja se abrió con "vender sin control de caja" (sólo disponible para un
-     * ADMIN vendiendo él mismo): nace con montoInicial/entradasFisicasInicial en 0, sin pedir
-     * el conteo de apertura, y se cierra sola a fin de día sin pedir tampoco el conteo de
-     * cierre (no hay nada que controlar). Null/false en una caja normal.
-     */
+    /** true = abierta sin control: sin conteos y se cierra sola a fin de día. */
     @Column(name = "control_omitido")
     private Boolean controlOmitido;
 }

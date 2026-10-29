@@ -1,5 +1,6 @@
 package org.example.laserranitaentradas.controller;
 
+import org.example.laserranitaentradas.model.dto.DiaAbiertoDTO;
 import org.example.laserranitaentradas.model.dto.HorarioRequest;
 import org.example.laserranitaentradas.model.entity.DiaApertura;
 import org.example.laserranitaentradas.service.DiaAperturaService;
@@ -51,7 +52,7 @@ public class DiaAperturaController {
     }
 
     @GetMapping("/mes")
-    @Operation(summary = "Estado de todos los días del mes", description = "Devuelve un objeto por cada día del mes indicando si está abierto o cerrado. Días sin registro se consideran cerrados.")
+    @Operation(summary = "Estado de todos los días del mes", description = "Un objeto por día del mes. Sin registro = cerrado.")
     @ApiResponse(responseCode = "200", description = "Lista de días de apertura obtenida exitosamente")
     public ResponseEntity<List<DiaApertura>> getMonth(
             @RequestParam @Parameter(description = "Mes (1-12)") int month,
@@ -70,35 +71,35 @@ public class DiaAperturaController {
 
     @GetMapping("/compra-de-hoy-cerrada")
     @Operation(summary = "¿Ya se cortó la compra online para hoy?",
-            description = "true si hoy ya pasó el límite de compra (cierre del día menos el lapso configurado junto al horario general). Endpoint público: el calendario de compra lo usa para pintar hoy como un día que estuvo abierto pero ya no se puede elegir, en vez de como uno cerrado.")
+            description = "true si hoy ya pasó el límite de compra.")
     public ResponseEntity<Boolean> compraDeHoyCerrada() {
         return ResponseEntity.ok(diaAperturaService.compraDelDiaCerrada(LocalDate.now(), java.time.LocalDateTime.now()));
     }
 
     @GetMapping("/abiertos")
-    @Operation(summary = "Obtener días abiertos de un mes", description = "Devuelve una lista de fechas abiertas en el formato YYYY-MM-DD para un mes y año específicos.")
+    @Operation(summary = "Obtener días abiertos de un mes", description = "Días abiertos del mes con el horario de cada uno. Público.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Lista de días abiertos obtenida exitosamente"),
             @ApiResponse(responseCode = "400", description = "Parámetros inválidos")
     })
-    public ResponseEntity<List<String>> obtenerDiasAbiertos(@RequestParam @Parameter(description = "Año en formato YYYY") Integer year,
-                                                            @RequestParam @Parameter(description = "Mes en formato MM") Integer month) {
+    public ResponseEntity<List<DiaAbiertoDTO>> obtenerDiasAbiertos(@RequestParam @Parameter(description = "Año en formato YYYY") Integer year,
+                                                                   @RequestParam @Parameter(description = "Mes en formato MM") Integer month) {
         if (year == null || month == null || month < 1 || month > 12) {
             return ResponseEntity.badRequest().build();
         }
 
-        List<String> diasAbiertos = diaAperturaService.getDiasAbiertos(year, month);
+        List<DiaAbiertoDTO> diasAbiertos = diaAperturaService.getDiasAbiertos(year, month);
         return ResponseEntity.ok(diasAbiertos);
     }
 
     @GetMapping("/ultima-abierta")
-    @Operation(summary = "Última fecha abierta cargada", description = "Fecha abierta más lejana ya cargada, para limitar hasta dónde puede avanzar el calendario del comprador. Null si no hay ninguna.")
+    @Operation(summary = "Última fecha abierta cargada", description = "Fecha abierta más lejana. Null si no hay.")
     public ResponseEntity<LocalDate> obtenerUltimaFechaAbierta() {
         return ResponseEntity.ok(diaAperturaService.getUltimaFechaAbierta());
     }
 
     @PutMapping("/fecha/{fecha}/horario")
-    @Operation(summary = "Establecer horario especial por fecha", description = "Asigna un horario distinto al general para un día puntual. Enviar ambos campos null para volver al horario general.")
+    @Operation(summary = "Establecer horario especial por fecha", description = "Horario especial de un día. Ambos null = vuelve al general.")
     public ResponseEntity<DiaApertura> setHorarioEspecial(@PathVariable @Parameter(description = "Fecha (YYYY-MM-DD)") LocalDate fecha,
                                                           @RequestBody HorarioRequest request) {
         DiaApertura dia = diaAperturaService.setHorarioEspecial(fecha, request.getHoraApertura(), request.getHoraCierre());

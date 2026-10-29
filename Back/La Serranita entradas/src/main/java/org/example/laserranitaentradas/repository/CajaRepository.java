@@ -18,20 +18,16 @@ public interface CajaRepository extends JpaRepository<Caja, Long>, JpaSpecificat
             "AND (c.habilitada IS NULL OR c.habilitada = true) AND c.diferencia IS NOT NULL " +
             "AND (c.diferencia >= :umbral OR c.diferencia <= -:umbral) ORDER BY c.fechaCierre DESC")
     List<Caja> cerradasConDiferencia(@Param("desde") LocalDateTime desde, @Param("umbral") java.math.BigDecimal umbral);
-    /** Todas las cajas sin cerrar de este usuario — puede haber más de una si quedaron cajas de
-     * días anteriores sin cerrar (ver CajaServiceImpl.getCajaOperativaHoy): a diferencia de un
-     * findBy...Optional, esto no rompe si hay más de una fila. */
+    /** Puede haber más de una si quedaron cajas de días anteriores. */
     List<Caja> findAllByUsuarioIdAndFechaCierreIsNull(Long usuarioId);
 
-    /** Cajas ya cerradas cuyo turno (día de apertura) cae en el rango, para el reporte de
-     * faltantes/sobrantes por turno — la más reciente primero. Por apertura y no por cierre: una
-     * caja que quedó abierta el domingo y se cerró el sábado siguiente es del domingo, igual que
-     * sus ventas. Incluye las deshabilitadas: el reporte las filtra en memoria (ver ReporteServiceImpl). */
+    /**
+     * Cajas cerradas por día de apertura, la más reciente primero. Incluye las deshabilitadas: el reporte las
+     * filtra.
+     */
     List<Caja> findAllByFechaAperturaBetweenAndFechaCierreIsNotNullOrderByFechaAperturaDesc(LocalDateTime desde, LocalDateTime hasta);
 
-    /** Nombres ("nombre apellido", el mismo texto que CajaResumenReporteDTO) de los boleteros con al
-     * menos una caja cerrada y habilitada, en orden alfabético: son los chips del filtro de "Cajas
-     * cerradas", que ya no depende de un rango de fechas. */
+    /** Boleteros ("nombre apellido") con alguna caja cerrada habilitada, para el filtro. */
     @Query("SELECT DISTINCT CONCAT(u.nombre, ' ', u.apellido) FROM Caja c JOIN c.usuario u "
             + "WHERE c.fechaCierre IS NOT NULL AND (c.habilitada IS NULL OR c.habilitada = true) "
             + "ORDER BY CONCAT(u.nombre, ' ', u.apellido)")
@@ -44,11 +40,9 @@ public interface CajaRepository extends JpaRepository<Caja, Long>, JpaSpecificat
     /** Todas las cajas abiertas ahora mismo, sin importar de qué boletero — para el dashboard del admin. */
     List<Caja> findAllByFechaCierreIsNullOrderByFechaAperturaAsc();
 
-    /** Cajas sin cerrar cuya apertura fue antes de "limite" (arranque del día de hoy): quedaron
-     * pendientes de que un admin haga el control de cierre. Candidatas del aviso CAJA_ATRASADA. */
+    /** Cajas abiertas antes de hoy (aviso CAJA_ATRASADA). */
     List<Caja> findAllByFechaCierreIsNullAndFechaAperturaBefore(LocalDateTime limite);
 
-    /** Cajas "sin control" (abrirSinControl) que quedaron abiertas: las cierra solas el job
-     * programado a fin de día, sin pedir ningún conteo (ver CajaServiceImpl.cerrarSinControl). */
+    /** Cajas sin control abiertas, para el cierre automático. */
     List<Caja> findAllByFechaCierreIsNullAndControlOmitidoTrue();
 }

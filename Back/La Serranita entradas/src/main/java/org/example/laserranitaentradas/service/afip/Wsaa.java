@@ -39,18 +39,13 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Autenticación con WSAA (manual "WSAA - Especificación técnica" de ARCA): cada web service pide
- * un ticket de acceso (token + sign) que se obtiene mandando un pedido (TRA) firmado en CMS con
- * el certificado del CUIT. Acá está lo que no depende de la red: armar y firmar el pedido, leer el
- * ticket y leer el certificado y la clave.
+ * Autenticación WSAA: el ticket de acceso (token + sign) se pide con un TRA firmado en CMS con el
+ * certificado. Acá está lo que no depende de la red.
  */
 final class Wsaa {
 
     private static final ZoneId ZONA = ZoneId.of("America/Argentina/Buenos_Aires");
-    /**
-     * Ventana de validez del pedido. Empieza un rato antes de ahora por si el reloj del servidor
-     * adelanta respecto del de ARCA: WSAA rechaza un generationTime en el futuro.
-     */
+    /** Empieza un rato antes por si el reloj del servidor adelanta: WSAA rechaza un generationTime futuro. */
     private static final Duration VENTANA_PEDIDO = Duration.ofMinutes(10);
     private static final Pattern CUIT = Pattern.compile("CUIT\\s*(\\d{11})");
 
@@ -110,7 +105,7 @@ final class Wsaa {
                 .generateCertificate(new ByteArrayInputStream(pem.getBytes(StandardCharsets.US_ASCII)));
     }
 
-    /** Clave RSA en PEM, tanto PKCS#1 ("RSA PRIVATE KEY", OpenSSL 1.x) como PKCS#8 ("PRIVATE KEY", OpenSSL 3). */
+    /** Clave RSA en PEM, PKCS#1 o PKCS#8. */
     static PrivateKey clave(String pem) throws Exception {
         try (PEMParser parser = new PEMParser(new StringReader(pem))) {
             Object leido = parser.readObject();

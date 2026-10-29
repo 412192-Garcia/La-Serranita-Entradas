@@ -24,8 +24,10 @@ public class Cliente extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    /** Null sólo para quien compra un regalo: no entra al parque (entra el receptor, con su DNI),
-     * así que no se le pide. En una base existente hace falta scripts/cliente-dni-opcional.sql. */
+    /**
+     * Null sólo para quien compra un regalo. En una base existente hace falta
+     * scripts/cliente-dni-opcional.sql.
+     */
     @Column(length = 15)
     private String dni;
 

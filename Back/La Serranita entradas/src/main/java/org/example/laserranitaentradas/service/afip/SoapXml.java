@@ -23,12 +23,8 @@ import java.util.Map;
 import java.util.SortedMap;
 
 /**
- * Lo mínimo de SOAP 1.1 para hablar con los web services de ARCA sin generar clientes desde los
- * WSDL: arma el sobre a partir de mapas y lee la respuesta como JSON.
- *
- * La respuesta queda con la misma forma que devolvía AfipSDK: un campo por elemento, y los
- * elementos que se repiten (varios Err, varios impuesto) como array. Uno solo queda como objeto
- * suelto, así que quien lee tiene que aceptar las dos formas.
+ * Lo mínimo de SOAP 1.1 para ARCA: arma el sobre desde mapas y lee la respuesta como JSON. Los elementos
+ * repetidos quedan como array y uno solo como objeto: quien lee acepta las dos formas.
  */
 final class SoapXml {
 
@@ -44,11 +40,7 @@ final class SoapXml {
     /** faultcode sin el prefijo de namespace ("cms.cert.untrusted", "Server") y faultstring. */
     record Falla(String codigo, String mensaje) {}
 
-    /**
-     * campos("PtoVta", 11, "CbteTipo", 6): un mapa que respeta el orden en que se cargan los campos,
-     * porque en los web services de ARCA el orden importa (el de .NET de WSFE ignora sin avisar un
-     * campo fuera de lugar y lo toma como 0).
-     */
+    /** Mapa ordenado: en ARCA el orden importa (WSFE toma como 0 un campo fuera de lugar, sin avisar). */
     static Map<String, Object> campos(Object... claveValor) {
         if (claveValor.length % 2 != 0) {
             throw new IllegalArgumentException("Los campos van de a pares nombre, valor");
@@ -69,17 +61,12 @@ final class SoapXml {
     }
 
     /**
-     * El sobre SOAP de un método. Con `calificados` los campos van en el namespace del servicio
-     * (WSFE, WSAA); sin, van sin namespace (el padrón, elementFormDefault="unqualified").
-     *
-     * Los valores pueden ser texto, números, mapas (elementos anidados) o listas (el mismo elemento
-     * repetido, como cada AlicIva dentro de Iva). Los null no se mandan.
+     * Con `calificados` los campos van en el namespace del servicio (WSFE, WSAA); sin, sin namespace
+     * (padrón). Valores: texto, números, mapas o listas. Los null no se mandan.
      */
     static String sobre(String namespace, String metodo, Map<String, ?> campos, boolean calificados) {
         StringBuilder xml = new StringBuilder("<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
                 .append("<soap:Envelope xmlns:soap=\"").append(NS_SOAP).append("\"><soap:Body>");
-        // Calificados: namespace por defecto en el método, lo heredan todos los campos. Sin
-        // calificar: el método con prefijo y los campos sin namespace.
         String etiqueta = calificados ? metodo : "m:" + metodo;
         xml.append('<').append(etiqueta).append(calificados ? " xmlns=\"" : " xmlns:m=\"")
                 .append(escapar(namespace)).append("\">");
@@ -126,8 +113,7 @@ final class SoapXml {
     }
 
     /**
-     * Lee una respuesta SOAP. El contenido es lo de adentro del elemento de respuesta del Body: para
-     * FECAESolicitarResponse, {"FECAESolicitarResult": {...}}.
+     * Lee una respuesta SOAP: lo de adentro del elemento de respuesta del Body.
      *
      * @throws IllegalArgumentException si no es un sobre SOAP (ej. la página de error de un proxy)
      */
@@ -170,10 +156,7 @@ final class SoapXml {
         }
     }
 
-    /**
-     * Elemento sin hijos = texto (recortado), o null si viene xsi:nil. Con hijos = objeto con un
-     * campo por nombre (sin prefijo); los que se repiten, array.
-     */
+    /** Sin hijos = texto, o null si es xsi:nil. Con hijos = objeto; los repetidos, array. */
     static JsonNode aJson(Element e) {
         List<Element> hijos = hijos(e);
         if (hijos.isEmpty()) {

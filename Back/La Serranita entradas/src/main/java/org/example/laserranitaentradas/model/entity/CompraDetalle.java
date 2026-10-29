@@ -12,14 +12,13 @@ import lombok.ToString;
 import java.math.BigDecimal;
 
 /**
- * Una fila de una compra: o bien una entrada (tipoEntrada seteado, precio siempre derivado
- * en vivo de tipoEntrada.precio — sin cambios) o bien un artículo vario (venta en puerta:
- * articuloVario si viene de catálogo, o sólo descripcionLibre si es una línea suelta que el
- * cajero tipeó sin guardarla en ningún catálogo). Exactamente uno de tipoEntrada /
- * articuloVario / descripcionLibre está seteado por fila — se valida en el service, no acá.
+ * Una línea de una compra: entrada (tipoEntrada) o artículo vario (articuloVario o descripcionLibre).
+ * Exactamente uno, validado en el service.
  */
 @Entity
-@Table(name = "compras_detalle")
+@Table(name = "compras_detalle", indexes = {
+        @Index(name = "idx_compras_detalle_compra", columnList = "id_compra")
+})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -49,14 +48,9 @@ public class CompraDetalle extends BaseEntity {
     private String descripcionLibre;
 
     /**
-     * Líneas de artículo (catálogo o libre): el precio unitario cargado al vender, congelado
-     * en la compra.
-     * Líneas de entrada: el precio de LISTA que tenía el tipo cuando se armó la compra. Sirve
-     * para que una reserva "a cobrar en boletería" se cobre al precio con el que se reservó
-     * aunque el tipo haya subido después (ver CompraServiceImpl#cobrarReservaComoVentaPos).
-     * Null en las compras anteriores a este campo: ahí se usa el precio actual del tipo, como
-     * siempre. Reportes y cierre de caja sólo lo usan como peso de reparto, nunca para
-     * recalcular lo cobrado (eso es montoTotal).
+     * Artículos: el precio cargado al vender. Entradas: el precio de lista al armar la compra, para cobrar
+     * una reserva al precio reservado. Null en compras viejas. Sólo pesa para repartir; lo cobrado es
+     * montoTotal.
      */
     @Column(name = "precio_unitario")
     private BigDecimal precioUnitario;

@@ -11,6 +11,6 @@ import java.util.Optional;
 public interface TipoEntradaRepository extends JpaRepository<TipoEntrada, Long> {
     Optional<TipoEntrada> findByNombre(String nombre);
 
-    /** El id como desempate estable para los que todavía no tienen orden asignado (orden=null, Postgres los deja al final en ASC). */
+    /** El id desempata los que no tienen orden. */
     List<TipoEntrada> findAllByOrderByOrdenAscIdAsc();
 }

@@ -5,11 +5,7 @@ import lombok.Data;
 
 import java.util.List;
 
-/**
- * Página de "Cajas cerradas" para la pantalla de Cajas (GET /api/interno/caja/cerradas): mismas
- * cinco propiedades que devuelve Spring Data para cualquier Page (content/totalElements/
- * totalPages/number/size, ver Pagina<T> del frontend).
- */
+/** Página de cajas cerradas, con la forma de un Page de Spring Data. */
 @Data
 @Builder
 public class CajasCerradasResponseDTO {

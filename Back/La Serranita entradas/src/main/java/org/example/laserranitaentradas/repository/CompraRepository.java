@@ -28,10 +28,8 @@ public interface CompraRepository extends JpaRepository<Compra, Long>, JpaSpecif
     Optional<Compra> findByCodigoReserva(String codigoReserva);
 
     /**
-     * Aprueba la compra sólo si sigue sin pagar, en una sola sentencia: el webhook y las
-     * verificaciones directas pueden llegar a la vez, y leer el estado y después guardarlo
-     * dejaba pasar a las dos (dos mails, dos usos del cupón). Devuelve 0 si otra ya la aprobó.
-     * Transaccional acá porque verificarPagoDirecto la alcanza sin transacción propia.
+     * Aprueba sólo si sigue sin pagar, en una sentencia: webhook y verificación directa pueden llegar a la
+     * vez. 0 si otra ya la aprobó. Transaccional porque verificarPagoDirecto llega sin transacción.
      */
     @Transactional
     @Modifying(flushAutomatically = true)
@@ -49,8 +47,7 @@ public interface CompraRepository extends JpaRepository<Compra, Long>, JpaSpecif
             """)
     int aprobarSiSigueSinPagar(@Param("id") Long id, @Param("mpPaymentIds") String mpPaymentIds);
 
-    /** Por dónde y cuándo se confirmó el pago (ver ConfirmacionPago). Aparte de la aprobación para
-     * no tocar esa sentencia; corre en la misma transacción. */
+    /** Por dónde y cuándo se confirmó el pago. Aparte de la aprobación, en la misma transacción. */
     @Modifying(flushAutomatically = true)
     @Query("UPDATE Compra c SET c.pagoConfirmadoPor = :origen, c.fechaPago = :fecha WHERE c.id = :id")
     int registrarConfirmacionPago(@Param("id") Long id, @Param("origen") String origen, @Param("fecha") LocalDateTime fecha);
@@ -87,28 +84,18 @@ public interface CompraRepository extends JpaRepository<Compra, Long>, JpaSpecif
     LocalDateTime ultimaCompraPagada(@Param("formaPago") FormaPago formaPago, @Param("estados") Collection<EstadoCompra> estados);
 
     /**
-     * Lock de aplicación sobre "las compras de esta fecha de visita". Serializa las dos cosas
-     * que hay que mirar-y-después-escribir al crear una compra: el número del código de
-     * reserva y el cupo diario. Sin él, dos compras simultáneas leen lo mismo y las dos pasan.
+     * Lock de aplicación sobre las compras de una fecha de visita: serializa el número del código de reserva
+     * y el cupo diario. Postgres lo libera al terminar la transacción y es re-entrante.
      *
-     * No bloquea ninguna fila: es un lock por clave numérica que Postgres libera solo al
-     * terminar la transacción, pase lo que pase con ella. Es re-entrante, así que pedirlo dos
-     * veces en la misma transacción (una por cada chequeo) no cuesta nada.
-     *
-     * El cast a text es sólo para que Hibernate tenga algo que mapear: pg_advisory_xact_lock
-     * devuelve void y el valor no se usa.
+     * El cast a text es para que Hibernate tenga algo que mapear.
      */
     @Query(value = "SELECT cast(pg_advisory_xact_lock(:clave) as text)", nativeQuery = true)
     String bloquearFechaDeVisita(@Param("clave") long clave);
 
 
     /**
-     * Todas las compras que "tocan" el rango del reporte por alguna de sus tres fechas: día de
-     * compra (fechaCreacion), día de visita elegido (fechaVisita) o día de ingreso real
-     * (fechaValidacion). El reporte después decide, por compra, qué métrica va a qué día:
-     * recaudación al día de cobro, afluencia/personas al día de validación, demanda al día de
-     * visita (ver ReporteServiceImpl). Es un prefiltro amplio; el filtrado fino exacto lo hace
-     * el service comparando LocalDate.
+     * Compras que tocan el rango por fechaCreacion, fechaVisita o fechaValidacion. Prefiltro amplio: el
+     * service decide qué métrica va a cada día.
      */
     @Query("SELECT c FROM Compra c WHERE " +
             "(c.fechaVisita >= :desde AND c.fechaVisita <= :hasta) " +
@@ -118,8 +105,7 @@ public interface CompraRepository extends JpaRepository<Compra, Long>, JpaSpecif
     List<Compra> findParaReporte(@Param("desde") LocalDate desde, @Param("hasta") LocalDate hasta,
                                  @Param("desdeDt") LocalDateTime desdeDt, @Param("hastaDt") LocalDateTime hastaDt);
 
-    /** Checkouts de Mercado Pago todavía sin pagar creados después de `desde`: candidatos a
-     * reusarse cuando el mismo cliente vuelve a apretar "Pagar" (ver CompraServiceImpl.create). */
+    /** Checkouts de MP sin pagar desde `desde`, para reusar. */
     @Query("SELECT c FROM Compra c WHERE c.estado = org.example.laserranitaentradas.model.entity.EstadoCompra.PENDIENTE_PAGO "
             + "AND c.formaPago = org.example.laserranitaentradas.model.entity.FormaPago.MERCADO_PAGO "
             + "AND c.fechaCreacion > :desde")
@@ -138,18 +124,16 @@ public interface CompraRepository extends JpaRepository<Compra, Long>, JpaSpecif
     List<Compra> findAllByCajaIdConDetalles(@Param("cajaId") Long cajaId);
 
     /**
-     * La compra con su fila bloqueada (SELECT ... FOR UPDATE) hasta el fin de la transacción: para
-     * mirar-y-después-crear su factura sin que otro pedido simultáneo haga lo mismo.
+     * La compra bloqueada hasta el fin de la transacción, para crear su factura sin que otro pedido haga lo
+     * mismo.
      */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT c FROM Compra c WHERE c.id = :id")
     Optional<Compra> findByIdBloqueando(@Param("id") Long id);
 
     /**
-     * Anticipadas (compradas online, nunca pasan por caja — ver el comentario de Compra.caja)
-     * que este boletero validó durante su turno. Aunque no cobran nada acá, si el tipo tiene
-     * entregaEntrada se les entrega igual el talonario físico, así que hay que sumarlas a lo
-     * entregado por esta caja (ver calcularEntradasEntregadasAnticipadas en CajaServiceImpl).
+     * Anticipadas que este boletero validó en su turno: no pasan por caja pero consumen talonario si el tipo
+     * entrega entrada.
      */
     @Query("SELECT c FROM Compra c WHERE c.caja IS NULL AND c.usuarioValidador.id = :usuarioId " +
             "AND c.estado = org.example.laserranitaentradas.model.entity.EstadoCompra.USADO " +

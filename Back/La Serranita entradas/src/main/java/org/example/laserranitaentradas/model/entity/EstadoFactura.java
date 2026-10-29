@@ -1,22 +1,15 @@
 package org.example.laserranitaentradas.model.entity;
 
 public enum EstadoFactura {
-    /**
-     * Esperando CAE: recién creada, o el último intento falló por algo transitorio (ARCA caída,
-     * timeout, sin internet). El job de emisión la vuelve a intentar sola.
-     */
+    /** Esperando CAE: nueva o con una falla transitoria. El job la reintenta. */
     PENDIENTE,
     /** ARCA la autorizó: tiene número y CAE. Estado final. */
     EMITIDA,
-    /**
-     * ARCA la rechazó (Resultado "R") o se agotaron los reintentos. No se reintenta sola:
-     * necesita que un admin revise el error y la reintente a mano.
-     */
+    /** ARCA la rechazó o se agotaron los reintentos. Un admin la reintenta a mano. */
     ERROR,
     /**
-     * La venta se canceló (o se editó el monto) antes de que esta factura llegara a autorizarse:
-     * no se emite nunca. Si ya estaba EMITIDA no pasa a este estado: se le emite una nota de
-     * crédito (otra Factura, tipo 8, asociada a ésta).
+     * La venta se canceló o cambió antes de autorizarse: no se emite. Si ya estaba EMITIDA se le hace una
+     * nota de crédito.
      */
     ANULADA
 }

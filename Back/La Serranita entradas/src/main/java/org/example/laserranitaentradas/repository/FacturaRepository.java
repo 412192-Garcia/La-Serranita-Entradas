@@ -20,8 +20,10 @@ public interface FacturaRepository extends JpaRepository<Factura, Long> {
     /** Las facturas de un lote manual ya pedido (ver Factura.loteClave). */
     List<Factura> findAllByLoteClaveOrderByIdAsc(String loteClave);
 
-    /** Serializa dos pedidos del mismo lote que llegan juntos (doble toque, reintento): el segundo
-     * espera al commit del primero y encuentra sus facturas. Se libera solo al terminar la transacción. */
+    /**
+     * Serializa dos pedidos del mismo lote (doble toque, reintento): el segundo espera y encuentra las
+     * facturas del primero.
+     */
     @Query(value = "SELECT cast(pg_advisory_xact_lock(hashtext(:clave)) as text)", nativeQuery = true)
     String bloquearLote(@Param("clave") String clave);
 
@@ -32,25 +34,21 @@ public interface FacturaRepository extends JpaRepository<Factura, Long> {
     List<Factura> findTop50ByCompraIsNullAndTipoComprobanteInOrderByIdDesc(Collection<Integer> tiposComprobante);
 
     /**
-     * Otras facturas del mismo punto de venta y tipo que pidieron un número a ARCA y todavía no
-     * saben si quedó autorizado. Antes de que otra pida número hay que resolverlas: si no, las dos
-     * pueden terminar con el mismo número y una quedarse con la autorización de la otra.
+     * Facturas del mismo punto de venta y tipo con número pedido y sin respuesta: hay que resolverlas antes
+     * de que otra pida número.
      */
     @Query("SELECT f.id FROM Factura f WHERE f.puntoVenta = :pv AND f.tipoComprobante = :tipo AND f.id <> :id " +
             "AND f.numeroIntentado IS NOT NULL AND f.numero IS NULL AND f.estado IN :estados ORDER BY f.id")
     List<Long> reservasSinResolver(@Param("pv") Integer puntoVenta, @Param("tipo") Integer tipoComprobante,
                                    @Param("id") Long excepto, @Param("estados") List<EstadoFactura> estados);
 
-    /** ¿Ese número ya lo tiene otra factura de acá? Para no adoptar una autorización ajena al
-     * recuperar un pedido que quedó sin respuesta. */
+    /** Para no adoptar una autorización ajena al recuperar un pedido sin respuesta. */
     boolean existsByPuntoVentaAndTipoComprobanteAndNumeroAndIdNot(Integer puntoVenta, Integer tipoComprobante, Long numero, Long id);
 
-    /** Sólo esa columna: el envío del mail tarda y, mientras, la venta se puede cancelar. Guardar
-     * la entidad leída antes del envío pisaría esa cancelación. */
+    /** Sólo esa columna: guardar la entidad entera pisaría una cancelación hecha durante el envío. */
     /**
-     * La factura de una compra online, si todavía no se emitió, pasa a mandarse sola por mail cuando
-     * ARCA la autorice (la confirmación ya salió sin ella). 0 = ya estaba emitida (o anulada): ahí el
-     * mail lo tiene que mandar quien llamó. Condicional para no cruzarse con la emisión.
+     * Si todavía no se emitió, la factura online pasa a mandarse sola al autorizarse. 0 = ya estaba emitida o
+     * anulada: la manda quien llamó.
      */
     @Modifying
     @Transactional
@@ -70,14 +68,12 @@ public interface FacturaRepository extends JpaRepository<Factura, Long> {
     @Query("UPDATE Factura f SET f.email = :email, f.mailEnviadoEn = :momento WHERE f.id = :id")
     int marcarMailEnviadoA(@Param("id") Long id, @Param("email") String email, @Param("momento") LocalDateTime momento);
 
-    /** Filas [tipoComprobante, estado, cantidad, suma de importeTotal] de los comprobantes de las
-     * ventas de una caja: el resumen del cierre las usa para "cuánto se facturó en esta caja". */
+    /** Filas [tipoComprobante, estado, cantidad, total] de las ventas de una caja. */
     @Query("SELECT f.tipoComprobante, f.estado, COUNT(f), COALESCE(SUM(f.importeTotal), 0) FROM Factura f " +
             "WHERE f.compra.caja.id = :cajaId GROUP BY f.tipoComprobante, f.estado")
     List<Object[]> totalesPorCaja(@Param("cajaId") Long cajaId);
 
-    /** Filas [tipoComprobante, cantidad, suma de importeTotal] de los comprobantes con CAE cuya
-     * fecha de emisión cae en el rango: el KPI "Facturado" del reporte. */
+    /** Filas [tipoComprobante, cantidad, total] con CAE emitidas en el rango. */
     @Query("SELECT f.tipoComprobante, COUNT(f), COALESCE(SUM(f.importeTotal), 0) FROM Factura f " +
             "WHERE f.estado = :estado AND f.fechaEmision BETWEEN :desde AND :hasta GROUP BY f.tipoComprobante")
     List<Object[]> totalesEmitidosEntre(@Param("estado") EstadoFactura estado,
@@ -116,8 +112,7 @@ public interface FacturaRepository extends JpaRepository<Factura, Long> {
     @Query("UPDATE Factura f SET f.mailEnviadoEn = :momento WHERE f.id = :id")
     int marcarMailEnviado(@Param("id") Long id, @Param("momento") LocalDateTime momento);
 
-    /** Pendientes cuyo próximo intento ya llegó, de la más vieja a la más nueva (así se respeta
-     * el orden de venta en la numeración, dentro de lo posible). */
+    /** Pendientes cuyo reintento ya llegó, de la más vieja a la más nueva. */
     @Query("SELECT f.id FROM Factura f WHERE f.estado = :estado " +
             "AND (f.proximoIntento IS NULL OR f.proximoIntento <= :ahora) ORDER BY f.id")
     List<Long> idsListosParaEmitir(@Param("estado") EstadoFactura estado, @Param("ahora") LocalDateTime ahora);

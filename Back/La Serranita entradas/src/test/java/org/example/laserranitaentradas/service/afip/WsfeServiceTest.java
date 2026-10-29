@@ -50,7 +50,7 @@ class WsfeServiceTest {
         return (Map<String, Object>) ((Map<String, Object>) req.get("FeDetReq")).get("FECAEDetRequest");
     }
 
-    /** Orden de FEDetRequest en el WSDL de WSFEv1: .NET toma un campo fuera de lugar como si no hubiera venido. */
+    /** Orden de FEDetRequest en el WSDL. */
     private static final List<String> ORDEN_WSDL = List.of("Concepto", "DocTipo", "DocNro", "CbteDesde", "CbteHasta",
             "CbteFch", "ImpTotal", "ImpTotConc", "ImpNeto", "ImpOpEx", "ImpTrib", "ImpIVA", "FchServDesde", "FchServHasta",
             "FchVtoPago", "MonId", "MonCotiz", "CanMisMonExt", "CondicionIVAReceptorId", "CbtesAsoc", "Tributos", "Iva",

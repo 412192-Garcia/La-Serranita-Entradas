@@ -7,10 +7,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
-/**
- * Venta presencial en la boletería: el visitante paga y entra en el acto, así que
- * no se cargan datos del cliente (no hay nada que validar después).
- */
+/** Venta en la boletería: paga y entra en el acto, sin datos de cliente. */
 @Data
 public class VentaPosRequestDTO {
     /** Cómo cobró el boletero. Define además si corresponde el precio promocional por grupo. */
@@ -25,67 +22,33 @@ public class VentaPosRequestDTO {
     /** Excluyente con promocionId y con descuentoManualPorcentaje. */
     BigDecimal descuentoManualMonto;
 
-    /**
-     * Si viene seteado, esta "venta" en realidad cierra la reserva RESERVADO_EFECTIVO de ese id
-     * (el boletero la cargó en el POS desde el panel de anticipadas y la cobra como una venta
-     * normal): no se crea una compra nueva, se reprecia y valida la existente. Null en una venta
-     * de puerta común.
-     */
+    /** Si viene, cierra la reserva RESERVADO_EFECTIVO de ese id en vez de crear una compra. */
     Long compraReservadaId;
-    /** Cotización usada (ARS por USD). Presente sólo si el boletero cobró en dólares (sigue siendo EFECTIVO_BOLETERIA). */
+    /** ARS por USD, sólo si se cobró en dólares. */
     BigDecimal cotizacionDolar;
     /** Dólares que entregó el cliente. Obligatorio si se manda cotizacionDolar. */
     BigDecimal dolaresRecibidos;
 
-    /**
-     * Clave que genera el POS antes de mandar la venta. Si se reintenta la misma venta con la
-     * misma clave (porque la respuesta original se perdió en un corte), se devuelve la compra
-     * ya registrada en vez de duplicarla. Null desde clientes que no usan la cola offline.
-     */
+    /** Clave del POS para que un reintento no duplique la venta. */
     String idempotencyKey;
 
-    /**
-     * Cuándo se cobró de verdad en la puerta. Lo manda el POS cuando la venta estuvo encolada
-     * sin conexión, así una venta de las 14:00 sincronizada a las 18:00 no queda registrada a
-     * las 18:00 en el detalle de caja ni en los reportes por hora. Null = ahora.
-     */
+    /** Cuándo se cobró de verdad, si la venta estuvo encolada sin conexión. Null = ahora. */
     LocalDateTime fechaOriginal;
 
-    /**
-     * True sólo cuando esta petición viene de un reintento en segundo plano de la cola offline
-     * (no del primer intento en vivo). Se usa para decidir si un rechazo del servidor amerita
-     * quedar registrado para que un admin lo revise (ver RechazoOperacionService): un rechazo en
-     * vivo ya lo ve y lo corrige la persona que lo tipeó ahí mismo — anotarlo también sería puro
-     * ruido. Un rechazo en un reintento en cambio pasa sin que nadie lo esté mirando.
-     */
+    /** True si viene de un reintento en segundo plano: sólo esos rechazos se registran para el admin. */
     Boolean esReintentoEncolado;
 
-    /** Caja del boletero al momento de cobrar: si esto se rechaza porque esa caja ya no está
-     * abierta, queda guardado en el rechazo para saber cuál reabrir y reintentar (ver
-     * RetiroCajaRequestDTO, mismo criterio). */
+    /** Caja al momento de cobrar, para saber cuál reabrir si se rechaza. */
     Long cajaId;
 
-    /**
-     * Pago mixto: el cliente pagó parte con esta forma y el resto con `formaPago`. Null en una
-     * venta normal (una sola forma). Sólo entre las 3 formas presenciales (efectivo/tarjeta/QR);
-     * excluyente con dólares y con el precio de grupo por DescuentoEfectivo.
-     */
+    /** Pago mixto: parte con esta forma y el resto con `formaPago`. Sólo efectivo, tarjeta o QR. */
     FormaPago formaPagoSecundaria;
-    /** Monto que se cobró con formaPagoSecundaria. Obligatorio si se manda formaPagoSecundaria,
-     * y tiene que ser menor al total (el resto es de `formaPago`). */
+    /** Obligatorio con formaPagoSecundaria y menor al total. */
     BigDecimal montoFormaPagoSecundaria;
 
-    /**
-     * "Imprimir factura" / "Enviar por mail" que eligió el boletero. Null o MAIL con email vacío
-     * = no se factura (ver FacturaService#solicitar). Null también desde ventas que quedaron en
-     * la cola offline antes de que existiera la facturación.
-     */
+    /** Lo que eligió el boletero. Null o MAIL sin email = no se factura. */
     FacturacionPosDTO facturacion;
 
-    /**
-     * Cobros con el Point de Mercado Pago que pagaron la parte en tarjeta y/o QR de esta venta (ver
-     * CobroPoint): el POS cobra primero y manda la venta recién con los pagos aprobados. Vacío si
-     * se cobró en el posnet y se anota a mano, o si no hay tarjeta ni QR.
-     */
+    /** Cobros del Point que pagaron la parte en tarjeta o QR. Vacío si se cobró en el posnet. */
     List<Long> cobrosPointIds;
 }

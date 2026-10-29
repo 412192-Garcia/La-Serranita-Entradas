@@ -3,7 +3,7 @@
   <div class="tarjeta tarjeta-formulario">
     <h2>{{ tipoEditandoId() ? 'Editar tipo de entrada' : 'Nuevo tipo de entrada' }}</h2>
     @if (!tipoEditandoId() && categoriaTipo() === 'ENTRADA') {
-      <p class="ayuda">Después de crearlo vas a poder cargarle acá mismo sus precios por grupo.</p>
+      <p class="ayuda">Después de crearlo vas a poder cargarle precios por grupo.</p>
     }
     @if (errorTipos()) {
       <p class="alerta-error">{{ errorTipos() }}</p>
@@ -37,8 +37,8 @@
       <label class="fila-checkbox">
         <input type="checkbox" [ngModel]="obligatorioTipo()" (ngModelChange)="obligatorioTipo.set($event)" />
         <span>
-          Obligatorio: toda compra con entradas debe incluir al menos un pase de este tipo
-          <span class="opcional">(ej: marcá esto en "Pase General" para exigir un adulto responsable y evitar que menores entren solos)</span>
+          Obligatorio: toda compra tiene que llevar al menos uno
+          <span class="opcional">(ej: Pase General, para que los menores no entren solos)</span>
         </span>
       </label>
       <label class="fila-checkbox">
@@ -52,14 +52,14 @@
     <label class="fila-checkbox">
       <input type="checkbox" [ngModel]="soloPosTipo()" (ngModelChange)="soloPosTipo.set($event)" />
       <span>
-        Solo Boleteria: no aparece en la compra pública online, sólo se puede vender en boletería
+        Solo boletería: no se vende online
         <span class="opcional">(ej: Bonificadas)</span>
       </span>
     </label>
     <label class="fila-checkbox">
       <input type="checkbox" [ngModel]="accesosRapidosTipo()" (ngModelChange)="accesosRapidosTipo.set($event)" />
       <span>
-        Accesos rápidos en boletería: el POS muestra botones de cantidad de un toque (1 a 10 y "10+") en vez del +/−
+        Accesos rápidos: botones de 1 a 10 en la pantalla de venta
         <span class="opcional">(ej: Pase General, pase de menores)</span>
       </span>
     </label>
@@ -75,7 +75,7 @@
     @if (tipoEditandoId() && categoriaTipo() === 'ENTRADA') {
       <div class="bloque-precios-grupo">
         <h3>Precios por grupo</h3>
-        <p class="ayuda">Precio total promocional para una cantidad puntual de pases de este tipo, aplicado solo al pagar en efectivo en boletería.</p>
+        <p class="ayuda">Precio total para una cantidad de pases. Sólo pagando en efectivo en boletería.</p>
         @if (errorDescuentos()) {
           <p class="alerta-error">{{ errorDescuentos() }}</p>
         }

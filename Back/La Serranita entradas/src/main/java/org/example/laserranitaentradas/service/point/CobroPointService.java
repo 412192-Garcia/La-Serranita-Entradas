@@ -29,12 +29,11 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Cobros con el Point de Mercado Pago desde el POS (ver {@link CobroPoint}).
+ * Cobros con el Point desde el POS (ver {@link CobroPoint}).
  *
- * Sin @Transactional a propósito: cada paso habla con Mercado Pago, y tener una transacción
- * abierta durante la llamada retiene una conexión del pool mientras el boletero espera. Los
- * guardados van de a uno (cada save tiene la suya). Las excepciones son {@link #vincular},
- * {@link #devolverDeVenta} y {@link #validarEdicion}, que corren dentro de la transacción de la venta.
+ * Sin @Transactional: cada paso llama a Mercado Pago y no conviene retener una conexión mientras tanto. Las
+ * excepciones son {@link #vincular}, {@link #devolverDeVenta} y {@link #validarEdicion}, que corren en la
+ * transacción de la venta.
  */
 @Service
 public class CobroPointService {
@@ -42,13 +41,12 @@ public class CobroPointService {
     private static final Logger log = LoggerFactory.getLogger(CobroPointService.class);
     private static final Logger alertas = LoggerFactory.getLogger("alertas.pagos");
 
-    /** El POS pregunta cada ~2 s mientras espera; a MP se le pregunta como mucho cada 3 s por cobro
-     * (MP desaconseja consultar seguido: el aviso normal es el webhook). */
+    /** A MP se le pregunta como mucho cada 3 s por cobro, aunque el POS consulte cada 2 s. */
     private static final Duration ENTRE_CONSULTAS = Duration.ofSeconds(3);
     /** Los Points casi no cambian: se le pide la lista a MP como mucho cada 30 s. */
     private static final Duration VIGENCIA_TERMINALES = Duration.ofSeconds(30);
     public static final String PREFIJO_REFERENCIA = "POINT-";
-    /** Detalle de un cobro cuya orden se pidió a MP sin respuesta clara: se vuelve a pedir con la misma clave. */
+    /** La orden se pidió sin respuesta clara: se vuelve a pedir con la misma clave. */
     static final String DETALLE_SIN_CONFIRMAR = "sin_confirmar";
     private static final Set<String> MODOS = Set.of("PDV", "STANDALONE");
     private static final Set<FormaPago> FORMAS_POINT = Set.of(FormaPago.TARJETA, FormaPago.MERCADO_PAGO_QR);
@@ -82,13 +80,11 @@ public class CobroPointService {
                                 EstadoCobroPoint estado, boolean enCurso, String detalle, String motivo, String tipoMedio,
                                 String medioPago, Integer cuotas, Long compraId, LocalDateTime fecha) {}
 
-    /** formaPago: TARJETA (por defecto) o MERCADO_PAGO_QR. */
-    /** tipoTarjeta: DEBITO o CREDITO, sólo para TARJETA (null = el Point pregunta). */
-    /** Tarjeta elegida en la tablet → default_type de la orden de MP. */
-    private static final Map<String, String> MEDIO_TARJETA = Map.of("DEBITO", "debit_card", "CREDITO", "credit_card");
+    /** Tipos de medio de MP que son tarjeta; el resto (qr, account_money...) cuenta como QR. */
+    private static final Set<String> MEDIOS_TARJETA = Set.of("credit_card", "debit_card", "prepaid_card");
 
-    public record CrearCobroRequest(String terminalId, BigDecimal monto, String claveIdempotencia, FormaPago formaPago,
-                                    String tipoTarjeta) {}
+    /** formaPago: TARJETA, MERCADO_PAGO_QR o null (posnet: el cliente elige en el Point). */
+    public record CrearCobroRequest(String terminalId, BigDecimal monto, String claveIdempotencia, FormaPago formaPago) {}
 
     /** Para el cierre de caja: lo que cobró el Point (ya atado a ventas) y lo cobrado sin venta. */
     public record ResumenCajaPoint(BigDecimal tarjeta, BigDecimal qr, long cantidad, List<CobroPointDTO> sinVenta) {}
@@ -166,8 +162,7 @@ public class CobroPointService {
                 default -> e.getMessage();
             });
         }
-        // Se actualiza en la caché en vez de tirarla: la lista de MP tarda en reflejar el cambio, y
-        // pedirla enseguida devolvía el Point con el modo viejo, o directamente sin él.
+        // Se actualiza la caché en vez de tirarla: la lista de MP tarda en reflejar el cambio.
         List<Terminal> lista = terminalesCache;
         if (lista != null) {
             terminalesCache = lista.stream().map(t -> t.id().equals(terminalId)
@@ -183,11 +178,7 @@ public class CobroPointService {
         return i >= 0 ? terminalId.substring(i + 2) : terminalId;
     }
 
-    /**
-     * Lo que trae MP, corregido con los Points cuyo modo se cambió desde acá hace poco: la lista de
-     * MP tarda en ponerse al día y, mientras tanto, muestra el modo viejo o directamente no incluye
-     * ese Point (en la pantalla "desaparecía" hasta actualizar de nuevo).
-     */
+    /** Lo de MP corregido con los Points cuyo modo se cambió hace poco, porque MP tarda en ponerse al día. */
     List<Terminal> conModosRecientes(List<Terminal> deMp, List<Terminal> anterior) {
         LocalDateTime ahora = LocalDateTime.now();
         modosRecientes.values().removeIf(m -> ahora.isAfter(m.hasta()));
@@ -214,8 +205,7 @@ public class CobroPointService {
         if (pedido.claveIdempotencia() == null || pedido.claveIdempotencia().isBlank() || pedido.claveIdempotencia().length() > 64) {
             throw new IllegalArgumentException("Falta la clave del cobro");
         }
-        // El POS reintenta con la misma clave si se perdió la respuesta: mismo cobro, nunca otra orden.
-        // Antes que el chequeo del módulo: un cobro que ya salió se devuelve aunque lo hayan apagado.
+        // Reintento con la misma clave: mismo cobro. Va antes del chequeo del módulo.
         var existente = repository.findByClaveIdempotencia(pedido.claveIdempotencia());
         if (existente.isPresent()) {
             return toDto(existente.get());
@@ -232,13 +222,10 @@ public class CobroPointService {
         if (pedido.monto() == null || pedido.monto().signum() <= 0) {
             throw new IllegalArgumentException("El monto a cobrar tiene que ser mayor a cero");
         }
-        FormaPago forma = pedido.formaPago() != null ? pedido.formaPago() : FormaPago.TARJETA;
+        boolean posnet = pedido.formaPago() == null;
+        FormaPago forma = posnet ? FormaPago.TARJETA : pedido.formaPago();
         if (!FORMAS_POINT.contains(forma)) {
             throw new IllegalArgumentException("El Point sólo cobra tarjeta o QR");
-        }
-        String tipoTarjeta = forma == FormaPago.TARJETA ? pedido.tipoTarjeta() : null;
-        if (tipoTarjeta != null && !MEDIO_TARJETA.containsKey(tipoTarjeta)) {
-            throw new IllegalArgumentException("La tarjeta tiene que ser de débito o de crédito");
         }
         Caja caja = cajaService.getAbiertaOrThrow(operador.id());
 
@@ -247,7 +234,7 @@ public class CobroPointService {
                 .terminalId(pedido.terminalId())
                 .monto(pedido.monto())
                 .formaPago(forma)
-                .tipoTarjeta(tipoTarjeta)
+                .posnet(posnet)
                 .estado(EstadoCobroPoint.CREADO)
                 .caja(caja)
                 .build());
@@ -256,16 +243,21 @@ public class CobroPointService {
     }
 
     /**
-     * Crea la orden en MP para el cobro, con su clave de idempotencia: si se repite (porque la vez
-     * anterior no hubo respuesta), MP devuelve la misma orden en vez de crear otra. Si MP rechaza
-     * de forma segura (4xx) el cobro queda en ERROR; si no se sabe qué pasó (sin respuesta, 5xx)
-     * queda CREADO sin orden y se vuelve a pedir en la próxima consulta del POS, porque la orden
-     * puede estar igual en el Point esperando la tarjeta.
+     * Crea la orden con clave de idempotencia (si se repite, MP devuelve la misma). 4xx: ERROR. Sin respuesta
+     * o 5xx: queda CREADO sin orden y se vuelve a pedir, porque puede estar igual en el Point.
      */
-    /** Lo que se le pide al Point (default_type de la orden): QR, la tarjeta elegida o nada (pregunta). */
+    /** default_type de la orden: QR, o nada y el Point le pregunta al cliente (MP no acepta "tarjeta" a secas). */
     static String medioDe(CobroPoint cobro) {
-        if (cobro.getFormaPago() == FormaPago.MERCADO_PAGO_QR) return "qr";
-        return cobro.getTipoTarjeta() == null ? null : MEDIO_TARJETA.get(cobro.getTipoTarjeta());
+        return !cobro.isPosnet() && cobro.getFormaPago() == FormaPago.MERCADO_PAGO_QR ? "qr" : null;
+    }
+
+    /** Posnet sin saber todavía si fue tarjeta o QR. */
+    static boolean formaSinDefinir(CobroPoint cobro) {
+        return cobro.isPosnet() && cobro.getTipoMedio() == null && cobro.getCompra() == null;
+    }
+
+    static FormaPago formaDeMedio(String tipoMedio) {
+        return MEDIOS_TARJETA.contains(tipoMedio) ? FormaPago.TARJETA : FormaPago.MERCADO_PAGO_QR;
     }
 
     private void mandarOrden(CobroPoint cobro) {
@@ -290,7 +282,7 @@ public class CobroPointService {
         }
     }
 
-    /** Lo que el POS consulta mientras espera. Si no llegó el webhook, le pregunta a MP (no más de cada 3 s). */
+    /** Lo que consulta el POS mientras espera. Sin webhook, le pregunta a MP cada 3 s como mucho. */
     public CobroPointDTO consultar(Long id, UsuarioAutenticado operador) {
         CobroPoint cobro = cargar(id, operador);
         boolean toca = cobro.getUltimaConsultaMp() == null
@@ -303,8 +295,7 @@ public class CobroPointService {
                 try {
                     aplicar(cobro, client.obtenerOrden(cobro.getOrdenId()));
                 } catch (PointException e) {
-                    // Se anota igual la consulta: con MP caído o limitando, el POS sigue preguntando
-                    // cada 2 s pero a MP se le pregunta como siempre, no más seguido.
+                    // Se anota igual, para no consultar a MP más seguido si está caído.
                     cobro.setUltimaConsultaMp(LocalDateTime.now());
                     log.warn("No se pudo consultar la orden {} del cobro {} en Mercado Pago: {}", cobro.getOrdenId(), id, e.getMessage());
                 }
@@ -314,10 +305,7 @@ public class CobroPointService {
         return toDto(cobro);
     }
 
-    /**
-     * Guarda lo que se trajo de MP. Si mientras tanto otro lo cambió (la venta lo vinculó, llegó el
-     * webhook), gana lo que ya está guardado: el estado de MP lo vuelve a traer la próxima consulta.
-     */
+    /** Si otro lo cambió mientras tanto, gana lo guardado; el estado de MP llega en la próxima consulta. */
     private CobroPoint guardar(CobroPoint cobro) {
         try {
             return repository.save(cobro);
@@ -333,8 +321,7 @@ public class CobroPointService {
             return toDto(cobro);
         }
         if (cobro.getOrdenId() == null) {
-            // MP nunca confirmó la orden: no hay nada que cancelar allá. Si igual existía, el aviso
-            // de MP la encuentra por la referencia y la cancela (ver actualizarDesdeMercadoPago).
+            // MP nunca confirmó la orden; si existía, el aviso la encuentra por la referencia y la cancela.
             cobro.setEstado(EstadoCobroPoint.CANCELADO);
             cobro.setDetalle("canceled_by_api");
             log.info("Cobro con Point {} cancelado desde la tablet antes de que MP confirmara la orden", id);
@@ -370,7 +357,7 @@ public class CobroPointService {
         cobro.setEstado(d.estado());
         cobro.setDetalle(d.detalle());
         if (d.estado() != EstadoCobroPoint.DEVUELTO) {
-            // Algunas tarjetas sólo se devuelven desde el propio Point: MP acepta el pedido pero no la deja devuelta.
+            // Algunas tarjetas sólo se devuelven desde el Point.
             log.warn("La devolución del cobro con Point {} quedó en {} ({})", id, d.estado(), d.detalle());
         }
         log.info("Cobro con Point {} por {} devuelto al cliente por {}", id, cobro.getMonto(), operador.username());
@@ -380,10 +367,8 @@ public class CobroPointService {
     private record Devolucion(EstadoCobroPoint estado, String detalle) {}
 
     /**
-     * Pide la devolución a MP y deja el resultado guardado en una transacción propia (la plata ya
-     * volvió al cliente: eso no se deshace aunque después falle lo demás). Antes se fija si la orden
-     * ya figura devuelta (por ejemplo, desde el propio Point), porque un reintento con la misma
-     * clave le devolvería a MP la respuesta del primer pedido y no el estado actual.
+     * Pide la devolución y la guarda en transacción propia (la plata ya volvió). Antes se fija si ya figura
+     * devuelta: un reintento con la misma clave devolvería la respuesta vieja.
      */
     private Devolucion devolverEnMercadoPago(CobroPoint cobro) {
         Orden orden;
@@ -402,10 +387,8 @@ public class CobroPointService {
     }
 
     /**
-     * Al cancelar una venta pagada con el Point se le devuelve la plata al cliente. Va antes de
-     * marcarla cancelada y dentro de su transacción: si MP no hace la devolución, la venta no se
-     * cancela (y el admin ve por qué). Lo que sí se devolvió queda asentado aunque la cancelación
-     * falle después (un pago mixto con el segundo cobro rechazado): al reintentar, se saltea.
+     * Devuelve la plata al cancelar una venta con Point, dentro de su transacción: si MP no devuelve, no se
+     * cancela. Lo devuelto queda asentado y se saltea al reintentar.
      */
     public void devolverDeVenta(Compra venta) {
         for (CobroPoint cobro : repository.findAllByCompraId(venta.getId())) {
@@ -422,11 +405,7 @@ public class CobroPointService {
         }
     }
 
-    /**
-     * Una venta pagada con el Point no puede cambiar lo que cobró el Point: el pago ya está hecho
-     * por ese monto. Si cambian las entradas o la forma de pago de esa parte, hay que cancelarla
-     * (se devuelve el cobro) y cargarla de nuevo.
-     */
+    /** Lo cobrado por el Point no se puede cambiar: hay que cancelar la venta y cargarla de nuevo. */
     public void validarEdicion(Compra venta) {
         List<CobroPoint> cobros = repository.findAllByCompraId(venta.getId()).stream()
                 .filter(c -> c.getEstado() == EstadoCobroPoint.APROBADO).toList();
@@ -460,8 +439,7 @@ public class CobroPointService {
         Orden orden = null;
         CobroPoint cobro = repository.findByOrdenId(ordenId).orElse(null);
         if (cobro == null) {
-            // Puede ser un cobro cuya orden MP no llegó a confirmar al crearla (sin respuesta, 5xx):
-            // se lo encuentra por la referencia que se le puso a la orden.
+            // Puede ser una orden que MP no confirmó al crearla: se busca por la referencia.
             orden = client.obtenerOrden(ordenId);
             cobro = cobroDeReferencia(orden.externalReference());
             if (cobro == null) {
@@ -486,8 +464,7 @@ public class CobroPointService {
         try {
             repository.save(cobro);
         } catch (OptimisticLockingFailureException e) {
-            // Otro (la venta, la consulta del POS) lo guardó mientras se le preguntaba a MP: se deja lo
-            // suyo, que no pisa la venta vinculada; el estado de MP lo trae la próxima consulta.
+            // Otro lo guardó mientras tanto: se deja lo suyo.
             log.info("El cobro con Point {} cambió mientras se procesaba el aviso de Mercado Pago", cobro.getId());
             return;
         }
@@ -508,13 +485,8 @@ public class CobroPointService {
     }
 
     /**
-     * Ata los cobros a la venta que se pagó con ellos (uno, o dos en un pago mixto tarjeta + QR).
-     * Corre dentro de la transacción de la venta: si algo no cierra, la venta no se registra (y el
-     * POS la muestra rechazada con el motivo).
-     *
-     * El cobro tiene que estar aprobado, salvo uno que el boletero confirmó a mano en el Point
-     * mientras MP todavía no daba el resultado ("Salió aprobado: anotar a mano"): ése se ata igual,
-     * para que cuando MP lo apruebe no aparezca como plata cobrada sin venta.
+     * Ata los cobros a la venta, en su transacción: si algo no cierra, la venta no se registra. También se
+     * ata uno que el boletero anotó a mano antes de que MP lo apruebe.
      */
     public void vincular(List<Long> cobroIds, Compra venta) {
         if (cobroIds == null || cobroIds.isEmpty()) return;
@@ -541,11 +513,21 @@ public class CobroPointService {
         }
     }
 
-    /** Lo cobrado por el Point de cada forma (tarjeta, QR) tiene que ser exactamente esa parte de la venta. */
+    /** Lo cobrado por cada forma tiene que ser exactamente esa parte de la venta. */
     private static void validarMontos(List<CobroPoint> cobros, Compra venta) {
         Map<FormaPago, BigDecimal> porForma = new java.util.EnumMap<>(FormaPago.class);
+        List<CobroPoint> sinDefinir = new java.util.ArrayList<>();
         for (CobroPoint c : cobros) {
-            porForma.merge(c.getFormaPago() != null ? c.getFormaPago() : FormaPago.TARJETA, c.getMonto(), BigDecimal::add);
+            if (formaSinDefinir(c)) sinDefinir.add(c);
+            else porForma.merge(c.getFormaPago() != null ? c.getFormaPago() : FormaPago.TARJETA, c.getMonto(), BigDecimal::add);
+        }
+        // Posnet anotado a mano antes de que MP diga con qué pagó: toma la forma que la venta tiene sin cubrir.
+        for (CobroPoint c : sinDefinir) {
+            FormaPago forma = List.of(FormaPago.TARJETA, FormaPago.MERCADO_PAGO_QR).stream()
+                    .filter(f -> venta.montoPorForma(f).subtract(porForma.getOrDefault(f, BigDecimal.ZERO)).compareTo(c.getMonto()) >= 0)
+                    .findFirst().orElse(FormaPago.TARJETA);
+            c.setFormaPago(forma);
+            porForma.merge(forma, c.getMonto(), BigDecimal::add);
         }
         porForma.forEach((forma, cobrado) -> {
             // La misma cuenta que usan la caja y los reportes para repartir un pago mixto.
@@ -587,6 +569,16 @@ public class CobroPointService {
         cobro.setDetalle(recortar(orden.pagoStatusDetail() != null ? orden.pagoStatusDetail() : orden.statusDetail()));
         if (orden.pagoId() != null) cobro.setPagoId(orden.pagoId());
         if (orden.medioPago() != null) cobro.setMedioPago(orden.medioPago());
+        if (orden.tipoMedio() != null && cobro.getTipoMedio() == null && cobro.isPosnet()) {
+            FormaPago real = formaDeMedio(orden.tipoMedio());
+            if (cobro.getCompra() == null) {
+                cobro.setFormaPago(real);
+            } else if (real != cobro.getFormaPago()) {
+                // Se anotó a mano con la otra forma: la venta queda como la cargó el boletero.
+                alertas.warn("La venta {} anotó el cobro con Point {} por {} como {}, pero Mercado Pago dice {}",
+                        cobro.getCompra().getCodigoReserva(), cobro.getId(), cobro.getMonto(), cobro.getFormaPago(), orden.tipoMedio());
+            }
+        }
         if (orden.tipoMedio() != null) cobro.setTipoMedio(orden.tipoMedio());
         if (orden.cuotas() != null) cobro.setCuotas(orden.cuotas());
         cobro.setUltimaConsultaMp(LocalDateTime.now());
@@ -634,7 +626,8 @@ public class CobroPointService {
         if (porDetalle != null) return porDetalle;
         return switch (cobro.getEstado()) {
             case CREADO -> "Mandando el cobro al Point...";
-            case EN_TERMINAL -> cobro.getFormaPago() == FormaPago.MERCADO_PAGO_QR
+            case EN_TERMINAL -> cobro.isPosnet() ? "Esperando el pago en el Point"
+                    : cobro.getFormaPago() == FormaPago.MERCADO_PAGO_QR
                     ? "Esperando que el cliente escanee el QR del Point" : "Esperando la tarjeta en el Point";
             case REVISAR_EN_POINT -> "Revisá en el Point si el pago salió";
             case APROBADO -> "Pago aprobado";
@@ -648,7 +641,8 @@ public class CobroPointService {
 
     static CobroPointDTO toDto(CobroPoint c) {
         return new CobroPointDTO(c.getId(), c.getOrdenId(), c.getTerminalId(), c.getMonto(),
-                c.getFormaPago() != null ? c.getFormaPago() : FormaPago.TARJETA, c.getEstado(), c.getEstado().enCurso(),
+                formaSinDefinir(c) ? null : c.getFormaPago() != null ? c.getFormaPago() : FormaPago.TARJETA,
+                c.getEstado(), c.getEstado().enCurso(),
                 c.getDetalle(), motivo(c), c.getTipoMedio(), c.getMedioPago(), c.getCuotas(),
                 c.getCompra() != null ? c.getCompra().getId() : null, c.getFechaCreacion());
     }

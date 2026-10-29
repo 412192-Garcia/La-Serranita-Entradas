@@ -1,23 +1,15 @@
 package org.example.laserranitaentradas.model.entity;
 
-/**
- * Por qué quedó CANCELADO una compra (Compra.motivoCancelacion). Se guarda como texto, no como
- * enum de la base, por el CHECK que deja ddl-auto con la lista de valores vieja (igual que
- * ConfirmacionPago).
- */
+/** Por qué quedó CANCELADO una compra. Se guarda como texto por el CHECK viejo que deja ddl-auto. */
 public enum MotivoCancelacion {
-    /** Checkout de Mercado Pago sin ningún intento de pago: abrió el checkout y no pagó. Lo
-     * canceló el barrido pasadas las horas configuradas. */
+    /** Abrió el checkout de MP y no intentó pagar. */
     CHECKOUT_ABANDONADO,
-    /** Checkout de Mercado Pago en el que intentó pagar y no se aprobó (tarjeta rechazada,
-     * pago vencido o cancelado). El detalle dice qué contestó Mercado Pago en cada intento. */
+    /** Intentó pagar y no se aprobó. El detalle tiene la respuesta de MP. */
     PAGO_RECHAZADO,
-    /** Falló al pedirle la preferencia a Mercado Pago: el cliente nunca llegó a tener el link de
-     * pago. El detalle tiene el error. */
+    /** Falló la preferencia de MP: nunca tuvo el link. El detalle tiene el error. */
     PAGO_NO_INICIADO,
-    /** Un admin anuló una venta de caja (Cajas > operaciones). El motivo escrito (opcional) va en detalleCancelacion. */
+    /** Un admin anuló una venta de caja. El motivo va en detalleCancelacion. */
     ANULADA_EN_CAJA,
-    /** Un admin canceló una reserva generada desde Acciones (RESERVA_ADMIN): no se cobró nada
-     * por la app, así que no hay nada que reembolsar. */
+    /** Un admin canceló una RESERVA_ADMIN. No hay reembolso. */
     RESERVA_CANCELADA
 }

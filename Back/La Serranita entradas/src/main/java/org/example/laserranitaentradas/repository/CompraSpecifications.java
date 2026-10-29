@@ -11,19 +11,12 @@ import org.springframework.data.jpa.domain.Specification;
 import java.time.LocalDate;
 import java.util.Collection;
 
-/**
- * Predicados reutilizables para armar dinámicamente la búsqueda paginada de boletería
- * (GET /api/compras/buscar). Cada uno devuelve null cuando el filtro no aplica, así
- * Specification.allOf(...) los puede combinar sin condicionales sueltos en el service.
- */
+/** Predicados de la búsqueda de boletería. Devuelven null si el filtro no aplica. */
 public class CompraSpecifications {
 
     private CompraSpecifications() {}
 
-    /** DNI, nombre/apellido del titular, código de reserva, email de contacto, o los datos del
-     * receptor de un regalo: cualquiera que matchee. El receptor hace falta porque en un regalo
-     * quien se presenta en la puerta es esa persona, no quien compró — sin esto, buscar por el
-     * DNI/nombre de quien está literalmente parado frente al boletero no encontraba nada. */
+    /** DNI, nombre, código, email, o los datos del receptor de un regalo (es quien se presenta). */
     public static Specification<Compra> textoLibre(String q) {
         if (q == null || q.isBlank()) return null;
         String like = "%" + q.trim().toLowerCase() + "%";
@@ -58,9 +51,7 @@ public class CompraSpecifications {
         return (root, query, cb) -> cb.lessThanOrEqualTo(root.get("fechaVisita"), hasta);
     }
 
-    /** Regalos: fechaVisita es null porque quien lo recibe puede usarlo el día que prefiera.
-     * Hace falta como predicado aparte porque fechaDesde/fechaHasta (>=/<=) nunca matchean
-     * NULL en SQL, así que no hay forma de traerlos con esos dos. */
+    /** Regalos (fechaVisita null): fechaDesde/fechaHasta nunca matchean NULL. */
     public static Specification<Compra> sinFecha(Boolean sinFecha) {
         if (sinFecha == null || !sinFecha) return null;
         return (root, query, cb) -> cb.isNull(root.get("fechaVisita"));

@@ -33,13 +33,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-/**
- * Registro de operaciones del POS rechazadas por el servidor, para que un admin las revise desde
- * Cajas sin depender de mirar el navegador puntual del boletero que las hizo. reabrirYReintentar
- * reabre la caja de origen y vuelve a mandar cada operación por el camino REAL de siempre
- * (registrarRetiro/registrarIngresoEntradas/registrarVentaPos) — así cada una se revalida en
- * vivo en vez de forzarse a ciegas.
- */
+/** reabrirYReintentar reabre la caja y reenvía cada operación por el camino normal, para que se revalide. */
 @ExtendWith(MockitoExtension.class)
 class RechazoOperacionServiceImplTest {
 

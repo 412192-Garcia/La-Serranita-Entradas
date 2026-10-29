@@ -18,11 +18,9 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Corre en cada request de la API, después de la seguridad (ya se sabe quién es):
- * - deja usuario y request en el MDC, así un error que se registre atendiéndola dice de quién y
- *   de qué era (ver IncidenteService);
- * - si la request modifica algo y la hizo un usuario logueado (o es un inicio de sesión), la
- *   anota en el historial de acciones al terminar, con el resultado.
+ * En cada request, después de la seguridad:
+ * - deja usuario y request en el MDC para los errores;
+ * - si modifica algo (o es un login), la anota en el historial con el resultado.
  */
 @Component
 public class AuditoriaFilter extends OncePerRequestFilter {

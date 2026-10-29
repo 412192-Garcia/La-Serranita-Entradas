@@ -22,25 +22,20 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * Impresión de tickets en la boletería a través del agente de la PC de la entrada.
+ * Impresión de tickets a través del agente de la PC de la entrada.
  *
- * El parque está detrás de Starlink (CGNAT): desde el servidor no se puede entrar a su red. Por
- * eso es el agente el que se conecta: abre una conexión SSE hacia el backend al arrancar, se
- * anuncia con sus impresoras, y queda escuchando. Cuando hay que imprimir, el backend le empuja el
- * ticket ya armado en ESC/POS por esa conexión, y el agente lo manda a la impresora por la red
- * local (puerto 9100) y confirma.
+ * El parque está detrás de CGNAT, así que el agente abre una conexión SSE al backend y por ahí recibe los
+ * tickets en ESC/POS, que manda a la impresora por la red local (9100).
  *
- * Los agentes conectados viven en memoria (una sola instancia de backend, igual que el lock de
- * emisión de facturas). Los trabajos, en la base: si la conexión se corta, al reconectar se le
- * reenvían los que no confirmó y el agente descarta los que ya había impreso.
+ * Los agentes viven en memoria (una sola instancia). Los trabajos en la base: al reconectar se reenvían los
+ * no confirmados.
  */
 @Service
 public class ImpresionService {
 
     private static final Logger log = LoggerFactory.getLogger(ImpresionService.class);
 
-    /** Impresora "cualquiera": la tablet no eligió y al encolar no había ninguna conectada. Se
-     * resuelve a la primera que aparezca. */
+    /** La tablet no eligió y no había ninguna conectada: se usa la primera que aparezca. */
     static final String CUALQUIERA = "*";
     private static final List<EstadoTrabajoImpresion> SIN_CONFIRMAR =
             List.of(EstadoTrabajoImpresion.PENDIENTE, EstadoTrabajoImpresion.ENVIADO);
@@ -53,17 +48,14 @@ public class ImpresionService {
 
     private final Map<String, AgenteConectado> agentes = new ConcurrentHashMap<>();
 
-    /** Un ticket que no se pudo imprimir en este tiempo ya no se imprime solo: el cliente se fue
-     * y que salga de golpe horas después (al prenderse la PC) sólo confunde. Se reimprime a mano. */
+    /** Pasado este tiempo un ticket ya no se imprime solo: el cliente se fue. */
     @Value("${impresion.minutos-vencimiento:15}")
     private int minutosVencimiento;
 
     /**
-     * Sin noticias del agente en este tiempo = la PC de la entrada se apagó o perdió internet. No
-     * alcanza con esperar a que falle un envío: entre el backend y el agente hay intermediarios
-     * (nginx, Caddy, el proxy de Docker) que siguen aceptando los latidos aunque del otro lado ya
-     * no haya nadie, y la tablet seguía mostrando la ticketera como disponible. El agente informa
-     * el estado de sus ticketeras cada 15 s: eso es la señal de vida (35 s = dos avisos perdidos).
+     * Sin noticias en este tiempo, la PC se apagó o perdió internet. Los proxies siguen aceptando latidos
+     * aunque no haya nadie, por eso se usa el estado que informa el agente cada 15 s (35 s = dos avisos
+     * perdidos).
      */
     @Value("${impresion.segundos-sin-noticias:35}")
     private int segundosSinNoticias = 35;
@@ -79,10 +71,8 @@ public class ImpresionService {
     }
 
     /**
-     * Una ticketera de un agente conectado. disponible = el agente la ve prendida (responde por
-     * red, o Windows la da por lista); si no, detalle dice qué le pasa ("apagada o desconectada",
-     * "sin papel"...). Hasta que el agente informa (o con un agente viejo que no informa) se la
-     * da por disponible: mejor intentar imprimir que bloquear sin motivo.
+     * disponible = el agente la ve prendida; si no, detalle dice qué le pasa. Sin información se la da por
+     * disponible.
      */
     public record ImpresoraConectada(String nombre, String agente, boolean disponible, String detalle) {}
 
@@ -102,8 +92,7 @@ public class ImpresionService {
     // ---------- Agentes ----------
 
     public SseEmitter conectarAgente(String nombre, Set<String> impresoras) {
-        // Sin timeout: la conexión dura lo que dure el agente prendido. Un corte se detecta al
-        // fallar el envío del heartbeat.
+        // Sin timeout; un corte se detecta al fallar el heartbeat.
         SseEmitter emitter = new SseEmitter(0L);
         AgenteConectado agente = new AgenteConectado(nombre, Set.copyOf(impresoras), emitter, new ConcurrentHashMap<>(),
                 new AtomicLong(System.currentTimeMillis()));
@@ -173,11 +162,7 @@ public class ImpresionService {
         return trabajoRepository.findById(trabajo.getId()).orElse(trabajo);
     }
 
-    /**
-     * La factura se anuló (venta cancelada o corregida): sus trabajos sin imprimir no tienen que
-     * salir. Si el agente estaba apagado y reconecta después, el reenvío ya no los encuentra.
-     * Corre en la transacción de la cancelación.
-     */
+    /** Factura anulada: sus trabajos sin imprimir no salen. Corre en la transacción de la cancelación. */
     public void cancelarTrabajos(Long facturaId) {
         int n = trabajoRepository.cancelarDeFactura(facturaId, "Cancelado: la factura se anuló",
                 LocalDateTime.now(), EstadoTrabajoImpresion.ERROR, SIN_CONFIRMAR);
@@ -242,15 +227,14 @@ public class ImpresionService {
             return;
         }
 
-        // Se marca ENVIADO ANTES de mandarlo: el agente puede confirmar en milisegundos, y si el
-        // ENVIADO se escribiera después pisaría ese IMPRESO. 0 filas = ya tenía resultado.
+        // ENVIADO antes de mandarlo, para no pisar un IMPRESO que llega enseguida. 0 filas = ya tenía
+        // resultado.
         if (trabajoRepository.marcarEnviado(trabajoId, impresora, LocalDateTime.now(),
                 EstadoTrabajoImpresion.ENVIADO, SIN_CONFIRMAR) == 0) {
             return;
         }
-        // Formato del evento: "id;impresora;ticket en base64". Sin JSON a propósito: así el
-        // agente no necesita ninguna librería. Los nombres de impresora no llevan ';' (se valida
-        // al conectar).
+        // "id;impresora;ticket en base64", sin JSON para que el agente no necesite librerías. Los nombres no
+        // llevan ';'.
         String datos = trabajoId + ";" + impresora + ";" + Base64.getEncoder().encodeToString(ticket);
         if (!enviar(agente, "trabajo", datos)) {
             trabajoRepository.volverAPendiente(trabajoId, EstadoTrabajoImpresion.PENDIENTE, EstadoTrabajoImpresion.ENVIADO);
@@ -291,9 +275,8 @@ public class ImpresionService {
     }
 
     /**
-     * Cada 20 s: un comentario SSE a cada agente para que ningún proxy (nginx corta a los 60 s sin
-     * datos) cierre la conexión y para detectar rápido los agentes caídos. De paso vence los
-     * trabajos que quedaron demasiado tiempo sin imprimirse.
+     * Cada 20 s un comentario SSE para que los proxies no corten la conexión y para detectar agentes caídos.
+     * También vence trabajos viejos.
      */
     @Scheduled(fixedDelay = 20_000, initialDelay = 20_000)
     public void latido() {

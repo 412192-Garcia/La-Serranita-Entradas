@@ -136,7 +136,9 @@
   flex: 1;
   min-width: 0;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  /* 3 botones, o 2 con el Point integrado (Efectivo / Posnet). */
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
   gap: 8px;
 }
 

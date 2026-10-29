@@ -54,7 +54,7 @@
     } @else {
       <div class="fila-formas-pago">
         <div class="formas-pago" [class.formas-pago-sin-elegir]="hayItems() && formaPago() === null">
-          @for (f of formasPago; track f.valor) {
+          @for (f of formasPago(); track f.valor) {
             <button
               type="button"
               class="btn-forma-pago"
@@ -348,13 +348,13 @@
     @if (cobraConPoint() && cobrosQueSirven().length) {
       <div class="aviso-cobro-point aviso-cobro-point-sirve">
         @for (c of cobrosQueSirven(); track c.id) {
-          <p>El Point ya cobró {{ c.monto | pesos }} en {{ etiquetaFormaPoint(c.formaPago) }}: se usa ese pago, no hace falta cobrarlo otra vez.</p>
+          <p>El Point ya cobró {{ c.monto | pesos }} en {{ etiquetaFormaPoint(c.formaPago) }}. No hace falta cobrarlo otra vez.</p>
         }
       </div>
     }
     @for (c of cobraConPoint() ? cobrosQueSobran() : cobrosSinVenta(); track c.id) {
       <div class="aviso-cobro-point">
-        <p>Hay un cobro con Point de {{ c.monto | pesos }} ({{ etiquetaFormaPoint(c.formaPago) }}) aprobado que no quedó registrado como venta.</p>
+        <p>Hay un cobro con Point de {{ c.monto | pesos }} ({{ etiquetaFormaPoint(c.formaPago) }}) que no quedó como venta.</p>
         <div class="aviso-cobro-point-acciones">
           <button type="button" class="btn-aviso-point" [disabled]="devolviendoCobroId() === c.id" (click)="devolverCobroSinVenta(c)">
             {{ devolviendoCobroId() === c.id ? 'Devolviendo…' : 'Devolver al cliente' }}

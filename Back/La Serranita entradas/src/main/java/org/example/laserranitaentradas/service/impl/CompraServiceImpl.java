@@ -71,12 +71,16 @@ import java.util.stream.Collectors;
 public class CompraServiceImpl implements CompraService {
 
     private static final Logger log = LoggerFactory.getLogger(CompraServiceImpl.class);
-    /** Problemas con la plata de un cliente (pagó de más, pago sobre una compra reembolsada): van a
-     * Sistema > Errores en el área Pagos, para que alguien los vea (antes quedaban sólo en el log). */
+    /**
+     * Problemas con la plata de un cliente (pagó de más, pago sobre una reembolsada): van a Sistema >
+     * Errores, área Pagos.
+     */
     private static final Logger alertasPagos = LoggerFactory.getLogger("alertas.pagos");
 
-    /** Ventana para reusar un checkout sin pagar del mismo cliente en vez de crear otra compra igual.
-     * Corta a propósito: pasado esto, es más probable que sea otra compra que un reintento. */
+    /**
+     * Ventana para reusar un checkout sin pagar del mismo cliente. Pasado esto, es más probable que sea otra
+     * compra.
+     */
     static final int MINUTOS_REUSO_CHECKOUT = 30;
 
     /** Quién figura como cancelada_por cuando la cancela la app sola (mismo nombre que AuditConfig). */
@@ -97,9 +101,10 @@ public class CompraServiceImpl implements CompraService {
     private final FacturaService facturaService;
     private final Map<FormaPago, PagoService> estrategiasPago;
     private final EntityManager em;
-    /** El propio bean, pero visto a través del proxy de Spring: es la única forma de que
-     *  @Transactional valga en una llamada de un método de esta clase a otro. @Lazy corta el
-     *  ciclo de dependencia que si no tendría consigo mismo al construirse. */
+    /**
+     * El propio bean a través del proxy, para que valga @Transactional entre métodos de esta clase. @Lazy
+     * corta el ciclo.
+     */
     private final CompraService self;
     private final CobroPointService cobroPointService;
 
@@ -143,10 +148,8 @@ public class CompraServiceImpl implements CompraService {
     }
 
     /**
-     * Descuento de venta en puerta: catálogo de promos con nombre, o un descuento manual
-     * ad-hoc que el cajero tipea directo (% o $) — mutuamente excluyentes. A diferencia del
-     * cupón online, no queda un registro de "qué promo se usó" en la Compra: sólo se guarda
-     * el monto de descuento resultante, igual que ya hace el cupón online con montoTotal.
+     * Descuento de venta en puerta: promo del catálogo o descuento manual (% o $), excluyentes. Sólo se
+     * guarda el monto.
      */
     private BigDecimal calcularDescuentoPos(BigDecimal montoBruto, Long promocionId,
                                              BigDecimal descuentoManualPorcentaje, BigDecimal descuentoManualMonto) {
@@ -179,11 +182,8 @@ public class CompraServiceImpl implements CompraService {
     }
 
     /**
-     * Valida el cobro en dólares de una venta de puerta y devuelve los dólares que entregó el
-     * cliente, o null si el pago fue en pesos (el request no trae cotización). Pagar en dólares
-     * sigue siendo un cobro EFECTIVO_BOLETERIA: sólo cambia la moneda física, y el boletero
-     * declara los dólares recibidos (no el vuelto: el vuelto en pesos se deriva de
-     * dolaresRecibidos × cotización − montoFinal) para poder contarlos al cerrar la caja.
+     * Valida el cobro en dólares y devuelve los dólares recibidos, o null si se pagó en pesos. Sigue siendo
+     * EFECTIVO_BOLETERIA; el vuelto se deriva.
      */
     private BigDecimal validarCobroDolares(VentaPosRequestDTO request, BigDecimal montoFinal) {
         BigDecimal cotizacionDolar = request.getCotizacionDolar();
@@ -204,29 +204,20 @@ public class CompraServiceImpl implements CompraService {
         return dolaresRecibidos;
     }
 
-    /**
-     * SIN_COBRO es sólo para ventas de puerta cuyo total quedó en $0: si hay algo que cobrar,
-     * el boletero tiene que elegir efectivo/tarjeta/QR. (No se fuerza al revés: una venta de $0
-     * cobrada como "efectivo" sigue siendo válida, sólo suma 0.)
-     */
+    /** SIN_COBRO sólo si el total es $0. */
     private void validarFormaPagoPos(FormaPago formaPago, BigDecimal montoFinal) {
         if (formaPago == FormaPago.SIN_COBRO && montoFinal.compareTo(BigDecimal.ZERO) != 0) {
             throw new IllegalArgumentException("Esta venta tiene un monto a cobrar: elegí efectivo, tarjeta o QR.");
         }
     }
 
-    /** Las únicas formas entre las que tiene sentido dividir un pago mixto: cobro presencial,
-     * decidido por el boletero en el momento. MERCADO_PAGO/RESERVA_ADMIN/SIN_COBRO no aplican. */
+    /** Formas que se pueden combinar en un pago mixto. */
     private static final Set<FormaPago> FORMAS_PAGO_MIXTO = Set.of(
             FormaPago.EFECTIVO_BOLETERIA, FormaPago.TARJETA, FormaPago.MERCADO_PAGO_QR);
 
     /**
-     * Valida el pago mixto (venta cobrada con 2 formas de pago, ej. mitad efectivo y mitad
-     * tarjeta): ambas formas tienen que ser presenciales y distintas entre sí, salvo tarjeta +
-     * tarjeta (dos tarjetas distintas del mismo cliente, cada una con su cobro), el monto de la
-     * secundaria tiene que ser positivo y menor al total (la principal se lleva el resto), y
-     * es excluyente con dólares (que ya asumen el pago 100% en efectivo). Sin
-     * formaPagoSecundaria en el request, no hace nada: es el 99% de las ventas.
+     * Pago mixto: dos formas presenciales (repetidas sólo tarjeta o QR), secundaria positiva y menor al
+     * total, y sin dólares.
      */
     private void validarPagoMixto(VentaPosRequestDTO request, BigDecimal montoFinal) {
         FormaPago secundaria = request.getFormaPagoSecundaria();
@@ -237,7 +228,7 @@ public class CompraServiceImpl implements CompraService {
         if (!FORMAS_PAGO_MIXTO.contains(request.getFormaPago()) || !FORMAS_PAGO_MIXTO.contains(secundaria)) {
             throw new IllegalArgumentException("El pago mixto sólo admite efectivo, tarjeta o QR");
         }
-        if (secundaria == request.getFormaPago() && secundaria != FormaPago.TARJETA) {
+        if (secundaria == request.getFormaPago() && secundaria == FormaPago.EFECTIVO_BOLETERIA) {
             throw new IllegalArgumentException("Las dos formas de pago tienen que ser distintas");
         }
         BigDecimal monto = request.getMontoFormaPagoSecundaria();
@@ -258,19 +249,11 @@ public class CompraServiceImpl implements CompraService {
     }
 
     /**
-     * A propósito SIN @Transactional: `create` ya abre y cierra la suya, y lo que sigue —
-     * armar la preferencia en Mercado Pago — es una llamada HTTP a un tercero. Tenerla dentro
-     * de la transacción retenía una conexión del pool durante todo el viaje de red (o durante
-     * el timeout, cuando Mercado Pago no responde) y, peor, hacía que el lock que serializa la
-     * numeración del código de reserva se soltara recién después de esa llamada.
+     * Sin @Transactional a propósito: la llamada a Mercado Pago no puede quedar dentro, porque retiene la
+     * conexión y el lock de numeración del código de reserva. Si MP falla, la compra queda PENDIENTE_PAGO y
+     * la cancela el barrido.
      *
-     * Si Mercado Pago falla, la compra queda en PENDIENTE_PAGO en vez de deshacerse. Eso no es
-     * un estado nuevo ni huérfano: es exactamente el del cliente que abre el checkout y nunca
-     * paga, y ExpiracionCheckoutsScheduler lo cancela y le libera el cupón a las 3 h.
-     *
-     * `self.create` y no `this.create`: el @Transactional de create lo aplica el proxy de
-     * Spring, y una llamada con `this` no pasa por el proxy. Con `this` create se quedaría sin
-     * transacción y el lock de la numeración no duraría nada.
+     * `self.create`, no `this.create`: con `this` no pasa por el proxy y create queda sin transacción.
      */
     @Override
     public CompraResponseDTO iniciarCompraConPago(CompraRequestDTO compraRequest) throws Exception {
@@ -286,24 +269,14 @@ public class CompraServiceImpl implements CompraService {
             respuestaPago = estrategia.procesarPago(compraGuardada);
         } catch (Exception e) {
             if (compraGuardada.isReusada()) {
-                // Reusada: el cliente ya tiene el link del intento anterior y puede estar pagando
-                // con él, así que no se cancela ni se le devuelve el cupón. Si no paga, la limpia
-                // el barrido de checkouts abandonados como a cualquier otra.
+                // Reusada: el cliente puede estar pagando con el link anterior, no se cancela.
                 log.warn("No se pudo generar un link nuevo para el checkout reusado {} (compra ID {}): queda pendiente",
                         compraGuardada.getCodigoReserva(), compraGuardada.getId(), e);
                 throw e;
             }
-            // Se libera el cupón y el lugar del día en vez de esperar las 3 h del barrido
-            // (antes, con todo en una transacción, el rollback lo hacía solo).
-            //
-            // Una excepción acá NO prueba que Mercado Pago no haya creado la preferencia: un
-            // timeout puede caer después de que MP la aceptó. Se compensa igual, por dos
-            // razones. Primero, la respuesta que sale de este método es un error, así que el
-            // cliente nunca recibe el init_point y no tiene por dónde llegar a pagar esa
-            // preferencia. Segundo, si aun así entrara un pago, confirmarAprobado revive una
-            // compra CANCELADA a propósito (ver el comentario ahí): la persona termina con su
-            // entrada igual, a costa de un lugar de más en el día, que es el error barato.
-            // Si alguna vez se saca esa reactivación, hay que sacar también esta compensación.
+            // Se liberan cupón y lugar sin esperar al barrido. Aunque MP haya creado la preferencia, el
+            // cliente nunca recibe el link; y si igual paga, confirmarAprobado revive la compra. Si se saca
+            // esa reactivación, sacar también esto.
             liberarReservaNoIniciada(compraGuardada.getId(), e);
             throw e;
         }
@@ -325,13 +298,8 @@ public class CompraServiceImpl implements CompraService {
 
 
     /**
-     * Antes de darle un link nuevo a un checkout reusado, se fija si con el link anterior ya pagó
-     * o tiene un pago en proceso (pasa justo cuando la ventana se bloqueó o se cerró después de
-     * pagar y el webhook todavía no llegó). Sin esto el cliente paga dos veces la misma compra.
-     * Si ya está paga se confirma; en los dos casos se corta con un mensaje en vez del link.
-     *
-     * Si no se le puede preguntar a Mercado Pago, se sigue con el link nuevo: es lo mismo que
-     * pasaba antes del reuso, y el pago de más igual queda avisado (ver confirmarPagoMercadoPago).
+     * Antes de dar un link nuevo a un checkout reusado, se fija si ya pagó o tiene un pago en proceso, para
+     * que no pague dos veces. Si no se puede consultar a MP, sigue con el link nuevo.
      */
     private void verificarSinPagoEnCurso(Compra compra) {
         List<Payment> pagos;
@@ -360,13 +328,8 @@ public class CompraServiceImpl implements CompraService {
     private static final Set<String> PAGO_EN_PROCESO = Set.of("pending", "in_process", "authorized");
 
     /**
-     * Cancela una compra que se creó pero cuyo pago nunca llegó a iniciarse, y le devuelve al
-     * cupón el uso y al día el lugar. Es seguro asumir que no está paga: el cliente nunca
-     * recibió el link de Mercado Pago.
-     *
-     * Si esto llegara a fallar no se propaga: el error que importa es el original (por qué
-     * falló el pago), y el barrido de checkouts abandonados igual va a limpiar la compra más
-     * tarde. Perder el error real por un problema al compensar sería peor.
+     * Cancela una compra cuyo pago nunca se inició y libera cupón y lugar. Si falla no se propaga: importa el
+     * error original y el barrido la limpia después.
      */
     private void liberarReservaNoIniciada(Long compraId, Exception causa) {
         try {
@@ -403,9 +366,7 @@ public class CompraServiceImpl implements CompraService {
             if (abierto == null || !abierto) {
                 throw new IllegalArgumentException("El parque está cerrado en la fecha solicitada: " + fechaVisita);
             }
-            // La compra online para HOY se corta un rato antes del cierre (configurable junto al
-            // horario). Una reserva que carga un admin (RESERVA_ADMIN) queda afuera: es una decisión
-            // suya, no una compra del público.
+            // La compra online para HOY se corta antes del cierre. RESERVA_ADMIN queda afuera.
             if (compraRequest.getFormaPago() != FormaPago.RESERVA_ADMIN
                     && diaAperturaService.compraDelDiaCerrada(fechaVisita, LocalDateTime.now())) {
                 LocalDateTime limite = diaAperturaService.getLimiteDeCompra(fechaVisita);
@@ -414,12 +375,9 @@ public class CompraServiceImpl implements CompraService {
                         + " hs. Podés elegir otro día.");
             }
         } else {
-            // fechaVisita null = sin día fijo. Dos casos:
-            //  - Regalo (compra online): quien compra no es quien entra -> hace falta el receptor
-            //    (a quién avisar y con qué DNI validar). Tiene que llegar pagado (nunca efectivo:
-            //    si no, quien lo recibe termina pagando en la puerta lo que le regalaron).
-            //  - Reserva abierta generada por un ADMIN (invitado, premio): el titular es quien
-            //    entra, se valida con SU DNI, no hace falta receptor.
+            // fechaVisita null = sin día fijo:
+            // - Regalo: hace falta el receptor y tiene que llegar pagado, nunca en efectivo.
+            // - Reserva abierta de un ADMIN: entra el titular, sin receptor.
             if (compraRequest.getFormaPago() == FormaPago.EFECTIVO_BOLETERIA) {
                 throw new IllegalArgumentException("Los regalos sólo se pueden pagar online: no se puede reservar en efectivo.");
             }
@@ -434,10 +392,7 @@ public class CompraServiceImpl implements CompraService {
             } else if (compraRequest.getFormaPago() != FormaPago.RESERVA_ADMIN) {
                 throw new IllegalArgumentException("Para comprar como regalo hay que indicar nombre, DNI y email de quien lo recibe.");
             } else if (clienteDTO == null || esBlanco(clienteDTO.getNombre()) || esBlanco(clienteDTO.getDni())) {
-                // El nombre se valida igual que el DNI: más abajo, si el DNI viene cargado, se
-                // crea el Cliente con el nombre tal cual llegó, y Cliente.nombre es NOT NULL.
-                // Sin este chequeo, una reserva sin fecha con nombre vacío pasaba la validación
-                // y terminaba dando de alta un cliente sin nombre.
+                // Cliente.nombre es NOT NULL: sin esto se creaba un cliente sin nombre.
                 throw new IllegalArgumentException("Indicá el titular (nombre y DNI) para una reserva sin fecha.");
             }
         }
@@ -448,8 +403,7 @@ public class CompraServiceImpl implements CompraService {
             String dniStr = clienteDTO.getDni().trim();
             String nombreTipeado = normalizarNombre(clienteDTO.getNombre(), clienteDTO.getApellido());
 
-            // Puede haber más de un cliente con este DNI (ver ClienteRepository): se busca,
-            // entre los que ya existen, el que tenga el nombre más parecido al recién tipeado.
+            // Puede haber varios clientes con el mismo DNI: se elige el de nombre más parecido.
             Cliente mejorCandidato = null;
             double mejorSimilitud = -1;
             for (Cliente existente : clienteService.findAllByDni(dniStr)) {
@@ -465,10 +419,8 @@ public class CompraServiceImpl implements CompraService {
                     || (mejorSimilitud < 1.0 && Boolean.TRUE.equals(compraRequest.getEsOtraPersona()));
 
             if (debeCrearClienteAparte) {
-                // Nadie con este DNI todavía, el nombre no se parece en nada al de quien ya
-                // lo tiene, o el usuario aclaró que no es la misma persona (nombre parecido
-                // por casualidad): en vez de pisar los datos de quien ya estaba registrado,
-                // se crea un cliente nuevo con el mismo DNI (no hace falta confirmar nada más).
+                // Nadie con este DNI, nombre muy distinto o el usuario aclaró que es otra persona: se crea un
+                // cliente nuevo con el mismo DNI.
                 cliente = clienteService.create(Cliente.builder()
                         .dni(dniStr)
                         .nombre(clienteDTO.getNombre())
@@ -477,8 +429,7 @@ public class CompraServiceImpl implements CompraService {
                         .localidad(clienteDTO.getLocalidad())
                         .build());
             } else if (mejorSimilitud >= 1.0 || Boolean.TRUE.equals(compraRequest.getConfirmarDniExistente())) {
-                // Nombre idéntico (se reutiliza sin preguntar nada), o ya confirmó que es la
-                // misma persona con un nombre parecido pero no idéntico (typo).
+                // Nombre idéntico, o ya confirmó que es la misma persona.
                 cliente = mejorCandidato;
                 if (Boolean.TRUE.equals(compraRequest.getActualizarDatosCliente())) {
                     // Eligió actualizar sus datos: se pisan nombre/apellido/edad/localidad
@@ -490,39 +441,31 @@ public class CompraServiceImpl implements CompraService {
                     cliente = clienteService.create(cliente);
                 }
             } else {
-                // Nombre parecido pero no idéntico al de quien ya tiene este DNI: puede ser
-                // la misma persona con un typo, o puede ser otra — se le avisa al frontend
-                // para que confirme antes de asociar la compra a esa identidad.
+                // Nombre parecido pero no idéntico: el front pide confirmación.
                 throw new IllegalArgumentException("DNI_YA_REGISTRADO: Ya hay una reserva registrada con el DNI "
                         + dniStr + " a nombre de \"" + mejorCandidato.getNombre()
                         + (mejorCandidato.getApellido() != null ? " " + mejorCandidato.getApellido() : "")
                         + "\". Si sos la misma persona, confirmá para continuar.");
             }
         }
-        // Regalo: a quien compra no se le pide DNI (el que entra es el receptor, con el suyo).
-        // Igual se guarda como cliente para no perder su nombre (listados, búsqueda, mails). Se
-        // da de alta más abajo, después de ver si es un reintento: si no, cada "Pagar" dejaba un
-        // cliente nuevo sin compras.
+        // Quien compra un regalo no da DNI, pero se guarda como cliente por el nombre. Se crea después de ver
+        // si es un reintento, para no dejar clientes sueltos.
         boolean compradorDeRegaloSinDni = cliente == null && receptorNombre != null
                 && clienteDTO != null && !esBlanco(clienteDTO.getNombre());
 
         String contactEmail = clienteDTO != null ? clienteDTO.getEmail() : null;
         String contactPhone = clienteDTO != null ? clienteDTO.getTelefono() : null;
 
-        // El mismo cliente vuelve a apretar "Pagar" con lo mismo mientras su checkout anterior sigue
-        // sin pagar (la ventana de Mercado Pago se bloqueó, la cerró, le rechazaron la tarjeta): se
-        // reusa esa compra en vez de crear otra. Cada compra nueva aparta cupo del día y un uso del
-        // cupón por 3 h — pasó una de 30 compras en 6 minutos por una sola entrada vendida. Se busca
-        // antes del cupón y del cupo porque esa compra ya tiene su uso y su lugar tomados: no tienen
-        // que contar contra este mismo reintento.
+        // Mismo cliente apretando "Pagar" con lo mismo mientras su checkout sigue sin pagar: se reusa la
+        // compra. Cada compra nueva aparta cupo y un uso de cupón por 3 h. Va antes del cupón y del cupo
+        // porque esa compra ya los tiene tomados.
         Compra checkoutAReusar = compraRequest.getFormaPago() == FormaPago.MERCADO_PAGO
                 ? buscarCheckoutReutilizable(cliente, contactEmail, fechaVisita, receptorDni,
                         compraRequest.getCuponCodigo(), compraRequest.getEntradas()).orElse(null)
                 : null;
 
         if (compradorDeRegaloSinDni) {
-            // Sin DNI no hay con quién deduplicarlo: en un reintento se reusa el de la compra
-            // pendiente (con el nombre corregido si cambió); si no, es un registro nuevo.
+            // Sin DNI: en un reintento se reusa el cliente de la compra pendiente.
             Cliente previo = checkoutAReusar != null ? checkoutAReusar.getCliente() : null;
             if (previo != null && previo.getDni() == null) {
                 previo.setNombre(clienteDTO.getNombre());
@@ -536,11 +479,8 @@ public class CompraServiceImpl implements CompraService {
             }
         }
 
-        // El cupón se valida en dos pasos a propósito. Acá se lee sólo para poder devolver un
-        // mensaje que diga QUÉ pasa (agotado / vencido / inexistente), que es lo que ve el
-        // cliente en pantalla. Pero esta lectura NO autoriza nada: entre leerla y guardar la
-        // compra puede entrar otra compra con el mismo cupón. La autorización real es el
-        // consumo atómico de más abajo (cuponService.consumirUso), que es el que manda.
+        // Esta lectura sólo sirve para el mensaje de error (agotado, vencido, inexistente). Lo que autoriza
+        // es cuponService.consumirUso, más abajo.
         Cupon cupon = null;
         if (compraRequest.getCuponCodigo() != null) {
             cupon = cuponService.getByCode(compraRequest.getCuponCodigo()).orElse(null);
@@ -570,8 +510,7 @@ public class CompraServiceImpl implements CompraService {
         validarPaseObligatorio(detalles);
         validarNingunoSoloPos(detalles);
 
-        // Reintento del mismo checkout (ver más arriba): se reusa la compra pendiente, siempre que el
-        // total no haya cambiado (si cambió un precio, ya no es la misma compra).
+        // Reintento: se reusa la compra pendiente si el total no cambió.
         if (checkoutAReusar != null) {
             BigDecimal brutoAnterior = checkoutAReusar.getMontoTotal().add(
                     checkoutAReusar.getDescuentoAplicado() != null ? checkoutAReusar.getDescuentoAplicado() : BigDecimal.ZERO);
@@ -596,8 +535,6 @@ public class CompraServiceImpl implements CompraService {
 
         BigDecimal descuentoAplicado = BigDecimal.ZERO;
         if (cupon != null) {
-            // Las reglas del cupón (tipos de entrada, mínimo/máximo de entradas, por compra o por
-            // entrada, tope) están en el calculador, el mismo que usa la cotización.
             CuponDescuentoCalculator.Resultado resultadoCupon = CuponDescuentoCalculator.calcular(cupon, calculo.lineasEntrada());
             if (resultadoCupon.motivoNoAplica() != null) {
                 throw new IllegalArgumentException(resultadoCupon.motivoNoAplica());
@@ -608,11 +545,7 @@ public class CompraServiceImpl implements CompraService {
                 descuentoAplicado = montoTotal;
             }
 
-            // Un cupón de monto fijo puede tapar el total entero. Mercado Pago no acepta una
-            // preferencia por $0, así que esa compra fallaría al pedir el checkout — y hasta
-            // hace un rato fallaba DESPUÉS de haber consumido el uso del cupón. Se rechaza
-            // antes de tocar nada: un cupón que cubre todo es para la boletería, no para el
-            // pago online, que necesita algo que cobrar.
+            // Mercado Pago no acepta $0: un cupón que cubre todo se rechaza antes de consumir el uso.
             if (compraRequest.getFormaPago() == FormaPago.MERCADO_PAGO
                     && montoTotal.subtract(descuentoAplicado).compareTo(BigDecimal.ZERO) <= 0) {
                 throw new IllegalArgumentException("El cupón " + compraRequest.getCuponCodigo()
@@ -620,26 +553,17 @@ public class CompraServiceImpl implements CompraService {
                         + "Usalo en la boletería del parque.");
             }
 
-            // Recién acá se decide de verdad si este cupón se puede usar: una sola sentencia
-            // que valida y descuenta a la vez. Si otra compra simultánea se llevó el último
-            // uso, devuelve false y la compra se rechaza en vez de regalar el descuento. Va
-            // último a propósito: cualquier validación que pueda tirar la compra abajo tiene
-            // que estar antes, para no quemar un uso del cupón por una compra que no va a
-            // existir.
+            // Valida y descuenta el uso en una sola sentencia; si otra compra se llevó el último, se rechaza.
+            // Va último para no quemar un uso por una compra que no se crea.
             if (!cuponService.consumirUso(cupon.getId())) {
                 throw new IllegalArgumentException(
                         "El cupón " + compraRequest.getCuponCodigo() + " ya no está disponible.");
             }
 
-            // montoTotal es lo que se le cobra al cliente, no el bruto: si no se resta acá, el
-            // cupón queda de adorno. El front ya le muestra el total con el descuento aplicado
-            // (ver entradas.ts), así que sin esto veía "$17.150" en pantalla y Mercado Pago le
-            // cobraba los "$34.300" de lista. La venta por POS siempre lo hizo así
-            // (montoFinal = montoBruto - descuento); era sólo el camino online el que no.
+            // montoTotal es lo que se cobra: hay que restar el descuento.
             montoTotal = montoTotal.subtract(descuentoAplicado);
 
-            // El incremento de usosActuales y el apagado del cupón al agotarse ya los hizo
-            // consumirUso() en la misma sentencia que autorizó el uso.
+            // consumirUso ya incrementó usosActuales y apagó el cupón si se agotó.
         }
 
         String codigoReserva = generarCodigoReserva(fechaVisita, receptorNombre != null);
@@ -671,10 +595,8 @@ public class CompraServiceImpl implements CompraService {
     }
 
     /**
-     * Un checkout de Mercado Pago sin pagar, de los últimos MINUTOS_REUSO_CHECKOUT, que sea la misma
-     * compra que se está por crear: misma persona (DNI, o mail si no hay DNI, como en un regalo),
-     * mismo día (o los dos regalo, y para el mismo DNI), mismo cupón y mismas entradas y cantidades.
-     * Que el total siga siendo el mismo se chequea después, con los precios ya calculados.
+     * Checkout sin pagar reciente que sea la misma compra: misma persona, mismo día, mismo cupón y mismas
+     * entradas. El total se chequea después.
      */
     private Optional<Compra> buscarCheckoutReutilizable(Cliente cliente, String contactEmail, LocalDate fechaVisita,
                                                        String receptorDni, String cuponCodigo,
@@ -699,9 +621,10 @@ public class CompraServiceImpl implements CompraService {
                 .max(Comparator.comparing(Compra::getFechaCreacion));
     }
 
-    /** Con DNI de algún lado manda el DNI: dos personas pueden compartir un mail (una familia) y
-     * no se le puede pasar a una el checkout de la otra. El mail sólo identifica cuando ninguna de
-     * las dos tiene DNI, que es el caso de quien compra un regalo. */
+    /**
+     * Si alguno tiene DNI manda el DNI (una familia puede compartir mail). El mail sólo cuando ninguno tiene
+     * DNI.
+     */
     private static boolean esLaMismaPersona(Compra compra, String dni, String contactEmail) {
         String dniCompra = compra.getCliente() != null ? compra.getCliente().getDni() : null;
         if (dni != null || dniCompra != null) return dni != null && dni.equals(dniCompra);
@@ -758,7 +681,7 @@ public class CompraServiceImpl implements CompraService {
         return compraRepository.findAll(spec, pageable);
     }
 
-    /** Mismo criterio de `buscar()` (tipo→estados, texto, fecha(s), forma de pago) armado como Specification reutilizable. */
+    /** El criterio de `buscar()` como Specification. */
     private Specification<Compra> construirSpecBusqueda(BusquedaComprasFiltroDTO filtro) {
         List<EstadoCompra> estados = filtro.estados();
         if (filtro.tipo() == TipoListadoCompra.BOLETERIA) {
@@ -786,15 +709,10 @@ public class CompraServiceImpl implements CompraService {
     public Page<LocalDate> fechasDistintas(BusquedaComprasFiltroDTO filtro, Pageable pageable) {
         Specification<Compra> spec = construirSpecBusqueda(filtro);
 
-        // JpaSpecificationExecutor no ofrece proyecciones (sólo entidades completas), así que
-        // para "fechaVisita distintas" hace falta armar la Criteria a mano — reutilizando el
-        // mismo Specification de arriba, que sólo necesita un (root, query, cb) cualquiera.
+        // JpaSpecificationExecutor no hace proyecciones: Criteria a mano con el mismo Specification.
         CriteriaBuilder cb = em.getCriteriaBuilder();
 
-        // Los regalos (fechaVisita null) quedan afuera de esta enumeración a propósito: tienen
-        // su propio bloque en Boletería (filtro sinFecha de /buscar, ver CompraSpecifications),
-        // así que esta paginación por día —pensada para "Ver todas las fechas"— es sólo de días
-        // reales, sin una entrada fantasma para ellos.
+        // Sin regalos (fechaVisita null): tienen su propio bloque en Boletería.
         CriteriaQuery<LocalDate> queryDatos = cb.createQuery(LocalDate.class);
         Root<Compra> rootDatos = queryDatos.from(Compra.class);
         queryDatos.select(rootDatos.get("fechaVisita"))
@@ -828,15 +746,13 @@ public class CompraServiceImpl implements CompraService {
         compra.setUsuarioValidador(usuario);
         compra.setFechaValidacion(LocalDateTime.now());
 
-        // Un regalo queda SIN fechaVisita a propósito, incluso después de canjearse: su
-        // recaudación se atribuye a la fecha de compra (la plata entró al venderlo) y su ingreso
-        // a la fecha de validación, cada uno a su mes, sin moverse (ver ReporteServiceImpl).
+        // Un regalo queda sin fechaVisita aun canjeado: la recaudación va a la fecha de compra y el ingreso a
+        // la de validación.
 
         return compraRepository.save(compra);
     }
 
-    /** Ventana de tiempo para poder deshacer una validación (mismo valor que
-     * Boleteria.VENTANA_DESHACER_MENU_MS en el frontend — mantenerlos sincronizados). */
+    /** Igual que Boleteria.VENTANA_DESHACER_MENU_MS en el front: mantenerlos iguales. */
     private static final long VENTANA_DESHACER_VALIDACION_SEGUNDOS = 2400;
 
     @Transactional
@@ -854,12 +770,8 @@ public class CompraServiceImpl implements CompraService {
             throw new IllegalStateException("Ya pasó el tiempo para deshacer esta validación.");
         }
 
-        // Vuelve al estado del que salió: RESERVADO_EFECTIVO si el ingreso se cobró (en una caja,
-        // sea en efectivo, tarjeta o QR; o un admin sin caja por confirmarPagoEfectivo — ver el
-        // comentario de esa interfaz), APROBADO si ya estaba paga online. No alcanza con mirar
-        // sólo `caja` (un admin puede haber cobrado efectivo sin una) ni sólo `formaPago` (el POS
-        // puede haber repreciado la reserva a tarjeta/QR al cobrarla): EFECTIVO_BOLETERIA nunca es
-        // la forma de una compra online, así que cualquiera de las dos señales alcanza.
+        // Vuelve a RESERVADO_EFECTIVO si se cobró en la puerta (con caja, o efectivo de un admin sin caja), o
+        // a APROBADO si estaba paga online.
         compra.setEstado(compra.getCaja() != null || compra.getFormaPago() == FormaPago.EFECTIVO_BOLETERIA
                 ? EstadoCompra.RESERVADO_EFECTIVO
                 : EstadoCompra.APROBADO);
@@ -883,10 +795,7 @@ public class CompraServiceImpl implements CompraService {
             throw new IllegalStateException("La compra ID " + compraId + " no está pendiente de cobro en boletería (estado actual: " + compra.getEstado() + ")");
         }
 
-        // El cobro normalmente pasa a integrar la caja abierta de quien cobra, para poder
-        // reconciliarse al cierre. Un admin desde Control de Accesos puede no tener ninguna
-        // (no abre caja para esto, ver el comentario de la interfaz): en ese caso queda sin
-        // caja, igual que una anticipada validada — fuera de cualquier cierre, sólo en Reportes.
+        // Va a la caja abierta de quien cobra; un admin sin caja la deja fuera de cualquier cierre.
         Caja caja = cajaService.getAbierta(usuarioValidadorId)
                 .orElseGet(() -> {
                     if (permitirSinCaja) return null;
@@ -905,8 +814,7 @@ public class CompraServiceImpl implements CompraService {
             throw new IllegalArgumentException("Debe indicar una forma de pago");
         }
 
-        // Cotización de una reserva cargada en el POS: mismos precios congelados que usa el
-        // cobro (cobrarReservaComoVentaPos), para que el total mostrado sea el que se cobra.
+        // Cotización de una reserva: los mismos precios congelados que usa el cobro.
         Compra reserva = cotizacionRequest.getCompraReservadaId() == null ? null
                 : compraRepository.findById(cotizacionRequest.getCompraReservadaId())
                         .filter(c -> c.getEstado() == EstadoCompra.RESERVADO_EFECTIVO)
@@ -956,8 +864,7 @@ public class CompraServiceImpl implements CompraService {
             }
         }
 
-        // El descuento de promo/manual (sólo venta en puerta) reduce el subtotal a cobrar,
-        // pero no se mezcla con "ahorro": ahorro es específicamente el precio de grupo.
+        // El descuento de promo/manual no cuenta como "ahorro": ahorro es sólo el precio de grupo.
         BigDecimal descuento = calcularDescuentoPos(subtotal, cotizacionRequest.getPromocionId(),
                 cotizacionRequest.getDescuentoManualPorcentaje(), cotizacionRequest.getDescuentoManualMonto());
 
@@ -969,10 +876,8 @@ public class CompraServiceImpl implements CompraService {
     }
 
     /**
-     * Le suma a la cotización lo que descontaría el cupón. Nunca tira: si el cupón no aplica
-     * (no existe, no vigente, o no cumple sus reglas con estas entradas) el descuento queda en
-     * cero y el motivo va en avisoCupon, para que el resumen lo muestre en vez de dar error.
-     * La compra en sí sí lo rechaza (ver create).
+     * Suma el descuento del cupón a la cotización. Nunca tira: si no aplica, descuento 0 y el motivo en
+     * avisoCupon.
      */
     private void aplicarCuponACotizacion(CotizacionRequestDTO request, List<CuponDescuentoCalculator.Linea> lineas,
                                          CotizacionResponseDTO dto) {
@@ -995,6 +900,7 @@ public class CompraServiceImpl implements CompraService {
             return;
         }
         CuponDescuentoCalculator.Resultado resultado = CuponDescuentoCalculator.calcular(cupon, lineas);
+        dto.setCuponValido(true);
         dto.setAvisoCupon(resultado.motivoNoAplica());
         dto.setDescuentoCupon(resultado.descuento());
     }
@@ -1008,7 +914,7 @@ public class CompraServiceImpl implements CompraService {
         return s == null || s.isBlank();
     }
 
-    /** Minúsculas, sin acentos y sin espacios de más — para comparar nombres tolerando variaciones menores. */
+    /** Minúsculas, sin acentos y sin espacios de más. */
     private String normalizarNombre(String nombre, String apellido) {
         String junto = (nombre == null ? "" : nombre) + " " + (apellido == null ? "" : apellido);
         String sinAcentos = java.text.Normalizer.normalize(junto.trim().toLowerCase(), java.text.Normalizer.Form.NFD)
@@ -1017,10 +923,8 @@ public class CompraServiceImpl implements CompraService {
     }
 
     /**
-     * Por debajo de esto, dos nombres (ya normalizados con normalizarNombre) se consideran
-     * personas distintas: no se pregunta nada, se crea un cliente nuevo con el mismo DNI.
-     * Por encima (pero sin ser idénticos), se asume que puede ser la misma persona con un
-     * typo en el nombre y se pide confirmación antes de reutilizar/actualizar sus datos.
+     * Por debajo, personas distintas: cliente nuevo con el mismo DNI. Por encima sin ser idénticos, se pide
+     * confirmación.
      */
     private static final double UMBRAL_SIMILITUD_NOMBRES = 0.6;
 
@@ -1053,22 +957,16 @@ public class CompraServiceImpl implements CompraService {
     }
 
     /**
-     * Cantidad ya vendida ese día por tipo de entrada, para chequear contra el cupo diario:
-     * suma las líneas de entrada de todas las compras de esa fechaVisita, sin contar lo
-     * cancelado, las líneas de artículo vario (sin tipoEntrada) ni las de la compra que se
-     * está reemplazando (`excluirCompraId`, cuando se reprecia/edita una venta existente).
-     * Devuelve un mapa vacío para los regalos (fechaVisita null): no hay día contra el cual medir.
+     * Vendido ese día por tipo, para el cupo diario. Sin canceladas, artículos ni la compra
+     * `excluirCompraId`. Vacío para regalos.
      */
     private Map<Long, Integer> cantidadVendidaPorTipoEnElDia(LocalDate fechaVisita, Long excluirCompraId) {
         Map<Long, Integer> cantidadVendidaPorTipo = new HashMap<>();
         if (fechaVisita == null) return cantidadVendidaPorTipo;
 
-        // Este conteo se mira y recién después se escribe la compra, así que sin lock dos
-        // ventas simultáneas para el último lugar leen las dos "queda 1" y entran las dos.
-        // El lock va acá y no en quien valida porque este método es el que alimenta a TODOS
-        // los caminos que controlan cupo: compra online, venta en puerta, cobro de una reserva
-        // en el POS y edición de una venta. Se libera solo al terminar la transacción y es el
-        // mismo que serializa la numeración del código de reserva del día.
+        // Lock para que dos ventas simultáneas no tomen el último lugar. Va acá porque todos los caminos que
+        // controlan cupo pasan por este método. Se libera al terminar la transacción y es el mismo de la
+        // numeración del código de reserva.
         compraRepository.bloquearFechaDeVisita(
                 fechaVisita.format(DateTimeFormatter.ofPattern("yyMMdd")).hashCode());
 
@@ -1084,35 +982,26 @@ public class CompraServiceImpl implements CompraService {
     }
 
     /**
-     * Convierte las líneas del pedido en detalles de compra, cobrando el precio que
-     * corresponde a la forma de pago (el precio promocional por grupo sólo existe en
-     * efectivo) y verificando contra el cupo diario de cada tipo.
+     * Arma los detalles con el precio de la forma de pago (el de grupo sólo en efectivo) y chequea el cupo
+     * diario.
      */
     private DetallesCalculados construirDetalles(List<DetalleCompraDTO> entradas, FormaPago formaPago, LocalDate fechaVisita) {
         return construirDetalles(entradas, formaPago, fechaVisita, null);
     }
 
     /**
-     * `excluirCompraId`: cuando se está reconstruyendo una compra ya existente (cobrar una
-     * reserva en el POS), sus líneas actuales NO cuentan para el cupo del día — se están
-     * reemplazando, no sumando encima (mismo criterio que editarVenta).
+     * `excluirCompraId`: las líneas actuales de esa compra no cuentan para el cupo, se están reemplazando.
      */
     private DetallesCalculados construirDetalles(List<DetalleCompraDTO> entradas, FormaPago formaPago,
                                                  LocalDate fechaVisita, Long excluirCompraId) {
         return construirDetalles(entradas, formaPago, fechaVisita, excluirCompraId, null);
     }
 
-    /**
-     * `preciosListaCongelados` (tipoEntradaId -> precio de lista): al cobrar una reserva, el
-     * precio que tenía cuando se reservó. Los tipos que no estén en el mapa (o todos, si es
-     * null) usan el precio actual. Cada línea guarda el precio de lista con el que se calculó.
-     */
+    /** `preciosListaCongelados`: precio de lista al reservar; los tipos que no están usan el actual. */
     private DetallesCalculados construirDetalles(List<DetalleCompraDTO> entradas, FormaPago formaPago,
                                                  LocalDate fechaVisita, Long excluirCompraId,
                                                  Map<Long, BigDecimal> preciosListaCongelados) {
-        // Cupo diario por tipo: se suma lo ya vendido ese día (sin contar lo cancelado)
-        // más lo que se está agregando ahora. Los regalos no tienen fecha todavía, así
-        // que no hay contra qué día chequear el cupo.
+        // Cupo: lo vendido ese día más lo nuevo. Los regalos no tienen día.
         Map<Long, Integer> cantidadVendidaPorTipo = cantidadVendidaPorTipoEnElDia(fechaVisita, excluirCompraId);
 
         BigDecimal montoTotal = BigDecimal.ZERO;
@@ -1136,8 +1025,7 @@ public class CompraServiceImpl implements CompraService {
                     }
                 }
 
-                // RESERVA_ADMIN no cobra nada por acá: no tiene sentido pedirle un precio a
-                // calculoPrecioService (que sólo sabe de precio de lista/grupo para las formas de pago reales).
+                // RESERVA_ADMIN no cobra: no se pide precio.
                 BigDecimal precioCongelado = preciosListaCongelados == null ? null : preciosListaCongelados.get(tipoId);
                 BigDecimal precioLista = precioCongelado != null ? precioCongelado : tipoEntrada.getPrecio();
                 BigDecimal totalLinea = BigDecimal.ZERO;
@@ -1160,13 +1048,7 @@ public class CompraServiceImpl implements CompraService {
         return new DetallesCalculados(detalles, montoTotal, lineasEntrada);
     }
 
-    /**
-     * Arma las líneas de artículo vario de una venta en puerta: de catálogo (articuloVarioId,
-     * el nombre y precio quedan resueltos desde ahí) o libres (sólo descripcionLibre, sin
-     * ningún catálogo detrás). A diferencia de las entradas, el precio SIEMPRE viene confiado
-     * del cajero (precioUnitario) — no hay un precio "oficial" que validar contra un artículo
-     * libre, y el catálogo mismo permite que el cajero lo ajuste al vender.
-     */
+    /** Líneas de artículo vario: de catálogo o libres. El precio siempre lo pone el cajero. */
     private DetallesCalculados construirLineasArticulos(List<LineaArticuloPosDTO> articulos) {
         BigDecimal montoTotal = BigDecimal.ZERO;
         List<CompraDetalle> detalles = new ArrayList<>();
@@ -1207,11 +1089,7 @@ public class CompraServiceImpl implements CompraService {
         return new DetallesCalculados(detalles, montoTotal);
     }
 
-    /**
-     * Si se compran entradas, tiene que haber al menos un pase de un tipo obligatorio (ej: un
-     * adulto responsable). Las líneas de artículo vario (tipoEntrada null) se ignoran acá: una
-     * venta de sólo artículos (sin entradas) no dispara esta exigencia.
-     */
+    /** Si hay entradas, tiene que haber un pase obligatorio. Una venta de sólo artículos no lo exige. */
     private void validarPaseObligatorio(List<CompraDetalle> detalles) {
         boolean hayEntradas = detalles.stream()
                 .anyMatch(d -> d.getTipoEntrada() != null && d.getTipoEntrada().getTipo() == Tipo.ENTRADA);
@@ -1225,10 +1103,8 @@ public class CompraServiceImpl implements CompraService {
     }
 
     /**
-     * Defensa en profundidad para la compra pública online: un tipo "Solo POS" ya está
-     * filtrado del lado del frontend (seleccion-entradas.ts), pero acá se rechaza igual
-     * por si alguien arma el request a mano. No se usa desde crearVenta (POS): ahí vender
-     * un tipo "Solo POS" es exactamente el caso de uso que existe para.
+     * El front ya filtra los tipos "Solo POS" en la compra online; acá se rechaza por si arman el request a
+     * mano.
      */
     private void validarNingunoSoloPos(List<CompraDetalle> detalles) {
         boolean haySoloPos = detalles.stream()
@@ -1241,29 +1117,17 @@ public class CompraServiceImpl implements CompraService {
     }
 
     /**
-     * Código visible yyMMdd-N: N es el orden de esta reserva entre todas las que ya
-     * existen para ese mismo día de visita. Sin fecha: REGALO-N si es un regalo (tiene
-     * receptor), RESERVA-N si es una reserva sin día generada por un admin.
+     * Código yyMMdd-N, N = orden de la reserva en el día. Sin fecha: REGALO-N o RESERVA-N.
      *
-     * El `count(*) + 1` es correcto sólo si nadie más lo está haciendo al mismo tiempo: dos
-     * compras simultáneas leían el mismo conteo, armaban el mismo código y la segunda moría
-     * contra el unique de codigo_reserva — se perdía una reserva. El lock de abajo serializa
-     * el tramo "contar y usar ese número" entre las compras del mismo prefijo.
-     *
-     * Contar filas que todavía no están commiteadas no sirve, así que el lock tiene que durar
-     * hasta el commit (por eso _xact_: Postgres lo suelta solo ahí, no hace falta liberarlo a
-     * mano ni siquiera si la transacción falla). Eso es tolerable únicamente porque este
-     * método corre en su propia transacción, corta: el llamado a Mercado Pago quedó fuera a
-     * propósito (ver iniciarCompraConPago). Si volviera a quedar adentro, este lock pasaría a
-     * retenerse durante toda la llamada HTTP y serializaría las compras del día detrás de
-     * ella.
+     * El lock serializa "contar y usar el número": sin él dos compras simultáneas armaban el mismo código y
+     * una moría contra el unique. Es _xact_ porque tiene que durar hasta el commit. Esto exige una
+     * transacción corta: la llamada a Mercado Pago tiene que seguir afuera (ver iniciarCompraConPago).
      */
     private String generarCodigoReserva(LocalDate fechaVisita, boolean tieneReceptor) {
         String prefijo = fechaVisita != null
                 ? fechaVisita.format(DateTimeFormatter.ofPattern("yyMMdd"))
                 : (tieneReceptor ? "REGALO" : "RESERVA");
-        // La clave del lock es un hash del prefijo: si dos prefijos distintos colisionaran,
-        // lo único que pasa es que se esperan de más, nunca que se repita un número.
+        // Si dos prefijos colisionan sólo se esperan de más.
         compraRepository.bloquearFechaDeVisita(prefijo.hashCode());
 
         long numero = fechaVisita != null
@@ -1275,9 +1139,7 @@ public class CompraServiceImpl implements CompraService {
     @Transactional
     @Override
     public Compra registrarVentaPos(VentaPosRequestDTO request, Long usuarioVendedorId) {
-        // Antes que nada: si esta misma venta ya se procesó (reintento del POS de algo cuya
-        // respuesta se perdió en un corte de conexión), devolver la compra guardada en vez de
-        // cobrarla dos veces.
+        // Si la venta ya se procesó (reintento del POS), devolver la guardada en vez de cobrar dos veces.
         String idempotencyKey = request.getIdempotencyKey();
         if (idempotencyKey != null && !idempotencyKey.isBlank()) {
             Optional<Compra> yaRegistrada = compraRepository.findByIdempotencyKey(idempotencyKey);
@@ -1289,18 +1151,15 @@ public class CompraServiceImpl implements CompraService {
         Usuario vendedor = usuarioService.obtenerUsuarioPorId(usuarioVendedorId)
                 .orElseThrow(() -> new IllegalArgumentException("Usuario vendedor no encontrado para id: " + usuarioVendedorId));
 
-        // Toda venta de puerta se hace contra una caja abierta, sea cual sea la forma de
-        // pago: es la que después se cierra y concilia al final del turno.
+        // Toda venta de puerta va contra una caja abierta.
         Caja caja = cajaService.getAbiertaOrThrow(usuarioVendedorId);
 
-        // Si el boletero cargó una anticipada RESERVADO_EFECTIVO en el POS, esto no crea una
-        // compra nueva: reprecia y cierra la reserva existente.
+        // Una reserva RESERVADO_EFECTIVO cargada en el POS no crea compra nueva: se reprecia y se cierra.
         Compra venta = request.getCompraReservadaId() != null
                 ? cobrarReservaComoVentaPos(request, caja, vendedor, idempotencyKey)
                 : crearVenta(request, caja, vendedor, idempotencyKey);
         vincularCobroPoint(request, venta);
-        // En la misma transacción que la venta: si la venta no se guarda, tampoco queda la
-        // factura encolada. La emisión contra ARCA arranca recién después del commit.
+        // Misma transacción que la venta; la emisión arranca después del commit.
         facturaService.solicitar(venta, request.getFacturacion());
         return venta;
     }
@@ -1313,23 +1172,19 @@ public class CompraServiceImpl implements CompraService {
         if (caja.getFechaCierre() != null) {
             throw new IllegalStateException("Esta caja ya está cerrada");
         }
-        // Queda a nombre del boletero dueño de la caja (no del admin que la carga): es una
-        // venta que le faltó registrar a esa persona, no una del admin.
+        // Queda a nombre del dueño de la caja, no del admin.
         Compra venta = crearVenta(request, caja, caja.getUsuario(), null);
         vincularCobroPoint(request, venta);
         facturaService.solicitar(venta, request.getFacturacion());
         return venta;
     }
 
-    /** Si la tarjeta se cobró con el Point, ata ese cobro a la venta (en la misma transacción:
-     * si el cobro no cierra con la venta, la venta no se registra). */
+    /** Ata el cobro del Point a la venta, en la misma transacción. */
     private void vincularCobroPoint(VentaPosRequestDTO request, Compra venta) {
         cobroPointService.vincular(request.getCobrosPointIds(), venta);
     }
 
-    /** Arma y guarda la venta contra una caja y un vendedor ya resueltos (turno propio o, vía
-     * admin, el de otro boletero). Único idempotencyKey no nulo: el propio POS, contra su cola
-     * offline — un admin corrigiendo una caja siempre está conectado. */
+    /** Guarda la venta contra una caja y un vendedor ya resueltos. Sólo el POS manda idempotencyKey. */
     private Compra crearVenta(VentaPosRequestDTO request, Caja caja, Usuario vendedor, String idempotencyKey) {
         if (request.getFormaPago() == null) {
             throw new IllegalArgumentException("Debe indicar la forma de pago del cobro");
@@ -1340,12 +1195,8 @@ public class CompraServiceImpl implements CompraService {
             throw new IllegalArgumentException("La venta no tiene entradas ni artículos cargados");
         }
 
-        // El visitante está entrando en este momento, así que la fecha de visita es hoy.
-        // A diferencia de la compra online no se valida que el día esté marcado como
-        // abierto: si hay alguien vendiendo en la boletería, el parque está abierto.
-        // fechaOriginal la manda el POS cuando la venta estuvo encolada sin conexión: se usa
-        // para que una venta cobrada a las 23:50 y sincronizada pasada la medianoche no quede
-        // registrada como visita del día siguiente.
+        // La visita es hoy y no se valida que el día esté abierto. fechaOriginal viene de la cola offline,
+        // para que una venta de las 23:50 sincronizada después de medianoche no caiga al día siguiente.
         LocalDateTime momentoVenta = request.getFechaOriginal() == null ? LocalDateTime.now() : request.getFechaOriginal();
         LocalDate hoy = momentoVenta.toLocalDate();
 
@@ -1357,8 +1208,6 @@ public class CompraServiceImpl implements CompraService {
         if (todosLosDetalles.isEmpty()) {
             throw new IllegalArgumentException("La venta no tiene entradas ni artículos cargados");
         }
-        // Sólo exige el pase obligatorio si hay líneas de entrada: una venta sólo de
-        // artículos (ej. un souvenir suelto) no tiene por qué incluir un pase de ingreso.
         validarPaseObligatorio(todosLosDetalles);
 
         BigDecimal montoBruto = calculoEntradas.montoTotal().add(calculoArticulos.montoTotal());
@@ -1367,8 +1216,7 @@ public class CompraServiceImpl implements CompraService {
         BigDecimal montoFinal = montoBruto.subtract(descuento);
         validarFormaPagoPos(request.getFormaPago(), montoFinal);
         validarPagoMixto(request, montoFinal);
-        // calcularDescuentoPos ya validó que la promo exista y esté activa: se vuelve a buscar
-        // acá sólo para poder guardar la referencia en la Compra (ver comentario en Compra.promocion).
+        // Se vuelve a buscar la promo sólo para guardar la referencia.
         Promocion promocionUsada = request.getPromocionId() != null
                 ? promocionRepository.findById(request.getPromocionId()).orElse(null)
                 : null;
@@ -1376,9 +1224,7 @@ public class CompraServiceImpl implements CompraService {
         BigDecimal cotizacionDolar = request.getCotizacionDolar();
         BigDecimal dolaresRecibidos = validarCobroDolares(request, montoFinal);
 
-        // Venta anónima: no hay cliente ni contacto que cargar (ya están entrando, no hay
-        // nada que validar después ni comprobante que mandar). Nace VENDIDO_EN_PUERTA porque
-        // el cobro y el ingreso pasan en el mismo acto y nunca fue una reserva anticipada.
+        // Venta anónima. Nace VENDIDO_EN_PUERTA: cobro e ingreso en el mismo acto.
         Compra venta = Compra.builder()
                 .cliente(null)
                 .fechaVisita(hoy)
@@ -1407,11 +1253,8 @@ public class CompraServiceImpl implements CompraService {
     }
 
     /**
-     * Cierra una reserva RESERVADO_EFECTIVO que el boletero cargó y cobró en el POS (desde el
-     * panel de anticipadas): reprecia sus líneas según la forma de pago elegida
-     * (efectivo/tarjeta/QR o dólares), aplica el descuento que haya cargado el boletero y la
-     * marca USADO contra su caja. No crea una compra nueva — mantiene cliente, código y fecha
-     * de visita de la reserva.
+     * Cierra una reserva RESERVADO_EFECTIVO cobrada en el POS: reprecia según la forma de pago, aplica el
+     * descuento y la marca USADO. Mantiene cliente, código y fecha.
      */
     private Compra cobrarReservaComoVentaPos(VentaPosRequestDTO request, Caja caja, Usuario vendedor, String idempotencyKey) {
         Compra reserva = compraRepository.findById(request.getCompraReservadaId())
@@ -1426,11 +1269,8 @@ public class CompraServiceImpl implements CompraService {
 
         LocalDateTime momentoVenta = request.getFechaOriginal() == null ? LocalDateTime.now() : request.getFechaOriginal();
 
-        // Cupo del día contra la fecha de visita de la reserva, sin contar sus propias líneas
-        // actuales (se están reemplazando, no sumando encima).
-        // El cliente paga lo que reservó, no lo que cueste hoy: las líneas se reprecian con el
-        // precio de lista que tenían al reservar (sigue cambiando por forma de pago: el
-        // escalón por grupo sólo existe en efectivo).
+        // Cupo contra el día de la reserva sin contar sus propias líneas. Se reprecia con el precio de lista
+        // que tenía al reservar.
         DetallesCalculados calculoEntradas = construirDetalles(
                 request.getEntradas(), request.getFormaPago(), reserva.getFechaVisita(), reserva.getId(),
                 preciosListaReservados(reserva));
@@ -1443,9 +1283,8 @@ public class CompraServiceImpl implements CompraService {
         }
         validarPaseObligatorio(todosLosDetalles);
 
-        // Si va a pagar lo mismo que reservó y en efectivo, se cobra exactamente el monto de la
-        // reserva (ya con el escalón por grupo y el cupón que tuviera), sin volver a evaluar
-        // escalones: son importes absolutos y pueden haber cambiado desde que reservó.
+        // Si paga lo mismo que reservó y en efectivo, se cobra el monto de la reserva sin reevaluar
+        // escalones.
         boolean mantienePrecioReservado = mantienePrecioReservado(reserva, request.getFormaPago(), request.getEntradas());
         BigDecimal montoEntradas = mantienePrecioReservado ? reserva.getMontoTotal() : calculoEntradas.montoTotal();
         BigDecimal descuentoPrevio = mantienePrecioReservado && reserva.getDescuentoAplicado() != null
@@ -1464,8 +1303,7 @@ public class CompraServiceImpl implements CompraService {
         BigDecimal cotizacionDolar = request.getCotizacionDolar();
         BigDecimal dolaresRecibidos = validarCobroDolares(request, montoFinal);
 
-        // orphanRemoval en Compra.detalles: vaciar la colección alcanza para que Hibernate
-        // borre las líneas viejas antes de cargar las nuevas (mismo criterio que editarVenta).
+        // orphanRemoval: vaciar la colección borra las líneas viejas.
         reserva.getDetalles().clear();
         reserva.getDetalles().addAll(todosLosDetalles);
         for (CompraDetalle det : todosLosDetalles) {
@@ -1490,10 +1328,7 @@ public class CompraServiceImpl implements CompraService {
         return compraRepository.save(reserva);
     }
 
-    /**
-     * Precio de lista (tipoEntradaId -> precio) que tenía cada línea de entrada de la reserva
-     * cuando se reservó. Las líneas anteriores a ese dato no aparecen: usan el precio actual.
-     */
+    /** Precio de lista de cada tipo al reservar. Las líneas viejas sin ese dato no aparecen. */
     private Map<Long, BigDecimal> preciosListaReservados(Compra reserva) {
         Map<Long, BigDecimal> precios = new HashMap<>();
         if (reserva.getDetalles() == null) return precios;
@@ -1505,12 +1340,7 @@ public class CompraServiceImpl implements CompraService {
         return precios;
     }
 
-    /**
-     * True si lo que se va a cobrar es exactamente lo reservado: pago en efectivo (la forma con
-     * la que se reservó) y las mismas entradas, misma cantidad por tipo. Ahí el monto es el de
-     * la reserva y no se recalcula. Una reserva con líneas de artículo propias no califica: su
-     * montoTotal las incluye y no se puede aislar la parte de entradas.
-     */
+    /** True si paga en efectivo las mismas entradas y cantidades. Con artículos propios no califica. */
     private boolean mantienePrecioReservado(Compra reserva, FormaPago formaPago, List<DetalleCompraDTO> entradas) {
         if (formaPago != FormaPago.EFECTIVO_BOLETERIA || reserva.getFormaPago() != FormaPago.EFECTIVO_BOLETERIA
                 || reserva.getDetalles() == null || reserva.getMontoTotal() == null) {
@@ -1541,10 +1371,8 @@ public class CompraServiceImpl implements CompraService {
             Cliente cliente = compra.getCliente();
             String dniNuevo = esBlanco(request.getDni()) ? null : request.getDni().trim();
             if (dniNuevo != null && !dniNuevo.equals(cliente.getDni())) {
-                // El Cliente se comparte entre compras (se reutiliza por similitud de nombre al
-                // comprar, ver create()): pisar el DNI ahí afectaría también cualquier otra
-                // compra que apunte al mismo registro. Se crea uno propio de ESTA compra en vez
-                // de tocar el compartido.
+                // El Cliente se comparte entre compras: se crea uno propio en vez de pisar el DNI del
+                // compartido.
                 cliente = clienteService.create(Cliente.builder()
                         .dni(dniNuevo)
                         .nombre(!esBlanco(request.getNombre()) ? request.getNombre() : cliente.getNombre())
@@ -1561,9 +1389,7 @@ public class CompraServiceImpl implements CompraService {
         if (!esBlanco(request.getEmail())) compra.setContactEmail(request.getEmail());
         if (!esBlanco(request.getTelefono())) compra.setContactPhone(request.getTelefono());
 
-        // El DNI de quien recibe un regalo vive directo en la Compra, no en un Cliente
-        // compartido: no hace falta ningún desacople, se pisa nomás. Sólo en un regalo: una
-        // reserva sin fecha generada desde Acciones no tiene receptor (entra el titular).
+        // El DNI del receptor de un regalo está en la Compra: se pisa directo.
         if (compra.getFechaVisita() == null && compra.getReceptorDni() != null
                 && !esBlanco(request.getReceptorDni())) {
             compra.setReceptorDni(request.getReceptorDni().trim());
@@ -1577,8 +1403,7 @@ public class CompraServiceImpl implements CompraService {
         Compra compra = compraRepository.findById(compraId)
                 .orElseThrow(() -> new IllegalArgumentException("Compra no encontrada ID: " + compraId));
 
-        // RESERVADO_EFECTIVO también tiene mail (el de "reserva confirmada, pagás en la entrada"):
-        // si ese envío inicial falla, tiene que poder reenviarse igual que el de una compra paga.
+        // RESERVADO_EFECTIVO también tiene mail, y se tiene que poder reenviar.
         if (compra.getEstado() != EstadoCompra.APROBADO && compra.getEstado() != EstadoCompra.USADO
                 && compra.getEstado() != EstadoCompra.RESERVADO_EFECTIVO) {
             throw new IllegalStateException("La compra ID " + compraId + " todavía no tiene un comprobante confirmado para reenviar.");
@@ -1597,15 +1422,12 @@ public class CompraServiceImpl implements CompraService {
         if (compra == null) {
             return false;
         }
-        // Idempotente: si ya está aprobada o usada no hay nada que hacer (evita
-        // reprocesar y reenviar el comprobante si Mercado Pago reintenta el aviso,
-        // o si el webhook y la verificación directa llegan casi al mismo tiempo).
+        // Idempotente: MP reintenta avisos y el webhook puede llegar junto con la verificación directa.
         if (compra.getEstado() == EstadoCompra.APROBADO || compra.getEstado() == EstadoCompra.USADO) {
             return false;
         }
 
-        // Ya se le devolvió la plata: un aviso tardío de Mercado Pago no puede revivirla, o el
-        // visitante entraría con una entrada reembolsada.
+        // Un aviso tardío no puede revivir una compra reembolsada.
         if (compra.getEstado() == EstadoCompra.REEMBOLSADA) {
             alertasPagos.error("Llegó una confirmación de los pagos {} de Mercado Pago para la compra ID {}, que está REEMBOLSADA. "
                     + "No se toca: revisar a mano si esos pagos hay que devolverlos.", pagosMercadoPago, compraId);
@@ -1614,44 +1436,34 @@ public class CompraServiceImpl implements CompraService {
 
         boolean estabaCancelada = compra.getEstado() == EstadoCompra.CANCELADO;
         String idsPagos = pagosMercadoPago.stream().map(String::valueOf).collect(Collectors.joining(","));
-        // El chequeo de estado de arriba no alcanza con dos confirmaciones simultáneas (webhook y
-        // verificación directa): las dos lo pasan. La transición la gana una sola sentencia, y
-        // los efectos de abajo (cupón, mails) corren únicamente en la confirmación que ganó.
+        // Con dos confirmaciones simultáneas las dos pasan el chequeo de arriba: gana una sola sentencia, y
+        // cupón y mails corren sólo en esa.
         if (compraRepository.aprobarSiSigueSinPagar(compraId, idsPagos) == 0) {
             return false;
         }
         compra.setEstado(EstadoCompra.APROBADO);
         compra.setMpPaymentIds(idsPagos);
-        // Si estaba cancelada, la sentencia de arriba ya borró el motivo en la base; se refleja acá
-        // para que la entidad en memoria no lo vuelva a escribir.
+        // La sentencia ya borró el motivo en la base; se refleja en memoria para no reescribirlo.
         compra.setMotivoCancelacion(null);
         compra.setDetalleCancelacion(null);
         compra.setFechaCancelacion(null);
         compra.setCanceladaPor(null);
         compraRepository.registrarConfirmacionPago(compraId, origen.name(), LocalDateTime.now());
 
-        // Cancelada y pagada después: pasa cuando el barrido la dio por abandonada y el cliente
-        // terminó de pagar igual (la preferencia sigue viva un rato más). Se la revive a
-        // propósito: entre dejar a alguien que pagó sin entrada y meter un lugar de más en el
-        // día, lo segundo es mucho menos grave. Pero se avisa fuerte, porque el cupo de ese día
-        // ya se había liberado y el uso del cupón también.
+        // Cancelada por el barrido y pagada igual: se revive (mejor un lugar de más que alguien que pagó sin
+        // entrada), pero se avisa porque cupo y cupón ya se habían liberado.
         if (estabaCancelada) {
             log.warn("La compra ID {} ({}) estaba CANCELADA por checkout abandonado y llegó el pago: "
                     + "se reactiva. Ojo: su lugar en el cupo del {} ya se había liberado.",
                     compraId, compra.getCodigoReserva(), compra.getFechaVisita());
-            // Al cancelarla se le devolvió el uso del cupón, así que hay que volver a tomarlo:
-            // si no, ese uso queda disponible para otra compra y el cupón termina aplicado dos
-            // veces. Si ya no quedan usos (alguien se lo llevó mientras tanto) igual se aprueba
-            // —la persona pagó y tiene que entrar—, pero queda avisado para poder corregirlo.
+            // Hay que volver a tomar el uso del cupón. Si no quedan, se aprueba igual y queda avisado.
             if (compra.getCupon() != null && !cuponService.consumirUso(compra.getCupon().getId())) {
                 log.error("Se reactivó la compra ID {} pero el cupón {} ya no tenía usos libres: "
                         + "quedó aplicado una vez de más. Revisar a mano.",
                         compraId, compra.getCupon().getCodigo());
             }
         }
-        // Pagada online y con facturación online: la factura se pide después del commit y la
-        // confirmación sale con ella adjunta (un solo mail; si ARCA tarda, sale sola y la factura
-        // después). Sin facturación online, la confirmación sale ya, como siempre.
+        // Con facturación online, la confirmación sale con la factura después del commit. Si no, sale ya.
         if (!facturaService.solicitarOnline(compra)) {
             emailService.enviarComprobanteCompra(compraId);
         }
@@ -1666,8 +1478,7 @@ public class CompraServiceImpl implements CompraService {
         Compra compra = compraRepository.findById(compraId)
                 .orElseThrow(() -> new IllegalArgumentException("Compra no encontrada ID: " + compraId));
 
-        // Si ya se sabe el resultado (por webhook o una verificación previa) no hace
-        // falta volver a preguntarle a Mercado Pago.
+        // Si ya se sabe el resultado no se consulta a MP.
         if (compra.getEstado() != EstadoCompra.PENDIENTE_PAGO || compra.getFormaPago() != FormaPago.MERCADO_PAGO) {
             return compra.getEstado().name();
         }
@@ -1675,8 +1486,7 @@ public class CompraServiceImpl implements CompraService {
         try {
             pagosQueCubrenLaCompra(compra).ifPresent(pagos -> self.confirmarAprobado(compraId, pagos, ConfirmacionPago.VERIFICACION));
         } catch (MPException | MPApiException | RuntimeException e) {
-            // No se pudo consultar a Mercado Pago ahora: se deja la compra como está
-            // para poder reintentar más tarde (webhook, otra verificación, etc.).
+            // No se pudo consultar: se deja como está para reintentar.
             log.error("Error consultando a Mercado Pago el estado de la compra ID {}", compraId, e);
         }
 
@@ -1684,26 +1494,18 @@ public class CompraServiceImpl implements CompraService {
     }
 
     /**
-     * Le pregunta a Mercado Pago si esta compra ya está paga, y devuelve los ids de los pagos
-     * que la pagaron (ver pagosQueCubren).
+     * Ids de los pagos que pagan la compra.
      *
-     * PROPAGA la excepción si no se pudo consultar, y esa es toda la gracia: quien llama
-     * necesita poder distinguir "verifiqué y no pagó" de "no pude verificar". Cuando eso se
-     * atrapaba acá adentro, las dos situaciones se veían iguales desde afuera —la compra
-     * seguía en PENDIENTE_PAGO— y expirarCheckoutAbandonado terminaba cancelando compras
-     * pagadas cada vez que Mercado Pago no contestaba.
+     * PROPAGA la excepción a propósito: quien llama tiene que distinguir "no pagó" de "no pude verificar".
+     * Antes se atrapaba y expirarCheckoutAbandonado cancelaba compras pagadas cuando MP no contestaba.
      */
     protected Optional<List<Long>> pagosQueCubrenLaCompra(Compra compra) throws MPException, MPApiException {
         return pagosQueCubren(compra, buscarPagosEnMercadoPago(compra));
     }
 
-    // protected y no private para poder sustituirlo en los tests: la consulta arma un
-    // PaymentClient del SDK contra la API real, así que sin este punto de corte no habría forma
-    // de probar qué deciden la verificación y el webhook con lo que devuelve Mercado Pago.
+    // protected para poder sustituirlo en los tests.
     protected List<Payment> buscarPagosEnMercadoPago(Compra compra) throws MPException, MPApiException {
-        // limit/offset van explícitos: si se dejan sin setear, el SDK arma la URL
-        // iterando todos los parámetros y revienta con NullPointerException al
-        // encontrar esos dos en null (bug conocido de esta versión del SDK).
+        // limit/offset explícitos: en null el SDK tira NullPointerException.
         MPSearchRequest searchRequest = MPSearchRequest.builder()
                 .filters(Map.of("external_reference", compra.getCodigoReserva()))
                 .limit(10)
@@ -1714,10 +1516,8 @@ public class CompraServiceImpl implements CompraService {
     }
 
     /**
-     * Los pagos aprobados que pagan esta compra: uno por el total, o varios que suman
-     * exactamente el total (Mercado Pago deja pagar con más de una tarjeta, y cada tarjeta es
-     * un pago aparte con el mismo external_reference). Vacío si todavía no alcanza —por ejemplo,
-     * una tarjeta aprobada y la otra en curso— o si los montos no cierran.
+     * Pagos aprobados que suman exactamente el total (uno o varios con tarjetas distintas). Vacío si todavía
+     * no alcanza o no cierra.
      */
     private static Optional<List<Long>> pagosQueCubren(Compra compra, Collection<Payment> pagos) {
         List<Payment> aprobados = pagos.stream()
@@ -1739,10 +1539,8 @@ public class CompraServiceImpl implements CompraService {
     }
 
     /**
-     * El external_reference identifica la compra, pero no es una clave 100% exclusiva de
-     * Mercado Pago: si la base se reinicia, los códigos de reserva vuelven a empezar y puede
-     * haber un pago viejo con el mismo external_reference. Un pago anterior a la compra no
-     * puede ser de ella.
+     * Si la base se reinicia los códigos de reserva se repiten: un pago anterior a la compra no puede ser de
+     * ella.
      */
     private static boolean esPosteriorALaCompra(Payment pago, Compra compra) {
         return compra.getFechaCreacion() == null || pago.getDateCreated() == null
@@ -1755,8 +1553,7 @@ public class CompraServiceImpl implements CompraService {
         if (!"approved".equals(avisado.getStatus()) || avisado.getExternalReference() == null) {
             return false;
         }
-        // Los pagos del Point también avisan por "payment", pero no son compras online: los
-        // maneja CobroPointService por el aviso "order".
+        // Los pagos del Point también avisan por "payment", pero los maneja CobroPointService por "order".
         if (avisado.getExternalReference().startsWith(CobroPointService.PREFIJO_REFERENCIA)) {
             return false;
         }
@@ -1768,8 +1565,8 @@ public class CompraServiceImpl implements CompraService {
         }
 
         if (compra.getEstado() == EstadoCompra.APROBADO || compra.getEstado() == EstadoCompra.USADO) {
-            // Un pago ya registrado es MP reintentando el aviso. Uno aprobado que no es ninguno
-            // de los registrados (y es de después de la compra): el cliente pagó dos veces.
+            // Un pago ya registrado es MP reintentando. Uno aprobado nuevo y posterior: el cliente pagó dos
+            // veces.
             if (!compra.pagosMercadoPago().contains(avisado.getId()) && esPosteriorALaCompra(avisado, compra)) {
                 alertasPagos.error("La compra {} ya estaba paga con los pagos {} de Mercado Pago y llegó otro pago aprobado, "
                                 + "el {} por {}: el cliente pagó de más. Devolverlo desde el panel de Mercado Pago.",
@@ -1785,8 +1582,7 @@ public class CompraServiceImpl implements CompraService {
             log.warn("No se pudieron buscar los pagos de la compra {} en Mercado Pago: se evalúa sólo el pago avisado {}",
                     compra.getCodigoReserva(), avisado.getId(), e);
         }
-        // La búsqueda de MP puede tardar unos segundos en incluir un pago recién hecho: el
-        // avisado se suma siempre (con varias tarjetas, es el que completa el total).
+        // La búsqueda de MP puede no traer todavía el pago recién hecho: el avisado se suma siempre.
         candidatos.put(avisado.getId(), avisado);
 
         Optional<List<Long>> pagos = pagosQueCubren(compra, candidatos.values());
@@ -1814,8 +1610,7 @@ public class CompraServiceImpl implements CompraService {
             return;
         }
 
-        // Última chance: si el pago entró pero el webhook nunca llegó, esto lo confirma y la
-        // compra deja de estar PENDIENTE_PAGO (no se cancela).
+        // Si el pago entró y el webhook no llegó, esto la confirma.
         List<Payment> intentos = List.of();
         if (compra.getFormaPago() == FormaPago.MERCADO_PAGO) {
             try {
@@ -1828,20 +1623,14 @@ public class CompraServiceImpl implements CompraService {
                     return;
                 }
             } catch (MPException | MPApiException | RuntimeException e) {
-                // No sabemos si pagó o no. Cancelar acá es la peor opción posible: si había
-                // pagado, el cliente se queda sin entrada y sin aviso. Se deja como está y
-                // listo — el scheduler vuelve a pasar en el próximo ciclo (cada 15 min por
-                // defecto) y la compra, que sigue PENDIENTE_PAGO y vieja, se vuelve a tomar
-                // sola. No hace falta reprogramar nada ni marcarla de ninguna forma especial.
+                // No sabemos si pagó: no se cancela. El scheduler la vuelve a tomar en el próximo ciclo.
                 log.warn("No se pudo verificar contra Mercado Pago la compra ID {}: NO se cancela, "
                         + "se reintenta en el próximo ciclo", compraId, e);
                 return;
             }
         }
 
-        // Sin ningún intento, abrió el checkout y se fue; con intentos, pagó y no se aprobó. Se
-        // anota qué contestó Mercado Pago en cada uno, que es lo que después sirve para ver si
-        // hay un problema (un banco que rechaza todo, prevención de fraude, etc.).
+        // Sin intentos abandonó el checkout; con intentos, pagó y no se aprobó. Se anota qué contestó MP.
         MotivoCancelacion motivo = intentos.isEmpty()
                 ? MotivoCancelacion.CHECKOUT_ABANDONADO : MotivoCancelacion.PAGO_RECHAZADO;
         String detalle = intentos.isEmpty()
@@ -1857,7 +1646,7 @@ public class CompraServiceImpl implements CompraService {
                 detalle != null ? ": " + detalle : "");
     }
 
-    /** Lo que contestó Mercado Pago en un intento de pago, en criollo: "visa: rechazado, fondos insuficientes". */
+    /** Respuesta de MP en criollo: "visa: rechazado, fondos insuficientes". */
     static String describirIntentoDePago(Payment pago) {
         String medio = pago.getPaymentMethodId() != null ? pago.getPaymentMethodId() : "medio desconocido";
         String estado = switch (pago.getStatus() == null ? "" : pago.getStatus()) {
@@ -1914,13 +1703,8 @@ public class CompraServiceImpl implements CompraService {
     }
 
     /**
-     * Devuelve el uso de cupón que una compra había consumido al crearse (ver create()), cuando
-     * esa compra se cancela o se reembolsa. Si el cupón se había desactivado solo por llegar al
-     * máximo de usos, se reactiva al liberar uno (mientras no esté vencido).
-     *
-     * La resta la hace la base en una sentencia (cuponService.liberarUso) y no este método
-     * leyendo la entidad y guardándola: si otra compra consumía un uso en el medio, el save
-     * pisaba ese incremento con un contador viejo.
+     * Devuelve el uso del cupón al cancelar o reembolsar y lo reactiva si se había apagado por agotarse. La
+     * resta va en una sentencia para no pisar un uso concurrente.
      */
     private void liberarCupon(Compra compra) {
         Cupon cupon = compra.getCupon();
@@ -1936,9 +1720,7 @@ public class CompraServiceImpl implements CompraService {
         Compra compra = compraRepository.findById(compraId)
                 .orElseThrow(() -> new IllegalArgumentException("Compra no encontrada ID: " + compraId));
 
-        // Sólo se reembolsa lo pagado online y todavía no usado: APROBADO es el único
-        // estado que cumple ambas cosas (el efectivo nunca llega a APROBADO, pasa
-        // directo a USADO al cobrarse en boletería).
+        // Sólo APROBADO: pagado online y sin usar.
         if (compra.getEstado() != EstadoCompra.APROBADO) {
             throw new IllegalStateException(
                     "Sólo se pueden reembolsar compras pagadas online que todavía no fueron utilizadas (estado actual: " + compra.getEstado() + ")");
@@ -1954,16 +1736,14 @@ public class CompraServiceImpl implements CompraService {
             PaymentClient consulta = new PaymentClient();
             PaymentRefundClient reembolsos = new PaymentRefundClient();
             for (Long pagoId : pagos) {
-                // Con varias tarjetas son varios reembolsos: si uno falla y se reintenta, los que
-                // ya se devolvieron se saltean en vez de chocar contra "ya reembolsado".
+                // Con varias tarjetas, en un reintento se saltean los pagos ya devueltos.
                 if ("refunded".equals(consulta.get(pagoId).getStatus())) {
                     continue;
                 }
                 reembolsos.refund(pagoId);
             }
         } catch (MPApiException e) {
-            // El mensaje de MPApiException no trae el detalle; hay que sacarlo de la
-            // respuesta cruda para no tener que reproducir el request a mano cada vez.
+            // El detalle del error está en la respuesta cruda, no en el mensaje de MPApiException.
             log.error("Error al reembolsar en Mercado Pago la compra ID {} (HTTP {}): {}",
                     compraId, e.getStatusCode(), e.getApiResponse() != null ? e.getApiResponse().getContent() : "sin detalle", e);
             throw new IllegalStateException("No se pudo procesar el reembolso en Mercado Pago. Reintentá en unos minutos.");
@@ -2044,8 +1824,7 @@ public class CompraServiceImpl implements CompraService {
         Compra guardada = compraRepository.save(compra);
 
         if (avisarPorMail) {
-            // Después del commit: el mail se arma en otro hilo leyendo la compra de la base, y
-            // antes de eso todavía vería el día viejo.
+            // Después del commit: el mail lee la compra desde otro hilo.
             if (TransactionSynchronizationManager.isSynchronizationActive()) {
                 TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                     @Override
@@ -2107,8 +1886,7 @@ public class CompraServiceImpl implements CompraService {
         AuditoriaContexto.referencia("#" + compra.getCodigoReserva());
 
         LocalDate fechaVisita = compra.getFechaVisita();
-        // Cupo diario: se cuenta contra todas las compras del día MENOS esta misma (se está
-        // reemplazando lo que ya tenía, no sumando encima — ver construirDetalles, mismo criterio).
+        // Cupo sin contar esta misma compra.
         Map<Long, Integer> cantidadVendidaPorTipo = cantidadVendidaPorTipoEnElDia(fechaVisita, compraId);
 
         BigDecimal montoEntradas = BigDecimal.ZERO;
@@ -2142,9 +1920,7 @@ public class CompraServiceImpl implements CompraService {
         validarPaseObligatorio(todosLosDetalles);
 
         BigDecimal montoBruto = montoEntradas.add(montoArticulos);
-        // El descuento ya aplicado (promo o manual) se mantiene como monto fijo: no se
-        // vuelve a evaluar elegibilidad de promo acá, sólo se lo re-acota si el nuevo bruto
-        // quedó más chico que el descuento original.
+        // El descuento se mantiene como monto fijo; sólo se acota si el nuevo bruto es menor.
         BigDecimal descuento = compra.getDescuentoAplicado() != null ? compra.getDescuentoAplicado() : BigDecimal.ZERO;
         if (descuento.compareTo(montoBruto) > 0) descuento = montoBruto;
         BigDecimal montoFinal = montoBruto.subtract(descuento);
@@ -2161,8 +1937,7 @@ public class CompraServiceImpl implements CompraService {
             }
         }
 
-        // orphanRemoval en Compra.detalles: vaciar la colección entera alcanza para que
-        // Hibernate borre todas las líneas viejas (entradas y artículos) antes de cargar las nuevas.
+        // orphanRemoval: vaciar la colección borra todas las líneas viejas.
         compra.getDetalles().clear();
         compra.getDetalles().addAll(todosLosDetalles);
         for (CompraDetalle det : todosLosDetalles) {

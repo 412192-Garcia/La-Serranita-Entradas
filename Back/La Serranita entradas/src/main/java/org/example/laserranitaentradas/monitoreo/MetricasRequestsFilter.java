@@ -17,14 +17,11 @@ import java.io.IOException;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
- * Primero de todos en cada request de la API (antes de la seguridad):
- * - le pone un id corto (MDC "requestId", sale en cada línea del log y en el header X-Request-Id),
- *   así todas las líneas de una misma request se encuentran juntas. El código EXXXXXX que ve el
- *   usuario en un error 500 es "E" + este id (ver ManejadorGlobalErrores);
- * - mide cuánto tardó y lo suma a MetricasRequests. Las que pasan el umbral quedan además en el log.
- *
- * Las conexiones que quedan abiertas (el stream SSE de los agentes de impresión) no se miden: su
- * "duración" es todo el tiempo que la PC estuvo prendida.
+ * Primero en cada request de la API:
+ * - le pone un id corto (MDC "requestId" y header X-Request-Id); el código EXXXXXX de un 500 es "E" + este
+ * id;
+ * - mide cuánto tardó (MetricasRequests) y loguea las lentas.
+ * No mide el stream SSE de los agentes de impresión.
  */
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE + 100)
@@ -44,7 +41,7 @@ public class MetricasRequestsFilter extends OncePerRequestFilter {
         return !request.getRequestURI().startsWith("/api/");
     }
 
-    /** Los preflight de CORS (OPTIONS) los contesta el filtro de CORS sin llegar a ningún endpoint: no dicen nada del rendimiento. */
+    /** Los OPTIONS de CORS no llegan a ningún endpoint. */
     private static boolean esPreflight(HttpServletRequest request) {
         return "OPTIONS".equals(request.getMethod());
     }
@@ -69,8 +66,7 @@ public class MetricasRequestsFilter extends OncePerRequestFilter {
 
     private void registrar(HttpServletRequest request, HttpServletResponse response, String requestId, long ms) {
         String patron = (String) request.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE);
-        // Sin patrón = no llegó a ningún endpoint (404, o lo cortó la seguridad): todo junto, así
-        // las rutas inventadas de los bots no llenan la lista.
+        // Sin patrón (404 o cortado por seguridad): todo junto, para que los bots no llenen la lista.
         String endpoint = request.getMethod() + " " + (patron != null ? patron : "(sin endpoint)");
         String usuario = (String) request.getAttribute(AuditoriaFilter.ATRIBUTO_USUARIO);
         if (metricas.registrar(endpoint, ms, response.getStatus(), usuario, requestId)) {

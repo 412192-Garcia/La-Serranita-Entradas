@@ -32,9 +32,9 @@ export class SeleccionEntradas implements OnInit {
   @Output() pasoSiguiente = new EventEmitter<any>();
 
   ngOnInit() {
-    this.tipoEntradaService.getTiposEntrada().subscribe({
+    this.tipoEntradaService.getTiposEntradaOnline().subscribe({
       next: (data) => {
-        this.tiposEntrada = data.filter(t => t.activo && !t.soloPos);
+        this.tiposEntrada = data;
 
         this.tiposEntrada.forEach(t => this.cantidades[t.id] = 0);
 

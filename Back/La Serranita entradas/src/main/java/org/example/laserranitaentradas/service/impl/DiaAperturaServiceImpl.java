@@ -1,5 +1,6 @@
 package org.example.laserranitaentradas.service.impl;
 
+import org.example.laserranitaentradas.model.dto.DiaAbiertoDTO;
 import org.example.laserranitaentradas.model.entity.DiaApertura;
 import org.example.laserranitaentradas.repository.DiaAperturaRepository;
 import org.example.laserranitaentradas.service.ConfiguracionParqueService;
@@ -43,15 +44,13 @@ public class DiaAperturaServiceImpl implements DiaAperturaService {
         int daysInMonth = inicioMes.lengthOfMonth();
         LocalDate finMes = inicioMes.withDayOfMonth(daysInMonth);
 
-        // Una sola consulta por rango: antes se hacía un findByFecha por cada día,
-        // o sea 28-31 viajes a la base para pintar un mes del calendario.
+        // Una sola consulta para todo el mes.
         Map<LocalDate, DiaApertura> existentes = new HashMap<>();
         for (DiaApertura dia : diaAperturaRepository.findAllByFechaBetween(inicioMes, finMes)) {
             existentes.put(dia.getFecha(), dia);
         }
 
-        // Los días que no están cargados se completan como cerrados para que el
-        // calendario siempre reciba el mes entero.
+        // Los días no cargados van como cerrados.
         List<DiaApertura> resultado = new ArrayList<>(daysInMonth);
         for (int d = 1; d <= daysInMonth; d++) {
             LocalDate fecha = LocalDate.of(year, month, d);
@@ -93,11 +92,17 @@ public class DiaAperturaServiceImpl implements DiaAperturaService {
     }
 
     @Override
-    public List<String> getDiasAbiertos(Integer year, Integer month) {
-        List<DiaApertura> dias = getMonthStatus(year, month);
-        return dias.stream()
+    public List<DiaAbiertoDTO> getDiasAbiertos(Integer year, Integer month) {
+        var config = configuracionParqueService.getHorarioGeneral();
+        return getMonthStatus(year, month).stream()
                 .filter(DiaApertura::getAbierto)
-                .map(dia -> dia.getFecha().toString())
+                .map(dia -> {
+                    // Lo que el día no define sale del horario general.
+                    LocalTime apertura = dia.getHoraApertura() != null ? dia.getHoraApertura() : config.getHoraApertura();
+                    LocalTime cierre = dia.getHoraCierre() != null ? dia.getHoraCierre() : config.getHoraCierre();
+                    boolean especial = !apertura.equals(config.getHoraApertura()) || !cierre.equals(config.getHoraCierre());
+                    return new DiaAbiertoDTO(dia.getFecha().toString(), apertura, cierre, especial);
+                })
                 .toList();
     }
 
@@ -110,8 +115,7 @@ public class DiaAperturaServiceImpl implements DiaAperturaService {
         if (cierre == null) {
             cierre = config.getHoraCierre();
         }
-        // Se resta sobre el LocalDateTime y no sobre la hora: con un cierre pasada la medianoche o un
-        // lapso largo, restar sobre LocalTime daría la vuelta al día anterior.
+        // Se resta sobre LocalDateTime: con LocalTime podría dar la vuelta al día anterior.
         return LocalDateTime.of(fecha, cierre).minusMinutes(config.getMinutosLimiteCompra());
     }
 

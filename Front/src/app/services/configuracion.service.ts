@@ -116,11 +116,6 @@ export class ConfiguracionService {
     return this.http.get<HorarioGeneral>(`${this.configUrl}/horario`);
   }
 
-  /** El horario que rige ese día (YYYY-MM-DD): el especial si tiene uno, si no el general. */
-  getHorarioDelDia(fecha: string): Observable<HorarioGeneral> {
-    return this.http.get<HorarioGeneral>(`${this.configUrl}/horario`, { params: { fecha } });
-  }
-
   actualizarHorarioGeneral(horaApertura: string, horaCierre: string, minutosLimiteCompra: number): Observable<HorarioGeneral> {
     return this.http.put<HorarioGeneral>(`${this.configUrl}/horario`, { horaApertura, horaCierre, minutosLimiteCompra });
   }

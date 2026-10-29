@@ -23,11 +23,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * Lo que hay detrás de la ventana "Ventas y facturas" (POS y detalle de caja): recuperar la factura
- * de una venta anterior cuando el ticket no salió o el cliente vuelve a pedirla, y facturar una
- * venta que se cobró sin factura (efectivo con el mail vacío, que es lo que queda por defecto).
- *
- * Un boletero sólo ve y toca las ventas de su propia caja; un admin, las de cualquiera.
+ * Ventana "Ventas y facturas": recuperar la factura de una venta o facturar una que se cobró sin factura. El
+ * boletero sólo ve su caja; el admin, todas.
  */
 @Service
 public class VentasFacturasService {
@@ -62,8 +59,7 @@ public class VentasFacturasService {
                 .filter(c -> FACTURABLES.contains(c.getEstado()))
                 .sorted(Comparator.comparing(Compra::getFechaValidacion, Comparator.nullsLast(Comparator.reverseOrder())))
                 .toList();
-        // Se consulta cada 2,5 s mientras algo se emite o imprime: facturas y trabajos de impresión
-        // de todo el turno en dos consultas, no dos por venta.
+        // Se consulta cada 2,5 s: todo el turno en dos consultas.
         Map<Long, FacturaResponseDTO> facturas = facturaService.obtenerPorCompras(ventas.stream().map(Compra::getId).toList());
         return ventas.stream()
                 .map(c -> new VentaFacturaDTO(c.getId(), c.getCodigoReserva(), c.getFechaValidacion(), c.getMontoTotal(),
@@ -71,14 +67,10 @@ public class VentasFacturasService {
                 .toList();
     }
 
-    /**
-     * Factura una venta que se cobró sin factura. Usa el mismo camino que la venta en el POS
-     * (FacturaService#solicitar): la factura se emite cuando commitea esta transacción.
-     */
+    /** Mismo camino que el POS: se emite al commitear. */
     @Transactional
     public FacturaResponseDTO facturar(Long compraId, FacturacionPosDTO pedido, UsuarioAutenticado operador) {
-        // Fila bloqueada hasta el commit: dos "Facturar" simultáneos (o uno con una cancelación o
-        // edición, que también la bloquean) no pueden pasar los dos el chequeo de "ya tiene factura".
+        // Bloqueada para que dos "Facturar" (o una cancelación) no pasen los dos el chequeo.
         Compra compra = compraRepository.findByIdBloqueando(compraId)
                 .orElseThrow(() -> new IllegalArgumentException("Venta no encontrada ID: " + compraId));
         if (compra.getCaja() == null) {
@@ -104,10 +96,7 @@ public class VentasFacturasService {
                 .orElseThrow(() -> new IllegalStateException("No se encontró la factura recién creada ID " + factura.getId()));
     }
 
-    /**
-     * Un boletero sólo puede tocar facturas de ventas de su propia caja (las de compras online, sin
-     * caja, sólo un admin). Devuelve la factura para no buscarla dos veces.
-     */
+    /** Un boletero sólo toca facturas de su caja. Devuelve la factura para no buscarla dos veces. */
     @Transactional(readOnly = true)
     public Factura validarAccesoAFactura(Long facturaId, UsuarioAutenticado operador) {
         Factura factura = facturaRepository.findById(facturaId)

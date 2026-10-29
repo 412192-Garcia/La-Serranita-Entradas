@@ -6,12 +6,8 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 /**
- * Un ticket a imprimir en la ticketera de la boletería. El backend no llega a la impresora (el
- * parque está detrás de Starlink, sin IP fija ni puertos abiertos): lo imprime el agente de la PC
- * de la entrada, que mantiene una conexión abierta hacia el backend y recibe los trabajos por ahí.
- *
- * Se guarda en la base para no perder un ticket si la conexión con el agente se corta justo
- * después de mandarlo: al reconectar, se le reenvían los que no confirmó.
+ * Un ticket para la ticketera. Lo imprime el agente de la PC de la entrada (el backend no llega a la red del
+ * parque). Se guarda para reenviarlo si se corta la conexión.
  */
 @Entity
 @Table(name = "trabajos_impresion")

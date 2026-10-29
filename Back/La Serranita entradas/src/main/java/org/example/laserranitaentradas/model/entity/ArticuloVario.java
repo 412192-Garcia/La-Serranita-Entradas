@@ -10,7 +10,7 @@ import lombok.ToString;
 
 import java.math.BigDecimal;
 
-/** Catálogo de artículos varios (souvenirs, cuadritos, etc.) vendibles en la boletería, aparte de las entradas. */
+/** Souvenirs y otros artículos que se venden en boletería. */
 @Entity
 @Table(name = "articulos_varios", uniqueConstraints = {
         @UniqueConstraint(name = "uk_nombre_articulo_vario", columnNames = "nombre")

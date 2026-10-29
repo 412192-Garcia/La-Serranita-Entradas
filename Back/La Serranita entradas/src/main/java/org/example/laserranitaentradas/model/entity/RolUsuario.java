@@ -1,10 +1,8 @@
 package org.example.laserranitaentradas.model.entity;
 
 /**
- * SUPERADMIN = ADMIN + Sistema (monitoreo, errores, historial de acciones): es el rol del que
- * mantiene la app, no del parque. Hereda todo lo de ADMIN por la jerarquía de SecurityConfig, así
- * que las reglas "hasRole(ADMIN)" no lo nombran. No se puede asignar desde Usuarios (sólo otro
- * SUPERADMIN, el bootstrap o SQL).
+ * SUPERADMIN = ADMIN + Sistema: el rol de quien mantiene la app. Hereda ADMIN por la jerarquía. No se asigna
+ * desde Usuarios.
  */
 public enum RolUsuario {
     SUPERADMIN,

@@ -14,10 +14,7 @@ import java.util.List;
 
 public interface RegistroAuditoriaRepository extends JpaRepository<RegistroAuditoria, Long> {
 
-    /**
-     * Búsqueda del historial. Los filtros vacíos no filtran. `texto` busca en la descripción, el
-     * detalle y la entidad (en minúsculas).
-     */
+    /** Búsqueda del historial. Filtros vacíos no filtran. */
     @Query("""
             SELECT r FROM RegistroAuditoria r
              WHERE r.fecha >= :desde AND r.fecha < :hasta

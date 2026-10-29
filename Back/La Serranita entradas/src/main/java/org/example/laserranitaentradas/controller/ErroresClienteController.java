@@ -15,14 +15,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
-/**
- * Errores de JavaScript que no maneja ninguna pantalla (los manda GlobalErrorHandler del front):
- * quedan en Sistema > Errores con área FRONT, igual que los del servidor. Sin esto, un bug en el POS
- * o en la tienda sólo quedaba en la consola del navegador de quien lo sufrió.
- *
- * Es público (la tienda no tiene login), así que acepta pocos por IP: un navegador en un bucle de
- * errores o alguien mandando basura no llena la tabla.
- */
+/** Errores de JavaScript del front, a Sistema > Errores (área FRONT). Público, con límite por IP. */
 @RestController
 @RequestMapping("/api/errores-cliente")
 @Tag(name = "Errores del navegador", description = "Errores de JavaScript reportados por la app")

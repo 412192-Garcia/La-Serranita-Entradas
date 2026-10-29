@@ -18,12 +18,12 @@ const PASOS_POR_TAB: Record<'dias' | 'descuentos' | 'catalogo' | 'usuarios' | 'c
     {
       selector: '[data-tour="horario-general"]',
       titulo: 'Horario general',
-      texto: 'Rige todos los días abiertos, salvo que cargues un horario especial para un día puntual. Ahí mismo se define cuántos minutos antes del cierre se corta la compra online del día: pasado ese momento, el calendario público deja de ofrecer "hoy".',
+      texto: 'El horario de todos los días abiertos y cuántos minutos antes del cierre se deja de vender online para ese mismo día.',
     },
     {
       selector: '[data-tour="calendario-dias"]',
       titulo: 'Calendario',
-      texto: 'Tocá un día para abrirlo o cerrarlo. Ctrl+click suma varios días a la selección; Shift+click selecciona todo un rango.',
+      texto: 'Tocá un día para abrirlo o cerrarlo. Con Ctrl+click elegís varios y con Shift+click un rango.',
     },
     {
       selector: '[data-tour="detalle-dia"]',
@@ -40,19 +40,19 @@ const PASOS_POR_TAB: Record<'dias' | 'descuentos' | 'catalogo' | 'usuarios' | 'c
     {
       selector: '[data-tour="cupones"]',
       titulo: 'Cupones',
-      texto: 'Tienen código y se cargan al comprar online. Podés crear uno individual o generar un lote de varios de una.',
+      texto: 'Descuentos con código para la compra online. Podés crear uno solo o un lote.',
     },
   ],
   catalogo: [
     {
       selector: '[data-tour="tipos-entrada"]',
       titulo: 'Tipos de entrada',
-      texto: 'Acá se crean los pases y extras que se venden, junto con su orden de venta en la pantalla de venta (columna Orden, con flechas para reordenar). Al editar uno se elige, entre otras cosas, si en boletería tiene los botones de cantidad de un toque (1 a 10 y "10+").',
+      texto: 'Los pases y extras que se venden, y el orden en que aparecen en la pantalla de venta.',
     },
     {
       selector: '[data-tour="articulos-varios"]',
       titulo: 'Artículos varios',
-      texto: 'Souvenirs y otros artículos que se venden sueltos en boletería, aparte de las entradas.',
+      texto: 'Souvenirs y otros artículos que se venden en boletería.',
     },
   ],
   usuarios: [
@@ -66,12 +66,12 @@ const PASOS_POR_TAB: Record<'dias' | 'descuentos' | 'catalogo' | 'usuarios' | 'c
     {
       selector: '[data-tour="factura-predeterminada"]',
       titulo: 'Factura por forma de pago',
-      texto: 'Qué factura queda marcada en la pantalla de venta al elegir efectivo, tarjeta o QR: imprimirla o mandarla por mail (con el mail vacío no se factura). El boletero la puede cambiar en cada venta.',
+      texto: 'Qué factura viene marcada en la venta según la forma de pago. El boletero la puede cambiar.',
     },
     {
       selector: '[data-tour="points"]',
       titulo: 'Points de Mercado Pago',
-      texto: 'Los Points de la cuenta de Mercado Pago. "En las tablets" decide cuáles se pueden elegir desde el POS (los demás no aparecen). Además, el nombre que ven las tablets y si están integrados (reciben los cobros de la tablet) o en manual. El modo se cambia sólo desde acá: los boleteros no lo ven en la pantalla de venta.',
+      texto: 'Los Points de Mercado Pago: cuáles aparecen en las tablets, con qué nombre y si cobran solos (integrados) o a mano.',
     },
   ],
 };

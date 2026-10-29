@@ -23,11 +23,9 @@ public class JwtService {
     private final long expiracionMantenerSesionMs;
 
     /**
-     * @param expiracionMs                duración de un token común (por defecto 12 h: un turno).
-     * @param expiracionMantenerSesionMs  duración cuando el usuario marca "Mantener sesión iniciada"
-     *                                    (por defecto 14 días). Ojo: el token es sin estado, no se
-     *                                    puede revocar antes de que venza — dar de baja a un usuario o
-     *                                    cambiarle el rol/contraseña no lo saca hasta ese momento.
+     * @param expiracionMs duración de un token común (default 12 h)
+     * @param expiracionMantenerSesionMs con "Mantener sesión iniciada" (default 14 días). El token no se
+     * puede revocar antes de que venza.
      */
     public JwtService(@Value("${jwt.secret}") String secreto,
                       @Value("${jwt.expiration-ms}") long expiracionMs,

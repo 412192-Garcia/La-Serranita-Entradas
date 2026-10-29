@@ -6,6 +6,33 @@ número y el CI la usa como nota de la Release de GitHub.
 
 ## Sin publicar
 
+- Cobro con Point: con el Point integrado, la venta muestra **Efectivo** y **Posnet** en vez de
+  Tarjeta y QR. El cliente elige en el Point si paga con tarjeta o con QR, y la venta queda con lo
+  que usó. Ya no se pregunta débito o crédito. Si el Point no responde y se anota a mano, la tablet
+  pregunta si fue tarjeta o QR. Un pago mixto puede ser con dos QR.
+- Se corrigió un problema que, con mucho uso, podía dejar el sistema sin responder hasta
+  reiniciarlo.
+- El monitor externo (healthchecks.io) ahora también avisa si el sistema sigue prendido pero deja
+  de atender.
+- Compra online: los campos de DNI, su confirmación y la edad le piden al navegador que no los
+  complete solo con datos guardados. Si el navegador pone el nombre completo en "Apellido", se
+  corrige solo y queda sólo el apellido.
+
+- Textos más cortos y claros en toda la app: tutoriales, ayudas de cada pantalla, avisos y
+  confirmaciones. Se sacaron explicaciones de más y términos técnicos.
+- Compra online: la página siempre abre con la última versión (antes, después de una
+  actualización, se podía ver un rato la anterior y recargarse sola). Además ya no se descarga la
+  parte de gestión del parque, así que pesa menos para el visitante.
+- La página de compra se marca como en español: el navegador ya no ofrece traducirla.
+- Compra online más liviana: los tipos de entrada, las formas de pago y los meses del calendario
+  se piden una sola vez, elegir un día ya no hace esperar para ver su horario y aplicar un cupón
+  responde en un solo paso. Mientras se espera el pago, la página pregunta menos seguido pasados
+  los primeros 2 minutos.
+- Reportes, cajas y búsquedas de compras siguen rápidos a medida que se acumulan las ventas de la
+  temporada (la base ahora tiene índices para esas consultas).
+- La compra online ya no muestra públicamente los tipos de entrada inactivos o exclusivos de
+  boletería, ni los datos de un cupón buscado por código.
+
 ## 0.10.5 — 2026-10-25
 
 - Configuración > Cobros (antes "Points"): nueva tarjeta "Factura por forma de pago" para elegir

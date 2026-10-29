@@ -15,17 +15,13 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Las tareas programadas (@Scheduled) de la app: cuándo corrió cada una por última vez, si terminó
- * bien y cuándo le toca. Spring ya lleva esa cuenta (ScheduledTask#getLastExecutionOutcome); acá
- * sólo se lee y se decide si alguna dejó de andar. Así una tarea nueva aparece sola, sin anotarla.
- *
- * Una tarea "trabada" no se nota de otra forma: si la emisión de facturas se cuelga esperando a
- * ARCA, no tira error, simplemente deja de correr — y con ella todos los reintentos.
+ * Estado de las tareas @Scheduled: última corrida, resultado y próxima, leído de Spring. Una tarea nueva
+ * aparece sola. Detecta las trabadas, que no tiran error: simplemente dejan de correr.
  */
 @Component
 public class EstadoTareas {
 
-    /** Si una tarea no arrancó a la hora que le tocaba pasado este margen, está atrasada (pool lleno o colgado). */
+    /** Pasado este margen sin arrancar, está atrasada. */
     private static final Duration MARGEN_ATRASO = Duration.ofMinutes(3);
 
     /** Nombre legible por "Clase.metodo"; las que no están se muestran así, crudas. */
@@ -54,7 +50,7 @@ public class EstadoTareas {
 
     private final List<ScheduledTaskHolder> holders;
 
-    /** Más que esto corriendo sin terminar = trabada (la pasada más larga normal es la de facturas: segundos). */
+    /** Más que esto sin terminar = trabada. */
     @Value("${app.monitoreo.minutos-tarea-trabada:15}")
     private long minutosTrabada;
 
@@ -89,8 +85,7 @@ public class EstadoTareas {
             case SUCCESS -> situacion = Situacion.OK;
             default -> situacion = Situacion.NUNCA;
         }
-        // Le tocaba correr hace rato y no arrancó (y no es que está corriendo): el pool de hilos está
-        // tomado por otra tarea colgada.
+        // Le tocaba y no arrancó: el pool está tomado por otra tarea colgada.
         if (situacion != Situacion.CORRIENDO && situacion != Situacion.TRABADA
                 && proxima != null && proxima.plus(MARGEN_ATRASO).isBefore(ahora)) {
             situacion = Situacion.ATRASADA;
@@ -98,7 +93,10 @@ public class EstadoTareas {
         return new Tarea(clave, NOMBRES.getOrDefault(clave, clave), situacion, local(ultima), local(proxima), error);
     }
 
-    /** "org.example...EmisionFacturasScheduler.emitirPendientes" (o con el sufijo de un proxy) → "EmisionFacturasScheduler.emitirPendientes". */
+    /**
+     * "org.example...EmisionFacturasScheduler.emitirPendientes" →
+     * "EmisionFacturasScheduler.emitirPendientes".
+     */
     static String clave(String metodo) {
         String sinProxy = metodo.replaceAll("\\$\\$SpringCGLIB\\$\\$\\d+", "");
         int punto = sinProxy.lastIndexOf('.');
@@ -107,7 +105,7 @@ public class EstadoTareas {
         return sinProxy.substring(anterior + 1);
     }
 
-    /** Al segundo más cercano: la próxima corrida de un cron llega como 00:04:59.998 y se mostraba "00:04". */
+    /** Al segundo más cercano: un cron llega como 00:04:59.998. */
     private static LocalDateTime local(Instant i) {
         return i == null ? null : LocalDateTime.ofInstant(i.plusMillis(500), AuditoriaService.ZONA).withNano(0);
     }

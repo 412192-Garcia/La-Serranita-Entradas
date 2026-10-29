@@ -7,10 +7,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
 
-/**
- * Si un {@link Modulo} está prendido. Sólo hay fila para los que alguien tocó alguna vez: el resto
- * usa {@link Modulo#isActivoPorDefecto()}. Quién y cuándo lo cambió queda en los campos de auditoría.
- */
+/** Si un {@link Modulo} está prendido. Sin fila usa {@link Modulo#isActivoPorDefecto()}. */
 @Entity
 @Table(name = "modulos_sistema")
 @Getter

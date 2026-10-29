@@ -3,13 +3,7 @@ package org.example.laserranitaentradas.model.dto;
 import lombok.Data;
 import org.example.laserranitaentradas.model.entity.RolUsuario;
 
-/**
- * Vista pública de un usuario del staff.
- *
- * Existe para que la entidad Usuario no salga cruda por la API: así el hash de
- * la contraseña no depende de una anotación de Jackson para no filtrarse, y los
- * campos de auditoría heredados de BaseEntity quedan fuera de la respuesta.
- */
+/** Usuario del staff para la API, sin el hash ni la auditoría. */
 @Data
 public class UsuarioResponseDTO {
     private Long id;

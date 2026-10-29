@@ -35,15 +35,10 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Cliente de los web services de ARCA, directo por SOAP: WSAA (autenticación), WSFEv1 (factura
- * electrónica) y el padrón de constancia de inscripción.
+ * Cliente SOAP de ARCA: WSAA, WSFEv1 y padrón.
  *
- * Cada web service se usa con un ticket de acceso de WSAA, que dura 12 horas y se pide firmando con
- * el certificado del CUIT (ver Wsaa). WSAA no entrega otro mientras el anterior siga vigente, así
- * que se guarda en la base (TicketAccesoArca) para que un reinicio no deje la facturación trabada.
- *
- * Sin certificado y clave válidos la facturación queda apagada, también en homologación: ARCA no
- * tiene un CUIT de prueba compartido, se usa un certificado de homologación propio (ver .env.example).
+ * El ticket de WSAA dura 12 h y ARCA no da otro mientras siga vigente, por eso se guarda en la base
+ * (TicketAccesoArca). Sin certificado y clave la facturación queda apagada, también en homologación.
  */
 @Component
 public class ArcaClient {
@@ -71,8 +66,8 @@ public class ArcaClient {
             "https://aws.afip.gov.ar/sr-padron/webservices/personaServiceA5");
 
     /**
-     * El ticket se usa hasta unos segundos antes de que venza. Corto a propósito: pedir uno nuevo
-     * mientras ARCA todavía da por vigente el anterior falla (coe.alreadyAuthenticated).
+     * Corto a propósito: pedir otro mientras ARCA da por vigente el anterior falla
+     * (coe.alreadyAuthenticated).
      */
     private static final Duration MARGEN_VENCIMIENTO_TA = Duration.ofSeconds(5);
     private static final MediaType TEXT_XML = new MediaType("text", "xml", StandardCharsets.UTF_8);
@@ -97,11 +92,9 @@ public class ArcaClient {
 
     /**
      * @param environment "dev" (homologación) o "prod"
-     * @param cuit        el CUIT que factura; vacío = el del certificado
-     * @param cert        certificado de ARCA (PEM). Acepta la ruta a un archivo (lo normal en el
-     *                    servidor: /run/afip/certificado.crt, la carpeta afip/ montada en
-     *                    docker-compose) o el contenido, también en una sola línea con \n escritos
-     * @param key         la clave privada del certificado, igual que cert
+     * @param cuit el CUIT que factura; vacío = el del certificado
+     * @param cert certificado PEM: ruta a un archivo o el contenido (también en una línea con "\n" escritos)
+     * @param key la clave privada, igual que cert
      */
     @Autowired
     public ArcaClient(TicketAccesoArcaRepository ticketRepository, PlatformTransactionManager transactionManager,
@@ -116,15 +109,13 @@ public class ArcaClient {
                String environment, String cuit, String cert, String key) {
         this.restClient = restClient;
         this.ticketRepository = ticketRepository;
-        // El ticket se guarda en su propia transacción: si quien llama está en una que después se
-        // deshace, el ticket ya entregado por ARCA no se puede perder.
+        // El ticket se guarda en su propia transacción para no perderlo si la de quien llama se deshace.
         this.txNueva = new TransactionTemplate(transactionManager);
         this.txNueva.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
         this.produccion = "prod".equalsIgnoreCase(environment);
         this.urls = produccion ? PRODUCCION : HOMOLOGACION;
 
-        // Se leen y validan una sola vez, al arrancar: si algo está mal se dice en el log con el
-        // motivo (nunca el contenido), en vez de fallar recién en la primera venta.
+        // Se validan al arrancar y el motivo va al log (nunca el contenido).
         String certPem = leerCredencial("AFIP_CERT", cert, "CERTIFICATE");
         String keyPem = leerCredencial("AFIP_KEY", key, "PRIVATE KEY");
         X509Certificate x509 = null;
@@ -178,8 +169,7 @@ public class ArcaClient {
     }
 
     private static RestClient restClientConTimeouts() {
-        // Timeouts explícitos: sin esto una ARCA colgada deja el hilo de emisión esperando para
-        // siempre, y con él la cola entera (se emite de a una por punto de venta).
+        // Sin timeouts una ARCA colgada frena la cola de emisión entera.
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
         requestFactory.setConnectTimeout(Duration.ofSeconds(10));
         requestFactory.setReadTimeout(Duration.ofSeconds(40));
@@ -206,12 +196,8 @@ public class ArcaClient {
     }
 
     /**
-     * Llama a un método del web service de facturación (FECAESolicitar, FECompUltimoAutorizado,
-     * etc.). `params` no lleva el bloque Auth: se agrega acá con el ticket vigente. Con más de un
-     * campo, tiene que respetar el orden del WSDL (armarlo con SoapXml.campos).
-     *
-     * Devuelve el resultado ya desenvuelto: ARCA contesta {"<Metodo>Result": {...}} y acá se
-     * devuelve directamente lo de adentro.
+     * Llama a un método de WSFE. El bloque Auth se agrega acá. Con más de un campo, `params` respeta el orden
+     * del WSDL (SoapXml.campos). Devuelve el contenido de "<Metodo>Result".
      */
     public JsonNode llamarWsfe(String metodo, Map<String, Object> params) {
         SoapXml.exigirOrden(params);
@@ -226,10 +212,8 @@ public class ArcaClient {
     }
 
     /**
-     * getPersona_v2 del padrón de constancia de inscripción: los datos fiscales de un CUIT. A
-     * diferencia de WSFE, el ticket va suelto en los parámetros (token, sign, cuitRepresentada).
-     * Devuelve {"personaReturn": {...}}. En producción el certificado tiene que estar autorizado
-     * para este servicio en ARCA (Administrador de Relaciones), aparte de la facturación.
+     * getPersona_v2 del padrón. El ticket va suelto en los parámetros. En producción el certificado tiene que
+     * estar autorizado para este servicio.
      */
     public JsonNode consultarPadron(long cuitConsultado) {
         TicketAcceso ta = ticket(SERVICIO_PADRON);
@@ -342,8 +326,8 @@ public class ArcaClient {
     }
 
     /**
-     * Las fallas de WSAA por el certificado, la firma, la autorización o un pedido mal armado no se
-     * arreglan reintentando; las demás (servicio caído, error interno de ARCA) sí.
+     * Las fallas de certificado, firma, autorización o pedido mal armado no se arreglan reintentando; las
+     * demás sí.
      */
     static AfipException excepcion(String servicio, SoapXml.Falla falla, Throwable causa) {
         String codigo = falla.codigo();
@@ -363,10 +347,9 @@ public class ArcaClient {
     }
 
     /**
-     * El PEM de una credencial, venga como ruta o como contenido. Null si está vacía o no sirve
-     * (en ese caso deja el motivo en el log).
+     * El PEM de una credencial, como ruta o contenido. Null si no sirve (el motivo va al log).
      *
-     * @param marca lo que tiene que decir la cabecera del PEM ("CERTIFICATE", "PRIVATE KEY")
+     * @param marca la cabecera esperada ("CERTIFICATE", "PRIVATE KEY")
      */
     private static String leerCredencial(String variable, String valor, String marca) {
         if (valor == null || valor.isBlank()) return null;

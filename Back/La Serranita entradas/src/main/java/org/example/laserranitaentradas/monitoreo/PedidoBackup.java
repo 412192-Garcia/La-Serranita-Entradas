@@ -10,13 +10,10 @@ import java.nio.file.Path;
 import java.time.LocalDateTime;
 
 /**
- * "Hacer un backup ahora" desde Sistema > Estado. El backup lo hace el contenedor "backup" (pg_dump
- * y la copia a Drive), no el backend: darle al backend acceso a Docker para dispararlo sería un
- * riesgo. Entonces se comunican por una carpeta compartida (app.backups.pedidos-dir):
- *
- * - el backend deja el archivo "backup" (quién y cuándo lo pidió);
- * - el contenedor backup lo mira cada minuto: lo renombra a "backup.en-curso", corre backup.sh y
- *   deja el resultado en "ultimo" ("OK fecha archivo" o "ERROR fecha motivo").
+ * Backup a pedido desde Sistema > Estado. Lo hace el contenedor backup (darle Docker al backend sería un
+ * riesgo); se comunican por una carpeta compartida:
+ * - el backend deja el archivo "backup";
+ * - el contenedor lo pasa a "backup.en-curso", corre backup.sh y deja el resultado en "ultimo".
  */
 @Component
 public class PedidoBackup {

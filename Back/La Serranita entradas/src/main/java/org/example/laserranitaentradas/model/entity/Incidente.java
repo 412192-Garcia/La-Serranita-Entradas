@@ -8,12 +8,9 @@ import lombok.Setter;
 import java.time.LocalDateTime;
 
 /**
- * Un error del servidor (un log.error de cualquier parte de la app, también de los procesos en
- * segundo plano), para verlo desde Sistema > Errores sin entrar a los logs del contenedor. Los que
- * se repiten se agrupan en el mismo registro (misma firma, sin resolver): cantidad y última vez.
+ * Un error del servidor para Sistema > Errores. Los repetidos sin resolver se agrupan.
  *
- * area y nivel son texto y no enums a propósito: con ddl-auto, un valor nuevo de enum choca con el
- * CHECK que Hibernate creó con la lista vieja.
+ * area y nivel son texto: con ddl-auto un valor nuevo de enum choca con el CHECK viejo.
  */
 @Entity
 @Table(name = "incidentes", indexes = {

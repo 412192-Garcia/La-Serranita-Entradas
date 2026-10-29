@@ -13,10 +13,9 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * Latidos de las terminales del POS (ver TerminalPos) y qué se considera un problema:
- * - una terminal que se quedó sin conexión con operaciones sin subir (ventas que el servidor todavía
- *   no tiene: si esa PC se borra o se rompe, se pierden);
- * - una cola que no se vacía aunque la terminal sí tiene conexión (algo la traba).
+ * Latidos de las terminales del POS. Problemas:
+ * - sin conexión con operaciones sin subir (si la PC se rompe, se pierden);
+ * - una cola que no se vacía aunque haya conexión.
  */
 @Service
 public class TerminalesService {
@@ -88,7 +87,7 @@ public class TerminalesService {
         return Math.max(1, d.toMinutes()) + " min";
     }
 
-    /** Terminales que no se usan más: sin pendientes a los 30 días; con pendientes, a los 90 (ya no se van a subir). */
+    /** Borra terminales viejas: sin pendientes a los 30 días, con pendientes a los 90. */
     @Scheduled(cron = "0 25 4 * * *", zone = "America/Argentina/Buenos_Aires")
     public void purgar() {
         int borradas = repository.borrarSinPendientesAntesDe(ahora().minusDays(30)) + repository.borrarAntesDe(ahora().minusDays(90));

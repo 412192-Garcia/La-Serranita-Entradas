@@ -21,9 +21,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * hayPendientes/marcarVistas son el corazón del sistema de notificaciones genérico: la diferencia
- * de comportamiento entre un tipo que se apaga con sólo verlo (CAJA_ATRASADA) y uno que exige
- * resolución explícita (RECHAZO_OPERACION) vive acá, no en cada feature.
+ * La diferencia entre un tipo que se apaga al verlo (CAJA_ATRASADA) y uno que hay que resolver
+ * (RECHAZO_OPERACION).
  */
 @ExtendWith(MockitoExtension.class)
 class NotificacionServiceImplTest {
@@ -128,8 +127,7 @@ class NotificacionServiceImplTest {
 
     @Test
     void marcarVistas_tipoQueNoDesaparece_noConsultaNiGuardaNada() {
-        // hayPendientes ignora las vistas para este tipo (ver arriba): guardarlas sería estado
-        // muerto que nadie lee.
+        // Para este tipo las vistas no se leen: no se guardan.
         service.marcarVistas(TipoNotificacion.RECHAZO_OPERACION, List.of(1L, 2L), USUARIO_ID);
 
         verify(repository, never()).findAllByTipoAndUsuarioIdAndRefIdIn(any(), any(), anyList());

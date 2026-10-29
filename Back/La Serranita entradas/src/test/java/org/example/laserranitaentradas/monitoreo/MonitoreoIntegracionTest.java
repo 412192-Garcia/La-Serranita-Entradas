@@ -23,10 +23,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 
-/**
- * Historial de acciones, errores y estado del sistema con la app completa (filtros, seguridad,
- * logging): lo que los tests de Mockito no pueden probar.
- */
+/** Historial, errores y estado con la app completa. */
 @SpringBootTest
 @AutoConfigureMockMvc
 class MonitoreoIntegracionTest {

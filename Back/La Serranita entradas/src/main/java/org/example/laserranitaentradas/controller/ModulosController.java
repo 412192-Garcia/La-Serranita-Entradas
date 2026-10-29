@@ -13,10 +13,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Módulos que se pueden apagar. Leerlos puede cualquier usuario del módulo interno (el POS los usa
- * para saber qué mostrar); cambiarlos, sólo el SUPERADMIN (ruta /api/interno/sistema/**).
- */
+/** Módulos: los lee cualquier usuario interno (el POS); los cambia sólo SUPERADMIN. */
 @RestController
 @Tag(name = "Módulos", description = "Partes del sistema que se prenden y apagan desde Sistema > Módulos")
 public class ModulosController {
@@ -34,10 +31,7 @@ public class ModulosController {
         this.facturaService = facturaService;
     }
 
-    /**
-     * activo = prendido desde Módulos; configurado = el servidor tiene lo que hace falta (certificado,
-     * token). Sólo funciona si están las dos cosas.
-     */
+    /** activo = prendido; configurado = el servidor tiene lo necesario. Funciona con las dos. */
     public record EstadoModulo(String codigo, String nombre, String descripcion, boolean activo, boolean configurado,
                                String faltaConfigurar, String padre) {}
 

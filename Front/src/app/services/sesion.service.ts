@@ -62,6 +62,16 @@ const STORAGE_KEY = 'serranita.sesion';
 const CUENTAS_KEY = 'serranita.cuentasRecientes';
 const MAX_CUENTAS_RECIENTES = 5;
 
+/** Si alguna vez se inició sesión de staff en este navegador (tenga o no sesión abierta ahora). */
+export function esDispositivoDelStaff(): boolean {
+  try {
+    return [localStorage.getItem(STORAGE_KEY), localStorage.getItem(CUENTAS_KEY), sessionStorage.getItem(STORAGE_KEY)]
+      .some((valor) => valor !== null);
+  } catch {
+    return false;
+  }
+}
+
 /** Cuánto antes del vencimiento se renueva el token de "Mantener sesión iniciada" (el backend lo
  * emite por 14 días, ver `jwt.remember-expiration-ms`): con 7 quedan siempre días de margen. */
 const UMBRAL_RENOVACION_MS = 7 * 24 * 60 * 60 * 1000;

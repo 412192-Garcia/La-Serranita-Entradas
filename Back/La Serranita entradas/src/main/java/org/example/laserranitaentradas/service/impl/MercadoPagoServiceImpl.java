@@ -89,14 +89,8 @@ public class MercadoPagoServiceImpl implements PagoService {
                 }
             }
 
-            // Lo que cobra Mercado Pago tiene que ser exactamente compra.getMontoTotal(): es el
-            // total que el cliente vio en pantalla, el que se guarda como recaudación y el que
-            // usa la verificación de respaldo para reconocer el pago (compara el monto). Los
-            // items de arriba van a precio de lista, así que cuando hubo descuento por cupón no
-            // coinciden. Mercado Pago no admite un descuento a nivel de orden ni un item en
-            // negativo: la forma de que el total cierre es mandar una sola línea por el importe
-            // final. Se pierde el desglose por tipo de entrada en el checkout, que es cosmético,
-            // a cambio de que nadie pague de más.
+            // MP tiene que cobrar exactamente montoTotal, y no admite descuentos de orden ni ítems negativos:
+            // con descuento se manda una sola línea por el total final.
             BigDecimal descuento = compra.getDescuentoAplicado();
             if (descuento != null && descuento.compareTo(BigDecimal.ZERO) > 0) {
                 items.clear();
@@ -110,27 +104,20 @@ public class MercadoPagoServiceImpl implements PagoService {
 
             PreferenceRequest.PreferenceRequestBuilder requestBuilder = PreferenceRequest.builder()
                     .items(items)
-                    // El código visible (yyMMdd-N) y no el id: así en el panel de MP aparece lo mismo
-                    // que ve el cliente en el mail y lo que busca boletería.
+                    // El código de reserva y no el id, para que en MP aparezca lo mismo que ve el cliente.
                     .externalReference(compra.getCodigoReserva())
                     .payer(armarPayer(compra))
                     .statementDescriptor(statementDescriptor)
-                    // El link vence junto con el barrido de checkouts abandonados: pasado ese plazo
-                    // la compra se cancela y libera el cupo, así que no tiene que poder pagarse.
-                    // Se cuenta desde que se creó la COMPRA, no el link: una compra reusada en un
-                    // reintento recibe un link nuevo, que no tiene que vivir más que ella.
+                    // El link vence junto con el barrido de checkouts abandonados, contado desde que se creó
+                    // la compra.
                     .expires(true)
                     .expirationDateTo(compra.getFechaCreacion() != null
                             ? compra.getFechaCreacion().atZone(java.time.ZoneId.systemDefault()).toOffsetDateTime()
                                     .plusHours(horasCheckoutAbandonado)
                             : OffsetDateTime.now().plusHours(horasCheckoutAbandonado));
 
-            // El navegador del propio cliente vuelve acá al terminar de pagar. A diferencia
-            // del webhook, esto no depende de que nuestro servidor sea alcanzable desde afuera
-            // (ver Entradas/PagoExitoso: ahí se re-confirma directamente contra Mercado Pago).
-            // Mercado Pago rechaza (o directamente ignora) back_urls con "localhost": en dev
-            // se sigue dependiendo solo del webhook y de la verificación de respaldo del
-            // polling, sin back_urls ni auto_return.
+            // El navegador vuelve acá al pagar, sin depender del webhook. MP no acepta back_urls con
+            // localhost: en dev sólo webhook y verificación.
             if (frontendPublico()) {
                 requestBuilder.backUrls(PreferenceBackUrlsRequest.builder()
                                 .success(frontendUrl + "/pago-exitoso")
@@ -167,11 +154,8 @@ public class MercadoPagoServiceImpl implements PagoService {
     }
 
     /**
-     * El teléfono se carga como texto libre ("351 5123456", "0351 15-512-3456", "+54 9 351...")
-     * y Mercado Pago lo pide partido en código de área y número. libphonenumber conoce los
-     * códigos de área argentinos y el "15"/"9" de los celulares, así que lo parte bien sin
-     * obligar al comprador a escribirlo de una forma puntual. Si no es un número argentino
-     * válido (sin código de área, del exterior, mal tipeado) no se manda, antes que mandarlo mal.
+     * Parte el teléfono en código de área y número con libphonenumber. Si no es un número argentino válido no
+     * se manda.
      */
     static Optional<PhoneRequest> telefonoParaMercadoPago(String telefono) {
         if (telefono == null || telefono.isBlank()) {
@@ -188,8 +172,7 @@ public class MercadoPagoServiceImpl implements PagoService {
                 return Optional.empty();
             }
             String area = nacional.substring(0, largoArea);
-            // En los celulares la librería incluye el 9 de "celular" adelante del código de área
-            // (+54 9 351 ...): MP espera el código de área solo.
+            // MP espera el código de área sin el 9 de celular.
             if (TELEFONOS.getNumberType(numero) == PhoneNumberUtil.PhoneNumberType.MOBILE && area.startsWith("9")) {
                 area = area.substring(1);
             }
@@ -216,10 +199,7 @@ public class MercadoPagoServiceImpl implements PagoService {
         return item;
     }
 
-    /**
-     * Datos del comprador para el motor antifraude de Mercado Pago: una preferencia sin payer
-     * le llega anónima y es mucho más propensa a rechazos "por seguridad".
-     */
+    /** Datos del comprador para el antifraude de MP: sin payer hay más rechazos. */
     private PreferencePayerRequest armarPayer(Compra compra) {
         PreferencePayerRequest.PreferencePayerRequestBuilder payer = PreferencePayerRequest.builder()
                 .email(compra.getContactEmail());
@@ -227,13 +207,11 @@ public class MercadoPagoServiceImpl implements PagoService {
         Cliente cliente = compra.getCliente();
         if (cliente != null) {
             payer.name(cliente.getNombre()).surname(cliente.getApellido());
-            // El formulario también acepta pasaportes extranjeros (con letras): sólo se declara
-            // como DNI lo que tiene forma de DNI, para no mandarle a MP un documento mal tipado.
+            // Sólo se declara como DNI lo que tiene forma de DNI (también se aceptan pasaportes).
             if (cliente.getDni() != null && DNI_NUMERICO.matcher(cliente.getDni()).matches()) {
                 payer.identification(IdentificationRequest.builder().type("DNI").number(cliente.getDni()).build());
             }
-            // Historial del comprador. is_first_purchase_online es un boolean primitivo en el
-            // SDK: sin setearlo se manda false siempre, o sea "ya nos compró antes" para todos.
+            // is_first_purchase_online es primitivo en el SDK: sin setearlo va siempre false.
             if (cliente.getFechaCreacion() != null) {
                 payer.registrationDate(cliente.getFechaCreacion().atZone(ZoneId.systemDefault()).toOffsetDateTime());
             }

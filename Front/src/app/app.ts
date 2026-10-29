@@ -5,10 +5,7 @@ import { filter } from 'rxjs';
 import { SesionService } from './services/sesion.service';
 import { ConfirmacionDialogo } from './shared/confirmacion/confirmacion-dialogo';
 import { ToastHost } from './shared/toast/toast-host';
-
-/** Rutas del módulo público (compra de entradas): comparten bundle/injector con el módulo
- *  interno, así que necesitan excluirse a mano — nunca deben pintarse con un tema personalizado. */
-const RUTAS_PUBLICAS = ['/entradas', '/pago-exitoso', '/pago-fallido'];
+import { esRutaPublica } from './shared/rutas-publicas';
 
 @Component({
   selector: 'app-root',
@@ -58,14 +55,14 @@ export class App {
     // entradas tiene que verse siempre con el verde fijo del parque, sin importar si el
     // dispositivo tiene guardada una sesión de staff con colores propios.
     this.router.events.pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd)).subscribe((e) => {
-      const esRutaPublica = RUTAS_PUBLICAS.some((ruta) => e.urlAfterRedirects.startsWith(ruta));
-      this.rutaPublica.set(esRutaPublica);
-      this.sesion.aplicarTema(esRutaPublica ? null : this.sesion.usuario());
+      const publica = esRutaPublica(e.urlAfterRedirects);
+      this.rutaPublica.set(publica);
+      this.sesion.aplicarTema(publica ? null : this.sesion.usuario());
       // Sesión deslizante de "Mantener sesión iniciada": sólo en el módulo interno, para no
       // pegarle al backend con el token de staff desde la compra pública embebida en el sitio.
-      if (!esRutaPublica) this.sesion.renovarSiHaceFalta();
+      if (!publica) this.sesion.renovarSiHaceFalta();
       // Del fondo de body se encarga la página del parque cuando está embebido (ver styles.css).
-      document.body.classList.toggle('ruta-publica', esRutaPublica);
+      document.body.classList.toggle('ruta-publica', publica);
     });
   }
 

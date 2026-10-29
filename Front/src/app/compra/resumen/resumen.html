@@ -62,7 +62,7 @@
               <small class="cupon-error-msg">{{ avisoCupon }}</small>
             } @else {
               <small class="cupon-success-msg">
-                ¡Cupón {{ cuponAplicado.codigo }} aplicado! (-{{ datosCompra.descuentoMonto | pesos }})
+                ¡Cupón {{ cuponAplicado }} aplicado! (-{{ datosCompra.descuentoMonto | pesos }})
               </small>
             }
           }
@@ -131,7 +131,7 @@
           }
         </div>
         @if (datosCompra.esRegalo) {
-          <p class="ayuda-pago-regalo">Los regalos sólo se pueden pagar online: así quien lo recibe no tiene que abonar nada al llegar.</p>
+          <p class="ayuda-pago-regalo">Los regalos se pagan online, así quien lo recibe no paga nada al llegar.</p>
         }
       </div>
     </div>

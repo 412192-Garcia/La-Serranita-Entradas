@@ -5,8 +5,7 @@ import lombok.Data;
 
 import java.math.BigDecimal;
 
-/** Uso de una promo de venta en puerta en el rango: sólo cuenta ventas hechas después de que
- *  Compra.promocion empezó a guardarse — las anteriores no tienen forma de saber qué promo usaron. */
+/** Uso de una promo en el rango. Las ventas viejas no guardan qué promo usaron. */
 @Data
 @AllArgsConstructor
 public class UsoPromocionDTO {

@@ -28,10 +28,10 @@
             <span>
               {{ c.usuarioNombre }}
               @if (c.controlOmitido) {
-                <span class="badge badge-sin-control" title="Se abrió con &quot;vender sin control de caja&quot;: sin conteo de apertura ni de cierre, se cierra sola a fin de día">Sin control</span>
+                <span class="badge badge-sin-control" title="Sin conteo de apertura ni de cierre. Se cierra sola a fin de día.">Sin control</span>
               }
               @if (esAtrasada(c)) {
-                <span class="badge badge-atrasada" title="Quedó abierta de un día anterior: hace falta cerrarla">Atrasada</span>
+                <span class="badge badge-atrasada" title="Quedó abierta de otro día: hay que cerrarla">Atrasada</span>
                 @if (cajasNuevas().has(c.id)) {
                   <span class="punto-nueva" title="Es la caja que prendió el aviso del menú: todavía no la habías visto" aria-label="Caja atrasada nueva"></span>
                 }
@@ -71,7 +71,7 @@
     <div class="tarjeta" data-tour="tabla-cajas-cerradas">
       <h2>Cajas cerradas</h2>
       <p class="ayuda">
-        Un turno por fila, ordenados por el día al que corresponde cada caja. Sirve para detectar faltantes o sobrantes por boletero. Tocá una fila para ver el detalle completo.
+        Tocá una fila para ver el detalle.
       </p>
 
       @if (boleterosDisponibles().length > 1) {
@@ -166,8 +166,7 @@
       (cancelado)="cancelarCierreSinControl()">
       @if (cierreSinControlDeCajaNormal()) {
         <p>
-          Se cierra sin contar el efectivo ni el posnet ni el talonario: no se registra ningún faltante ni sobrante y en
-          Cajas cerradas y Reportes figura como "sin control". Las ventas no cambian. Queda en el historial quién la cerró.
+          Se cierra sin contar nada y queda como "sin control". Las ventas no cambian.
         </p>
       } @else {
         <p>Esta caja no requiere ningún ingreso de cierre.</p>

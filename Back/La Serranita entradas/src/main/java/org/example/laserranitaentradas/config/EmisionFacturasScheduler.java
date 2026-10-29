@@ -13,13 +13,9 @@ import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
 /**
- * Las dos formas en que arranca la emisión de una factura contra ARCA:
- *
- * - En el momento: apenas commitea la venta que la pidió, en segundo plano (la respuesta de la
- *   venta no espera a ARCA). Es lo que hace que "Imprimir factura" tarde unos segundos y no un
- *   minuto.
- * - De respaldo: un job periódico que retoma las que quedaron PENDIENTE porque ARCA estaba caída
- *   o no había internet, respetando el backoff de cada una.
+ * Dos formas de arrancar la emisión:
+ * - En el momento: al commitear la venta, en segundo plano.
+ * - De respaldo: un job que retoma las PENDIENTE respetando el backoff.
  */
 @Component
 public class EmisionFacturasScheduler {
@@ -38,8 +34,7 @@ public class EmisionFacturasScheduler {
         facturaService.emitir(evento.facturaId());
     }
 
-    /** Un lote manual: de a una y en un solo hilo, para no ocupar el pool @Async con cien tareas
-     * esperando el mismo lock (ver FacturaServiceImpl#emitirManualLote). */
+    /** Lote manual: de a una en un solo hilo, para no llenar el pool @Async. */
     @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void alSolicitarLote(FacturaServiceImpl.LoteFacturasSolicitadoEvent evento) {
@@ -53,7 +48,7 @@ public class EmisionFacturasScheduler {
         }
     }
 
-    /** Ya se publica después del commit (ver FacturaServiceImpl#solicitarOnline): listener común, en segundo plano. */
+    /** Ya se publica después del commit. */
     @Async
     @EventListener
     public void alPagarseCompraOnline(FacturaServiceImpl.CompraOnlinePagadaEvent evento) {

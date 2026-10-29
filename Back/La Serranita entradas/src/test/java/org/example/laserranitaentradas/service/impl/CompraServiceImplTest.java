@@ -38,10 +38,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Cubre tres reglas de negocio de CompraServiceImpl que no son evidentes leyendo el
- * modelo de datos: un regalo no puede reservarse en efectivo (el receptor terminaría
- * pagando lo que le "regalaron"), confirmarAprobado es idempotente (Mercado Pago puede
- * reenviar la misma notificación), y sólo se reembolsa lo pagado online y no usado.
+ * Reglas de CompraServiceImpl que no se ven en el modelo: un regalo no se reserva en efectivo,
+ * confirmarAprobado es idempotente y sólo se reembolsa lo pagado online sin usar.
  */
 @ExtendWith(MockitoExtension.class)
 class CompraServiceImplTest {
@@ -64,9 +62,7 @@ class CompraServiceImplTest {
     @Mock private PagoService reservaAdminEstrategia;
     @Mock private EntityManager em;
     @Mock private org.example.laserranitaentradas.service.point.CobroPointService cobroPointService;
-    /** El propio bean visto por el proxy de Spring. Sólo lo usa iniciarCompraConPago, que
-     *  ningún test de acá ejercita (necesitaría el contexto de Spring para que el proxy exista
-     *  de verdad): va un mock para poder construir el service. */
+    /** El bean a través del proxy; sólo lo usa iniciarCompraConPago, que acá no se prueba. */
     @Mock private CompraService autoReferencia;
 
     private CompraServiceImpl service;
@@ -80,11 +76,9 @@ class CompraServiceImplTest {
         service = new CompraServiceImpl(compraRepository, tipoEntradaService, cuponService, diaAperturaService,
                 clienteService, usuarioService, calculoPrecioService, emailService, cajaService, cajaRepository, promocionRepository,
                 articuloVarioRepository, facturaService, List.of(mercadoPagoEstrategia, efectivoEstrategia, reservaAdminEstrategia), em,
-                // `self` sólo lo usa iniciarCompraConPago para cruzar el proxy de Spring; los
-                // tests llaman a create() directo, así que alcanza con el propio service.
+                // Los tests llaman a create() directo: alcanza con el propio service.
                 autoReferencia, cobroPointService);
-        // El webhook y la verificación directa confirman a través de `self` (para tener la
-        // transacción de confirmarAprobado): el mock la delega al service real.
+        // Webhook y verificación directa confirman a través de `self`: el mock delega al service real.
         lenient().when(autoReferencia.confirmarAprobado(any(), any(), any())).thenAnswer(inv ->
                 service.confirmarAprobado(inv.getArgument(0), inv.getArgument(1), inv.getArgument(2)));
     }
@@ -114,7 +108,7 @@ class CompraServiceImplTest {
 
         assertThat(resultado.getMontoTotal()).isEqualByComparingTo("0");
         assertThat(resultado.getEstado()).isEqualTo(EstadoCompra.APROBADO);
-        // No se le pide precio a calculoPrecioService para nada: es gratis, no hay "precio de grupo" que calcular.
+        // Es gratis: no se pide precio.
         verify(calculoPrecioService, never()).calcularTotal(any(), org.mockito.ArgumentMatchers.anyInt(), any());
     }
 
@@ -147,7 +141,7 @@ class CompraServiceImplTest {
 
     @Test
     void create_reservaDeAdminParaHoy_noSeCortaPorElLimite() {
-        // Una reserva que carga un admin (invitado, premio) no es una compra del público: el corte no la toca.
+        // Una reserva de admin no es compra del público: el corte no la toca.
         org.example.laserranitaentradas.model.entity.TipoEntrada general = org.example.laserranitaentradas.model.entity.TipoEntrada.builder()
                 .id(1L).nombre("General").tipo(org.example.laserranitaentradas.model.entity.Tipo.ENTRADA)
                 .obligatorio(true).precio(new java.math.BigDecimal("111")).build();
@@ -162,7 +156,7 @@ class CompraServiceImplTest {
         verify(diaAperturaService, never()).compraDelDiaCerrada(any(), any());
     }
 
-    // ---------- Un tipo "Solo POS" no se puede comprar por la vía pública, aunque el request lo pida a mano ----------
+    // ---------- Un tipo "Solo POS" no se compra online aunque se pida a mano ----------
 
     @Test
     void create_conTipoSoloPos_rechaza() {
@@ -208,8 +202,7 @@ class CompraServiceImplTest {
 
     @Test
     void create_regaloConMercadoPagoSinDatosDeReceptor_rechazaPorFaltaDeReceptor() {
-        // No debe confundirse con el guard de efectivo: con Mercado Pago la compra sigue
-        // adelante hasta la siguiente validación (datos del receptor).
+        // Con Mercado Pago sigue hasta la siguiente validación (receptor).
         CompraRequestDTO request = new CompraRequestDTO();
         request.setFecha(null);
         request.setFormaPago(FormaPago.MERCADO_PAGO);
@@ -221,8 +214,7 @@ class CompraServiceImplTest {
 
     @Test
     void create_regaloSinDniDelComprador_guardaAlCompradorSinDni() {
-        // En un regalo entra el receptor con SU DNI: a quien compra no se le pide. Igual se
-        // guarda como cliente (sin DNI) para no perder su nombre.
+        // A quien compra un regalo no se le pide DNI, pero se guarda como cliente.
         CompraRequestDTO request = new CompraRequestDTO();
         request.setFecha(null);
         request.setFormaPago(FormaPago.MERCADO_PAGO);
@@ -292,8 +284,7 @@ class CompraServiceImplTest {
 
     @Test
     void confirmarAprobado_siOtraConfirmacionSimultaneaGanoLaTransicion_noRepiteMailNiCupon() {
-        // Webhook y verificación directa al mismo tiempo: las dos leyeron la compra sin pagar,
-        // pero el UPDATE condicional sólo lo gana una. La que pierde no tiene que repetir efectos.
+        // Las dos confirmaciones leyeron la compra sin pagar, pero el UPDATE condicional lo gana una sola.
         Compra cancelada = checkoutPendiente(79L);
         cancelada.setEstado(EstadoCompra.CANCELADO);
         cancelada.setCupon(org.example.laserranitaentradas.model.entity.Cupon.builder().id(9L).codigo("PROMO").build());
@@ -363,8 +354,7 @@ class CompraServiceImplTest {
 
     @Test
     void reembolsarCompra_sinPagoDeMercadoPagoRegistrado_rechazaSinTocarMercadoPago() {
-        // Buscar el pago por external_reference podía devolver el de otra compra (el código de
-        // reserva se repite si la base se reinicia): sin el id guardado, no se adivina.
+        // Por external_reference podía aparecer el pago de otra compra: sin el id guardado no se adivina.
         Compra compra = new Compra();
         compra.setId(1L);
         compra.setEstado(EstadoCompra.APROBADO);
@@ -623,8 +613,7 @@ class CompraServiceImplTest {
     @Test
     void registrarVentaPos_conCompraReservada_repreciaSegunLaFormaDePagoElegida() {
         mockearVentaPosBasica();
-        // Al pasar a tarjeta, el precio deja de tener el descuento de grupo: calcularTotal
-        // devuelve más para esa forma de pago.
+        // En tarjeta no hay precio de grupo: calcularTotal devuelve más.
         org.example.laserranitaentradas.model.entity.TipoEntrada general = org.example.laserranitaentradas.model.entity.TipoEntrada.builder()
                 .id(1L).nombre("General").tipo(org.example.laserranitaentradas.model.entity.Tipo.ENTRADA)
                 .obligatorio(true).precio(new java.math.BigDecimal("100")).build();
@@ -651,7 +640,7 @@ class CompraServiceImplTest {
         return org.mockito.ArgumentMatchers.argThat(p -> p != null && p.compareTo(new java.math.BigDecimal(valor)) == 0);
     }
 
-    /** Reserva de 2 General hecha cuando valía 100 y con escalón de grupo (total 180); el tipo hoy vale 150. */
+    /** Reserva de 2 General a 100 con escalón de grupo (total 180); el tipo hoy vale 150. */
     private Compra reservaAntesDelAumento(Long id) {
         org.example.laserranitaentradas.model.entity.TipoEntrada generalAumentado = org.example.laserranitaentradas.model.entity.TipoEntrada.builder()
                 .id(1L).nombre("General").tipo(org.example.laserranitaentradas.model.entity.Tipo.ENTRADA)
@@ -662,8 +651,7 @@ class CompraServiceImplTest {
         reserva.getDetalles().get(0).setTipoEntrada(generalAumentado);
         reserva.getDetalles().get(0).setPrecioUnitario(PRECIO_AL_RESERVAR);
         when(compraRepository.findById(id)).thenReturn(Optional.of(reserva));
-        // Cálculo "de hoy" en efectivo (escalones cambiados): nunca debería ser lo que se cobra
-        // cuando la reserva se paga igual que como se reservó.
+        // Cálculo de hoy en efectivo: no debería usarse si paga igual que como reservó.
         lenient().when(calculoPrecioService.calcularTotal(any(), org.mockito.ArgumentMatchers.eq(2),
                         org.mockito.ArgumentMatchers.eq(FormaPago.EFECTIVO_BOLETERIA), igualA("100")))
                 .thenReturn(new java.math.BigDecimal("190"));
@@ -798,8 +786,8 @@ class CompraServiceImplTest {
 
     @Test
     void registrarVentaPos_conClaveYaProcesada_devuelveLaCompraGuardadaSinCobrarDeNuevo() {
-        // El caso que hace segura la cola offline: la venta original llegó y se guardó, pero la
-        // respuesta se perdió en el corte. El reintento trae la misma clave y no cobra dos veces.
+        // La venta original se guardó pero se perdió la respuesta: el reintento con la misma clave no cobra
+        // dos veces.
         Compra yaRegistrada = Compra.builder().id(123L).idempotencyKey("clave-venta-1").build();
         when(compraRepository.findByIdempotencyKey("clave-venta-1")).thenReturn(Optional.of(yaRegistrada));
         var request = ventaPosBasica();
@@ -813,8 +801,7 @@ class CompraServiceImplTest {
 
     @Test
     void registrarVentaPos_conFechaOriginal_registraEseMomentoYNoElDeSincronizacion() {
-        // Una venta cobrada a las 23:50 sin señal y sincronizada pasada la medianoche tiene que
-        // quedar como visita de ESE día, no del siguiente, y con la hora real en el detalle de caja.
+        // Cobrada a las 23:50 sin señal y sincronizada después de medianoche: visita de ESE día y hora real.
         java.time.LocalDateTime cuandoSeCobro = java.time.LocalDateTime.of(2026, 8, 10, 23, 50);
         mockearVentaPosBasica();
         var request = ventaPosBasica();
@@ -828,7 +815,7 @@ class CompraServiceImplTest {
         assertThat(resultado.getIdempotencyKey()).isEqualTo("clave-venta-2");
     }
 
-    // ---------- Cobro en dólares: sigue siendo EFECTIVO_BOLETERIA, sólo cambia la moneda física ----------
+    // ---------- Cobro en dólares: sigue siendo EFECTIVO_BOLETERIA ----------
 
     @Test
     void registrarVentaPos_conCotizacionDolar_enFormaDePagoQueNoEsEfectivo_rechaza() {
@@ -929,8 +916,7 @@ class CompraServiceImplTest {
 
     @Test
     void registrarVentaPos_ventaMixtaDeEntradasYArticulos_siguExigiendoElPaseObligatorio() {
-        // Sólo un artículo, sin ningún pase obligatorio de entrada: tiene que rechazar igual
-        // que rechazaría si sólo hubiera un pase de menor sin un adulto.
+        // Sólo un artículo, sin pase obligatorio: se rechaza.
         lenient().when(usuarioService.obtenerUsuarioPorId(anyLong())).thenReturn(Optional.of(new org.example.laserranitaentradas.model.entity.Usuario()));
         org.example.laserranitaentradas.model.entity.Caja caja = new org.example.laserranitaentradas.model.entity.Caja();
         caja.setId(1L);
@@ -984,8 +970,7 @@ class CompraServiceImplTest {
 
     @Test
     void construirDetalles_noExplotaCuandoUnaCompraPreviaDelDiaTieneUnaLineaDeArticulo() {
-        // El loop de cupo diario itera TODAS las compras del día, incluidas las que ya
-        // tengan líneas de artículo (sin tipoEntrada): no puede explotar con NPE ahí.
+        // El cupo diario recorre también compras con artículos (sin tipoEntrada): no puede tirar NPE.
         mockearVentaPosBasica();
 
         Compra compraConArticulo = new Compra();
@@ -1004,9 +989,8 @@ class CompraServiceImplTest {
         assertThat(resultado.getMontoTotal()).isEqualByComparingTo("200");
     }
 
-    // ---------- actualizarContacto: el DNI del titular vive en un Cliente compartido entre
-    // compras (reutilizado por similitud de nombre al comprar, ver create()) — cambiarlo ahí
-    // pisaría el dato de cualquier otra compra que apunte al mismo registro. ----------
+    // ---------- actualizarContacto: el DNI del titular está en un Cliente compartido; cambiarlo ahí pisaría
+    // otras compras ----------
 
     @Test
     void actualizarContacto_cambiaElDniDelTitular_creaUnClienteNuevoYNoTocaElCompartido() {
@@ -1028,8 +1012,7 @@ class CompraServiceImplTest {
         verify(clienteService).create(captor.capture());
         assertThat(captor.getValue().getDni()).isEqualTo("30999888");
         assertThat(captor.getValue().getNombre()).isEqualTo("Juan"); // se conserva lo que ya tenía
-        // El cliente compartido original queda exactamente como estaba: otras compras que lo
-        // usen no se ven afectadas por este cambio puntual.
+        // El cliente compartido queda igual.
         assertThat(clienteCompartido.getDni()).isEqualTo("30111222");
         assertThat(resultado.getCliente()).isNotSameAs(clienteCompartido);
         assertThat(resultado.getCliente().getDni()).isEqualTo("30999888");
@@ -1077,11 +1060,7 @@ class CompraServiceImplTest {
 
     // ---------- Cupo diario por tipo de entrada (maximoPorDia) ----------
 
-    /**
-     * Arma el escenario "un tipo de entrada con tope diario" y devuelve el request de compra.
-     * `yaVendidos` se simula con compras existentes de ese día, que es de donde sale el conteo
-     * real (cantidadVendidaPorTipoEnElDia recorre las compras de la fecha).
-     */
+    /** Un tipo con tope diario; `yaVendidos` se simula con compras existentes del día. */
     private CompraRequestDTO pedidoConTope(Integer maximoPorDia, int cantidadPedida, int yaVendidos) {
         var tipo = org.example.laserranitaentradas.model.entity.TipoEntrada.builder()
                 .id(1L).nombre("General").tipo(org.example.laserranitaentradas.model.entity.Tipo.ENTRADA)
@@ -1181,8 +1160,7 @@ class CompraServiceImplTest {
 
     @Test
     void create_reintentoDelMismoCheckout_reusaLaCompraPendienteSinContarSuCupo() {
-        // Quedan 2 lugares y son justo los que tiene apartados su propio checkout pendiente: si se
-        // contara contra el reintento, lo rechazaría por cupo.
+        // Los 2 lugares que quedan son los de su propio checkout pendiente: no cuentan contra el reintento.
         CompraRequestDTO request = reintentoDeSantiago(pedidoConTope(10, 2, 0), "otro.mail@gmail.com");
         Compra pendiente = checkoutPendienteDe("30111222", "santiago@gmail.com", request.getFecha(), 2, "100");
         Compra otraDelDia = Compra.builder().id(999L).estado(EstadoCompra.APROBADO)
@@ -1295,8 +1273,7 @@ class CompraServiceImplTest {
                 .porcentajeDescuento(new java.math.BigDecimal("50"))
                 .fechaExpiracion(LocalDate.now().plusYears(1)).build();
         when(cuponService.getByCode("PROMO")).thenReturn(Optional.of(cupon));
-        // La lectura de arriba dice que queda 1 uso, pero entre esa lectura y el consumo otra
-        // compra se llevó el último: el consumo atómico devuelve false.
+        // Otra compra se llevó el último uso entre la lectura y el consumo: devuelve false.
         when(cuponService.consumirUso(9L)).thenReturn(false);
 
         CompraRequestDTO request = pedidoConTope(null, 1, 0);
@@ -1341,14 +1318,12 @@ class CompraServiceImplTest {
         CompraRequestDTO request = pedidoConTope(null, 1, 0);
         request.setCuponCodigo("GRANDE");
 
-        // Mercado Pago no acepta una preferencia por $0: se corta antes, con un mensaje que
-        // explica qué hacer, en vez de reventar al pedir el checkout.
+        // MP no acepta $0: se corta antes con un mensaje claro.
         assertThatThrownBy(() -> service.create(request))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("cubre el total");
 
-        // Y sobre todo: no se consumió el uso. Antes el consumo iba primero, así que una
-        // compra que igual iba a fallar se llevaba puesto un uso del cupón.
+        // Y no se consumió el uso.
         verify(cuponService, never()).consumirUso(any());
         verify(compraRepository, never()).save(any());
     }
@@ -1373,11 +1348,9 @@ class CompraServiceImplTest {
         verify(cuponService, never()).update(any());
     }
 
-    // ---------- Checkout abandonado: qué pasa con una compra que SÍ se pagó ----------
+    // ---------- Checkout abandonado que SÍ se pagó ----------
     //
-    // Es el escenario más caro de todos: el cliente pagó, el webhook se perdió, y a las 3 h
-    // pasa el barrido de checkouts abandonados. Si ahí se cancela la reserva, esa persona
-    // llega al parque y no existe — sin ningún aviso ni forma de enterarse.
+    // El cliente pagó, el webhook se perdió y pasa el barrido: si se cancela, llega al parque sin reserva.
 
     /** Compra en PENDIENTE_PAGO, por Mercado Pago, vieja: candidata a que la barra el scheduler. */
     private Compra checkoutPendiente(Long id) {
@@ -1404,8 +1377,7 @@ class CompraServiceImplTest {
 
         espia.expirarCheckoutAbandonado(70L);
 
-        // Lo importante: sigue viva. Antes se cancelaba, porque "no pude preguntar" y
-        // "no pagó" se veían exactamente igual desde acá.
+        // Sigue viva: "no pude preguntar" no es "no pagó".
         assertThat(pendiente.getEstado()).isEqualTo(EstadoCompra.PENDIENTE_PAGO);
         verify(compraRepository, never()).save(any());
     }
@@ -1627,11 +1599,9 @@ class CompraServiceImplTest {
         assertThatThrownBy(() -> service.iniciarCompraConPago(new CompraRequestDTO()))
                 .hasMessageContaining("Mercado Pago no responde");
 
-        // El cliente nunca vio el checkout, así que no pagó: no tiene sentido dejarle tomado
-        // el cupón ni el lugar del día hasta que pase el barrido tres horas después.
+        // Nunca vio el checkout: se liberan cupón y lugar ya.
         assertThat(creada.getEstado()).isEqualTo(EstadoCompra.CANCELADO);
-        // La devolución del uso la hace la base en una sentencia atómica, no este código
-        // restándole uno a la entidad cargada (eso pisaba el consumo de otra compra).
+        // La devolución del uso la hace la base en una sentencia.
         verify(cuponService).liberarUso(9L);
         verify(cuponService, never()).update(any());
     }
@@ -1708,8 +1678,7 @@ class CompraServiceImplTest {
         when(compraRepository.findById(75L)).thenReturn(Optional.of(cancelada));
         when(compraRepository.aprobarSiSigueSinPagar(75L, "555")).thenReturn(1);
 
-        // Decisión deliberada: el cliente pagó, así que tiene que tener su entrada. Se prefiere
-        // un lugar de más en el día antes que dejarlo afuera habiendo pagado.
+        // Pagó, así que tiene su entrada: mejor un lugar de más.
         assertThat(service.confirmarAprobado(75L, List.of(555L), ConfirmacionPago.WEBHOOK)).isTrue();
 
         assertThat(cancelada.getEstado()).isEqualTo(EstadoCompra.APROBADO);
@@ -1730,8 +1699,7 @@ class CompraServiceImplTest {
 
         assertThat(service.confirmarAprobado(77L, List.of(555L), ConfirmacionPago.WEBHOOK)).isTrue();
 
-        // Al cancelarla se le había devuelto el uso: si no se vuelve a tomar, ese uso queda
-        // libre para otra compra y el cupón termina aplicado dos veces.
+        // Hay que volver a tomar el uso, o el cupón se aplica dos veces.
         verify(cuponService).consumirUso(9L);
     }
 
@@ -1747,8 +1715,7 @@ class CompraServiceImplTest {
         when(compraRepository.aprobarSiSigueSinPagar(78L, "555")).thenReturn(1);
         when(cuponService.consumirUso(9L)).thenReturn(false); // otro se llevó el último uso
 
-        // La persona pagó: se aprueba igual. El cupón sobreaplicado queda logueado para
-        // corregirlo a mano, que es preferible a dejarla sin entrada.
+        // Se aprueba igual y el cupón sobreaplicado queda logueado.
         assertThat(service.confirmarAprobado(78L, List.of(555L), ConfirmacionPago.WEBHOOK)).isTrue();
 
         assertThat(cancelada.getEstado()).isEqualTo(EstadoCompra.APROBADO);
@@ -1815,8 +1782,7 @@ class CompraServiceImplTest {
 
     @Test
     void confirmarPagoMercadoPago_conDosTarjetasQueSumanElTotal_apruebaConLosDosPagos() throws Exception {
-        // Cada tarjeta es un pago aparte con el mismo external_reference. El avisado (la segunda
-        // tarjeta) todavía puede no aparecer en la búsqueda de MP: igual se suma.
+        // Dos tarjetas con el mismo external_reference; la avisada puede no aparecer todavía en la búsqueda.
         Compra compra = compraDelWebhook();
         aprobacionGana(compra, "998,999");
         var primeraTarjeta = pagoAprobado(998L, "20000", CREACION_COMPRA.plusMinutes(4));
@@ -1840,8 +1806,7 @@ class CompraServiceImplTest {
 
     @Test
     void confirmarPagoMercadoPago_conUnPagoAnteriorALaCompra_noLaAprueba() throws Exception {
-        // El código de reserva se repite si la base se reinicia: un aviso de un pago viejo con el
-        // mismo external_reference y el mismo monto no puede aprobar la compra nueva.
+        // Un pago viejo con el mismo external_reference y monto no aprueba la compra nueva.
         compraDelWebhook();
 
         assertThat(conPagosEnMercadoPago().confirmarPagoMercadoPago(

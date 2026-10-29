@@ -50,7 +50,7 @@
                   <span>Emitiendo factura…</span>
                 } @else if (f.estado === 'ERROR') {
                   <svg lucideCircleAlert class="icono-error" [strokeWidth]="2"></svg>
-                  <span>No se pudo emitir: un administrador tiene que revisar el error y reintentarla.</span>
+                  <span>No se pudo emitir. Un administrador la tiene que reintentar.</span>
                 } @else {
                   <svg lucideCircleAlert class="icono-gris" [strokeWidth]="2"></svg>
                   <span>Factura anulada (la venta cambió o se canceló)</span>

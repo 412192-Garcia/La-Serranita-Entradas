@@ -12,7 +12,7 @@ const PASOS_TUTORIAL: TourStep[] = [
   {
     selector: '[data-tour="foto-perfil"]',
     titulo: 'Foto de perfil',
-    texto: 'Se ve en la cabecera y en el menú, para identificarte rápido entre varios usuarios.',
+    texto: 'Se ve en la cabecera y en el menú.',
   },
   {
     selector: '[data-tour="cambiar-password"]',
@@ -22,7 +22,7 @@ const PASOS_TUTORIAL: TourStep[] = [
   {
     selector: '[data-tour="apariencia"]',
     titulo: 'Apariencia',
-    texto: 'Elegí los colores de la interfaz para tu usuario: un diseño prearmado, o cada color por separado.',
+    texto: 'Elegí los colores de la app: un diseño armado o cada color por separado.',
   },
 ];
 
