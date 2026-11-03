@@ -6,6 +6,8 @@ número y el CI la usa como nota de la Release de GitHub.
 
 ## Sin publicar
 
+## 0.10.7 — 2026-11-03
+
 - Celular: barra de navegación abajo (Hoy, Reportes, Cajas y Más), y las ventanas y el menú salen
   desde abajo. Los campos ya no hacen zoom al tocarlos en iPhone.
 - El botón atrás del celular o la tablet cierra la ventana abierta en vez de salir de la pantalla.
