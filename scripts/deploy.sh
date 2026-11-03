@@ -5,7 +5,7 @@
 #      viejas y el "pull" no trae nada nuevo).
 #   2. En el VPS: backup de la base, copia el docker-compose.yml (y observabilidad/) de ese mismo
 #      commit — "docker compose pull" baja imágenes, nunca el compose —, pull, up -d y espera a que
-#      el backend quede healthy.
+#      el backend quede healthy y el front y caddy no se estén reiniciando.
 #   3. Muestra el estado de los contenedores y /api/salud.
 #
 # Uso (Git Bash, desde cualquier carpeta del repo):
@@ -159,6 +159,24 @@ if [ "\$estado" != "healthy" ]; then
   exit 2
 fi
 echo "    Backend healthy."
+paso="revisar front y caddy"
+# Sin healthcheck propio: una config inválida los deja reiniciándose (el 502 de la 0.10.6).
+# Andan si siguen "running" y sin reinicios nuevos durante 15 s.
+echo "==> [VPS] Revisando que el front y caddy no se estén reiniciando..."
+reinicios() { $DOCKER inspect -f '{{.State.Status}} {{.RestartCount}}' \$($DOCKER compose ps -aq "\$1") 2>/dev/null || echo "sin-contenedor"; }
+antes_front=\$(reinicios frontend); antes_caddy=\$(reinicios caddy)
+sleep 15
+despues_front=\$(reinicios frontend); despues_caddy=\$(reinicios caddy)
+for s in frontend caddy; do
+  if [ "\$s" = frontend ]; then a="\$antes_front"; d="\$despues_front"; else a="\$antes_caddy"; d="\$despues_caddy"; fi
+  case "\$d" in running*) ;; *) a="";; esac
+  if [ "\$a" != "\$d" ]; then
+    echo "    AVISO: \$s no quedó andando (estado y reinicios: \$d). Últimas líneas del log:"
+    $DOCKER compose logs "\$s" --tail 20
+    exit 4
+  fi
+done
+echo "    Front y caddy andando."
 EOF
 )
 
@@ -175,6 +193,7 @@ case "$resultado" in
   0) ;;
   255) echo "!! No se pudo conectar o entrar por SSH a $VPS (contraseña, clave, IP o puerto). No se tocó nada en el VPS." ; exit 255 ;;
   2) echo "!! Los contenedores se levantaron pero el backend no quedó healthy: mirá el log de arriba." ; exit 2 ;;
+  4) echo "!! El backend anda pero el front o caddy se reinician: mirá el log de arriba. Para volver a la versión anterior, poné su número de tag en el compose del VPS y 'docker compose up -d'." ; exit 4 ;;
   *) echo "!! El deploy falló en el VPS (código $resultado): el paso que falló está arriba, marcado con [VPS]." ; exit "$resultado" ;;
 esac
 
