@@ -202,6 +202,8 @@ public class ReporteServiceImpl implements ReporteService {
         long cantidadComprasConDescuento = 0;
         /** Gente que entró: venta en puerta + anticipadas validadas. */
         long personasIngresadas = 0;
+        long entradasCobradasParque = 0;
+        long entradasCobradasWeb = 0;
 
         Map<Long, ArticuloVario> articulosPorId = new HashMap<>();
         Map<Long, Long> cantidadPorArticulo = new HashMap<>();
@@ -275,6 +277,11 @@ public class ReporteServiceImpl implements ReporteService {
             if (cuentaRecaudacion) {
                 recaudacionTotal = recaudacionTotal.add(compra.getMontoTotal());
                 cantidadCompras++;
+                if (esMercadoPago) {
+                    entradasCobradasWeb += pasesEntrada;
+                } else {
+                    entradasCobradasParque += pasesEntrada;
+                }
                 if (compra.getDescuentoAplicado() != null && compra.getDescuentoAplicado().compareTo(BigDecimal.ZERO) > 0) {
                     totalDescuentos = totalDescuentos.add(compra.getDescuentoAplicado());
                     cantidadComprasConDescuento++;
@@ -480,13 +487,30 @@ public class ReporteServiceImpl implements ReporteService {
         // cuentan los de cajas deshabilitadas. La recaudación total no cambia.
         for (AjusteCaja ajuste : ajusteCajaRepository.findAllDeCajasAbiertasEntre(desdeDt, hastaDt)) {
             if (cajasDeshabilitadas.contains(ajuste.getCaja().getId())) continue;
+            // lineas tiene las cantidades de UNA venta; tiposPorId sólo guarda pases de ingreso.
+            long pasesAjuste = 0;
+            for (Map.Entry<Long, Integer> linea : ajuste.getLineas().entrySet()) {
+                if (tiposPorId.containsKey(linea.getKey())) {
+                    pasesAjuste += (long) ajuste.getCantidadVentas() * linea.getValue();
+                }
+            }
             if (ajuste.getFormaOrigen() != null) {
                 montoPorFormaPago.merge(ajuste.getFormaOrigen(), ajuste.getMonto().negate(), BigDecimal::add);
                 cantidadPorFormaPago.merge(ajuste.getFormaOrigen(), (long) -ajuste.getCantidadVentas(), Long::sum);
+                if (ajuste.getFormaOrigen() == FormaPago.MERCADO_PAGO) {
+                    entradasCobradasWeb -= pasesAjuste;
+                } else {
+                    entradasCobradasParque -= pasesAjuste;
+                }
             }
             if (ajuste.getFormaDestino() != null) {
                 montoPorFormaPago.merge(ajuste.getFormaDestino(), ajuste.getMonto(), BigDecimal::add);
                 cantidadPorFormaPago.merge(ajuste.getFormaDestino(), (long) ajuste.getCantidadVentas(), Long::sum);
+                if (ajuste.getFormaDestino() == FormaPago.MERCADO_PAGO) {
+                    entradasCobradasWeb += pasesAjuste;
+                } else {
+                    entradasCobradasParque += pasesAjuste;
+                }
             }
         }
 
@@ -636,7 +660,8 @@ public class ReporteServiceImpl implements ReporteService {
                 anticipacionCompra, usoCupones, totalFacturado, cantidadFacturas, cantidadNotasCredito,
                 cancelaciones.stream()
                         .sorted(Comparator.comparing(CompraCanceladaDTO::getFechaCreacion).reversed())
-                        .toList());
+                        .toList(),
+                entradasCobradasParque, entradasCobradasWeb);
     }
 
     /** true si `fecha` (puede ser null) cae dentro de [desde, hasta], ambos inclusive. */

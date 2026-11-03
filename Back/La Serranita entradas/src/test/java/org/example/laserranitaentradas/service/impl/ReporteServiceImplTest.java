@@ -189,6 +189,41 @@ class ReporteServiceImplTest {
         assertThat(resumen.getRecaudacionTotal()).isEqualByComparingTo("10000");
     }
 
+    @Test
+    void generarResumen_entradasCobradas_siguenALaPlataDeCadaCanal() {
+        Compra puerta = ventaPuerta("10000", FormaPago.EFECTIVO_BOLETERIA, DIA);
+        Compra reservaCobradaHoy = efectivoUsada("9000", DIA.minusDays(1), DIA.atTime(10, 0));
+        Compra online = mpAprobada("7000", DIA.minusDays(3), DIA.plusDays(7));
+        online.setFechaPago(DIA.atTime(9, 0));
+        Compra onlineDeOtroDia = mpUsada("7000", DIA.minusDays(3), DIA, DIA.atTime(11, 0));
+        Compra reservaSinCobrar = base("9000", FormaPago.EFECTIVO_BOLETERIA, EstadoCompra.RESERVADO_EFECTIVO);
+        reservaSinCobrar.setFechaCreacion(DIA.atTime(8, 0));
+        reservaSinCobrar.setFechaVisita(DIA.plusDays(7));
+        stubReporte(puerta, reservaCobradaHoy, online, onlineDeOtroDia, reservaSinCobrar);
+
+        ReporteResumenDTO resumen = service.generarResumen(DIA, DIA);
+
+        assertThat(resumen.getEntradasCobradasParque()).isEqualTo(4);
+        assertThat(resumen.getEntradasCobradasWeb()).isEqualTo(2);
+    }
+
+    @Test
+    void generarResumen_entradasCobradas_aplicanLosAjustesDeCaja() {
+        stubReporte(ventaPuerta("10000", FormaPago.EFECTIVO_BOLETERIA, DIA), ventaPuerta("10000", FormaPago.TARJETA, DIA));
+        var caja = Caja.builder().id(5L).build();
+        var quitaUnaVenta = org.example.laserranitaentradas.model.entity.AjusteCaja.builder().caja(caja)
+                .formaOrigen(FormaPago.EFECTIVO_BOLETERIA)
+                .monto(new BigDecimal("10000")).cantidadVentas(1).lineas(java.util.Map.of(1L, 2)).build();
+        var mueveUnaVenta = org.example.laserranitaentradas.model.entity.AjusteCaja.builder().caja(caja)
+                .formaOrigen(FormaPago.TARJETA).formaDestino(FormaPago.EFECTIVO_BOLETERIA)
+                .monto(new BigDecimal("10000")).cantidadVentas(1).lineas(java.util.Map.of(1L, 2)).build();
+        when(ajusteCajaRepository.findAllDeCajasAbiertasEntre(any(), any())).thenReturn(List.of(quitaUnaVenta, mueveUnaVenta));
+
+        ReporteResumenDTO resumen = service.generarResumen(DIA, DIA);
+
+        assertThat(resumen.getEntradasCobradasParque()).isEqualTo(2);
+    }
+
     private static BigDecimal montoForma(ReporteResumenDTO r, FormaPago forma) {
         return r.getRecaudacionPorFormaPago().stream().filter(f -> f.getFormaPago() == forma).findFirst().orElseThrow().getMonto();
     }

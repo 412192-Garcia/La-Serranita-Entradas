@@ -16,7 +16,8 @@ import { PesosPipe } from '../../shared/pesos.pipe';
 import { AgregarArticulo } from '../../pos/agregar-articulo/agregar-articulo';
 import { RetiroEfectivoModal } from '../../shared/retiro-efectivo-modal/retiro-efectivo-modal';
 import { IngresoEntradasModal } from '../../pos/ingreso-entradas-modal/ingreso-entradas-modal';
-import { LucideShoppingCart, LucideArrowDownRight, LucideArrowUpRight, LucideTicketPlus, LucideTicketMinus, LucideTicketCheck } from '@lucide/angular';
+import { LucideShoppingCart, LucideArrowDownRight, LucideArrowUpRight, LucideTicketPlus, LucideTicketMinus, LucideTicketCheck, LucideEllipsisVertical } from '@lucide/angular';
+import { cerrarConAtrasEnCelular } from '../../shared/modal/atras.service';
 
 interface LineaEdicion {
   tipoEntradaId: number | null;
@@ -56,11 +57,25 @@ import { FacturaService } from '../../services/factura.service';
     LucideTicketPlus,
     LucideTicketMinus,
     LucideTicketCheck,
+    LucideEllipsisVertical,
   ],
   templateUrl: './caja-operaciones.html',
   styleUrl: './caja-operaciones.css',
 })
 export class CajaOperaciones implements OnInit {
+  /** En celular el formulario de venta es una hoja: el botón atrás la cierra. */
+  private atrasFormularioVenta = cerrarConAtrasEnCelular(
+    () => this.formularioVentaAbierto(),
+    () => this.cancelarFormulario(),
+  );
+
+  /** En celular: la venta cuya hoja de acciones (⋮) está abierta. */
+  menuOperacionId = signal<number | null>(null);
+  private atrasMenuOperacion = cerrarConAtrasEnCelular(
+    () => this.menuOperacionId() !== null,
+    () => this.menuOperacionId.set(null),
+  );
+
   private cajaService = inject(CajaService);
   private toast = inject(ToastService);
   private boleteriaService = inject(BoleteriaService);

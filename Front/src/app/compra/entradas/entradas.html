@@ -74,6 +74,7 @@
       <app-form-cliente class="panel-derecho"
                         (siguiente)="onPasoSiguiente($event)"
                         (atras)="volverPasoAnterior()"
+                        (campoConError)="llevarVistaACampo($event)"
                         [datosPrevios]="compraAcumulada.cliente"
                         [esRegalo]="compraAcumulada.esRegalo"
                         [datosPreviosReceptor]="compraAcumulada.receptor"

@@ -1,27 +1,38 @@
-<div class="panel">
+<div class="panel" [class.seccion-abierta]="seccionAbierta()">
 
   <app-cabecera-interna
     titulo="Configuración del Parque"
     descripcion="Días abiertos, horarios y cupones de descuento."
-    [pasosTutorial]="pasosTutorial()" />
+    [pasosTutorial]="pasosTutorial()"
+    (tutorialIniciado)="seccionAbierta.set(true)" />
 
   <nav class="tabs">
-    <button type="button" class="tab" [class.activo]="tab() === 'dias'" (click)="tab.set('dias')">
+    <button type="button" class="tab" [class.activo]="tab() === 'dias'" (click)="tab.set('dias'); seccionAbierta.set(true)">
+      <svg lucideCalendarDays class="icono-seccion" [strokeWidth]="2" aria-hidden="true"></svg>
       Días y Horarios
     </button>
-    <button type="button" class="tab" [class.activo]="tab() === 'descuentos'" (click)="tab.set('descuentos')">
+    <button type="button" class="tab" [class.activo]="tab() === 'descuentos'" (click)="tab.set('descuentos'); seccionAbierta.set(true)">
+      <svg lucidePercent class="icono-seccion" [strokeWidth]="2" aria-hidden="true"></svg>
       Descuentos
     </button>
-    <button type="button" class="tab" [class.activo]="tab() === 'catalogo'" (click)="tab.set('catalogo')">
+    <button type="button" class="tab" [class.activo]="tab() === 'catalogo'" (click)="tab.set('catalogo'); seccionAbierta.set(true)">
+      <svg lucideTicket class="icono-seccion" [strokeWidth]="2" aria-hidden="true"></svg>
       Catálogo
     </button>
-    <button type="button" class="tab" [class.activo]="tab() === 'usuarios'" (click)="tab.set('usuarios')">
+    <button type="button" class="tab" [class.activo]="tab() === 'usuarios'" (click)="tab.set('usuarios'); seccionAbierta.set(true)">
+      <svg lucideUsers class="icono-seccion" [strokeWidth]="2" aria-hidden="true"></svg>
       Usuarios
     </button>
-    <button type="button" class="tab" [class.activo]="tab() === 'cobros'" (click)="tab.set('cobros')">
+    <button type="button" class="tab" [class.activo]="tab() === 'cobros'" (click)="tab.set('cobros'); seccionAbierta.set(true)">
+      <svg lucideCreditCard class="icono-seccion" [strokeWidth]="2" aria-hidden="true"></svg>
       Cobros
     </button>
   </nav>
+
+  <button type="button" class="btn-volver-seccion" (click)="seccionAbierta.set(false)">
+    <svg lucideArrowLeft [strokeWidth]="2" aria-hidden="true"></svg>
+    Volver a secciones
+  </button>
 
   @if (tab() === 'dias') {
     <app-configuracion-dias-horarios />

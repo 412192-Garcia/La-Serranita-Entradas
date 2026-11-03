@@ -22,10 +22,10 @@
         </div>
         @for (c of cajasAbiertas(); track c.id) {
           <div
-            class="fila-simple fila-simple-cajas-abiertas fila-clickable"
+            class="fila-simple fila-simple-cajas-abiertas fila-clickable fila-compacta"
             [class.fila-expandida]="filaExpandidaAbiertaId() === c.id"
             (click)="toggleOperaciones(c)">
-            <span>
+            <span class="fc-titulo">
               {{ c.usuarioNombre }}
               @if (c.controlOmitido) {
                 <span class="badge badge-sin-control" title="Sin conteo de apertura ni de cierre. Se cierra sola a fin de día.">Sin control</span>
@@ -37,12 +37,12 @@
                 }
               }
             </span>
-            <span data-label="Abrió">{{ c.fechaApertura | date: 'dd/MM HH:mm' }}</span>
+            <span class="fc-dato" data-label="Abrió">{{ c.fechaApertura | date: 'dd/MM HH:mm' }}</span>
             <!-- "Sin control" no tiene un inicio real de caja (nace en $0 sin que nadie cuente
                  nada): un guion evita que parezca que sí se declaró un efectivo inicial. -->
-            <span data-label="Inicial">{{ c.controlOmitido ? '—' : (c.montoInicial | pesos) }}</span>
-            <span data-label="Vendido hasta ahora">{{ c.totalVendido | pesos }}</span>
-            <span data-label="Entradas">{{ c.totalEntradasPagas }}</span>
+            <span class="fc-oculto" data-label="Inicial">{{ c.controlOmitido ? '—' : (c.montoInicial | pesos) }}</span>
+            <span class="fc-principal" data-label="Vendido hasta ahora">{{ c.totalVendido | pesos }}</span>
+            <span class="fc-dato" data-label="Entradas">{{ c.totalEntradasPagas }}</span>
             <span class="acciones-fila-caja-abierta" data-tour="boton-cerrar-caja">
               @if (c.controlOmitido) {
                 <button
@@ -59,6 +59,10 @@
           </div>
           @if (filaExpandidaAbiertaId() === c.id) {
             <div class="fila-detalle-expandida" (click)="$event.stopPropagation()">
+              <button type="button" class="btn-volver-detalle" (click)="cerrarDetalle()">
+                <svg lucideArrowLeft [strokeWidth]="2" aria-hidden="true"></svg>
+                {{ c.usuarioNombre }}
+              </button>
               <app-caja-operaciones [cajaId]="c.id" (cambios)="onCambiosOperaciones()" />
             </div>
           }
@@ -116,21 +120,25 @@
             <span>Dif. posnet</span>
           </div>
           @for (c of cajasCerradas(); track c.id) {
-            <div class="fila-simple fila-simple-cajas fila-clickable" [class.fila-expandida]="filaExpandidaId() === c.id" (click)="toggleDetalle(c.id)">
-              <span>{{ c.usuarioNombre }}</span>
-              <span data-label="Día">{{ c.fechaApertura | date: 'dd/MM/yyyy' }}</span>
-              <span data-label="Retiros">{{ c.totalRetiros | pesos }}</span>
-              <span data-label="Esperado">{{ c.montoEsperado | pesos }}</span>
+            <div class="fila-simple fila-simple-cajas fila-clickable fila-compacta" [class.fila-expandida]="filaExpandidaId() === c.id" (click)="toggleDetalle(c.id)">
+              <span class="fc-titulo">{{ c.usuarioNombre }}</span>
+              <span class="fc-dato" data-label="Día">{{ c.fechaApertura | date: 'dd/MM/yyyy' }}</span>
+              <span class="fc-oculto" data-label="Retiros">{{ c.totalRetiros | pesos }}</span>
+              <span class="fc-dato" data-label="Esperado">{{ c.montoEsperado | pesos }}</span>
               <!-- "Sin control" nunca tiene un conteo real: la diferencia de efectivo siempre da
                    $0 porque contado = esperado por definición (no porque cerró perfecto), y la de
                    posnet no compara nada (no se cargó ningún cierre de posnet). Un guion evita que
                    parezcan cierres reales, sobre todo la de posnet, que si no se ve como un
                    faltante enorme. -->
-              <span data-label="Dif. efectivo" [class]="c.controlOmitido ? '' : claseDiferencia(c.diferencia)">{{ c.controlOmitido ? '—' : (c.diferencia | pesos) }}</span>
-              <span data-label="Dif. posnet" [class]="c.controlOmitido ? '' : claseDiferencia(c.diferenciaPosnet)">{{ c.controlOmitido ? '—' : (c.diferenciaPosnet | pesos) }}</span>
+              <span class="fc-principal" data-label="Dif. efectivo" data-corto="Dif." [class]="c.controlOmitido ? '' : claseDiferencia(c.diferencia)">{{ c.controlOmitido ? '—' : (c.diferencia | pesos) }}</span>
+              <span class="fc-dato" data-label="Dif. posnet" [class]="c.controlOmitido ? '' : claseDiferencia(c.diferenciaPosnet)">{{ c.controlOmitido ? '—' : (c.diferenciaPosnet | pesos) }}</span>
             </div>
             @if (filaExpandidaId() === c.id) {
               <div class="fila-detalle-expandida" (click)="$event.stopPropagation()">
+                <button type="button" class="btn-volver-detalle" (click)="cerrarDetalle()">
+                  <svg lucideArrowLeft [strokeWidth]="2" aria-hidden="true"></svg>
+                  {{ c.usuarioNombre }} · {{ c.fechaApertura | date: 'dd/MM/yyyy' }}
+                </button>
                 @if (cargandoDetalle()) {
                   <app-spinner />
                 } @else if (errorDetalle()) {
@@ -179,6 +187,7 @@
        billetes/posnet/entradas ya cargados — ver el efecto de precarga en el componente. -->
   <app-cierre-caja-modal
     [class.oculto]="!mostrarCierre()"
+    [visible]="mostrarCierre()"
     [cajaId]="cajaIdCierre()"
     [cajaAbierta]="cajaCierreDetalle()"
     [atrasada]="cierreDeCajaAtrasada()"

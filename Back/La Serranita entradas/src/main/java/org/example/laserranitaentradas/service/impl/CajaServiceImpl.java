@@ -752,7 +752,8 @@ public class CajaServiceImpl implements CajaService {
                             .montoInicial(caja.getMontoInicial())
                             .totalVendido(totalVendido)
                             .totalEntradasPagas(contarEntradasPagas(compras, ajustes))
-                            .personasIngresadas(contarEntradasTotales(compras, ajustes))
+                            .efectivoEnCaja(calcularMontoEsperado(caja, compras,
+                                    retiroCajaRepository.findAllByCajaIdOrderByFechaAsc(caja.getId()), ajustes))
                             .controlOmitido(caja.getControlOmitido())
                             .build();
                 })
@@ -997,17 +998,6 @@ public class CajaServiceImpl implements CajaService {
                         && d.getTipoEntrada().getPrecio().compareTo(BigDecimal.ZERO) > 0)
                 .mapToInt(CompraDetalle::getCantidad)
                 .sum();
-    }
-
-    /** Como contarEntradasPagas pero también las gratis: la gente que entró por la caja. */
-    private int contarEntradasTotales(List<Compra> compras, List<AjusteCaja> ajustes) {
-        int base = compras.stream()
-                .filter(c -> c.getEstado() != EstadoCompra.CANCELADO)
-                .flatMap(c -> c.getDetalles().stream())
-                .filter(d -> d.getTipoEntrada() != null && d.getTipoEntrada().getTipo() == Tipo.ENTRADA)
-                .mapToInt(CompraDetalle::getCantidad)
-                .sum();
-        return base + impactoAjustesEntradas(ajustes, tiposEntradaPorId(), t -> t.getTipo() == Tipo.ENTRADA);
     }
 
     /** Unidades por tipo de entrada con ajustes, incluidas las anticipadas validadas sin cobro. */

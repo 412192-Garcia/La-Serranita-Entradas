@@ -1043,6 +1043,14 @@ class CajaServiceImplTest {
         when(compraRepository.findAllByCajaId(7L)).thenReturn(List.of(ventaEfectivo, ventaTarjeta));
         when(compraRepository.findAllByCajaId(8L)).thenReturn(List.of());
 
+        var retiro = new RetiroCaja();
+        retiro.setMonto(new BigDecimal("10000"));
+        retiro.setTipo(TipoMovimientoCaja.RETIRO);
+        var aporte = new RetiroCaja();
+        aporte.setMonto(new BigDecimal("3000"));
+        aporte.setTipo(TipoMovimientoCaja.APORTE);
+        when(retiroCajaRepository.findAllByCajaIdOrderByFechaAsc(7L)).thenReturn(List.of(retiro, aporte));
+
         var respuesta = service.getCajasAbiertas();
 
         assertThat(respuesta).hasSize(2);
@@ -1051,11 +1059,14 @@ class CajaServiceImplTest {
             assertThat(c.getMontoInicial()).isEqualByComparingTo("5000");
             assertThat(c.getTotalVendido()).isEqualByComparingTo("55000");
             assertThat(c.getTotalEntradasPagas()).isEqualTo(4);
+            // 5000 + 40000 en efectivo (la tarjeta no cuenta) - 10000 + 3000
+            assertThat(c.getEfectivoEnCaja()).isEqualByComparingTo("38000");
         });
         assertThat(respuesta).anySatisfy(c -> {
             assertThat(c.getUsuarioNombre()).isEqualTo("Juan Pérez");
             assertThat(c.getTotalVendido()).isEqualByComparingTo("0");
             assertThat(c.getTotalEntradasPagas()).isEqualTo(0);
+            assertThat(c.getEfectivoEnCaja()).isEqualByComparingTo("3000");
         });
     }
 

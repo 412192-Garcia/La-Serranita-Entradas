@@ -9,12 +9,13 @@ import { crearOrdenable } from '../../shared/ordenable';
 import { crearEstadoEdicion } from '../../shared/edicion.util';
 import { ColumnaOrdenable } from '../../shared/columna-ordenable/columna-ordenable';
 import { PesosPipe } from '../../shared/pesos.pipe';
+import { PlegableCelular } from '../../shared/plegable-celular.directive';
 
 type CampoOrdenPromocion = 'nombre' | 'estado';
 
 @Component({
   selector: 'app-configuracion-promociones',
-  imports: [FormsModule, PesosPipe, MoneyInputDirective, Spinner, ColumnaOrdenable],
+  imports: [FormsModule, PesosPipe, MoneyInputDirective, Spinner, ColumnaOrdenable, PlegableCelular],
   templateUrl: './promociones.html',
   styleUrls: ['../configuracion-shared.css', './promociones.css'],
 })

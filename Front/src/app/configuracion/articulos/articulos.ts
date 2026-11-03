@@ -9,12 +9,13 @@ import { crearOrdenable } from '../../shared/ordenable';
 import { crearEstadoEdicion } from '../../shared/edicion.util';
 import { ColumnaOrdenable } from '../../shared/columna-ordenable/columna-ordenable';
 import { PesosPipe } from '../../shared/pesos.pipe';
+import { PlegableCelular } from '../../shared/plegable-celular.directive';
 
 type CampoOrdenArticulo = 'nombre' | 'precioSugerido' | 'estado';
 
 @Component({
   selector: 'app-configuracion-articulos',
-  imports: [FormsModule, PesosPipe, MoneyInputDirective, Spinner, ColumnaOrdenable],
+  imports: [FormsModule, PesosPipe, MoneyInputDirective, Spinner, ColumnaOrdenable, PlegableCelular],
   templateUrl: './articulos.html',
   styleUrls: ['../configuracion-shared.css', './articulos.css'],
 })

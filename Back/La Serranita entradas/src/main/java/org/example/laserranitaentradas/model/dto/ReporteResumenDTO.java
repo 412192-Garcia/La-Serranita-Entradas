@@ -66,4 +66,9 @@ public class ReporteResumenDTO {
 
     /** Canceladas del rango con su motivo, las más recientes primero. */
     private List<CompraCanceladaDTO> cancelaciones;
+
+    /** Entradas de lo cobrado en el rango sin Mercado Pago, con los ajustes de caja. */
+    private long entradasCobradasParque;
+    /** Entradas de lo cobrado en el rango por Mercado Pago. */
+    private long entradasCobradasWeb;
 }

@@ -168,6 +168,10 @@ export interface ReporteResumen {
   ingresosPorTipo: IngresoPorTipo[];
   /** Entradas con cargo vendidas en la puerta (POS) y cobradas en el rango. Sin anticipadas ni gratis. */
   entradasVendidasBoleteria: number;
+  /** Entradas de lo cobrado en el rango sin Mercado Pago, con los ajustes de caja. */
+  entradasCobradasParque: number;
+  /** Entradas de lo cobrado en el rango por Mercado Pago. */
+  entradasCobradasWeb: number;
   /** Histograma: con cuántos días de anticipación se compraron las anticipadas usadas en el rango. */
   anticipacionCompra: AnticipacionCompra[];
   /** Cupones aplicados en el rango, por valor de descuento, ordenados de más a menos usado. */

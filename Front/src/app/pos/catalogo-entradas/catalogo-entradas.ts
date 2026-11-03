@@ -6,7 +6,7 @@ import { SeleccionarAlFocoDirective } from '../../shared/seleccionar-al-foco.dir
 /** Números de un toque para los tipos con accesos rápidos. Más que eso, se escribe a mano. */
 const NUMEROS_RAPIDOS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 /** Tope de lo que se puede escribir a mano en una cantidad (un grupo enorme, no un error de tipeo de 6 cifras). */
-const CANTIDAD_MAXIMA = 9999;
+export const CANTIDAD_MAXIMA = 9999;
 
 @Component({
   selector: 'app-catalogo-entradas',

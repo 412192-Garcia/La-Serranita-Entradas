@@ -216,3 +216,10 @@
 .btn-ver-anticipadas:hover {
   background-color: var(--color-primary-dark);
 }
+
+/* Celular: lugar para la barra fija de cobrar del carrito. */
+@media (max-width: 640px) {
+  .pos-layout {
+    padding-bottom: 72px;
+  }
+}

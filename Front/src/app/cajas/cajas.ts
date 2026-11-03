@@ -1,6 +1,7 @@
 import { Component, OnInit, computed, inject, signal, viewChild } from '@angular/core';
 import { DialogoConfirmacion } from '../shared/confirmacion/dialogo-confirmacion';
 import { DatePipe } from '@angular/common';
+import { ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { CajaService, Caja, CajaAbierta, CajaCerrada } from '../services/caja.service';
 import { NotificacionService } from '../services/notificacion.service';
@@ -15,6 +16,8 @@ import { PesosPipe } from '../shared/pesos.pipe';
 import { TourStep } from '../shared/tour/tour';
 import { crearOrdenable } from '../shared/ordenable';
 import { ColumnaOrdenable } from '../shared/columna-ordenable/columna-ordenable';
+import { LucideArrowLeft } from '@lucide/angular';
+import { cerrarConAtrasEnCelular } from '../shared/modal/atras.service';
 
 /** Sólo las columnas que la tabla deja ordenar. "totalRetiros" y "Dif. posnet" quedan afuera
  * a propósito: no son columnas propias de Caja (se computan con JOIN + SUM / a mano), así que el
@@ -26,7 +29,7 @@ const CAJAS_CERRADAS_POR_PAGINA = 20;
 import { FacturaService } from '../services/factura.service';
 @Component({
   selector: 'app-configuracion-cajas',
-  imports: [DialogoConfirmacion, FormsModule, PesosPipe, DatePipe, CabeceraInterna, Spinner, CierreCajaModal, CobrosPointSinVenta, ResumenCierre, Modal, CajaOperaciones, ColumnaOrdenable],
+  imports: [DialogoConfirmacion, FormsModule, PesosPipe, DatePipe, CabeceraInterna, Spinner, CierreCajaModal, CobrosPointSinVenta, ResumenCierre, Modal, CajaOperaciones, ColumnaOrdenable, LucideArrowLeft],
   templateUrl: './cajas.html',
   styleUrls: ['../configuracion/configuracion-shared.css', './cajas.css'],
 })
@@ -259,6 +262,9 @@ export class ConfiguracionCajas implements OnInit {
   /** Id de la caja abierta cuya fila está desplegada mostrando app-caja-operaciones; null = ninguna. */
   filaExpandidaAbiertaId = signal<number | null>(null);
 
+  /** Caja a abrir al entrar, si se llegó tocándola en Hoy (?caja=id). */
+  private cajaPedida: number | null = Number(inject(ActivatedRoute).snapshot.queryParamMap.get('caja')) || null;
+
   // ---------- Cerrar caja ----------
   // Corregir un cierre ya hecho NO pasa por acá: lo hace "Corregir caja" en app-resumen-cierre.
   /** Controla sólo la visibilidad del modal (ver [class.oculto]): nunca se destruye, así "Cancelar" no borra lo ya cargado. */
@@ -275,6 +281,28 @@ export class ConfiguracionCajas implements OnInit {
   cajaDetalle = signal<Caja | null>(null);
   cargandoDetalle = signal(false);
   errorDetalle = signal<string | null>(null);
+
+  /** En celular el detalle ocupa toda la pantalla: el botón atrás lo cierra. */
+  private atrasDetalle = cerrarConAtrasEnCelular(
+    () => !this.detalleDesdeHoy() && (this.filaExpandidaId() !== null || this.filaExpandidaAbiertaId() !== null),
+    () => this.cerrarDetalle(),
+  );
+
+  /** Se entró tocando la caja en Hoy: volver lleva directo a Hoy, sin pasar por la lista de Cajas. */
+  private cajaAbiertaDesdeHoy = signal<number | null>(null);
+  private detalleDesdeHoy = computed(() => {
+    const id = this.cajaAbiertaDesdeHoy();
+    return id !== null && this.filaExpandidaAbiertaId() === id;
+  });
+
+  cerrarDetalle(): void {
+    if (this.detalleDesdeHoy()) {
+      history.back();
+      return;
+    }
+    this.filaExpandidaId.set(null);
+    this.filaExpandidaAbiertaId.set(null);
+  }
 
   // ---------- Cajas cerradas (paginado en el backend) ----------
   cajasCerradas = signal<CajaCerrada[]>([]);
@@ -365,6 +393,13 @@ export class ConfiguracionCajas implements OnInit {
     this.cajaService.obtenerCajasAbiertas().subscribe({
       next: (cs) => {
         this.cajasAbiertas.set(cs);
+        const pedida = cs.find((c) => c.id === this.cajaPedida);
+        this.cajaPedida = null;
+        if (pedida) {
+          this.cajaAbiertaDesdeHoy.set(pedida.id);
+          this.toggleOperaciones(pedida);
+          setTimeout(() => document.querySelector('.fila-detalle-expandida')?.scrollIntoView({ block: 'center' }));
+        }
         this.cargandoCajasAbiertas.set(false);
         // Con sólo mostrar la lista ya se "vieron": apaga el aviso CAJA_ATRASADA para este
         // admin (otros admins que no entraron a esta pantalla lo siguen viendo prendido).

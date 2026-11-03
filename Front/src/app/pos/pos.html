@@ -7,6 +7,7 @@
     [descripcion]="consultaAnticipada() !== null ? 'Buscá una reserva para validar el ingreso o cobrarla.' : 'Cobrá y registra la compra.'"
     [pasosTutorial]="pasosTutorial"
     [tutorialCompacto]="true"
+    [sinBarraInferior]="true"
     (tutorialIniciado)="alIniciarTutorial()"
     (tutorialCerrado)="alCerrarTutorial()">
     @if (caja()) {
@@ -138,6 +139,7 @@
             [entradasFijas]="entradasReserva()"
             (quitarArticulo)="onQuitarArticulo($event)"
             (quitarEntrada)="onQuitarEntrada($event)"
+            (cambiarCantidad)="onCambiarCantidad($event)"
             (limpiar)="onLimpiar()"
             (ventaRegistrada)="onVentaRegistrada($event)" />
 

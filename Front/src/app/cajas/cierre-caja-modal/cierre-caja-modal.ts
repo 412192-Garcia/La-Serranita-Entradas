@@ -22,6 +22,8 @@ import { CobrosPointSinVenta } from '../cobros-point-sin-venta/cobros-point-sin-
 export class CierreCajaModal {
   private cajaService = inject(CajaService);
 
+  /** Queda siempre montado: esto dice si está a la vista (ver cajas.html). */
+  visible = input(false);
   /** Id de la caja abierta que se está por cerrar. */
   cajaId = input<number | null>(null);
   /** Detalle de esa misma caja abierta (vía obtenerDetalle): para saber si hubo ventas en dólares y qué movimientos ya tiene cargados. */

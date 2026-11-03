@@ -296,4 +296,10 @@
   .input-edicion {
     min-height: 40px;
   }
+
+  /* Zona de toque más alta sin mover el layout. */
+  .tipo-cupon-check {
+    padding: 10px 0;
+    margin: -10px 0;
+  }
 }

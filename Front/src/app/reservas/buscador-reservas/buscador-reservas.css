@@ -191,3 +191,78 @@
   .btn-vista { flex: 1 1 auto; }
   .btn-regalos { flex: 1 1 100%; justify-content: center; }
 }
+
+.texto-celular,
+.fila-regalos-filtros:empty {
+  display: none;
+}
+
+/* En tablet y PC el contenedor no existe para el layout: sólo agrupa en celular. */
+.fila-regalos-filtros {
+  display: contents;
+}
+
+@media (max-width: 600px) {
+  .controles {
+    gap: 8px;
+  }
+
+  .buscador {
+    flex-wrap: nowrap;
+    gap: 6px;
+    width: 100%;
+  }
+
+  .buscador-input {
+    flex: 1 1 0;
+    width: 0;
+    min-width: 0;
+    text-overflow: ellipsis;
+  }
+
+  .btn-buscar,
+  .btn-limpiar {
+    flex: 0 0 auto;
+    padding: 0 12px;
+  }
+
+  .selector-vista {
+    flex-wrap: nowrap;
+    gap: 6px;
+    width: 100%;
+  }
+
+  .buscador-dia-input {
+    flex: 1 1 0;
+    width: 0;
+    min-width: 0;
+    box-sizing: border-box;
+    padding-left: 8px;
+    padding-right: 4px;
+  }
+
+  .btn-vista {
+    flex: 0 0 auto;
+    min-height: 44px;
+    padding: 0 10px;
+  }
+
+  .texto-grande {
+    display: none;
+  }
+
+  .texto-celular {
+    display: inline;
+  }
+
+  .fila-regalos-filtros {
+    display: flex;
+    gap: 6px;
+  }
+
+  .btn-regalos {
+    flex: 1 1 0;
+    min-height: 44px;
+    white-space: nowrap;
+  }
+}

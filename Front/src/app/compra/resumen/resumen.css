@@ -572,3 +572,10 @@
     transform: rotate(360deg);
   }
 }
+
+@media (max-width: 600px) {
+  .cupon-input-grupo input,
+  .btn-cupon {
+    min-height: 44px;
+  }
+}

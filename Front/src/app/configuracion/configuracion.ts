@@ -9,6 +9,8 @@ import { ConfiguracionPoints } from './points/points';
 import { ConfiguracionFacturaPredeterminada } from './factura-predeterminada/factura-predeterminada';
 import { CabeceraInterna } from '../shared/cabecera-interna/cabecera-interna';
 import { TourStep } from '../shared/tour/tour';
+import { LucideArrowLeft, LucideCalendarDays, LucideCreditCard, LucidePercent, LucideTicket, LucideUsers } from '@lucide/angular';
+import { crearSeccionCelular } from '../shared/modal/atras.service';
 
 /** Cada pestaña muestra componentes hijos distintos (el resto ni existe en el DOM), así que
  * el tutorial tiene que cambiar de pasos según la pestaña activa — no hay un único recorrido
@@ -23,7 +25,9 @@ const PASOS_POR_TAB: Record<'dias' | 'descuentos' | 'catalogo' | 'usuarios' | 'c
     {
       selector: '[data-tour="calendario-dias"]',
       titulo: 'Calendario',
-      texto: 'Tocá un día para abrirlo o cerrarlo. Con Ctrl+click elegís varios y con Shift+click un rango.',
+      texto: window.matchMedia('(max-width: 600px)').matches
+        ? 'Tocá un día para abrirlo o cerrarlo. Con "Elegir varios días" marcás más de uno.'
+        : 'Tocá un día para abrirlo o cerrarlo. Con Ctrl+click elegís varios y con Shift+click un rango.',
     },
     {
       selector: '[data-tour="detalle-dia"]',
@@ -88,6 +92,12 @@ const PASOS_POR_TAB: Record<'dias' | 'descuentos' | 'catalogo' | 'usuarios' | 'c
     ConfiguracionArticulos,
     ConfiguracionUsuarios,
     CabeceraInterna,
+    LucideArrowLeft,
+    LucideCalendarDays,
+    LucidePercent,
+    LucideTicket,
+    LucideUsers,
+    LucideCreditCard,
   ],
   templateUrl: './configuracion.html',
   styleUrl: './configuracion.css',
@@ -95,4 +105,5 @@ const PASOS_POR_TAB: Record<'dias' | 'descuentos' | 'catalogo' | 'usuarios' | 'c
 export class Configuracion {
   tab = signal<'dias' | 'descuentos' | 'catalogo' | 'usuarios' | 'cobros'>('dias');
   pasosTutorial = computed(() => PASOS_POR_TAB[this.tab()]);
+  seccionAbierta = crearSeccionCelular();
 }

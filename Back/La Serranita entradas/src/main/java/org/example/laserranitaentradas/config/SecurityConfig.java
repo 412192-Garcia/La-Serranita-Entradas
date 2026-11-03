@@ -88,6 +88,7 @@ public class SecurityConfig {
                         "/api/interno/point/terminales/*/modo").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/api/interno/compras/*/cancelar-venta").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/api/interno/compras/*/editar-venta").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.GET, "/api/interno/compras/*").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/interno/compras/caja/*/venta-pos").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/interno/facturas/*/reintentar").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/interno/facturas/manual", "/api/interno/facturas/manual/**").hasRole("ADMIN")

@@ -144,8 +144,8 @@ export const DISENIOS_PREARMADOS: DisenioPrearmado[] = [
 
 const HEX_VALIDO = /^#[0-9a-fA-F]{6}$/;
 
-/** Mismo valor que el hardcodeado en el <meta name="theme-color"> de index.html: es el verde
- * por defecto del parque, al que hay que volver cuando no hay color de usuario que aplicar. */
+/** Verde por defecto del parque, para cuando no hay color de usuario que aplicar. La etiqueta de
+ * index.html arranca vacía: hasta aplicar el tema, la app instalada usa el color de su manifest. */
 const PRIMARIO_POR_DEFECTO = '#39a935';
 
 /** Debajo de esto se considera "oscuro" y hay que aclarar el texto que cae encima (fórmula de brillo percibido ITU-R BT.601). */

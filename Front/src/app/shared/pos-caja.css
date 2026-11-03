@@ -417,3 +417,10 @@
     justify-content: center;
   }
 }
+
+/* Celular: monto y motivo uno abajo del otro, así el motivo se lee entero. */
+@media (max-width: 600px) {
+  .fila-panel-caja {
+    flex-direction: column;
+  }
+}

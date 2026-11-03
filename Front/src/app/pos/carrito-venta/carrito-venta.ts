@@ -17,12 +17,13 @@ import { DescuentoEfectivo } from '../../services/configuracion.service';
 import { cotizarLocalmente, ReservaParaCotizar } from '../../shared/calculo-precio.util';
 import { aFechaISO, aFechaHoraISO } from '../../shared/fecha.util';
 import { PesosPipe } from '../../shared/pesos.pipe';
-import { LucideMail, LucidePrinter, LucideTrash2 } from '@lucide/angular';
+import { LucideArrowLeft, LucideMail, LucidePrinter, LucideTrash2 } from '@lucide/angular';
 import { FacturaService } from '../../services/factura.service';
 import { DestinoFactura, FacturacionPos } from '../../models/factura';
 import { ImpresorasService } from '../../services/impresoras.service';
 import { CobroPoint, FormaPagoPoint, PointService, TerminalPoint } from '../../services/point.service';
 import { CobroPointModal } from '../cobro-point/cobro-point';
+import { cerrarConAtrasEnCelular } from '../../shared/modal/atras.service';
 
 
 export interface ItemVentaResumen {
@@ -68,7 +69,7 @@ interface PedidoPoint {
 
 @Component({
   selector: 'app-carrito-venta',
-  imports: [PesosPipe, DecimalPipe, FormsModule, MoneyInputDirective, LucideTrash2, LucidePrinter, LucideMail, CobroPointModal],
+  imports: [PesosPipe, DecimalPipe, FormsModule, MoneyInputDirective, LucideTrash2, LucidePrinter, LucideMail, LucideArrowLeft, CobroPointModal],
   templateUrl: './carrito-venta.html',
   styleUrl: './carrito-venta.css',
 })
@@ -96,6 +97,7 @@ export class CarritoVenta {
 
   quitarArticulo = output<number>();
   quitarEntrada = output<number>();
+  cambiarCantidad = output<{ id: number; delta: number }>();
   limpiar = output<void>();
   ventaRegistrada = output<VentaPosConfirmada>();
 
@@ -272,6 +274,26 @@ export class CarritoVenta {
   hayItems = computed(
     () => this.lineas().length > 0 || this.articulosCarrito().length > 0 || this.entradasFijas().length > 0
   );
+
+  cantidadItems = computed(() =>
+    [...this.lineas(), ...this.articulosCarrito(), ...this.entradasFijas()].reduce((suma, l) => suma + l.cantidad, 0)
+  );
+
+  /** En celular el carrito es una hoja que se abre desde la barra de abajo (paso 2 de la venta). */
+  hojaCobroAbierta = signal(false);
+  private atrasHoja = cerrarConAtrasEnCelular(
+    () => this.hojaCobroAbierta(),
+    () => this.hojaCobroAbierta.set(false),
+    640,
+  );
+  /** Una anticipada ya viene armada: va directo a cobrar. */
+  private abrirHojaConReserva = effect(() => {
+    if (this.compraReservada()) this.hojaCobroAbierta.set(true);
+  });
+  /** Sin nada para cobrar ni para resolver, la hoja no tiene sentido. */
+  private cerrarHojaVacia = effect(() => {
+    if (!this.hayItems() && this.cobrosSinVenta().length === 0) this.hojaCobroAbierta.set(false);
+  });
 
   /** {tipoEntradaId, cantidad} de las líneas fijas de la reserva, para cotizar y cobrar. */
   private entradasFijasPayload(): LineaVentaPos[] {

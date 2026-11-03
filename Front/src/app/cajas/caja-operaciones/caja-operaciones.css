@@ -157,6 +157,14 @@
 
 /* "Editar" hereda .btn-secundario, pensado para formularios (9px 16px) — acá al lado de
    "Cancelar" en una fila angosta se ve (y ocupa) de más, así se lo achica a la misma medida. */
+.botones-operacion {
+  display: contents;
+}
+
+.btn-menu-operacion {
+  display: none;
+}
+
 .acciones-operacion .btn-secundario {
   padding: 4px 10px;
   font-size: 0.8rem;
@@ -397,4 +405,138 @@
   .fila-entradas-fisicas {
     font-size: 0.9rem;
   }
+}
+
+@media (max-width: 600px) {
+  .paginador .btn-limpiar {
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 600px) {
+  /* Le gana a la columna de ≤900px: en celular cada movimiento es una tarjeta compacta. */
+  .fila-simple-operaciones-admin.fila-compacta:not(.fila-simple-header) {
+    flex-direction: row;
+    align-items: baseline;
+    position: relative;
+  }
+
+  /* El ⋮ va abajo a la derecha: arriba correría el monto sólo en las filas que lo tienen. */
+  .fila-simple.fila-compacta > .acciones-operacion {
+    position: absolute;
+    right: 4px;
+    bottom: 0;
+    margin: 0;
+  }
+
+  .fila-simple.fila-compacta:has(.btn-menu-operacion) > .fc-dato-flexible {
+    margin-right: 36px;
+  }
+
+  .btn-menu-operacion {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 44px;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+  }
+
+  .btn-menu-operacion svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .botones-operacion {
+    display: none;
+  }
+
+  .fondo-menu-operacion {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    background-color: rgba(0, 0, 0, 0.4);
+  }
+
+  .botones-operacion.abierto {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 101;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 16px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    background-color: var(--color-card-bg);
+    box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.18);
+  }
+
+  .botones-operacion.abierto button {
+    width: 100%;
+    min-height: 48px;
+    font-size: 0.95rem;
+  }
+
+  /* Acciones de la caja: dos columnas parejas, en vez de botones de distinto ancho. */
+  .acciones-caja-abierta {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .acciones-caja-abierta .btn-secundario {
+    min-height: 44px;
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+}
+
+.fondo-form-venta,
+.titulo-editar-venta {
+  display: none;
+}
+
+/* Celular: agregar o editar una venta sale como hoja, igual que retiro y entradas físicas. */
+@media (max-width: 600px) {
+  .fondo-form-venta {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: block;
+    background-color: rgba(0, 0, 0, 0.4);
+  }
+
+  .form-edicion-venta {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 101;
+    max-height: 92dvh;
+    margin: 0;
+    overflow-y: auto;
+    border: none;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.18);
+    animation: subir-form-venta 0.22s ease-out;
+  }
+
+  .titulo-editar-venta {
+    display: block;
+  }
+
+  .form-edicion-venta .grupo-toggle-pill {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@keyframes subir-form-venta {
+  from { transform: translateY(40px); }
+  to { transform: none; }
 }

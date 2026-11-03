@@ -215,6 +215,7 @@
               type="number"
               id="edad"
               name="edad"
+              inputmode="numeric"
               autocomplete="off"
               min="0"
               max="120"
@@ -246,7 +247,6 @@
       <button
         type="button"
         class="btn-siguiente"
-        [disabled]="formGroup.invalid"
         (click)="onSiguiente()">
         SIGUIENTE
       </button>

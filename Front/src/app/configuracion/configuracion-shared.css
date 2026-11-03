@@ -451,11 +451,126 @@ input:focus, select:focus {
     height: 20px;
   }
 
+  /* Zona de toque más alta sin mover el layout. */
+  .toggle-inactivos {
+    padding: 12px 0;
+    margin: -12px 0;
+  }
+
   /* Los encabezados ordenables sólo existen arriba de 900px, o sea que en táctil se ven en
      tablet apaisada: ahí seguían midiendo 27px de alto. El margen negativo compensa el
      padding para que la fila de encabezado no cambie de altura. */
   .col-ordenable {
     padding: 9px 0;
     margin: -9px 0;
+  }
+}
+
+/* Celular: tarjeta de dos renglones. Título y dato principal arriba, el resto chico abajo. */
+@media (max-width: 600px) {
+  .fila-simple.fila-compacta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 3px 12px;
+    padding: 11px 14px;
+  }
+
+  .fila-simple.fila-compacta::before {
+    content: '';
+    order: 3;
+    flex-basis: 100%;
+    height: 0;
+  }
+
+  .fila-simple.fila-compacta > * {
+    display: block;
+    padding: 0;
+    border: none;
+    text-align: left;
+  }
+
+  .fila-simple.fila-compacta > .fc-titulo {
+    order: 1;
+    flex: 1 1 0;
+    min-width: 0;
+    font-weight: 700;
+    font-size: 0.95rem;
+  }
+
+  .fila-simple.fila-compacta > .fc-principal {
+    order: 2;
+    font-weight: 800;
+    font-size: 0.95rem;
+    white-space: nowrap;
+  }
+
+  .fila-simple.fila-compacta > .fc-principal[data-label]::before {
+    content: none;
+  }
+
+  .fila-simple.fila-compacta > .fc-principal[data-corto]::before {
+    content: attr(data-corto);
+    margin-right: 5px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--color-text-muted);
+  }
+
+  .fila-simple.fila-compacta > .fc-dato {
+    order: 4;
+    font-size: 0.8rem;
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+  }
+
+  .fila-simple.fila-compacta > .fc-dato[data-label]::before {
+    margin-right: 4px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+
+  .fila-simple.fila-compacta > .fc-oculto {
+    display: none;
+  }
+
+  .fila-simple.fila-compacta > [class*='acciones'] {
+    display: flex;
+    order: 5;
+    flex-basis: 100%;
+    margin-top: 8px;
+  }
+}
+
+@media (max-width: 600px) {
+  .fila-simple.fila-compacta > .fc-dato-largo {
+    flex-basis: 100%;
+    white-space: normal;
+  }
+
+  .fila-simple.fila-compacta > .fc-dato-flexible {
+    max-width: 100%;
+    white-space: normal;
+  }
+
+  /* Activo / Inactivo, arriba a la derecha. */
+  .fila-simple.fila-compacta > .fc-insignia {
+    order: 2;
+    display: inline-flex;
+    align-items: center;
+    width: fit-content;
+    margin: 0;
+    padding: 2px 9px;
+  }
+}
+
+@media (max-width: 600px) {
+  /* Sin botones (ej. un retiro): sin celda vacía al pie de la tarjeta. */
+  .fila-simple.fila-compacta > [class*='acciones']:empty {
+    display: none;
   }
 }

@@ -5,6 +5,8 @@ import { ControlFacturas } from './control-facturas/control-facturas';
 import { NotificacionService } from '../services/notificacion.service';
 import { CabeceraInterna } from '../shared/cabecera-interna/cabecera-interna';
 import { TourStep } from '../shared/tour/tour';
+import { LucideArrowLeft, LucideCalendarPlus, LucideClipboardCheck, LucideFileText } from '@lucide/angular';
+import { crearSeccionCelular } from '../shared/modal/atras.service';
 
 type Tab = 'reserva' | 'factura' | 'control';
 
@@ -46,13 +48,14 @@ const PASOS_POR_TAB: Record<Tab, TourStep[]> = {
 
 @Component({
   selector: 'app-acciones-admin',
-  imports: [CabeceraInterna, CrearReserva, FacturacionManual, ControlFacturas],
+  imports: [CabeceraInterna, CrearReserva, FacturacionManual, ControlFacturas, LucideArrowLeft, LucideCalendarPlus, LucideFileText, LucideClipboardCheck],
   templateUrl: './acciones-admin.html',
   styleUrl: './acciones-admin.css',
 })
 export class AccionesAdmin implements OnInit {
   tab = signal<Tab>('reserva');
   pasosTutorial = computed(() => PASOS_POR_TAB[this.tab()]);
+  seccionAbierta = crearSeccionCelular();
 
   /** Punto de aviso en "Control de facturas": facturas trabadas, certificado por vencer o numeración desfasada. */
   hayAvisoFacturacion = signal(false);

@@ -771,4 +771,204 @@
   .btn-mini-forma {
     height: 44px;
   }
+
+  /* Zonas de toque más grandes sin mover el layout. */
+  .btn-vaciar-carrito {
+    padding: 8px 0;
+    margin: -6px 0;
+  }
+
+  .check-dolares-inline {
+    padding-right: 10px;
+    margin-right: -10px;
+  }
+}
+
+/* En celular ocupa 32px (min-height de abajo): con el margen negativo sigue ocupando eso. */
+@media (pointer: coarse) and (max-width: 640px) {
+  button.btn-vaciar-carrito {
+    min-height: 44px;
+  }
+}
+
+.barra-cobro-celular,
+.fondo-hoja-cobro,
+.cabecera-hoja-cobro,
+.cantidad-linea-celular {
+  display: none;
+}
+
+/* Celular: paso 1 el catálogo con esta barra abajo; paso 2 el carrito como hoja. */
+@media (max-width: 640px) {
+  :host {
+    display: contents;
+  }
+
+  .barra-cobro-celular {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 56px;
+    padding: 8px 18px;
+    border: none;
+    border-radius: var(--radius-md);
+    background-color: var(--color-primary);
+    box-shadow: var(--shadow-card-lg);
+    color: #fff;
+    font-family: inherit;
+    cursor: pointer;
+  }
+
+  .barra-cobro-resumen {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-align: left;
+  }
+
+  .barra-cobro-resumen strong {
+    font-family: var(--font-heading);
+    font-size: 1.15rem;
+    font-weight: 800;
+  }
+
+  .barra-cobro-accion {
+    font-family: var(--font-heading);
+    font-size: 1.05rem;
+    font-weight: 800;
+  }
+
+  .fondo-hoja-cobro.abierta {
+    position: fixed;
+    inset: 0;
+    z-index: 95;
+    display: block;
+    background-color: rgba(0, 0, 0, 0.4);
+  }
+
+  .carrito {
+    position: fixed;
+    top: 5dvh;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 96;
+    overflow-x: clip;
+    overflow-y: auto;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    transform: translateY(100%);
+    visibility: hidden;
+    transition: transform 0.22s ease, visibility 0.22s;
+  }
+
+  .carrito.hoja-abierta {
+    transform: none;
+    visibility: visible;
+  }
+
+  .cabecera-hoja-cobro {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 56px;
+    padding: 4px 18px 4px 8px;
+    border-bottom: 1px solid var(--color-border);
+    background-color: var(--color-card-bg);
+  }
+
+  .btn-agregar-mas {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 44px;
+    padding: 0 8px;
+    border: none;
+    background: none;
+    color: var(--color-text-secondary);
+    font-family: inherit;
+    font-size: 0.88rem;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .btn-agregar-mas svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .total-hoja-cobro {
+    font-family: var(--font-heading);
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--color-primary-dark);
+    white-space: nowrap;
+  }
+
+  .carrito-cobro .fila-total {
+    display: none;
+  }
+
+  .carrito-lineas {
+    flex-shrink: 0;
+  }
+
+  .carrito-cobro {
+    flex: 1 0 auto;
+  }
+
+  .linea {
+    align-items: center;
+  }
+
+  .linea-cantidad,
+  .btn-quitar-entrada {
+    display: none;
+  }
+
+  .cantidad-linea-celular {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .btn-cantidad-linea {
+    width: 40px;
+    height: 40px;
+    border: 1.5px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background-color: var(--color-card-bg);
+    color: var(--color-text);
+    font-family: inherit;
+    font-size: 1.15rem;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .numero-cantidad-linea {
+    min-width: 26px;
+    text-align: center;
+    color: var(--color-text);
+  }
+
+  .btn-vaciar-carrito {
+    min-height: 32px;
+  }
+
+  /* Cobrar siempre abajo, al alcance del pulgar. */
+  .pie-cobro {
+    margin-top: auto;
+    padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+  }
 }

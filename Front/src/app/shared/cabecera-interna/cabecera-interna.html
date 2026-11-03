@@ -1,4 +1,4 @@
-<header class="cabecera">
+<header class="cabecera" [class.con-barra-inferior]="conBarraInferior">
   <div class="cabecera-texto">
     <img src="/img/logo-la-serranita.png" alt="La Serranita · Parque Recreativo" class="logo-cabecera" />
     <div>
@@ -82,7 +82,13 @@
 
   <nav class="menu-slider-nav">
     @for (e of enlacesVisibles(); track e.ruta) {
-      <a class="menu-slider-item" [class.activo]="esRutaActual(e.ruta)" [routerLink]="e.ruta" (click)="cerrarMenu()">
+      <a
+        class="menu-slider-item"
+        [class.activo]="esRutaActual(e.ruta)"
+        [class.en-barra]="estaEnBarra(e.ruta)"
+        [routerLink]="e.ruta"
+        [replaceUrl]="true"
+        (click)="alElegirDestino(e.ruta)">
         <!-- Íconos fijos por ruta (no lucideIcon dinámico): el dinámico arrastra el registro de
              íconos al bundle inicial, que es el que baja cada visitante de la compra online. -->
         @switch (e.ruta) {
@@ -111,6 +117,38 @@
     </button>
   }
 </aside>
+
+@if (conBarraInferior) {
+  <!-- Sólo se ve en celular (ver CSS). -->
+  <nav class="barra-inferior" aria-label="Navegación principal">
+    <a class="item-barra" routerLink="/hoy" [class.activo]="!menuAbierto() && esRutaActual('/hoy')">
+      <svg lucideSun [strokeWidth]="2" aria-hidden="true"></svg>
+      Hoy
+    </a>
+    <a class="item-barra" routerLink="/reportes" [class.activo]="!menuAbierto() && esRutaActual('/reportes')">
+      <svg lucideChartColumn [strokeWidth]="2" aria-hidden="true"></svg>
+      Reportes
+    </a>
+    <a class="item-barra" routerLink="/cajas" [class.activo]="!menuAbierto() && esRutaActual('/cajas')">
+      <span class="icono-barra">
+        <svg lucideWallet [strokeWidth]="2" aria-hidden="true"></svg>
+        @if (avisoDeRuta('/cajas')) {
+          <span class="punto-notificacion-barra" aria-label="Hay un aviso pendiente"></span>
+        }
+      </span>
+      Cajas
+    </a>
+    <button type="button" class="item-barra" [class.activo]="masActivo" [attr.aria-expanded]="menuAbierto()" (click)="toggleMenu()">
+      <span class="icono-barra">
+        <svg lucideMenu [strokeWidth]="2" aria-hidden="true"></svg>
+        @if (hayAvisoEnMas) {
+          <span class="punto-notificacion-barra" aria-label="Hay avisos pendientes"></span>
+        }
+      </span>
+      Más
+    </button>
+  </nav>
+}
 
 @if (pasosTutorial.length > 0) {
   <app-tour [pasos]="pasosTutorial" [(activo)]="tourActivo" (activoChange)="!$event && tutorialCerrado.emit()" />

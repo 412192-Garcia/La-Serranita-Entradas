@@ -117,6 +117,15 @@ public class CompraInternoController {
         return ResponseEntity.ok(CompraController.entityToDto(compra));
     }
 
+    @GetMapping("/{id}")
+    @Operation(summary = "Compra completa, con sus entradas y artículos (ADMIN)",
+            description = "Para corregir una venta. El GET público de /api/compras sólo da un resumen.")
+    public ResponseEntity<CompraResponseDTO> obtenerCompra(@PathVariable @Parameter(description = "ID de la compra") Long id) {
+        return compraService.findById(id)
+                .map(c -> ResponseEntity.ok(CompraController.entityToDto(c)))
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
     @PutMapping("/{id}/editar-venta")
     @Operation(summary = "Corregir las entradas, artículos y/o la forma de pago de una venta de puerta (ADMIN)",
             description = "Reemplaza entradas y artículos (la lista final, no un diff). El descuento queda igual; revalida cupo y recalcula el monto.")

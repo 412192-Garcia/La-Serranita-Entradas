@@ -281,3 +281,15 @@
     text-align: left;
   }
 }
+
+/* Celular: los botones que más se tocan de toda la compra. */
+@media (max-width: 600px) {
+  .control-cantidad {
+    width: 132px;
+    height: 44px;
+  }
+
+  .btn-contador {
+    width: 44px;
+  }
+}

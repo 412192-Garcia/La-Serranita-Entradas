@@ -154,3 +154,34 @@
   color: var(--color-primary-dark);
   font-size: 0.8rem;
 }
+
+/* Celular: los billetes en dos columnas ocupan la mitad de alto. */
+@media (max-width: 600px) {
+  :host(.conteo-dos-columnas) .lista-denominaciones {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px 12px;
+  }
+
+  :host(.conteo-dos-columnas) .fila-denominacion {
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    border: none;
+  }
+
+  :host(.conteo-dos-columnas) .fila-denominacion span {
+    white-space: nowrap;
+  }
+
+  :host(.conteo-dos-columnas) .fila-denominacion input {
+    flex: 1 1 0;
+    width: 0;
+    min-width: 0;
+    padding: 9px 8px;
+  }
+
+  .columna-posnet-combinada {
+    max-width: none;
+  }
+}

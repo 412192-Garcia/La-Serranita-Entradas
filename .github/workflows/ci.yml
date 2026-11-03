@@ -50,6 +50,14 @@ jobs:
       - name: Build de producción
         run: npx ng build --configuration production
 
+      # Con el mismo nginx de la imagen: una config inválida deja el front reiniciándose (502 en todo).
+      # --add-host: nginx -t resuelve el proxy_pass a "backend", que acá no existe.
+      - name: Validar nginx.conf
+        run: >
+          docker run --rm --add-host backend:127.0.0.1
+          -v "$PWD/nginx.conf:/etc/nginx/conf.d/default.conf:ro"
+          nginx:alpine nginx -t
+
   # Arma las 3 imágenes de docker-compose.yml y las sube a GitHub Container Registry.
   # Así el despliegue (VPS, o paneles tipo "pegá la URL del compose") sólo necesita
   # bajar imágenes ya construidas, no clonar el repo entero ni compilar nada ahí.

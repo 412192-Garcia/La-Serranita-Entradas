@@ -1,5 +1,6 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
+import { Router } from '@angular/router';
 import { ReporteService } from '../services/reporte.service';
 import { CajaService, CajaAbierta } from '../services/caja.service';
 import { ReporteResumen } from '../models/reporte';
@@ -13,7 +14,7 @@ const PASOS_TUTORIAL: TourStep[] = [
   {
     selector: '[data-tour="resumen-hoy"]',
     titulo: 'Cómo viene el día',
-    texto: 'Lo vendido hoy, la gente que entró y lo recaudado, en vivo.',
+    texto: 'La gente que entró hoy y lo recaudado, en vivo.',
   },
   {
     selector: '[data-tour="cajas-abiertas"]',
@@ -26,13 +27,16 @@ function hoyISO(): string {
   return aFechaISO(new Date());
 }
 
+const MINIMO_ENTRE_RECARGAS_MS = 60_000;
+
 @Component({
   selector: 'app-dashboard-hoy',
   imports: [PesosPipe, DatePipe, CabeceraInterna, Spinner],
   templateUrl: './hoy.html',
   styleUrls: ['../configuracion/configuracion-shared.css', './hoy.css'],
 })
-export class DashboardHoy implements OnInit {
+export class DashboardHoy implements OnInit, OnDestroy {
+  private router = inject(Router);
   private reporteService = inject(ReporteService);
   private cajaService = inject(CajaService);
 
@@ -45,12 +49,31 @@ export class DashboardHoy implements OnInit {
   cargandoCajas = signal(false);
   cajasAbiertas = signal<CajaAbierta[]>([]);
 
+  private ultimaCarga = 0;
+
+  /** Al volver a la app (el celular la deja en segundo plano) los números pueden estar viejos. */
+  private alVolverALaApp = (): void => {
+    if (document.visibilityState === 'visible' && Date.now() - this.ultimaCarga > MINIMO_ENTRE_RECARGAS_MS) {
+      this.cargar();
+    }
+  };
+
+  abrirCaja(id: number): void {
+    this.router.navigate(['/cajas'], { queryParams: { caja: id } });
+  }
+
   ngOnInit(): void {
     this.cargar();
+    document.addEventListener('visibilitychange', this.alVolverALaApp);
+  }
+
+  ngOnDestroy(): void {
+    document.removeEventListener('visibilitychange', this.alVolverALaApp);
   }
 
   cargar(): void {
     const hoy = hoyISO();
+    this.ultimaCarga = Date.now();
 
     this.cargando.set(true);
     this.error.set(null);
@@ -91,20 +114,6 @@ export class DashboardHoy implements OnInit {
     );
   }
 
-  /** KPI principal: entradas vendidas hoy = venta directa en puerta + anticipadas compradas
-   * hoy (para cualquier fecha de visita). No confundir con "personas que entraron": esto mide
-   * venta, no ingreso real al parque. */
-  entradasVendidasHoy(r: ReporteResumen): { total: number; puerta: number; anticipada: number } {
-    const { puerta, anticipada } = r.afluenciaDiaria.reduce(
-      (acc, d) => ({
-        puerta: acc.puerta + d.pasesVendidosBoleteria,
-        anticipada: acc.anticipada + d.pasesCompradosAnticipada,
-      }),
-      { puerta: 0, anticipada: 0 },
-    );
-    return { total: puerta + anticipada, puerta, anticipada };
-  }
-
   /** Anticipadas reservadas para VENIR hoy (por fecha de visita), estén ya validadas o no. */
   anticipadasParaHoy(r: ReporteResumen): number {
     return r.afluenciaDiaria.reduce((acc, d) => acc + d.pasesVendidosAnticipada, 0);
@@ -112,17 +121,19 @@ export class DashboardHoy implements OnInit {
 
   /** Recaudación de hoy vendida/cobrada en el parque: todo lo cobrado en boletería salvo lo
    * pagado online por Mercado Pago (eso es la recaudación anticipada web, aparte). */
-  recaudacionParque(r: ReporteResumen): { monto: number; cantidad: number } {
-    return r.recaudacionPorFormaPago
+  recaudacionParque(r: ReporteResumen): { monto: number; cantidad: number; entradas: number } {
+    const recaudado = r.recaudacionPorFormaPago
       .filter((f) => f.formaPago !== 'MERCADO_PAGO')
       .reduce((acc, f) => ({ monto: acc.monto + f.monto, cantidad: acc.cantidad + f.cantidad }), { monto: 0, cantidad: 0 });
+    return { ...recaudado, entradas: r.entradasCobradasParque };
   }
 
   /** Recaudación de hoy por anticipadas pagadas online (Mercado Pago), sin importar para qué
    * día de visita sean. */
-  recaudacionAnticipadaWeb(r: ReporteResumen): { monto: number; cantidad: number } {
-    return r.recaudacionPorFormaPago
+  recaudacionAnticipadaWeb(r: ReporteResumen): { monto: number; cantidad: number; entradas: number } {
+    const recaudado = r.recaudacionPorFormaPago
       .filter((f) => f.formaPago === 'MERCADO_PAGO')
       .reduce((acc, f) => ({ monto: acc.monto + f.monto, cantidad: acc.cantidad + f.cantidad }), { monto: 0, cantidad: 0 });
+    return { ...recaudado, entradas: r.entradasCobradasWeb };
   }
 }

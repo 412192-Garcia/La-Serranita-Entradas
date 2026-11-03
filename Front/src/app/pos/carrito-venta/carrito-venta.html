@@ -1,4 +1,29 @@
-<aside class="carrito">
+<!-- Sólo en celular (ver CSS): el carrito se abre como hoja desde esta barra. -->
+@if (hayItems() || cobrosSinVenta().length > 0) {
+  <button type="button" class="barra-cobro-celular" data-tour="barra-cobro" (click)="hojaCobroAbierta.set(true)">
+    @if (hayItems()) {
+      <span class="barra-cobro-resumen">
+        {{ cantidadItems() }} {{ cantidadItems() === 1 ? 'ítem' : 'ítems' }}
+        <strong>{{ total() | pesos }}</strong>
+      </span>
+      <span class="barra-cobro-accion">Cobrar</span>
+    } @else {
+      <span class="barra-cobro-resumen">Hay un cobro del Point sin venta</span>
+      <span class="barra-cobro-accion">Ver</span>
+    }
+  </button>
+}
+<div class="fondo-hoja-cobro" [class.abierta]="hojaCobroAbierta()" (click)="hojaCobroAbierta.set(false)"></div>
+
+<aside class="carrito" [class.hoja-abierta]="hojaCobroAbierta()">
+  <div class="cabecera-hoja-cobro">
+    <button type="button" class="btn-agregar-mas" (click)="hojaCobroAbierta.set(false)">
+      <svg lucideArrowLeft [strokeWidth]="2" aria-hidden="true"></svg>
+      Agregar más
+    </button>
+    <strong class="total-hoja-cobro">{{ total() | pesos }}</strong>
+  </div>
+
   @if (compraReservada(); as reserva) {
     <div class="aviso-reserva">
       <span>
@@ -22,10 +47,16 @@
       @for (l of lineas(); track l.tipo.id) {
         <!-- La cantidad se elige en el catálogo, acá no se ajusta de a uno: la ✕ saca todo el tipo de una. -->
         <div class="linea">
-          <span class="linea-nombre">{{ l.cantidad }}× {{ l.tipo.nombre }}</span>
+          <span class="linea-nombre"><span class="linea-cantidad">{{ l.cantidad }}× </span>{{ l.tipo.nombre }}</span>
           <span class="linea-subtotal">
+            <!-- Sólo en celular: el catálogo queda detrás de la hoja. -->
+            <span class="cantidad-linea-celular">
+              <button type="button" class="btn-cantidad-linea" (click)="cambiarCantidad.emit({ id: l.tipo.id, delta: -1 })" aria-label="Una menos">−</button>
+              <span class="numero-cantidad-linea">{{ l.cantidad }}</span>
+              <button type="button" class="btn-cantidad-linea" (click)="cambiarCantidad.emit({ id: l.tipo.id, delta: 1 })" aria-label="Una más">+</button>
+            </span>
             {{ precioLista(l.tipo) * l.cantidad | pesos }}
-            <button type="button" class="btn-quitar-cierre" (click)="onQuitarEntrada(l.tipo.id)" aria-label="Quitar">✕</button>
+            <button type="button" class="btn-quitar-cierre btn-quitar-entrada" (click)="onQuitarEntrada(l.tipo.id)" aria-label="Quitar">✕</button>
           </span>
         </div>
       }

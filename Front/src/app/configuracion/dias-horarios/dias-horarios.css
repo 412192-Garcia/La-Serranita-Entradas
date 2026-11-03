@@ -204,6 +204,13 @@
   .estado-dia { display: none; }
 }
 
+@media (max-width: 600px) {
+  .btn-mes {
+    flex-shrink: 0;
+    min-width: 44px;
+  }
+}
+
 @media (pointer: coarse) {
   /* El tip de Ctrl+click / Shift+click no se puede seguir sin teclado: en una tablet o un
      teléfono ocupa tres renglones para explicar algo que ahí no existe. La selección de a
@@ -226,5 +233,33 @@
   .btn-mes {
     width: 44px;
     height: 44px;
+  }
+}
+
+/* Sólo celular: sin teclado no hay Ctrl+click para elegir varios días. */
+.btn-elegir-varios {
+  display: none;
+}
+
+@media (max-width: 600px) {
+  .btn-elegir-varios {
+    display: block;
+    width: 100%;
+    min-height: 44px;
+    margin-bottom: 12px;
+    border: 1.5px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background-color: var(--color-card-bg);
+    color: var(--color-text-secondary);
+    font-family: inherit;
+    font-size: 0.88rem;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .btn-elegir-varios.activo {
+    border-color: var(--color-primary);
+    background-color: var(--color-primary);
+    color: #ffffff;
   }
 }
