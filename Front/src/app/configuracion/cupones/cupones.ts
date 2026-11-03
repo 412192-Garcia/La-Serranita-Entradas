@@ -8,13 +8,14 @@ import { TutorialTarjeta } from '../../shared/tutorial-tarjeta/tutorial-tarjeta'
 import { pasosCuponIndividual, pasosLote } from './cupones-tutorial';
 import { MoneyInputDirective } from '../../shared/money-input/money-input.directive';
 import { Spinner } from '../../shared/spinner/spinner';
+import { PlegableCelular } from '../../shared/plegable-celular.directive';
 
 /** Cómo se descuenta: un porcentaje, un monto restado a la compra o a cada entrada, o un precio fijo por entrada. */
 type TipoDescuento = 'porcentaje' | 'monto' | 'monto-entrada' | 'precio-entrada';
 
 @Component({
   selector: 'app-configuracion-cupones',
-  imports: [FormsModule, DatePipe, MoneyInputDirective, Spinner, TutorialTarjeta],
+  imports: [FormsModule, DatePipe, MoneyInputDirective, Spinner, TutorialTarjeta, PlegableCelular],
   templateUrl: './cupones.html',
   styleUrls: ['../configuracion-shared.css', './cupones.css'],
 })

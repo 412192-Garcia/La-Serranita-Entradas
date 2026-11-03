@@ -54,6 +54,8 @@ export class App {
     // El tema personalizado es un beneficio del módulo interno (gestión): la compra pública de
     // entradas tiene que verse siempre con el verde fijo del parque, sin importar si el
     // dispositivo tiene guardada una sesión de staff con colores propios.
+    // Se aplica también al arrancar: la primera NavigationEnd llega recién con la ruta ya cargada.
+    this.sesion.aplicarTema(esRutaPublica(location.pathname) ? null : this.sesion.usuario());
     this.router.events.pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd)).subscribe((e) => {
       const publica = esRutaPublica(e.urlAfterRedirects);
       this.rutaPublica.set(publica);

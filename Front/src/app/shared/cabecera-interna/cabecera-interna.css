@@ -447,6 +447,101 @@
   }
 }
 
+.barra-inferior {
+  display: none;
+}
+
+@media (max-width: 600px) {
+  .btn-tutorial {
+    padding: 12px;
+  }
+
+  .con-barra-inferior .btn-hamburguesa {
+    display: none;
+  }
+
+  .barra-inferior {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 90;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    background-color: var(--color-card-bg);
+    border-top: 1px solid var(--color-border);
+    box-shadow: 0 -2px 10px rgba(17, 24, 39, 0.06);
+  }
+
+  .item-barra {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    min-height: 60px;
+    padding: 6px 2px;
+    border: none;
+    background: none;
+    color: var(--color-text-muted);
+    font-family: inherit;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-decoration: none;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .item-barra.activo {
+    color: var(--color-primary-dark);
+  }
+
+  .item-barra svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .icono-barra {
+    position: relative;
+    display: flex;
+  }
+
+  .punto-notificacion-barra {
+    position: absolute;
+    top: -2px;
+    right: -5px;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background-color: var(--color-danger);
+    border: 1.5px solid var(--color-card-bg);
+  }
+
+  /* El menú pasa a hoja desde abajo y no repite lo que ya está en la barra. */
+  .menu-slider {
+    top: auto;
+    left: 0;
+    width: 100%;
+    max-width: none;
+    max-height: 85dvh;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.18);
+    transform: translateY(100%);
+    visibility: hidden;
+    transition: transform 0.22s ease, visibility 0.22s;
+  }
+
+  .menu-slider.abierto {
+    transform: none;
+    visibility: visible;
+  }
+
+  .menu-slider-item.en-barra {
+    display: none;
+  }
+}
+
 /* Teléfono con acciones de pantalla (el POS): a este ancho la fila de abajo SÍ se llena con las
    acciones solas, y si Tutorial + menú bajan con ellas las empujan a un tercer renglón. Vuelven
    arriba, al lado del título, y las acciones quedan en una sola fila a todo el ancho. */

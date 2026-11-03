@@ -1,24 +1,33 @@
-<div class="panel">
+<div class="panel" [class.seccion-abierta]="seccionAbierta()">
 
   <app-cabecera-interna
     titulo="Acciones de admin"
     descripcion="Generar una reserva, facturar o controlar la facturación."
-    [pasosTutorial]="pasosTutorial()" />
+    [pasosTutorial]="pasosTutorial()"
+    (tutorialIniciado)="seccionAbierta.set(true)" />
 
   <nav class="tabs">
-    <button type="button" class="tab" [class.activo]="tab() === 'reserva'" (click)="tab.set('reserva')">
+    <button type="button" class="tab" [class.activo]="tab() === 'reserva'" (click)="tab.set('reserva'); seccionAbierta.set(true)">
+      <svg lucideCalendarPlus class="icono-seccion" [strokeWidth]="2" aria-hidden="true"></svg>
       Generar reserva
     </button>
-    <button type="button" class="tab" [class.activo]="tab() === 'factura'" (click)="tab.set('factura')">
+    <button type="button" class="tab" [class.activo]="tab() === 'factura'" (click)="tab.set('factura'); seccionAbierta.set(true)">
+      <svg lucideFileText class="icono-seccion" [strokeWidth]="2" aria-hidden="true"></svg>
       Facturación manual
     </button>
-    <button type="button" class="tab" [class.activo]="tab() === 'control'" (click)="tab.set('control')">
+    <button type="button" class="tab" [class.activo]="tab() === 'control'" (click)="tab.set('control'); seccionAbierta.set(true)">
+      <svg lucideClipboardCheck class="icono-seccion" [strokeWidth]="2" aria-hidden="true"></svg>
       Control de facturas
       @if (hayAvisoFacturacion()) {
         <span class="punto-notificacion-tab" aria-label="Hay algo para revisar en la facturación"></span>
       }
     </button>
   </nav>
+
+  <button type="button" class="btn-volver-seccion" (click)="seccionAbierta.set(false)">
+    <svg lucideArrowLeft [strokeWidth]="2" aria-hidden="true"></svg>
+    Volver a secciones
+  </button>
 
   @if (tab() === 'reserva') {
     <app-crear-reserva />

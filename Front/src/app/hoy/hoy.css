@@ -26,22 +26,17 @@
   gap: 20px;
 }
 
-/* Tres columnas que ocupan todo el ancho de la tarjeta (con flex quedaban apretadas a la
+/* Dos columnas que ocupan todo el ancho de la tarjeta (con flex quedaban apretadas a la
    izquierda con medio metro de blanco al lado). */
 .tarjeta-kpis-hoy {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 20px 36px;
   align-items: start;
 }
 
 .tarjeta-kpis-hoy > div {
   min-width: 0;
-}
-
-/* La card de recaudación tiene sólo 2 números (parque / anticipadas web), no 3. */
-.tarjeta-kpis-recaudacion {
-  grid-template-columns: repeat(2, 1fr);
 }
 
 .kpi-numero {
@@ -72,6 +67,14 @@
   grid-template-columns: 1.4fr 0.7fr 0.9fr 1.1fr 0.8fr 0.8fr;
 }
 
+.fila-clickable {
+  cursor: pointer;
+}
+
+.fila-clickable:hover {
+  background-color: var(--color-bg-soft);
+}
+
 .badge-sin-control {
   background-color: var(--color-border);
   color: var(--color-text-secondary);
@@ -89,4 +92,21 @@
 
 @media (max-width: 600px) {
   .panel { padding: 20px 16px 32px; }
+}
+
+@media (max-width: 600px) {
+  .tarjeta-kpis-hoy {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .tarjeta-kpis-hoy h2 {
+    font-size: 0.85rem;
+    line-height: 1.25;
+  }
+
+  .kpi-principal .kpi-numero { font-size: 2.3rem; }
+  .kpi-numero-secundario { font-size: 1.45rem; }
+
+  .tarjeta-kpis-hoy .ayuda { font-size: 0.78rem; }
 }

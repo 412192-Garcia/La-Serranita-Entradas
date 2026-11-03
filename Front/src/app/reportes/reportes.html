@@ -13,7 +13,16 @@
   @if (vista() === 'resumen') {
   <div class="seccion seccion-reportes">
 
+  <div class="rangos-rapidos tarjeta-ancha" data-tour="rangos-rapidos">
+    @for (r of rangosRapidos; track r.valor) {
+      <button type="button" class="btn-rango" [class.activo]="rangoRapido() === r.valor" (click)="elegirRangoRapido(r.valor)">
+        {{ r.etiqueta }}
+      </button>
+    }
+  </div>
+
   <app-filtro-rango-fechas
+    [class.filtro-oculto-celular]="rangoRapido() !== 'otro'"
     data-tour="filtro-fechas-reportes"
     [(desde)]="desde"
     [(hasta)]="hasta"
@@ -61,7 +70,7 @@
   }
   </div>
 
-  <div class="tarjeta tarjeta-ancha" data-tour="graficos-reportes" [class.oculta]="!resumen()">
+  <div appPlegableCelular plegableAbierta class="tarjeta tarjeta-ancha" data-tour="graficos-reportes" [class.oculta]="!resumen()">
     <h2>Afluencia diaria</h2>
     <p class="ayuda">Barras: reservado para ese día, ingresos reales y venta de puerta. Línea: anticipadas compradas ese día.</p>
     <!-- En un rango largo (varios meses) una barra por día queda ilegible: agrupar por semana
@@ -83,13 +92,14 @@
     </div>
   </div>
 
-  <div class="tarjeta tarjeta-ancha tarjeta-grafico-tabla" [class.oculta]="!resumen()">
+  <div appPlegableCelular class="tarjeta tarjeta-ancha tarjeta-grafico-tabla" [class.oculta]="!resumen()">
     <h2>Anticipación de compra</h2>
     <p class="ayuda">Con cuántos días de anticipación se compraron las entradas.</p>
     <div class="grafico-contenedor">
       <canvas #anticipacionCanvas></canvas>
     </div>
     @if (resumen(); as r) {
+      <button type="button" class="btn-ver-detalle"></button>
       <div class="tabla-simple">
         <div class="fila-simple fila-simple-desglose-simple fila-simple-header">
           <span>Antelación</span><span>Pases</span><span>%</span>
@@ -105,12 +115,13 @@
     }
   </div>
 
-  <div class="tarjeta tarjeta-ancha tarjeta-grafico-tabla" [class.oculta]="!resumen()">
+  <div appPlegableCelular class="tarjeta tarjeta-ancha tarjeta-grafico-tabla" [class.oculta]="!resumen()">
     <h2>Desglose por tipo de entrada</h2>
     <div class="grafico-contenedor">
       <canvas #desgloseCanvas></canvas>
     </div>
     @if (resumen(); as r) {
+      <button type="button" class="btn-ver-detalle"></button>
       <div class="tabla-simple">
         <div class="fila-simple fila-simple-desglose fila-simple-header">
           <span>Tipo</span><span>Cant. anticipada</span><span>Monto anticipada</span><span>Cant. boletería</span><span>Monto boletería</span>
@@ -128,7 +139,7 @@
     }
   </div>
 
-  <div class="tarjeta" [class.oculta]="!resumen()">
+  <div appPlegableCelular class="tarjeta" [class.oculta]="!resumen()">
     <h2>Recaudación por forma de pago</h2>
     <p class="ayuda">Incluye las correcciones hechas en los cierres de caja.</p>
     <div class="grafico-contenedor grafico-torta">
@@ -136,7 +147,7 @@
     </div>
   </div>
 
-  <div class="tarjeta" [class.oculta]="!resumen()">
+  <div appPlegableCelular class="tarjeta" [class.oculta]="!resumen()">
     <h2>Compras por estado</h2>
     <p class="ayuda">Todas las compras del período, también las pendientes, canceladas y reembolsadas.</p>
     <div class="grafico-contenedor grafico-torta">
@@ -144,7 +155,7 @@
     </div>
   </div>
 
-  <div class="tarjeta" [class.oculta]="!resumen()">
+  <div appPlegableCelular class="tarjeta" [class.oculta]="!resumen()">
     <h2>Boletería vs. anticipada</h2>
     <p class="ayuda">Lo vendido en la puerta contra lo reservado antes.</p>
     <div class="grafico-contenedor grafico-torta">
@@ -153,7 +164,7 @@
   </div>
 
   @if (resumen(); as r) {
-    <div class="tarjeta tarjeta-ancha">
+    <div appPlegableCelular class="tarjeta tarjeta-ancha">
       <h2>Cancelaciones</h2>
       <p class="ayuda">Por qué se cancelaron las compras del período.</p>
       @if (r.cancelaciones.length === 0) {
@@ -199,7 +210,7 @@
       }
     </div>
 
-    <div class="tarjeta tarjeta-ancha" [class.tarjeta-grafico-tabla]="r.usoCupones.length > 0">
+    <div appPlegableCelular class="tarjeta tarjeta-ancha" [class.tarjeta-grafico-tabla]="r.usoCupones.length > 0">
       <h2>Cupones aplicados</h2>
       <p class="kpi-numero kpi-numero-secundario">{{ cuponesDescontado() | pesos }}</p>
       <p class="ayuda">{{ cuponesCompras() }} compra{{ cuponesCompras() === 1 ? '' : 's' }} con cupón · descuento total otorgado</p>
@@ -207,6 +218,7 @@
         <div class="grafico-contenedor">
           <canvas #cuponesCanvas></canvas>
         </div>
+        <button type="button" class="btn-ver-detalle"></button>
         <div class="tabla-simple">
           <div class="fila-simple fila-simple-desglose-simple fila-simple-header">
             <span>Cupón</span><span>Compras</span><span>Descontado</span>
@@ -225,7 +237,7 @@
     </div>
   }
 
-  <div class="tarjeta tarjeta-ancha tarjeta-grafico-tabla" [class.oculta]="!resumen()">
+  <div appPlegableCelular class="tarjeta tarjeta-ancha tarjeta-grafico-tabla" [class.oculta]="!resumen()">
     <h2>Extras vendidos</h2>
     <p class="ayuda">Extras vendidos con las anticipadas.</p>
     <!-- Sin datos no se dibuja el canvas: quedaba un recuadro vacío de media pantalla con un
@@ -240,6 +252,7 @@
       @if (r.desgloseExtras.length === 0) {
         <p class="ayuda">No hay extras activos configurados.</p>
       } @else {
+        <button type="button" class="btn-ver-detalle"></button>
         <div class="tabla-simple">
           <div class="fila-simple fila-simple-desglose-simple fila-simple-header">
             <span>Extra</span><span>Cantidad</span><span>Monto</span>
@@ -256,7 +269,7 @@
     }
   </div>
 
-  <div class="tarjeta tarjeta-ancha" [class.oculta]="!resumen()">
+  <div appPlegableCelular class="tarjeta tarjeta-ancha" [class.oculta]="!resumen()">
     <h2>Compras por hora del día</h2>
     <p class="ayuda">A qué hora se hacen más compras.</p>
     <div class="filtro-dias-semana">
@@ -276,7 +289,7 @@
     </div>
   </div>
 
-  <div class="tarjeta tarjeta-ancha tarjeta-grafico-tabla" [class.oculta]="!resumen()">
+  <div appPlegableCelular class="tarjeta tarjeta-ancha tarjeta-grafico-tabla" [class.oculta]="!resumen()">
     <h2>Ventas de artículos varios</h2>
     <p class="ayuda">Souvenirs y otros artículos vendidos en boletería.</p>
     @if ((resumen()?.ventasArticulosVarios?.length ?? 0) > 0) {
@@ -288,6 +301,7 @@
       @if (r.ventasArticulosVarios.length === 0) {
         <p class="ayuda">No se vendieron artículos varios en el rango.</p>
       } @else {
+        <button type="button" class="btn-ver-detalle"></button>
         <div class="tabla-simple">
           <div class="fila-simple fila-simple-desglose-simple fila-simple-header">
             <span>Artículo</span><span>Cantidad</span><span>Monto</span>
@@ -305,7 +319,7 @@
   </div>
 
   @if (resumen(); as r) {
-    <div class="tarjeta tarjeta-ancha">
+    <div appPlegableCelular class="tarjeta tarjeta-ancha">
       <h2>Uso de promociones en puerta</h2>
       <p class="ayuda">Descuentos usados en puerta, por ejemplo folleto de cabañeros.</p>
       @if (r.usoPromociones.length === 0) {
@@ -326,7 +340,7 @@
       }
     </div>
 
-    <div class="tarjeta tarjeta-ancha" data-tour="ranking-boleteros">
+    <div appPlegableCelular class="tarjeta tarjeta-ancha" data-tour="ranking-boleteros">
       <h2>Ranking de boleteros</h2>
       <p class="ayuda">Turnos, ventas en efectivo, retiros y diferencias de caja de cada boletero en el período.</p>
       @if (rankingBoleteros(r).length === 0) {
@@ -351,7 +365,7 @@
       }
     </div>
 
-    <div class="tarjeta">
+    <div appPlegableCelular class="tarjeta">
       <h2>Ventas y saldo en dólares</h2>
       <p class="ayuda">Cobros en efectivo hechos en dólares.</p>
       <p class="kpi-numero kpi-numero-secundario">U$S {{ r.ventasDolares.totalDolaresRecibidos | number: '1.2-2' }}</p>
@@ -365,7 +379,7 @@
     </div>
 
     @if (mostrarFacturado(r)) {
-      <div class="tarjeta">
+      <div appPlegableCelular class="tarjeta">
         <h2>Facturado</h2>
         <p class="ayuda">Facturas emitidas menos notas de crédito.</p>
         <p class="kpi-numero kpi-numero-secundario">{{ r.totalFacturado | pesos }}</p>
@@ -418,15 +432,15 @@
             <span>Período</span><span>Recaudación total</span><span>Anticipada</span><span>En puerta</span><span>Personas</span>
           </div>
           @for (p of periodos(); track $index) {
-            <div class="fila-simple fila-simple-comparacion">
-              <span>{{ p.etiqueta || (p.desde + ' → ' + p.hasta) }}</span>
+            <div class="fila-simple fila-simple-comparacion fila-compacta">
+              <span class="fc-titulo">{{ p.etiqueta || (p.desde + ' → ' + p.hasta) }}</span>
               @if (p.resumen; as r) {
-                <span data-label="Recaudación total">{{ r.recaudacionTotal | pesos }}</span>
-                <span data-label="Anticipada">{{ (recaudacionPorOrigen(r, 'ANTICIPADA') ?? 0) | pesos }}</span>
-                <span data-label="En puerta">{{ (recaudacionPorOrigen(r, 'BOLETERIA') ?? 0) | pesos }}</span>
-                <span data-label="Personas">{{ r.personasIngresadas | number }}</span>
+                <span class="fc-principal" data-label="Recaudación total">{{ r.recaudacionTotal | pesos }}</span>
+                <span class="fc-dato" data-label="Anticipada">{{ (recaudacionPorOrigen(r, 'ANTICIPADA') ?? 0) | pesos }}</span>
+                <span class="fc-dato" data-label="En puerta">{{ (recaudacionPorOrigen(r, 'BOLETERIA') ?? 0) | pesos }}</span>
+                <span class="fc-dato" data-label="Personas">{{ r.personasIngresadas | number }}</span>
               } @else {
-                <span data-label="Recaudación total">—</span><span data-label="Anticipada">—</span><span data-label="En puerta">—</span><span data-label="Personas">—</span>
+                <span class="fc-principal" data-label="Recaudación total">—</span><span class="fc-dato" data-label="Anticipada">—</span><span class="fc-dato" data-label="En puerta">—</span><span class="fc-dato" data-label="Personas">—</span>
               }
             </div>
           }

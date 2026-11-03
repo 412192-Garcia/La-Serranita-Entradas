@@ -2,6 +2,8 @@ import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CabeceraInterna } from '../shared/cabecera-interna/cabecera-interna';
 import { TourStep } from '../shared/tour/tour';
+import { LucideActivity, LucideArrowLeft, LucideBan, LucideGauge, LucideHistory, LucideToggleRight, LucideTriangleAlert } from '@lucide/angular';
+import { crearSeccionCelular } from '../shared/modal/atras.service';
 import { EstadoSistemaPanel } from './estado-sistema/estado-sistema';
 import { HistorialAcciones } from './historial-acciones/historial-acciones';
 import { ErroresSistema } from './errores-sistema/errores-sistema';
@@ -64,7 +66,7 @@ const PASOS_POR_TAB: Record<Tab, TourStep[]> = {
  */
 @Component({
   selector: 'app-sistema',
-  imports: [CabeceraInterna, EstadoSistemaPanel, HistorialAcciones, ErroresSistema, RendimientoSistema, RechazosOperaciones, ModulosSistema],
+  imports: [CabeceraInterna, EstadoSistemaPanel, HistorialAcciones, ErroresSistema, RendimientoSistema, RechazosOperaciones, ModulosSistema, LucideArrowLeft, LucideActivity, LucideHistory, LucideTriangleAlert, LucideGauge, LucideBan, LucideToggleRight],
   templateUrl: './sistema.html',
   styleUrl: './sistema.css',
 })
@@ -75,6 +77,7 @@ export class Sistema implements OnInit {
 
   tab = signal<Tab>('estado');
   pasosTutorial = computed(() => PASOS_POR_TAB[this.tab()]);
+  seccionAbierta = crearSeccionCelular();
   /** Filtros que vinieron en la URL, para la pestaña que corresponda. */
   accionInicial = signal<string | null>(null);
   areaInicial = signal<string | null>(null);
@@ -85,7 +88,10 @@ export class Sistema implements OnInit {
   ngOnInit(): void {
     this.route.queryParamMap.subscribe((q) => {
       const tab = q.get('tab');
-      if (tab === 'historial' || tab === 'errores' || tab === 'estado' || tab === 'rendimiento' || tab === 'rechazos' || tab === 'modulos') this.tab.set(tab);
+      if (tab === 'historial' || tab === 'errores' || tab === 'estado' || tab === 'rendimiento' || tab === 'rechazos' || tab === 'modulos') {
+        this.tab.set(tab);
+        this.seccionAbierta.set(true);
+      }
       this.accionInicial.set(q.get('accion'));
       this.areaInicial.set(q.get('area'));
     });
@@ -96,6 +102,7 @@ export class Sistema implements OnInit {
   }
 
   elegir(tab: Tab): void {
+    this.seccionAbierta.set(true);
     this.router.navigate([], { queryParams: { tab }, replaceUrl: true });
   }
 }

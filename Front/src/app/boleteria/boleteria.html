@@ -25,12 +25,30 @@
     </app-modal>
   }
 
-  <app-buscador-reservas />
+  <app-buscador-reservas [autoenfocar]="autoenfocar">
+    <button type="button" class="btn-filtros-celular" data-tour="boton-filtros" (click)="abrirFiltrosCelular()">
+      <svg lucideListFilter [strokeWidth]="2" aria-hidden="true"></svg>
+      Filtros
+      @if (busqueda.cantidadFiltrosActivos() > 0) {
+        <span class="contador-filtros">{{ busqueda.cantidadFiltrosActivos() }}</span>
+      }
+    </button>
+  </app-buscador-reservas>
 
   <app-panel-regalos [menu]="menuTpl" (cobrar)="busqueda.cobrarYValidar($event)" />
 
+  <div class="overlay-filtros" [class.abierto]="filtrosCelularAbiertos()" (click)="filtrosCelularAbiertos.set(false)"></div>
+
   <!-- ============ FILTROS ============ -->
-  <div class="panel-filtros">
+  <!-- En celular es una hoja desde abajo (ver CSS). -->
+  <div class="panel-filtros" [class.abierto]="filtrosCelularAbiertos()">
+    <div class="cabecera-filtros">
+      Filtros
+      <button type="button" class="btn-cerrar-filtros" aria-label="Cerrar filtros" (click)="filtrosCelularAbiertos.set(false)">
+        <svg lucideX [strokeWidth]="2" aria-hidden="true"></svg>
+      </button>
+    </div>
+
     <!-- Sólo los 2 estados que un boletero toca todo el día (pagada online / a cobrar en caja)
          quedan siempre visibles, para ver cuánto falta por llegar de un vistazo; el resto de
          los estados ocupaba mucho espacio para lo poco que se usan, así que van junto al tipo
@@ -106,6 +124,8 @@
         </select>
       </div>
     }
+
+    <button type="button" class="btn-ver-resultados" (click)="filtrosCelularAbiertos.set(false)">Ver resultados</button>
   </div>
 
 

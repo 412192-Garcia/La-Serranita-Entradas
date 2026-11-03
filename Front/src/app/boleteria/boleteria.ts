@@ -11,8 +11,9 @@ import { DatePipe } from '@angular/common';
 import { CabeceraInterna } from '../shared/cabecera-interna/cabecera-interna';
 import { CajaService, Caja } from '../services/caja.service';
 import { AperturaCaja } from '../pos/apertura-caja/apertura-caja';
-import { LucideEllipsisVertical, LucideChevronDown } from '@lucide/angular';
+import { LucideEllipsisVertical, LucideChevronDown, LucideListFilter, LucideX } from '@lucide/angular';
 import { Modal } from '../shared/modal/modal';
+import { cerrarConAtrasEnCelular } from '../shared/modal/atras.service';
 import { TourStep } from '../shared/tour/tour';
 import { DetectorEscaneoDni } from '../shared/escaner-dni.util';
 import {
@@ -53,11 +54,13 @@ const PASOS_TUTORIAL: TourStep[] = [
   },
   {
     selector: '[data-tour="estado"]',
+    alternativo: '[data-tour="boton-filtros"]',
     titulo: 'Pagadas o a cobrar',
     texto: 'Filtrá entre lo ya pagado online y lo que falta cobrar en caja.',
   },
   {
     selector: '[data-tour="mas-filtros"]',
+    alternativo: '[data-tour="boton-filtros"]',
     titulo: 'Más filtros',
     texto: 'Más filtros: otros estados, tipo de venta y forma de pago.',
   },
@@ -89,6 +92,8 @@ import { FacturaService } from '../services/factura.service';
     ListadoReservas,
     LucideEllipsisVertical,
     LucideChevronDown,
+    LucideListFilter,
+    LucideX,
     FacturaCompraModal,
   ],
   providers: [ReservasBusqueda],
@@ -105,6 +110,8 @@ export class Boleteria implements OnInit, OnDestroy {
   protected busqueda = inject(ReservasBusqueda);
 
   readonly pasosTutorial = PASOS_TUTORIAL;
+  /** En celular el foco levantaría el teclado y taparía la barra de abajo. */
+  readonly autoenfocar = !window.matchMedia('(pointer: coarse) and (max-width: 600px)').matches;
 
   readonly estadosPrincipales = ESTADOS_ANTICIPADA_PRINCIPALES;
   readonly estadosSecundarios = ESTADOS_ANTICIPADA_SECUNDARIOS;
@@ -122,6 +129,22 @@ export class Boleteria implements OnInit, OnDestroy {
 
   /** Estado/Forma de pago quedan colapsados por defecto: son los filtros que casi no se tocan en el uso diario. */
   mostrarMasFiltros = signal(false);
+
+  filtrosCelularAbiertos = signal(false);
+  private atrasMenu = cerrarConAtrasEnCelular(
+    () => this.menuAbiertoId() !== null,
+    () => this.menuAbiertoId.set(null),
+  );
+  private atrasFiltros = cerrarConAtrasEnCelular(
+    () => this.filtrosCelularAbiertos(),
+    () => this.filtrosCelularAbiertos.set(false),
+  );
+
+  /** En la hoja de celular entran todos los filtros: no hace falta el paso de "Más filtros". */
+  abrirFiltrosCelular(): void {
+    this.mostrarMasFiltros.set(true);
+    this.filtrosCelularAbiertos.set(true);
+  }
 
   /** Detecta un escaneo de DNI cuando el foco no está en un campo de texto (ver DetectorEscaneoDni). */
   private detectorEscaneo = new DetectorEscaneoDni((escaneo) => {

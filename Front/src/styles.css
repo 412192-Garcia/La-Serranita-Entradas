@@ -97,3 +97,163 @@ body.ruta-publica {
 input, select, textarea {
   color: inherit;
 }
+
+@media (max-width: 600px) {
+  /* Con menos de 16px el iPhone hace zoom al tocar el campo. */
+  input:not([type='checkbox'], [type='radio'], [type='color'], [type='range']),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
+  /* Lugar para la barra inferior (ver cabecera-interna): body tiene padding fijo en 0. */
+  app-root:has(.barra-inferior) {
+    display: block;
+    padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Sin esto, una pantalla corta scrollea igual: su min-height de 100vh más la barra. */
+  app-root:has(.barra-inferior) > * {
+    min-height: calc(100vh - 64px - env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Con el teclado abierto la barra sólo taparía el formulario. */
+  app-root:has(input:not([type='checkbox'], [type='radio']):focus, textarea:focus) .barra-inferior {
+    display: none;
+  }
+
+  app-root:has(.barra-inferior) .contenedor-toasts,
+  app-root:has(.barra-inferior) .banner-actualizacion {
+    bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* Con una hoja abierta en celular, lo de atrás no scrollea: sólo la hoja. */
+@media (max-width: 600px) {
+  html:has(
+    app-cierre-caja-modal:not(.oculto) .modal-overlay.como-hoja,
+    .modal-overlay.como-hoja:not(app-cierre-caja-modal *),
+    .menu-slider.abierto,
+    .panel-filtros.abierto,
+    .menu-dropdown,
+    .botones-operacion.abierto,
+    .fondo-form-venta,
+    .fila-detalle-expandida
+  ) {
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
+  /* El detalle de caja scrollea solo: se frena mientras tenga una hoja arriba. */
+  .fila-detalle-expandida:has(
+    .modal-overlay.como-hoja,
+    .botones-operacion.abierto,
+    .fondo-form-venta
+  ) {
+    overflow: hidden;
+  }
+
+  /* Al llegar al final de la hoja, el gesto no pasa a lo de atrás. */
+  .modal-panel-wrapper > *,
+  .menu-slider-nav,
+  .panel-filtros.abierto,
+  .menu-dropdown,
+  .form-edicion-venta {
+    overscroll-behavior: contain;
+  }
+}
+
+@media (max-width: 640px) {
+  html:has(.carrito.hoja-abierta) {
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
+  .carrito.hoja-abierta {
+    overscroll-behavior: contain;
+  }
+}
+
+/* Tarjetas plegables en celular: ver shared/plegable-celular.directive.ts. */
+.btn-ver-detalle {
+  display: none;
+}
+
+@media (max-width: 600px) {
+  .plegable-celular > h2 {
+    box-sizing: border-box;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 12px;
+    min-height: 44px;
+    margin: 0;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .plegable-celular > h2::after {
+    content: '';
+    flex-shrink: 0;
+    width: 8px;
+    height: 8px;
+    margin-left: auto;
+    margin-right: 3px;
+    border-right: 2px solid var(--color-text-muted);
+    border-bottom: 2px solid var(--color-text-muted);
+    transform: rotate(-135deg);
+  }
+
+  .plegable-celular.plegada > h2::after {
+    transform: rotate(45deg);
+  }
+
+  .plegable-celular.plegada > :not(h2) {
+    display: none !important;
+  }
+
+  .btn-ver-detalle {
+    display: block;
+    width: 100%;
+    min-height: 44px;
+    border: 1.5px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background-color: var(--color-card-bg);
+    color: var(--color-text-secondary);
+    font-family: inherit;
+    font-size: 0.88rem;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .btn-ver-detalle::before {
+    content: 'Ver detalle';
+  }
+
+  .con-detalle > .btn-ver-detalle {
+    margin-bottom: 10px;
+  }
+
+  .con-detalle > .btn-ver-detalle::before {
+    content: 'Ocultar detalle';
+  }
+
+  .plegable-celular:not(.con-detalle) > .btn-ver-detalle + .tabla-simple {
+    display: none;
+  }
+}
+
+@media (max-width: 600px) {
+  /* Con el botón de ayuda de la tarjeta (arriba a la derecha) la flecha se corre para no pisarlo. */
+  .tarjeta-con-tutorial.plegable-celular:not(.plegada) > h2 {
+    padding-right: 44px;
+  }
+}
+
+@media (max-width: 600px) {
+  /* Plegada no se ve el botón de ayuda: la flecha va contra el borde, como en las demás. */
+  .tarjeta-con-tutorial.plegable-celular.plegada > h2 {
+    padding-right: 0;
+  }
+}

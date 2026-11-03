@@ -4,7 +4,7 @@ import {SeleccionEntradas} from './compra/seleccion-entradas/seleccion-entradas'
 import {Entradas} from './compra/entradas/entradas';
 import {PagoExitoso} from './resultado-pago/pago-exitoso/pago-exitoso';
 import {PagoFallido} from './resultado-pago/pago-fallido/pago-fallido';
-import {rolGuard} from './guards/rol-guard';
+import {rolGuard, destinoInicial} from './guards/rol-guard';
 
 export const routes: Routes = [
   // ---------- Módulo web (público) ----------
@@ -14,6 +14,8 @@ export const routes: Routes = [
   { path: 'pago-fallido', component: PagoFallido },
 
   // ---------- Módulo interno (boletería/gestión) ----------
+  // Donde arranca la app instalada (ver start_url del manifest).
+  { path: 'inicio', pathMatch: 'full', redirectTo: destinoInicial },
   // Se carga bajo demanda: sólo lo usa el staff, así que no tiene sentido que
   // cada visitante que entra a comprar una entrada se lo baje también.
   {

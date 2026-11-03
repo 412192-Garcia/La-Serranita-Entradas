@@ -1,9 +1,9 @@
-<app-modal (cerrar)="cerrar.emit()">
+<app-modal [activo]="visible()" (cerrar)="cerrar.emit()">
   <div class="panel-caja panel-caja-cierre">
     <h3>Cerrar caja</h3>
 
     <div class="cuerpo-cierre">
-      <app-conteo-cierre [cajaId]="cajaId()" [huboVentaDolares]="huboVentaDolares()" [dosColumnas]="true" [cobrosPoint]="resumenPoint()">
+      <app-conteo-cierre #conteoCierre [cajaId]="cajaId()" [huboVentaDolares]="huboVentaDolares()" [dosColumnas]="true" [cobrosPoint]="resumenPoint()">
         <!-- Se proyecta al final de la columna derecha (posnet/entradas), donde queda lugar libre. -->
         <section class="seccion-cierre seccion-movimientos" data-tour="cierre-movimientos">
           <h4>Movimientos de caja</h4>
@@ -33,6 +33,11 @@
       <p class="alerta-error">{{ errorCierre() }}</p>
     }
     <div class="acciones">
+      <!-- Sólo en celular: el pie queda fijo y el total del efectivo siempre a la vista. -->
+      <div class="pie-total-contado">
+        <span>Total contado</span>
+        <strong>{{ conteoCierre.montoContadoCalculado() | pesos }}</strong>
+      </div>
       <button type="button" class="btn-limpiar" (click)="cerrar.emit()">Cancelar</button>
       <button type="button" class="btn-cobrar" [disabled]="cerrandoCaja()" (click)="confirmarCierre()">
         {{ cerrandoCaja() ? 'Cerrando…' : 'Confirmar cierre' }}

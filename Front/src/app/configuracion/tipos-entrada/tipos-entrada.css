@@ -121,3 +121,19 @@
     height: 44px;
   }
 }
+
+/* Celular: las flechas de orden comparten renglón con Editar y Desactivar. */
+@media (max-width: 600px) {
+  .fila-simple.fila-simple-tipos.fila-compacta > .acciones-orden {
+    flex-basis: auto;
+    margin-right: auto;
+  }
+
+  .fila-simple.fila-simple-tipos.fila-compacta > .acciones-orden::before {
+    content: none;
+  }
+
+  .fila-simple.fila-simple-tipos.fila-compacta > .acciones-tipo {
+    flex-basis: auto;
+  }
+}

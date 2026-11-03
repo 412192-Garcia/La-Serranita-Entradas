@@ -7,6 +7,7 @@ import { SesionService } from '../services/sesion.service';
 import { PALETAS_PREARMADAS, PALETAS_FONDO, PALETAS_TARJETA, PALETAS_BORDE, DISENIOS_PREARMADOS, DisenioPrearmado, ThemeService } from '../services/theme.service';
 import { CabeceraInterna } from '../shared/cabecera-interna/cabecera-interna';
 import { TourStep } from '../shared/tour/tour';
+import { PlegableCelular } from '../shared/plegable-celular.directive';
 
 const PASOS_TUTORIAL: TourStep[] = [
   {
@@ -41,7 +42,7 @@ const FOTO_LADO_PX = 200;
  */
 @Component({
   selector: 'app-mi-cuenta',
-  imports: [FormsModule, CabeceraInterna, LucideUser],
+  imports: [FormsModule, CabeceraInterna, LucideUser, PlegableCelular],
   templateUrl: './mi-cuenta.html',
   styleUrls: ['../configuracion/configuracion-shared.css', './mi-cuenta.css'],
 })

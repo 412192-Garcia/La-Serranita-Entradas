@@ -50,3 +50,57 @@
   font-size: 0.85rem;
   color: var(--color-text-secondary);
 }
+
+.pie-total-contado {
+  display: none;
+}
+
+/* Celular: a pantalla completa, con el total y los botones siempre a la vista. */
+@media (max-width: 600px) {
+  .panel-caja.panel-caja-cierre {
+    height: 100dvh;
+    max-height: 100dvh !important;
+    padding-bottom: 0;
+    border: none;
+    border-radius: 0 !important;
+  }
+
+  .panel-caja-cierre > .cuerpo-cierre {
+    flex: 1 0 auto;
+  }
+
+  .panel-caja-cierre > .acciones {
+    position: sticky;
+    bottom: 0;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 8px;
+    margin: 0 -20px;
+    padding: 10px 20px 12px;
+    border-top: 1px solid var(--color-border);
+    background-color: var(--color-card-bg);
+    box-shadow: 0 -4px 12px rgba(17, 24, 39, 0.06);
+  }
+
+  .pie-total-contado {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--color-text-secondary);
+  }
+
+  .pie-total-contado strong {
+    font-family: var(--font-heading);
+    font-size: 1.2rem;
+    color: var(--color-primary-dark);
+  }
+
+  .panel-caja-cierre > .acciones .btn-limpiar {
+    min-height: 48px;
+    padding: 0 16px;
+  }
+}

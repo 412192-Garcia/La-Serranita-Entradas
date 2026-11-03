@@ -1,6 +1,6 @@
 <div class="seccion seccion-tipos">
 
-  <div class="tarjeta tarjeta-formulario">
+  <div appPlegableCelular [plegableAbierta]="!!tipoEditandoId()" class="tarjeta tarjeta-formulario">
     <h2>{{ tipoEditandoId() ? 'Editar tipo de entrada' : 'Nuevo tipo de entrada' }}</h2>
     @if (!tipoEditandoId() && categoriaTipo() === 'ENTRADA') {
       <p class="ayuda">Después de crearlo vas a poder cargarle precios por grupo.</p>
@@ -30,7 +30,7 @@
       </label>
       <label>
         <span class="etiqueta-campo">Máximo por día <span class="opcional">(opcional)</span></span>
-        <input type="number" min="1" placeholder="Sin límite" [ngModel]="maximoPorDiaTipo()" (ngModelChange)="maximoPorDiaTipo.set($event)" />
+        <input type="number" inputmode="numeric" min="1" placeholder="Sin límite" [ngModel]="maximoPorDiaTipo()" (ngModelChange)="maximoPorDiaTipo.set($event)" />
       </label>
     </div>
     @if (categoriaTipo() === 'ENTRADA') {
@@ -101,7 +101,7 @@
         <div class="form-grid">
           <label>
             Cantidad de pases
-            <input type="number" min="2" [ngModel]="cantidadPasesDescuento()" (ngModelChange)="cantidadPasesDescuento.set($event)" />
+            <input type="number" inputmode="numeric" min="2" [ngModel]="cantidadPasesDescuento()" (ngModelChange)="cantidadPasesDescuento.set($event)" />
           </label>
           <label>
             Precio total promocional
@@ -166,7 +166,7 @@
           <span>Acción</span>
         </div>
         @for (t of tiposEntradaVisibles(); track t.id) {
-          <div class="fila-simple fila-simple-tipos">
+          <div class="fila-simple fila-simple-tipos fila-compacta">
             <span class="acciones-orden" data-label="Orden">
               @if (puedeReordenarManualmente()) {
                 <button type="button" class="btn-reordenar" [disabled]="esPrimeroEnCategoria(t) || !!reordenandoId()" (click)="moverArriba(t)" aria-label="Subir en el orden de venta">
@@ -179,23 +179,23 @@
                 <span class="ayuda">—</span>
               }
             </span>
-            <span>
+            <span class="fc-titulo">
               {{ t.nombre }}
               @if (t.soloPos) {
                 <span class="badge badge-inactivo">Solo POS</span>
               }
             </span>
-            <span data-label="Categoría">{{ t.tipo === 'ENTRADA' ? 'Entrada' : 'Extra' }}</span>
-            <span data-label="Precio">{{ t.precio | pesos }}</span>
-            <span data-label="Obligatorio">
+            <span class="fc-dato" data-label="Categoría">{{ t.tipo === 'ENTRADA' ? 'Entrada' : 'Extra' }}</span>
+            <span class="fc-dato" data-label="Precio">{{ t.precio | pesos }}</span>
+            <span class="fc-dato" data-label="Obligatorio">
               @if (t.obligatorio) {
                 <span class="badge badge-activo">Sí</span>
               } @else {
                 <span class="ayuda">—</span>
               }
             </span>
-            <span data-label="Máx/día">{{ t.maximoPorDia ?? '—' }}</span>
-            <span class="badge" [class.badge-activo]="t.activo" [class.badge-inactivo]="!t.activo">
+            <span class="fc-dato" data-label="Máx/día">{{ t.maximoPorDia ?? '—' }}</span>
+            <span class="badge fc-insignia" [class.badge-activo]="t.activo" [class.badge-inactivo]="!t.activo">
               {{ t.activo ? 'Activo' : 'Inactivo' }}
             </span>
             <span class="acciones-tipo">

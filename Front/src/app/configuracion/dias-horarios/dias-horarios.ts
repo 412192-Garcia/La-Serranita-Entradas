@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, computed, effect } from '@angular/core';
+import { Component, ElementRef, OnInit, inject, signal, computed, effect } from '@angular/core';
 import { ToastService } from '../../shared/toast/toast.service';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -48,6 +48,9 @@ export class ConfiguracionDiasHorarios implements OnInit {
   diasSeleccionados = signal<Set<string>>(new Set());
   /** Último día tocado con click simple o Ctrl+click: punto de partida para el rango de Shift+click. */
   private anclaSeleccion = signal<string | null>(null);
+  /** Celular: cada toque suma o saca un día, como Ctrl+click. */
+  eligiendoVarios = signal(false);
+  private elementRef = inject(ElementRef<HTMLElement>);
   horaAperturaEspecial = signal('');
   horaCierreEspecial = signal('');
   guardandoDia = signal(false);
@@ -192,8 +195,9 @@ export class ConfiguracionDiasHorarios implements OnInit {
       return;
     }
 
-    const esMulti = event.ctrlKey || event.metaKey;
+    const esMulti = event.ctrlKey || event.metaKey || this.eligiendoVarios();
     this.anclaSeleccion.set(c.fecha);
+    if (!esMulti) this.mostrarPanelDiaEnCelular();
 
     this.diasSeleccionados.update((actual) => {
       if (esMulti) {
@@ -223,7 +227,7 @@ export class ConfiguracionDiasHorarios implements OnInit {
       .map((c) => c.fecha);
     if (fechas.length === 0) return;
 
-    const esMulti = event.ctrlKey || event.metaKey;
+    const esMulti = event.ctrlKey || event.metaKey || this.eligiendoVarios();
     this.diasSeleccionados.update((actual) => {
       if (esMulti) {
         const copia = new Set(actual);
@@ -240,6 +244,23 @@ export class ConfiguracionDiasHorarios implements OnInit {
       }
       return new Set(fechas);
     });
+  }
+
+  alternarEligiendoVarios(): void {
+    const terminar = this.eligiendoVarios();
+    this.eligiendoVarios.set(!terminar);
+    if (terminar && this.diasSeleccionados().size > 0) this.mostrarPanelDiaEnCelular();
+  }
+
+  /** En celular el panel queda abajo del calendario, fuera de la vista. La espera deja
+   * terminar el toque: si no, el scroll suave se corta apenas empieza. */
+  private mostrarPanelDiaEnCelular(): void {
+    if (!window.matchMedia('(max-width: 600px)').matches) return;
+    setTimeout(() => {
+      this.elementRef.nativeElement
+        .querySelector('.tarjeta-dia-detalle')
+        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 150);
   }
 
   limpiarSeleccion(): void {

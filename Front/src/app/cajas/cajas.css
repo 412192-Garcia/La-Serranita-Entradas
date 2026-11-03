@@ -207,3 +207,57 @@
     justify-content: center;
   }
 }
+
+.btn-volver-detalle {
+  display: none;
+}
+
+/* Celular: el detalle de una caja ocupa toda la pantalla en vez de empujar la lista. */
+@media (max-width: 600px) {
+  .fila-detalle-expandida {
+    position: fixed;
+    inset: 0;
+    z-index: 95;
+    margin: 0;
+    padding: 0 12px 24px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    background-color: var(--color-bg-page);
+  }
+
+  .btn-volver-detalle {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+    width: calc(100% + 24px);
+    min-height: 52px;
+    margin: 0 -12px;
+    padding: 0 14px;
+    border: none;
+    border-bottom: 1px solid var(--color-border);
+    background-color: var(--color-card-bg);
+    color: var(--color-text);
+    font-family: var(--font-heading);
+    font-size: 1rem;
+    font-weight: 700;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .btn-volver-detalle svg {
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
+  }
+
+  .paginador .btn-limpiar {
+    min-height: 44px;
+  }
+}

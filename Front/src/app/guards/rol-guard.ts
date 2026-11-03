@@ -2,6 +2,13 @@ import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
 import { Rol, SesionService } from '../services/sesion.service';
 
+/** Pantalla de arranque: admin y soporte en Hoy, boleteros vendiendo, sin sesión al login. */
+export function destinoInicial(): string {
+  const sesion = inject(SesionService);
+  if (!sesion.estaAutenticado()) return '/login';
+  return sesion.esAdmin() ? '/hoy' : '/pos';
+}
+
 /**
  * Guard funcional parametrizable por rol.
  *

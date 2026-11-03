@@ -15,3 +15,27 @@
 .modal-panel-wrapper {
   display: contents;
 }
+
+/* Celular: hoja desde abajo. Los !important le ganan a las medidas propias de cada panel. */
+@media (max-width: 600px) {
+  .modal-overlay.como-hoja {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  :host ::ng-deep .como-hoja > .modal-panel-wrapper > * {
+    box-sizing: border-box;
+    width: 100% !important;
+    max-width: none !important;
+    max-height: 92dvh !important;
+    margin: 0 !important;
+    overflow-y: auto !important;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0 !important;
+    animation: subir-hoja 0.22s ease-out;
+  }
+}
+
+@keyframes subir-hoja {
+  from { transform: translateY(40px); }
+  to { transform: none; }
+}

@@ -1,6 +1,6 @@
 <div class="seccion">
 
-  <div class="tarjeta tarjeta-formulario">
+  <div appPlegableCelular [plegableAbierta]="!!editandoId()" class="tarjeta tarjeta-formulario">
     <h2>{{ editandoId() ? 'Editar promoción' : 'Nueva promoción' }}</h2>
     @if (error()) {
       <p class="alerta-error">{{ error() }}</p>
@@ -67,16 +67,16 @@
           <span>Acción</span>
         </div>
         @for (p of promocionesVisibles(); track p.id) {
-          <div class="fila-simple fila-simple-promos">
-            <span>{{ p.nombre }}</span>
-            <span data-label="Descuento">
+          <div class="fila-simple fila-simple-promos fila-compacta">
+            <span class="fc-titulo">{{ p.nombre }}</span>
+            <span class="fc-dato" data-label="Descuento">
               @if (p.montoDescuento !== null) {
                 {{ p.montoDescuento | pesos }}
               } @else {
                 {{ p.porcentajeDescuento }}%
               }
             </span>
-            <span class="badge" [class.badge-activo]="p.activo" [class.badge-inactivo]="!p.activo">
+            <span class="badge fc-insignia" [class.badge-activo]="p.activo" [class.badge-inactivo]="!p.activo">
               {{ p.activo ? 'Activa' : 'Inactiva' }}
             </span>
             <span class="acciones-tipo">

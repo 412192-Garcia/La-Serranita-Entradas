@@ -10,12 +10,17 @@ import { FiltroRangoFechas } from '../shared/filtro-rango-fechas/filtro-rango-fe
 import { aFechaISO, restarUnAnio } from '../shared/fecha.util';
 import { PesosPipe } from '../shared/pesos.pipe';
 import { TourStep } from '../shared/tour/tour';
+import { PlegableCelular } from '../shared/plegable-celular.directive';
+
+/** Accesos rápidos de fecha en celular. "otro" muestra el formulario de fechas. */
+type RangoRapido = 'hoy' | '7' | '30' | 'mes' | 'otro';
 
 /** Cada pestaña (Resumen/Comparación) tiene su propio recorrido, igual que en Configuración:
  * son bloques de contenido distintos y no tiene sentido un único tutorial para las dos. */
 const PASOS_RESUMEN: TourStep[] = [
   {
     selector: '[data-tour="filtro-fechas-reportes"]',
+    alternativo: '[data-tour="rangos-rapidos"]',
     titulo: 'Elegí el rango',
     texto: 'Elegí el rango de fechas y tocá Aplicar para traer los números de ese período.',
   },
@@ -126,7 +131,7 @@ type PeriodoAgrupacion = 'dia' | 'semana' | 'mes';
 
 @Component({
   selector: 'app-configuracion-reportes',
-  imports: [FormsModule, PesosPipe, DecimalPipe, DatePipe, CabeceraInterna, FiltroRangoFechas],
+  imports: [FormsModule, PesosPipe, DecimalPipe, DatePipe, CabeceraInterna, FiltroRangoFechas, PlegableCelular],
   templateUrl: './reportes.html',
   styleUrls: ['../configuracion/configuracion-shared.css', './reportes.css'],
 })
@@ -175,6 +180,30 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
   private readonly hoy = new Date();
   desde = signal(aFechaISO(new Date(this.hoy.getFullYear(), this.hoy.getMonth(), this.hoy.getDate() - 29)));
   hasta = signal(aFechaISO(this.hoy));
+
+  readonly rangosRapidos: { valor: RangoRapido; etiqueta: string }[] = [
+    { valor: 'hoy', etiqueta: 'Hoy' },
+    { valor: '7', etiqueta: '7 días' },
+    { valor: '30', etiqueta: '30 días' },
+    { valor: 'mes', etiqueta: 'Este mes' },
+    { valor: 'otro', etiqueta: 'Otras' },
+  ];
+  rangoRapido = signal<RangoRapido>('30');
+
+  elegirRangoRapido(rango: RangoRapido): void {
+    this.rangoRapido.set(rango);
+    if (rango === 'otro') return;
+    const hoy = new Date();
+    const inicio = {
+      hoy,
+      '7': new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - 6),
+      '30': new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - 29),
+      mes: new Date(hoy.getFullYear(), hoy.getMonth(), 1),
+    }[rango];
+    this.desde.set(aFechaISO(inicio));
+    this.hasta.set(aFechaISO(hoy));
+    this.cargar();
+  }
 
   cargando = signal(false);
   error = signal<string | null>(null);
@@ -753,6 +782,10 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
         responsive: true,
         maintainAspectRatio: false,
         scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+        // En celular las referencias van abajo y chicas: arriba le comían medio gráfico.
+        plugins: window.innerWidth <= 600
+          ? { legend: { position: 'bottom', labels: { boxWidth: 10, padding: 8, font: { size: 11 } } } }
+          : {},
       },
     });
   }

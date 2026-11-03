@@ -1,4 +1,4 @@
-import {ChangeDetectorRef, Component, ElementRef, NgZone, OnDestroy, OnInit} from '@angular/core';
+import {ChangeDetectorRef, Component, DoCheck, ElementRef, NgZone, OnDestroy, OnInit, inject} from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
@@ -16,6 +16,7 @@ import {FormaPagoType, ResumenCompraData} from "../../models/compra";
 import { DiaAbierto } from '../../services/dia-apertura.service';
 import { LucideClock, LucideCloudRain, LucideTriangleAlert } from '@lucide/angular';
 import { Modal } from '../../shared/modal/modal';
+import { AtrasService, EntradaAtras } from '../../shared/modal/atras.service';
 import { Observable, Subscription, concat, of, timer } from 'rxjs';
 import { catchError, map, switchMap, take } from 'rxjs/operators';
 
@@ -51,7 +52,7 @@ enum etapaCompra {
   templateUrl: './entradas.html',
   styleUrl: './entradas.css',
 })
-export class Entradas implements OnInit, OnDestroy {
+export class Entradas implements OnInit, OnDestroy, DoCheck {
   /** Cada cuánto se le pregunta al backend si el pago se acreditó: seguido los primeros 2 minutos, */
   private static readonly POLL_RAPIDO = { cadaMs: 3000, veces: 40 };
   /** y más espaciado los 8 siguientes. Pasados ~10 min se deja de insistir. */
@@ -64,6 +65,34 @@ export class Entradas implements OnInit, OnDestroy {
   private static readonly MENSAJE_DESPLAZAR = 'la-serranita-desplazar';
 
   etapa: etapaCompra = etapaCompra.SELECCION;
+
+  private atras = inject(AtrasService);
+  /** Una entrada del historial por cada paso avanzado: el botón atrás vuelve de a un paso. */
+  private pasosEnHistorial: EntradaAtras[] = [];
+
+  /** El paso cambia desde muchos lugares: acá se acomoda el historial a lo que quedó. */
+  ngDoCheck(): void {
+    const deseados = this.pagoConfirmado ? 0 : this.etapa;
+    while (this.pasosEnHistorial.length < deseados) {
+      const paso: EntradaAtras = {
+        cerrar: () => this.volverConAtras(paso),
+        estaAbierta: () => this.pasosEnHistorial.includes(paso),
+      };
+      this.pasosEnHistorial.push(paso);
+      this.atras.abrir(paso);
+    }
+    while (this.pasosEnHistorial.length > deseados) {
+      this.atras.cerrado(this.pasosEnHistorial.pop()!);
+    }
+  }
+
+  /** Con el pago en curso no se vuelve: queda en este paso. */
+  private volverConAtras(paso: EntradaAtras): void {
+    if (this.procesandoPago) return;
+    this.pasosEnHistorial = this.pasosEnHistorial.filter((p) => p !== paso);
+    this.volverPasoAnterior();
+    this.cdr.markForCheck();
+  }
 
   constructor(private compraService: CompraService,
   private cdr: ChangeDetectorRef,
@@ -262,6 +291,7 @@ export class Entradas implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.pasosEnHistorial.forEach((p) => this.atras.cerrado(p));
     this.detenerVerificacion();
     this.ventanaPago = null;
     this.observadorAltura?.disconnect();
@@ -489,19 +519,21 @@ export class Entradas implements OnInit, OnDestroy {
    * mover: se le pasa al sitio adónde ir (y la altura nueva, para que el iframe ya la tenga
    * al desplazarse) por postMessage, igual que la altura (snippet en el README).
    */
-  private llevarVistaA(destino: 'inicio' | 'entradas'): void {
+  private llevarVistaA(destino: 'inicio' | 'entradas' | HTMLElement): void {
     this.cuandoLaAlturaSeQuedeQuieta(() => {
       const host = this.elementRef.nativeElement;
       const panel = host.querySelector<HTMLElement>('.panel-derecho');
-      const objetivo = destino === 'entradas' && panel && panel.offsetParent !== null ? panel : host;
-      const y = Math.max(0, Math.round(objetivo.getBoundingClientRect().top - host.getBoundingClientRect().top));
+      const objetivo = destino instanceof HTMLElement ? destino
+        : destino === 'entradas' && panel && panel.offsetParent !== null ? panel : host;
+      const margen = destino instanceof HTMLElement ? 16 : 0;
+      const y = Math.max(0, Math.round(objetivo.getBoundingClientRect().top - host.getBoundingClientRect().top) - margen);
 
       if (window.parent !== window) {
         window.parent.postMessage({ type: Entradas.MENSAJE_DESPLAZAR, y, alto: host.scrollHeight }, '*');
         return;
       }
       // Mismo criterio que el snippet del sitio: sólo si no quedó en el tercio de arriba.
-      const enPantalla = objetivo.getBoundingClientRect().top;
+      const enPantalla = objetivo.getBoundingClientRect().top - margen;
       if (enPantalla < 0 || enPantalla > window.innerHeight / 3) {
         window.scrollTo({ top: window.scrollY + enPantalla, behavior: 'smooth' });
       }
@@ -528,6 +560,11 @@ export class Entradas implements OnInit, OnDestroy {
       setTimeout(revisar, 60);
     };
     setTimeout(revisar, 50);
+  }
+
+  /** Siguiente con datos que faltan: lleva la vista al primer campo con error. */
+  llevarVistaACampo(campo: HTMLElement): void {
+    this.llevarVistaA(campo);
   }
 
   private llevarVistaAlPaso(): void {

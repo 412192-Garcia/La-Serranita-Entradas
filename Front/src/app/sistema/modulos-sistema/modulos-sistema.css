@@ -197,6 +197,13 @@
     transform: translateX(24px);
   }
 
+  /* Zona de toque de 44px sin agrandar el dibujo. */
+  .interruptor::after {
+    content: '';
+    position: absolute;
+    inset: -6px -4px;
+  }
+
   .btn-accion {
     min-height: 44px;
   }

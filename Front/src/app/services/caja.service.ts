@@ -230,8 +230,8 @@ export interface CajaAbierta {
   totalVendido: number;
   /** Entradas vendidas de tipos con precio > 0 (excluye gratis, extras y artículos). */
   totalEntradasPagas: number;
-  /** Personas que ingresaron por esta caja: todos los pases de entrada, incluidas las sin cargo. */
-  personasIngresadas: number;
+  /** Efectivo que debería haber ahora: inicial + ventas en efectivo - retiros + aportes. */
+  efectivoEnCaja: number;
   /** true = se abrió con "vender sin control de caja" (sólo ADMIN vendiendo él mismo). */
   controlOmitido: boolean | null;
 }

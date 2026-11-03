@@ -11,12 +11,13 @@ import { crearEstadoEdicion } from '../../shared/edicion.util';
 import { ColumnaOrdenable } from '../../shared/columna-ordenable/columna-ordenable';
 import { PesosPipe } from '../../shared/pesos.pipe';
 import { LucideArrowUp, LucideArrowDown } from '@lucide/angular';
+import { PlegableCelular } from '../../shared/plegable-celular.directive';
 
 type CampoOrdenTipoEntrada = 'orden' | 'nombre' | 'tipo' | 'precio' | 'maximoPorDia' | 'estado';
 
 @Component({
   selector: 'app-configuracion-tipos-entrada',
-  imports: [FormsModule, PesosPipe, MoneyInputDirective, Spinner, ColumnaOrdenable, LucideArrowUp, LucideArrowDown],
+  imports: [FormsModule, PesosPipe, MoneyInputDirective, Spinner, ColumnaOrdenable, LucideArrowUp, LucideArrowDown, PlegableCelular],
   templateUrl: './tipos-entrada.html',
   styleUrls: ['../configuracion-shared.css', './tipos-entrada.css'],
 })

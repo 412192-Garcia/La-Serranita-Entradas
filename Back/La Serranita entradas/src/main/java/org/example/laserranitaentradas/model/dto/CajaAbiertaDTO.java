@@ -18,8 +18,8 @@ public class CajaAbiertaDTO {
     private BigDecimal totalVendido;
     /** Unidades vendidas de tipos de entrada con precio > 0 (excluye gratis, extras y artículos). */
     private Integer totalEntradasPagas;
-    /** Todos los pases que entraron por esta caja, también los gratis. */
-    private Integer personasIngresadas;
+    /** Efectivo que debería haber ahora: inicial + ventas en efectivo - retiros + aportes. */
+    private BigDecimal efectivoEnCaja;
     /** true = se abrió con "vender sin control de caja" (sólo ADMIN vendiendo él mismo). */
     private Boolean controlOmitido;
 }

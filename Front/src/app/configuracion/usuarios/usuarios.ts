@@ -7,12 +7,13 @@ import { Spinner } from '../../shared/spinner/spinner';
 import { crearOrdenable, EstadoOrden } from '../../shared/ordenable';
 import { crearEstadoEdicion } from '../../shared/edicion.util';
 import { ColumnaOrdenable } from '../../shared/columna-ordenable/columna-ordenable';
+import { PlegableCelular } from '../../shared/plegable-celular.directive';
 
 type CampoOrdenUsuario = 'username' | 'nombre' | 'rol' | 'estado';
 
 @Component({
   selector: 'app-configuracion-usuarios',
-  imports: [FormsModule, Spinner, ColumnaOrdenable],
+  imports: [FormsModule, Spinner, ColumnaOrdenable, PlegableCelular],
   templateUrl: './usuarios.html',
   styleUrls: ['../configuracion-shared.css', './usuarios.css'],
 })

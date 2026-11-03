@@ -1308,3 +1308,48 @@
     font-size: 0.9rem;
   }
 }
+
+/* Celular: "Borrar caja" lejos de "Corregir caja", que se toca seguido. */
+@media (max-width: 600px) {
+  .acciones-resumen .btn-borrar-caja {
+    margin-top: 20px;
+  }
+}
+
+@media (max-width: 600px) {
+  .acciones-resumen .btn-corregir-cierre,
+  .acciones-resumen .btn-borrar-caja {
+    min-height: 44px;
+  }
+}
+
+/* Celular: las filas ya son tarjetas; sin el recuadro gris quedan alineadas con los KPI. */
+@media (max-width: 600px) {
+  .tabla-detalle-formaspago {
+    padding: 0;
+    background: none;
+  }
+
+  /* Con dos KPI, "Total vendido" a todo el ancho en vez de media fila con un hueco al lado. */
+  .tarjeta-kpis-detalle:not(.tarjeta-kpis-detalle-3) > div {
+    grid-column: 1 / -1;
+  }
+
+  /* "Borrar caja" al final, después del historial. */
+  :host {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .acciones-resumen {
+    order: 1;
+    margin-top: 14px;
+  }
+}
+
+@media (pointer: coarse) and (max-width: 600px) {
+  .btn-desglose-detalle {
+    padding: 14px 0;
+    margin: -22px 0 2px;
+  }
+}

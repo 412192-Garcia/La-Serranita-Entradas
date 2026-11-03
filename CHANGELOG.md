@@ -6,6 +6,49 @@ número y el CI la usa como nota de la Release de GitHub.
 
 ## Sin publicar
 
+- Celular: barra de navegación abajo (Hoy, Reportes, Cajas y Más), y las ventanas y el menú salen
+  desde abajo. Los campos ya no hacen zoom al tocarlos en iPhone.
+- El botón atrás del celular o la tablet cierra la ventana abierta en vez de salir de la pantalla.
+- Celular: Hoy y Cajas muestran tarjetas más chicas, el detalle de una caja ocupa toda la pantalla, y
+  en Control de accesos los filtros se abren desde un botón, así las reservas se ven antes.
+- Celular: en Reportes se elige la fecha con un toque (Hoy, 7 días, 30 días, Este mes) y cada sección
+  se abre al tocarla.
+- Celular: cerrar una caja usa toda la pantalla, con los billetes en dos columnas y el total y los
+  botones siempre a la vista.
+- Celular: vender entradas pasa a dos pasos: primero se eligen las entradas y, desde la barra de
+  abajo, se abre el cobro con el total siempre a la vista.
+- Celular: Configuración, Acciones y Sistema muestran una lista de secciones en vez de pestañas, y en
+  Mi cuenta cada tarjeta se abre al tocarla.
+- Celular: en Configuración los formularios de alta arrancan cerrados y, al tocar Editar, se abre el
+  formulario y la pantalla te lleva hasta él. En Control de accesos el menú ⋮ sale desde abajo. Hoy se
+  actualiza solo al volver a la app.
+- Compra online: el botón atrás vuelve al paso anterior en vez de salir de la compra.
+- Compra online: "Siguiente" ya no queda gris sin explicación; al tocarlo marca lo que falta y te
+  lleva a ese campo. El cupón se escribe en mayúsculas y la edad abre el teclado numérico.
+- Celular: en Días y horarios hay un botón "Elegir varios días" y, al tocar un día, la pantalla baja
+  hasta su configuración. Control de accesos ya no abre el teclado apenas entrás.
+- Celular: el detalle de una caja cerrada queda alineado y "Borrar caja" pasa al final.
+- Casillas e interruptores más fáciles de tocar en pantallas táctiles, y teclado numérico en los
+  campos de cantidades de cupones y tipos de entrada.
+- Se corrigió que, al editar una venta desde el detalle de una caja, el formulario abriera vacío, sin
+  las entradas ni los artículos de la venta.
+- Hoy: tocar una caja abierta lleva a su detalle en Cajas. En vez de las personas, cada caja muestra
+  el **efectivo que debería tener** en ese momento.
+- La app instalada arranca en Hoy para administradores y soporte, y en Vender entradas para
+  boleteros (puede tardar unos días en cambiar).
+- Celular: las secciones de Configuración, Acciones y Sistema tienen íconos.
+- Celular: las listas de Configuración usan tarjetas más chicas. En el detalle de una caja, Editar y
+  Cancelar se abren desde el ⋮ de cada operación, y agregar o editar una venta sale desde abajo.
+- Compra online en celular: botones − y + más grandes, igual que las flechas del calendario y el
+  campo del cupón.
+- Antes de publicar una versión se revisa la configuración del servidor web, y el deploy avisa si la
+  página no quedó andando.
+- Colores de la app: la barra de arriba de la ventana toma el color del tema apenas abre, sin pasar
+  por el verde. En el celular, la barra de los botones pasa a ser negra con cualquier tema (puede
+  tardar unos días en cambiar).
+- Pantalla Hoy: el dato principal pasa a ser **Entradas**, las personas que entraron al parque. Se sacó "Entradas
+  vendidas hoy": ahora la cantidad de entradas aparece debajo de cada recaudación, junto a las ventas.
+
 ## 0.10.6 — 2026-10-29
 
 - Cobro con Point: con el Point integrado, la venta muestra **Efectivo** y **Posnet** en vez de

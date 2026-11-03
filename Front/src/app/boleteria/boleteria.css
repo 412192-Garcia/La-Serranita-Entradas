@@ -470,3 +470,146 @@
     min-height: 40px;
   }
 }
+
+.btn-filtros-celular,
+.overlay-filtros,
+.cabecera-filtros,
+.btn-ver-resultados {
+  display: none;
+}
+
+/* Celular: los filtros viven en una hoja, así los resultados arrancan más arriba. */
+@media (max-width: 600px) {
+  .btn-filtros-celular {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    flex: 1 1 0;
+    min-height: 44px;
+    padding: 0 12px;
+    border: 1.5px solid var(--color-border);
+    border-radius: 999px;
+    background-color: var(--color-card-bg);
+    color: var(--color-text-secondary);
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .btn-filtros-celular svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .contador-filtros {
+    min-width: 20px;
+    padding: 1px 5px;
+    box-sizing: border-box;
+    border-radius: 999px;
+    background-color: var(--color-primary);
+    color: #fff;
+    font-size: 0.72rem;
+    text-align: center;
+  }
+
+  .panel-filtros {
+    display: none;
+  }
+
+  .panel-filtros.abierto {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 101;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+    max-height: 85dvh;
+    overflow-y: auto;
+    box-sizing: border-box;
+    padding: 0 16px 16px;
+    border: none;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.18);
+  }
+
+  .overlay-filtros.abierto {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: block;
+    background-color: rgba(0, 0, 0, 0.4);
+  }
+
+  .cabecera-filtros {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 0 8px;
+    background-color: var(--color-card-bg);
+    font-family: var(--font-heading);
+    font-size: 1.05rem;
+    font-weight: 700;
+  }
+
+  .btn-cerrar-filtros {
+    display: flex;
+    padding: 10px;
+    margin-right: -10px;
+    border: none;
+    background: none;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+  }
+
+  .btn-cerrar-filtros svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .btn-mas-filtros {
+    display: none;
+  }
+
+  .btn-ver-resultados {
+    display: block;
+    min-height: 48px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background-color: var(--color-primary);
+    color: #fff;
+    font-family: inherit;
+    font-size: 0.95rem;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  /* El menú ⋮ de cada reserva, como hoja desde abajo: con opciones grandes y sin cortarse. */
+  .menu-dropdown {
+    position: fixed;
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 101;
+    width: auto;
+    max-height: 85dvh;
+    overflow-y: auto;
+    padding: 8px 8px calc(12px + env(safe-area-inset-bottom, 0px));
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.4);
+  }
+
+  .menu-dropdown button {
+    min-height: 48px;
+    font-size: 0.95rem;
+  }
+}

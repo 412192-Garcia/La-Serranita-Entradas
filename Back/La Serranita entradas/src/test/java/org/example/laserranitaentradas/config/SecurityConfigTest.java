@@ -47,4 +47,21 @@ class SecurityConfigTest {
     void reembolso_sinLogin_rechaza401() throws Exception {
         assertThat(statusAnonimo(post("/api/interno/compras/1/reembolsar"))).isEqualTo(401);
     }
+
+    @Test
+    void compraCompleta_sinLogin_rechaza401() throws Exception {
+        assertThat(statusAnonimo(get("/api/interno/compras/999999"))).isEqualTo(401);
+    }
+
+    @Test
+    void compraCompleta_comoBoletero_rechaza403_yComoAdminPasa() throws Exception {
+        int boletero = mockMvc.perform(get("/api/interno/compras/999999")
+                .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user("b").roles("BOLETERO")))
+                .andReturn().getResponse().getStatus();
+        int admin = mockMvc.perform(get("/api/interno/compras/999999")
+                .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user("a").roles("ADMIN")))
+                .andReturn().getResponse().getStatus();
+        assertThat(boletero).isEqualTo(403);
+        assertThat(admin).isEqualTo(404);
+    }
 }

@@ -278,3 +278,9 @@
   }
 }
 
+@media (max-width: 600px) {
+  .btn-nav {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}

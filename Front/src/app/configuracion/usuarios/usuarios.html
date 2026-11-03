@@ -1,6 +1,6 @@
 <div class="seccion seccion-usuarios">
 
-  <div class="tarjeta">
+  <div appPlegableCelular [plegableAbierta]="!!editandoId()" class="tarjeta">
     <h2>{{ editandoId() ? 'Editar usuario' : 'Nuevo usuario' }}</h2>
     @if (error()) {
       <p class="alerta-error">{{ error() }}</p>
@@ -85,11 +85,11 @@
           <span>Acción</span>
         </div>
         @for (u of usuariosVisibles(); track u.id) {
-          <div class="fila-simple fila-simple-usuarios">
-            <span>{{ u.username }}</span>
-            <span data-label="Nombre">{{ u.nombre }} {{ u.apellido }}</span>
-            <span data-label="Rol">{{ nombreRol(u.rol) }}</span>
-            <span class="badge" [class.badge-activo]="u.activo" [class.badge-inactivo]="!u.activo">
+          <div class="fila-simple fila-simple-usuarios fila-compacta">
+            <span class="fc-titulo">{{ u.username }}</span>
+            <span class="fc-dato" data-label="Nombre">{{ u.nombre }} {{ u.apellido }}</span>
+            <span class="fc-dato" data-label="Rol">{{ nombreRol(u.rol) }}</span>
+            <span class="badge fc-insignia" [class.badge-activo]="u.activo" [class.badge-inactivo]="!u.activo">
               {{ u.activo ? 'Activo' : 'Inactivo' }}
             </span>
             <span class="acciones-tipo">

@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, OnInit, Output, computed, inject, signal } from '@angular/core';
+import { Component, EventEmitter, Input, OnDestroy, OnInit, Output, computed, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import {
   LucideMenu, LucideX, LucideLogOut, LucideWifiOff, LucideCircleHelp, LucideScanLine, LucideTicket, LucideSun,
@@ -8,6 +8,10 @@ import { SesionService } from '../../services/sesion.service';
 import { ConectividadService } from '../../services/conectividad.service';
 import { NotificacionService, ResumenNotificaciones, TipoNotificacion } from '../../services/notificacion.service';
 import { Tour, TourStep } from '../tour/tour';
+import { AtrasService, EntradaAtras } from '../modal/atras.service';
+
+/** Destinos de la barra inferior del celular. El resto queda en "Más". */
+const RUTAS_BARRA_INFERIOR = ['/hoy', '/reportes', '/cajas'];
 
 interface EnlaceCabecera {
   texto: string;
@@ -54,10 +58,11 @@ const TODOS_LOS_ENLACES: EnlaceCabecera[] = [
   templateUrl: './cabecera-interna.html',
   styleUrl: './cabecera-interna.css',
 })
-export class CabeceraInterna implements OnInit {
+export class CabeceraInterna implements OnInit, OnDestroy {
   private sesion = inject(SesionService);
   private router = inject(Router);
   private notificacionService = inject(NotificacionService);
+  private atras = inject(AtrasService);
 
   @Input({ required: true }) titulo = '';
   @Input() descripcion = '';
@@ -67,6 +72,8 @@ export class CabeceraInterna implements OnInit {
   /** Botón "Tutorial" sólo con el ícono también en pantallas grandes, para pantallas con muchas
    * acciones propias en la barra (ej. el POS). En mobile ya es así siempre. */
   @Input() tutorialCompacto = false;
+  /** Sin barra inferior en celular, para pantallas que necesitan el alto (ej. el POS). */
+  @Input() sinBarraInferior = false;
 
   /** Avisan cuándo empieza y termina el tutorial: una pantalla cuyos pasos cambian de modo (ver
    * `TourStep.antes`, ej. el POS pasando a Anticipadas) guarda el modo al empezar y lo repone al terminar. */
@@ -100,6 +107,34 @@ export class CabeceraInterna implements OnInit {
   private resumenNotificaciones = signal<ResumenNotificaciones>({});
 
   menuAbierto = signal(false);
+  private entradaMenu: EntradaAtras = { cerrar: () => this.menuAbierto.set(false), estaAbierta: () => this.menuAbierto() };
+
+  /** El boletero tiene dos destinos: le alcanza con el menú. */
+  get conBarraInferior(): boolean {
+    return this.sesion.esAdmin() && !this.sinBarraInferior;
+  }
+
+  /** Ya está a la vista en la barra inferior: en celular no se repite en el menú. */
+  estaEnBarra(ruta: string): boolean {
+    return this.conBarraInferior && RUTAS_BARRA_INFERIOR.includes(ruta);
+  }
+
+  get masActivo(): boolean {
+    return this.menuAbierto() || !RUTAS_BARRA_INFERIOR.some((r) => this.esRutaActual(r));
+  }
+
+  /** Para el puntito de "Más": avisos de los destinos que no están en la barra. */
+  get hayAvisoEnMas(): boolean {
+    return this.enlacesVisibles().some((e) => !this.estaEnBarra(e.ruta) && this.avisoSinVer(e));
+  }
+
+  avisoDeRuta(ruta: string): boolean {
+    return this.enlacesVisibles().some((e) => e.ruta === ruta && this.avisoSinVer(e));
+  }
+
+  ngOnDestroy(): void {
+    if (this.menuAbierto()) this.atras.soltar(this.entradaMenu);
+  }
 
   ngOnInit(): void {
     if (this.sesion.esAdmin()) {
@@ -126,15 +161,34 @@ export class CabeceraInterna implements OnInit {
   readonly hayAlgunAvisoSinVer = computed(() => this.enlacesVisibles().some((e) => this.avisoSinVer(e)));
 
   toggleMenu(): void {
-    this.menuAbierto.update((v) => !v);
+    if (this.menuAbierto()) {
+      this.cerrarMenu();
+    } else {
+      this.menuAbierto.set(true);
+      this.atras.abrir(this.entradaMenu);
+    }
   }
 
   cerrarMenu(): void {
+    if (!this.menuAbierto()) return;
     this.menuAbierto.set(false);
+    this.atras.cerrado(this.entradaMenu);
+  }
+
+  /** Tocó un destino del menú: si cambia de pantalla, el router reemplaza la entrada del menú. */
+  alElegirDestino(ruta: string): void {
+    if (this.esRutaActual(ruta)) {
+      this.cerrarMenu();
+    } else {
+      this.menuAbierto.set(false);
+      this.atras.soltar(this.entradaMenu);
+    }
   }
 
   cerrarSesion(): void {
+    this.menuAbierto.set(false);
+    this.atras.soltar(this.entradaMenu);
     this.sesion.cerrarSesion();
-    this.router.navigateByUrl('/login');
+    this.router.navigateByUrl('/login', { replaceUrl: true });
   }
 }

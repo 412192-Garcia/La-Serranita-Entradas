@@ -1,4 +1,4 @@
-import {Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges, output} from '@angular/core';
+import {Component, ElementRef, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges, inject, output} from '@angular/core';
 import {CurrencyPipe} from "@angular/common";
 import {AbstractControl, FormBuilder, FormGroup, ReactiveFormsModule, ValidationErrors, Validators} from '@angular/forms';
 import {Spinner} from '../../shared/spinner/spinner';
@@ -60,6 +60,8 @@ export class FormCliente implements OnInit, OnChanges {
   constructor(private fb: FormBuilder) {
   }
 
+  private elementRef = inject(ElementRef<HTMLElement>);
+
   formGroup!: FormGroup;
   cargando: boolean = false;
 
@@ -79,6 +81,8 @@ export class FormCliente implements OnInit, OnChanges {
 
   @Output() siguiente = new EventEmitter<any>()
   @Output() atras = new EventEmitter<any>()
+  /** Al tocar Siguiente con datos que faltan: el campo a mostrar (el scroll lo hace Entradas). */
+  readonly campoConError = output<HTMLElement>();
 
   ngOnInit(): void {
     this.formGroup = this.fb.group({
@@ -110,11 +114,12 @@ export class FormCliente implements OnInit, OnChanges {
     this.actualizarValidadoresReceptor();
 
     if (this.datosPrevios) {
-      this.formGroup.patchValue(this.datosPrevios);
+      // Volvió de un paso siguiente: el DNI ya está confirmado, no hace falta escribirlo de nuevo.
+      this.formGroup.patchValue({ ...this.datosPrevios, dniConfirmacion: this.datosPrevios.dni });
       this.usaPasaporte = tieneLetras(this.datosPrevios.dni);
     }
     if (this.datosPreviosReceptor) {
-      this.formGroup.get('receptor')!.patchValue(this.datosPreviosReceptor);
+      this.formGroup.get('receptor')!.patchValue({ ...this.datosPreviosReceptor, dniConfirmacion: this.datosPreviosReceptor.dni });
       this.receptorUsaPasaporte = tieneLetras(this.datosPreviosReceptor.dni);
     }
 
@@ -220,7 +225,22 @@ export class FormCliente implements OnInit, OnChanges {
     else
     {
       this.formGroup.markAllAsTouched();
+      const campo = this.primerCampoConError();
+      if (campo) {
+        campo.focus({ preventScroll: true });
+        this.campoConError.emit(campo.closest<HTMLElement>('.campo-grupo') ?? campo);
+      }
     }
+  }
+
+  /** Se mira el formulario y no la clase ng-invalid, que puede no estar al día todavía. */
+  private primerCampoConError(): HTMLElement | null {
+    const campos = this.elementRef.nativeElement.querySelectorAll('[formcontrolname]') as NodeListOf<HTMLElement>;
+    for (const campo of Array.from(campos)) {
+      const grupo = campo.closest('[formgroupname="receptor"]') ? this.formGroup.get('receptor') : this.formGroup;
+      if (grupo?.get(campo.getAttribute('formcontrolname')!)?.invalid) return campo;
+    }
+    return null;
   }
 
   onVolver(): void {

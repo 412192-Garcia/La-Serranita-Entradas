@@ -47,6 +47,14 @@
     </div>
 
     <p class="ayuda ayuda-tip">Con Ctrl+click elegís varios días y con Shift+click un rango.</p>
+    <button
+      type="button"
+      class="btn-elegir-varios"
+      [class.activo]="eligiendoVarios()"
+      [attr.aria-pressed]="eligiendoVarios()"
+      (click)="alternarEligiendoVarios()">
+      {{ eligiendoVarios() ? 'Listo' : 'Elegir varios días' }}
+    </button>
 
     @if (errorDias()) {
       <p class="alerta-error">{{ errorDias() }}</p>

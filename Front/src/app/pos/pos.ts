@@ -19,7 +19,7 @@ import { AperturaCaja } from './apertura-caja/apertura-caja';
 import { BarraCaja } from './barra-caja/barra-caja';
 import { RetiroEfectivoModal } from '../shared/retiro-efectivo-modal/retiro-efectivo-modal';
 import { IngresoEntradasModal } from './ingreso-entradas-modal/ingreso-entradas-modal';
-import { CatalogoEntradas } from './catalogo-entradas/catalogo-entradas';
+import { CANTIDAD_MAXIMA, CatalogoEntradas } from './catalogo-entradas/catalogo-entradas';
 import { AgregarArticulo } from './agregar-articulo/agregar-articulo';
 import { CarritoVenta, VentaPosConfirmada } from './carrito-venta/carrito-venta';
 import { ComprobanteVenta } from './comprobante-venta/comprobante-venta';
@@ -93,6 +93,7 @@ export class Pos implements OnInit, OnDestroy {
     },
     {
       selector: '[data-tour="carrito"]',
+      alternativo: '[data-tour="barra-cobro"]',
       titulo: 'Venta: cobrar',
       texto: 'Revisá el resumen, elegí la forma de pago y tocá Cobrar. Con un Point elegido, tocá Posnet: el cliente paga en el Point con tarjeta o QR y la venta se guarda sola.',
       antes: () => this.consultaAnticipada.set(null),
@@ -332,6 +333,13 @@ export class Pos implements OnInit, OnDestroy {
 
   onQuitarArticulo(index: number): void {
     this.articulosCarrito.update((c) => c.filter((_, i) => i !== index));
+  }
+
+  onCambiarCantidad(cambio: { id: number; delta: number }): void {
+    this.cantidades.update((c) => ({
+      ...c,
+      [cambio.id]: Math.min(CANTIDAD_MAXIMA, Math.max(0, (c[cambio.id] ?? 0) + cambio.delta)),
+    }));
   }
 
   onQuitarEntrada(tipoEntradaId: number): void {

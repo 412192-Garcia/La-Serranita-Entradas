@@ -290,6 +290,15 @@ export class ReservasBusqueda implements OnDestroy {
     this.filtrosAvanzadosEnDefecto() && mismosElementos(this.estadosActivos(), ESTADOS_POR_DEFECTO)
   );
 
+  /** Cuántos filtros difieren de los de por defecto: el contador del botón "Filtros" en celular. */
+  cantidadFiltrosActivos = computed(() => {
+    const activos = this.estadosActivos();
+    const estadosDistintos =
+      [...activos].filter((e) => !ESTADOS_POR_DEFECTO.includes(e)).length +
+      ESTADOS_POR_DEFECTO.filter((e) => !activos.has(e)).length;
+    return estadosDistintos + (this.tipoListado() === 'ANTICIPADA' ? 0 : 1) + (this.formaPago() === '' ? 0 : 1);
+  });
+
   restablecerFiltros(): void {
     this.tipoListado.set('ANTICIPADA');
     this.estadosActivos.set(new Set(ESTADOS_POR_DEFECTO));

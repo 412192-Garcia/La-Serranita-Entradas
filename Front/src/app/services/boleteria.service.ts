@@ -218,7 +218,7 @@ export class BoleteriaService {
   /** Una compra puntual, con sus líneas de detalle — lo usa el admin para precargar el
    * formulario de "Editar venta" con lo que esa compra tiene cargado hoy. */
   obtenerPorId(compraId: number): Observable<Reserva> {
-    return this.http.get<Reserva>(`${this.comprasUrl}/${compraId}`);
+    return this.http.get<Reserva>(`${this.internoUrl}/${compraId}`);
   }
 
   // Quién valida o cobra lo resuelve el backend a partir del JWT, así que estas

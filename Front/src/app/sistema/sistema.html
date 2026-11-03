@@ -1,23 +1,29 @@
-<div class="panel">
+<div class="panel" [class.seccion-abierta]="seccionAbierta()">
 
   <app-cabecera-interna
     titulo="Sistema"
     descripcion="Estado del sistema, historial, errores y módulos."
-    [pasosTutorial]="pasosTutorial()" />
+    [pasosTutorial]="pasosTutorial()"
+    (tutorialIniciado)="seccionAbierta.set(true)" />
 
   <nav class="tabs">
-    <button type="button" class="tab" [class.activo]="tab() === 'estado'" (click)="elegir('estado')">Estado</button>
-    <button type="button" class="tab" [class.activo]="tab() === 'historial'" (click)="elegir('historial')">Historial de acciones</button>
-    <button type="button" class="tab" [class.activo]="tab() === 'errores'" (click)="elegir('errores')">Errores</button>
-    <button type="button" class="tab" [class.activo]="tab() === 'rendimiento'" (click)="elegir('rendimiento')">Rendimiento</button>
-    <button type="button" class="tab" [class.activo]="tab() === 'rechazos'" (click)="elegir('rechazos')">
+    <button type="button" class="tab" [class.activo]="tab() === 'estado'" (click)="elegir('estado')"><svg lucideActivity class="icono-seccion" [strokeWidth]="2" aria-hidden="true"></svg>Estado</button>
+    <button type="button" class="tab" [class.activo]="tab() === 'historial'" (click)="elegir('historial')"><svg lucideHistory class="icono-seccion" [strokeWidth]="2" aria-hidden="true"></svg>Historial de acciones</button>
+    <button type="button" class="tab" [class.activo]="tab() === 'errores'" (click)="elegir('errores')"><svg lucideTriangleAlert class="icono-seccion" [strokeWidth]="2" aria-hidden="true"></svg>Errores</button>
+    <button type="button" class="tab" [class.activo]="tab() === 'rendimiento'" (click)="elegir('rendimiento')"><svg lucideGauge class="icono-seccion" [strokeWidth]="2" aria-hidden="true"></svg>Rendimiento</button>
+    <button type="button" class="tab" [class.activo]="tab() === 'rechazos'" (click)="elegir('rechazos')"><svg lucideBan class="icono-seccion" [strokeWidth]="2" aria-hidden="true"></svg>
       Operaciones rechazadas
       @if (hayRechazosPendientes()) {
         <span class="punto-notificacion-tab" aria-label="Hay operaciones rechazadas pendientes"></span>
       }
     </button>
-    <button type="button" class="tab" [class.activo]="tab() === 'modulos'" (click)="elegir('modulos')">Módulos</button>
+    <button type="button" class="tab" [class.activo]="tab() === 'modulos'" (click)="elegir('modulos')"><svg lucideToggleRight class="icono-seccion" [strokeWidth]="2" aria-hidden="true"></svg>Módulos</button>
   </nav>
+
+  <button type="button" class="btn-volver-seccion" (click)="seccionAbierta.set(false)">
+    <svg lucideArrowLeft [strokeWidth]="2" aria-hidden="true"></svg>
+    Volver a secciones
+  </button>
 
   @if (tab() === 'estado') {
     <app-estado-sistema />

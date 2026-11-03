@@ -1,6 +1,6 @@
 <div class="seccion">
 
-  <div class="tarjeta tarjeta-formulario">
+  <div appPlegableCelular [plegableAbierta]="!!editandoId()" class="tarjeta tarjeta-formulario">
     <h2>{{ editandoId() ? 'Editar artículo' : 'Nuevo artículo' }}</h2>
     @if (error()) {
       <p class="alerta-error">{{ error() }}</p>
@@ -63,10 +63,10 @@
           <span>Acción</span>
         </div>
         @for (a of articulosVisibles(); track a.id) {
-          <div class="fila-simple fila-simple-articulos">
-            <span>{{ a.nombre }}</span>
-            <span data-label="Precio sugerido">{{ a.precioSugerido !== null ? (a.precioSugerido | pesos) : '—' }}</span>
-            <span class="badge" [class.badge-activo]="a.activo" [class.badge-inactivo]="!a.activo">
+          <div class="fila-simple fila-simple-articulos fila-compacta">
+            <span class="fc-titulo">{{ a.nombre }}</span>
+            <span class="fc-dato" data-label="Precio sugerido">{{ a.precioSugerido !== null ? (a.precioSugerido | pesos) : '—' }}</span>
+            <span class="badge fc-insignia" [class.badge-activo]="a.activo" [class.badge-inactivo]="!a.activo">
               {{ a.activo ? 'Activo' : 'Inactivo' }}
             </span>
             <span class="acciones-tipo">
