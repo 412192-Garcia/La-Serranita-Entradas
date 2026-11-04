@@ -6,6 +6,9 @@ número y el CI la usa como nota de la Release de GitHub.
 
 ## Sin publicar
 
+- Control de accesos: el botón "Esta semana" / "Este mes" es del mismo tamaño que los de la barra, y
+  "Restablecer filtros" va al final, así al aparecer no corre los filtros a otra fila.
+
 ## 0.10.8 — 2026-11-04
 
 - Control de accesos: en "Más filtros" se pueden buscar las reservas hechas con un código de

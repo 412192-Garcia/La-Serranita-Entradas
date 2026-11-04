@@ -84,10 +84,6 @@
       <svg lucideChevronDown class="icono-mas-filtros" [strokeWidth]="2.5"></svg>
     </button>
 
-    @if (!busqueda.filtrosEnDefecto()) {
-      <button type="button" class="btn-restablecer" (click)="busqueda.restablecerFiltros()">Restablecer filtros</button>
-    }
-
     @if (mostrarMasFiltros()) {
       @if (busqueda.tipoListado() === 'ANTICIPADA') {
         <div class="grupo-filtro">
@@ -150,6 +146,11 @@
           </button>
         </div>
       </div>
+    }
+
+    <!-- Al final, para que al aparecer no corra los filtros a otra fila. -->
+    @if (!busqueda.filtrosEnDefecto()) {
+      <button type="button" class="btn-restablecer" (click)="busqueda.restablecerFiltros()">Restablecer filtros</button>
     }
 
     <button type="button" class="btn-ver-resultados" (click)="filtrosCelularAbiertos.set(false)">Ver resultados</button>

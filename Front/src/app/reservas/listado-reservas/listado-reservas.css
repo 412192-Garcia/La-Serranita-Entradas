@@ -236,7 +236,7 @@
    centrada) y, si la pantalla no da, se achican antes que los botones, hasta lo que mide "Esta semana". */
 .ranura-volver-hoy {
   flex-shrink: 100;
-  width: 118px;
+  width: 120px;
   min-width: 108px;
   display: inline-flex;
   align-items: center;
@@ -246,12 +246,15 @@
 .ranura-volver-hoy-der { justify-content: flex-end; }
 
 /* Atajo para volver a la semana actual; aparece del lado hacia donde hay que ir: a la
-   izquierda si estás mirando semanas futuras, a la derecha si estás en el pasado. */
+   izquierda si estás mirando semanas futuras, a la derecha si estás en el pasado. Llena su ranura. */
 .btn-volver-hoy {
   flex-shrink: 0;
+  width: 100%;
+  box-sizing: border-box;
   display: inline-flex;
   align-items: center;
-  gap: 1px;
+  justify-content: center;
+  gap: 2px;
   height: 32px;
   padding: 0 6px;
   white-space: nowrap;
@@ -394,6 +397,10 @@
     flex-shrink: 0;
     width: auto;
     min-width: 0;
+  }
+
+  .btn-volver-hoy {
+    width: auto;
   }
 
   .ranura-volver-hoy:empty {
