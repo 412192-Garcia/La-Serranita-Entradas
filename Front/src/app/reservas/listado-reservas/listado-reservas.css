@@ -187,17 +187,18 @@
 .btn-flecha-pagina:hover:not(:disabled) { background-color: var(--color-bg-soft); color: var(--color-primary-dark); }
 .btn-flecha-pagina:disabled { opacity: 0.35; cursor: not-allowed; }
 
-/* Ancho fijo: todos los rangos ("7–13 sep", "31 ago – 6 sep") ocupan lo mismo, así la barra
-   no se sacude al navegar. El ancho contempla el rango más largo (una semana que cruza de mes). */
+/* Todos los botones miden lo mismo (la barra no se sacude al navegar) y se achican juntos si la
+   pantalla no da: de 120px hasta 92px, que alcanza para "28 sep – 4 oct". */
 .btn-pagina-dia {
-  flex-shrink: 0;
+  flex-shrink: 1;
+  width: 120px;
+  min-width: 92px;
   box-sizing: border-box;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 120px;
   height: 32px;
-  padding: 0 8px;
+  padding: 0 3px;
   border: none;
   background-color: transparent;
   border-radius: 999px;
@@ -230,12 +231,13 @@
   color: var(--color-primary-dark);
 }
 
-/* Ranura de ancho fijo a cada costado de la barra: reserva el lugar del botón "Esta semana"
-   esté o no visible, para que aparecer/desaparecer no corra el resto de la barra. Ancho para
-   "Esta semana" con su flecha. */
+/* Ranura a cada costado de la barra: reserva el lugar del botón "Esta semana" esté o no visible,
+   para que aparecer/desaparecer no corra el resto. Las dos miden siempre lo mismo (la barra queda
+   centrada) y, si la pantalla no da, se achican antes que los botones, hasta lo que mide "Esta semana". */
 .ranura-volver-hoy {
-  flex-shrink: 0;
+  flex-shrink: 100;
   width: 118px;
+  min-width: 108px;
   display: inline-flex;
   align-items: center;
 }
@@ -251,7 +253,7 @@
   align-items: center;
   gap: 1px;
   height: 32px;
-  padding: 0 10px;
+  padding: 0 6px;
   white-space: nowrap;
   border: none;
   border-radius: 999px;
@@ -266,6 +268,9 @@
 }
 
 .btn-volver-hoy svg { width: 14px; height: 14px; }
+
+/* A una semana de hoy ya se ve la semana actual al lado: el atajo sobra (guarda su lugar igual). */
+.btn-volver-hoy.vecina { visibility: hidden; }
 
 .btn-volver-hoy:hover:not(:disabled) { background-color: var(--color-primary); color: #fff; }
 .btn-volver-hoy:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -356,6 +361,12 @@
   }
 }
 
+/* Justo arriba del celular la barra entera no entra: "Esta semana" pierde la flechita. */
+@media (min-width: 601px) and (max-width: 630px) {
+  .ranura-volver-hoy { min-width: 94px; }
+  .btn-volver-hoy svg { display: none; }
+}
+
 /* ---------- Teléfono ---------- */
 @media (max-width: 600px) {
   /* La barra de semanas mide ~620px (dos ranuras de "Esta semana", flechas y tres semanas de
@@ -380,12 +391,17 @@
   }
 
   .ranura-volver-hoy {
+    flex-shrink: 0;
     width: auto;
+    min-width: 0;
   }
 
   .ranura-volver-hoy:empty {
     display: none;
   }
+
+  /* Acá las semanas vecinas no se ven: el atajo hace falta aunque estés a una sola semana. */
+  .btn-volver-hoy.vecina { visibility: visible; }
 
   /* "Martes 15 de septiembre" + "1 reserva · 1 pase" no entran en un renglón: el conteo va
      abajo, chico, en vez de partir la fecha en dos. */

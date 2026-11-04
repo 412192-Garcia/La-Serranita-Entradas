@@ -6,6 +6,12 @@ número y el CI la usa como nota de la Release de GitHub.
 
 ## Sin publicar
 
+- Control de accesos: en "Más filtros" se pueden buscar las reservas hechas con un código de
+  descuento, y elegir si "Ver todas las fechas" agrupa por semana o por mes.
+- Control de accesos: la barra de semanas se ajusta al ancho de la pantalla, queda siempre centrada y
+  ya no aparece una barra de desplazamiento en pantallas medianas. En el celular, el botón "Esta
+  semana" aparece apenas te movés una semana.
+
 ## 0.10.7 — 2026-11-03
 
 - Celular: barra de navegación abajo (Hoy, Reportes, Cajas y Más), y las ventanas y el menú salen

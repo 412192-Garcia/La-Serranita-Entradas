@@ -1,5 +1,5 @@
 import { Injectable, OnDestroy, computed, inject, signal } from '@angular/core';
-import { Observable } from 'rxjs';
+import { Observable, forkJoin, map, of, switchMap } from 'rxjs';
 import { BoleteriaService, CampoOrdenCompras, EstadoCompra, Pagina, Reserva, TipoListadoCompra } from '../services/boleteria.service';
 import { FormaPagoType } from '../models/compra';
 import { crearOrdenable } from '../shared/ordenable';
@@ -63,13 +63,28 @@ function mismosElementos<T>(conjunto: ReadonlySet<T>, esperados: readonly T[]): 
 }
 
 const TAMANIO_PAGINA = 50;
-/** Techo duro del backend para /buscar (ver CompraController): alcanza de sobra para todas
- * las compras de una semana calendario en un parque de este tamaño. */
+/** Techo duro del backend para /buscar (ver CompraController): si un rango lo pasa, se pide por partes. */
 const TAMANIO_MAXIMO_VENTANA_AGRUPADA = 200;
-/** Techo duro del backend para /fechas-visita (ver CompraController). La vista agrupada trae
- * de una todos los días con actividad y arma las páginas en memoria; en el horizonte útil de
- * este parque no se llega a 200 días distintos con reservas anticipadas. */
+/** Techo duro del backend para /fechas-visita (ver CompraController). */
 const TAMANIO_MAXIMO_DIAS_AGRUPADOS = 200;
+
+/** Pide la primera página y, si hay más, el resto en paralelo; devuelve todo junto en una sola página. */
+function traerTodasLasPaginas<T>(pedir: (page: number) => Observable<Pagina<T>>): Observable<Pagina<T>> {
+  return pedir(0).pipe(
+    switchMap((primera) => {
+      if (primera.totalPages <= 1) return of(primera);
+      const resto = Array.from({ length: primera.totalPages - 1 }, (_, i) => pedir(i + 1));
+      return forkJoin(resto).pipe(
+        map((otras) => ({ ...primera, content: [primera, ...otras].flatMap((p) => p.content), totalPages: 1 }))
+      );
+    })
+  );
+}
+
+/** Cómo se pagina la vista "todas las fechas": una página por semana o por mes. */
+export type AgrupacionFechas = 'semana' | 'mes';
+
+const MESES_LARGOS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 
 const MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 
@@ -98,8 +113,24 @@ function lunesDeLaSemana(fecha: string): string {
   return sumarDias(fecha, -diaSemana);
 }
 
+function primeroDelMes(fecha: string): string {
+  return fecha.slice(0, 8) + '01';
+}
+
+function ultimoDelMes(fecha: string): string {
+  const d = new Date(fecha + 'T00:00:00');
+  return aFechaISO(new Date(d.getFullYear(), d.getMonth() + 1, 0));
+}
+
+/** "Noviembre 2026", o "Nov 2026" si `corto`. */
+function nombreMes(fecha: string, corto = false): string {
+  const d = new Date(fecha + 'T00:00:00');
+  const mes = (corto ? MESES_CORTOS : MESES_LARGOS)[d.getMonth()];
+  return `${mes[0].toUpperCase()}${mes.slice(1)} ${d.getFullYear()}`;
+}
+
 /**
- * Estado y lógica de la búsqueda de reservas: filtros, vista de un día o agrupada por semana,
+ * Estado y lógica de la búsqueda de reservas: filtros, vista de un día o agrupada por semana/mes,
  * regalos, paginación y las acciones de validar/deshacer sobre el listado. Lo comparten Control
  * de Accesos y el panel de anticipadas del POS.
  *
@@ -123,6 +154,9 @@ export class ReservasBusqueda implements OnDestroy {
   tipoListado = signal<TipoListadoCompra>('ANTICIPADA');
   estadosActivos = signal<ReadonlySet<EstadoCompra>>(new Set(ESTADOS_POR_DEFECTO));
   formaPago = signal<FormaPagoType | ''>('');
+  /** Parte del código de descuento usado en la compra; vacío = sin filtro. */
+  cupon = signal('');
+  agrupacion = signal<AgrupacionFechas>('semana');
   pagina = signal(0);
   private orden = crearOrdenable<CampoOrdenCompras>('fechaVisita');
   ordenarPor = this.orden.ordenarPor;
@@ -176,7 +210,7 @@ export class ReservasBusqueda implements OnDestroy {
   totalPasesPagina = computed(() => (this.visibles() ?? []).reduce((acc, v) => acc + v.totalPases, 0));
 
   // ---------- Vista agrupada por día ("Ver todas las fechas") ----------
-  // Paginada por SEMANA CALENDARIO (lunes–domingo), no por fila ni por ventana móvil:
+  // Paginada por SEMANA (lunes–domingo) o MES calendario (`agrupacion`), no por fila ni por ventana móvil:
   // `ejecutarBusquedaAgrupada` trae de una todos los días con actividad (`diasConActividad`)
   // y arma una página por cada semana que tenga al menos un día con compras (`paginasDias`).
   // El rango de una página es fijo (no se corre porque entró o salió una reserva); la semana
@@ -184,12 +218,19 @@ export class ReservasBusqueda implements OnDestroy {
   // "Esta semana" para volver desde cualquier lado.
   private diasConActividad = signal<string[]>([]);
 
-  /** Una página por cada semana calendario (lunes–domingo) con al menos un día con compras.
-   * `desde`/`hasta` son el lunes y el domingo de esa semana, para etiquetar el botón. */
+  /** Una página por cada semana (lunes–domingo) o mes calendario con al menos un día con compras. */
   paginasDias = computed<{ indice: number; desde: string; hasta: string }[]>(() => {
-    const lunes = [...new Set(this.diasConActividad().map(lunesDeLaSemana))].sort();
-    return lunes.map((desde, indice) => ({ indice, desde, hasta: sumarDias(desde, 6) }));
+    const porMes = this.agrupacion() === 'mes';
+    const inicios = [...new Set(this.diasConActividad().map(porMes ? primeroDelMes : lunesDeLaSemana))].sort();
+    return inicios.map((desde, indice) => ({
+      indice,
+      desde,
+      hasta: porMes ? ultimoDelMes(desde) : sumarDias(desde, 6),
+    }));
   });
+
+  /** Texto del botón de la página que contiene hoy. */
+  etiquetaPaginaHoy = computed(() => (this.agrupacion() === 'mes' ? 'Este mes' : 'Esta semana'));
 
   totalPaginasAgrupado = computed(() => this.paginasDias().length);
 
@@ -213,7 +254,26 @@ export class ReservasBusqueda implements OnDestroy {
   });
 
   etiquetaRangoPagina(pagina: { desde: string; hasta: string }): string {
-    return rangoFechasCorto(pagina.desde, pagina.hasta);
+    return this.agrupacion() === 'mes' ? nombreMes(pagina.desde) : rangoFechasCorto(pagina.desde, pagina.hasta);
+  }
+
+  /** Texto del botón de una página: "Esta semana"/"Este mes" sólo si de verdad contiene hoy. */
+  etiquetaBotonPagina(pagina: { desde: string; hasta: string }): string {
+    const hoy = hoyComoFechaInput();
+    if (pagina.desde <= hoy && hoy <= pagina.hasta) return this.etiquetaPaginaHoy();
+    return this.agrupacion() === 'mes' ? nombreMes(pagina.desde, true) : this.etiquetaRangoPagina(pagina);
+  }
+
+  /** Cambia entre páginas por semana o por mes y vuelve a la que contiene hoy. */
+  cambiarAgrupacion(modo: AgrupacionFechas): void {
+    if (modo === this.agrupacion() || this.buscando()) return;
+    this.agrupacion.set(modo);
+    if (!this.todasLasFechas()) return;
+    this.pagina.set(this.paginaHoy());
+    this.buscando.set(true);
+    this.errorBusqueda.set(null);
+    this.limpiarOcultamientosPorValidacion();
+    this.ejecutarBusquedaAgrupada(false);
   }
 
   irAPagina(indice: number): void {
@@ -276,12 +336,24 @@ export class ReservasBusqueda implements OnDestroy {
     this.ejecutarBusqueda();
   }
 
-  /** Sólo lo que vive detrás de "Más filtros" (tipo de listado, forma de pago, y los estados
+  /** Con un cupón se pasa a "todas las fechas": lo normal es querer ver todas las reservas que lo usaron. */
+  onCuponChange(valor: string): void {
+    const limpio = valor.trim();
+    if (limpio === this.cupon()) return;
+    this.cupon.set(limpio);
+    if (limpio) this.todasLasFechas.set(true);
+    this.pagina.set(0);
+    this.ejecutarBusqueda();
+  }
+
+  /** Sólo lo que vive detrás de "Más filtros" (tipo de listado, forma de pago, cupón, y los estados
    * secundarios que se activaron a mano): controla el puntito de aviso en ese botón — los dos
    * estados principales no cuentan porque ya son siempre visibles. */
   filtrosAvanzadosEnDefecto = computed(() => {
     const hayEstadoSecundarioActivo = [...this.estadosActivos()].some((e) => VALORES_ESTADOS_SECUNDARIOS.has(e));
-    return this.tipoListado() === 'ANTICIPADA' && this.formaPago() === '' && !hayEstadoSecundarioActivo;
+    return (
+      this.tipoListado() === 'ANTICIPADA' && this.formaPago() === '' && this.cupon() === '' && !hayEstadoSecundarioActivo
+    );
   });
 
   /** Todos los filtros a la vez, Estado incluido: controla "Restablecer filtros", que por eso
@@ -296,13 +368,14 @@ export class ReservasBusqueda implements OnDestroy {
     const estadosDistintos =
       [...activos].filter((e) => !ESTADOS_POR_DEFECTO.includes(e)).length +
       ESTADOS_POR_DEFECTO.filter((e) => !activos.has(e)).length;
-    return estadosDistintos + (this.tipoListado() === 'ANTICIPADA' ? 0 : 1) + (this.formaPago() === '' ? 0 : 1);
+    return estadosDistintos + (this.tipoListado() === 'ANTICIPADA' ? 0 : 1) + (this.formaPago() === '' ? 0 : 1) + (this.cupon() === '' ? 0 : 1);
   });
 
   restablecerFiltros(): void {
     this.tipoListado.set('ANTICIPADA');
     this.estadosActivos.set(new Set(ESTADOS_POR_DEFECTO));
     this.formaPago.set('');
+    this.cupon.set('');
     this.pagina.set(0);
     this.ejecutarBusqueda();
   }
@@ -380,6 +453,7 @@ export class ReservasBusqueda implements OnDestroy {
       tipo,
       estados: tipo === 'ANTICIPADA' ? Array.from(this.estadosActivos()) : undefined,
       formaPago: this.formaPago() || undefined,
+      cupon: this.cupon() || undefined,
     };
   }
 
@@ -455,22 +529,22 @@ export class ReservasBusqueda implements OnDestroy {
       this.buscarComprasDeLaPaginaActual();
       return;
     }
-    this.boleteriaService
-      .buscarFechasDistintas({ ...this.construirFiltroBase(), page: 0, size: TAMANIO_MAXIMO_DIAS_AGRUPADOS })
-      .subscribe({
-        next: (paginaFechas) => {
-          this.diasConActividad.set(paginaFechas.content);
-          this.pagina.set(this.paginaHoy());
-          this.buscarComprasDeLaPaginaActual();
-        },
-        error: (err) => {
-          console.error('No se pudieron traer los días con actividad:', err);
-          this.diasConActividad.set([]);
-          this.pagina.set(0);
-          this.errorBusqueda.set('No se pudo buscar. Revisá la conexión y reintentá.');
-          this.buscando.set(false);
-        },
-      });
+    traerTodasLasPaginas((page) =>
+      this.boleteriaService.buscarFechasDistintas({ ...this.construirFiltroBase(), page, size: TAMANIO_MAXIMO_DIAS_AGRUPADOS })
+    ).subscribe({
+      next: (paginaFechas) => {
+        this.diasConActividad.set(paginaFechas.content);
+        this.pagina.set(this.paginaHoy());
+        this.buscarComprasDeLaPaginaActual();
+      },
+      error: (err) => {
+        console.error('No se pudieron traer los días con actividad:', err);
+        this.diasConActividad.set([]);
+        this.pagina.set(0);
+        this.errorBusqueda.set('No se pudo buscar. Revisá la conexión y reintentá.');
+        this.buscando.set(false);
+      },
+    });
   }
 
   /** Trae todas las compras del rango de fechas de la página actual (`paginasDias`). Los
@@ -483,17 +557,17 @@ export class ReservasBusqueda implements OnDestroy {
       this.buscando.set(false);
       return;
     }
-    this.boleteriaService
-      .buscar({
+    traerTodasLasPaginas((page) =>
+      this.boleteriaService.buscar({
         ...this.construirFiltroBase(),
         fechaDesde: paginaActual.desde,
         fechaHasta: paginaActual.hasta,
         ordenarPor: 'fechaVisita',
         direccion: 'ASC',
-        page: 0,
+        page,
         size: TAMANIO_MAXIMO_VENTANA_AGRUPADA,
       })
-      .subscribe({
+    ).subscribe({
         next: (res) => {
           this.resultado.set(res);
           this.buscando.set(false);

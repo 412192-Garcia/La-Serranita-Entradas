@@ -43,6 +43,8 @@ export interface FiltroBusquedaCompras {
   tipo?: TipoListadoCompra;
   estados?: EstadoCompra[];
   formaPago?: FormaPagoType;
+  /** Parte del código de descuento usado en la compra. */
+  cupon?: string;
   ordenarPor?: CampoOrdenCompras;
   direccion?: 'ASC' | 'DESC';
   page?: number;
@@ -185,6 +187,7 @@ export class BoleteriaService {
     if (filtro.tipo) params = params.set('tipo', filtro.tipo);
     for (const estado of filtro.estados ?? []) params = params.append('estados', estado);
     if (filtro.formaPago) params = params.set('formaPago', filtro.formaPago);
+    if (filtro.cupon) params = params.set('cupon', filtro.cupon);
     if (filtro.ordenarPor) params = params.set('ordenarPor', filtro.ordenarPor);
     if (filtro.direccion) params = params.set('direccion', filtro.direccion);
     params = params.set('page', filtro.page ?? 0).set('size', filtro.size ?? 50);
@@ -211,6 +214,7 @@ export class BoleteriaService {
     if (filtro.tipo) params = params.set('tipo', filtro.tipo);
     for (const estado of filtro.estados ?? []) params = params.append('estados', estado);
     if (filtro.formaPago) params = params.set('formaPago', filtro.formaPago);
+    if (filtro.cupon) params = params.set('cupon', filtro.cupon);
     params = params.set('page', filtro.page ?? 0).set('size', filtro.size ?? 20);
     return this.http.get<Pagina<string>>(`${this.comprasUrl}/fechas-visita`, { params });
   }

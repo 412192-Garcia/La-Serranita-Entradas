@@ -701,7 +701,8 @@ public class CompraServiceImpl implements CompraService {
                 CompraSpecifications.fechaDesde(filtro.fechaDesde()),
                 CompraSpecifications.fechaHasta(filtro.fechaHasta()),
                 CompraSpecifications.estadoIn(estados),
-                CompraSpecifications.formaPago(filtro.formaPago())
+                CompraSpecifications.formaPago(filtro.formaPago()),
+                CompraSpecifications.cupon(filtro.cupon())
         );
     }
 

@@ -4,6 +4,7 @@ import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.JoinType;
 import org.example.laserranitaentradas.model.entity.Cliente;
 import org.example.laserranitaentradas.model.entity.Compra;
+import org.example.laserranitaentradas.model.entity.Cupon;
 import org.example.laserranitaentradas.model.entity.EstadoCompra;
 import org.example.laserranitaentradas.model.entity.FormaPago;
 import org.springframework.data.jpa.domain.Specification;
@@ -60,6 +61,16 @@ public class CompraSpecifications {
     public static Specification<Compra> estadoIn(Collection<EstadoCompra> estados) {
         if (estados == null || estados.isEmpty()) return null;
         return (root, query, cb) -> root.get("estado").in(estados);
+    }
+
+    /** Compras hechas con un cupón cuyo código contiene el texto (sin distinguir mayúsculas). */
+    public static Specification<Compra> cupon(String codigo) {
+        if (codigo == null || codigo.isBlank()) return null;
+        String like = "%" + codigo.trim().toLowerCase() + "%";
+        return (root, query, cb) -> {
+            Join<Compra, Cupon> cupon = root.join("cupon", JoinType.INNER);
+            return cb.like(cb.lower(cupon.get("codigo")), like);
+        };
     }
 
     public static Specification<Compra> formaPago(FormaPago formaPago) {

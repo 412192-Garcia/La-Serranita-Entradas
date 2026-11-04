@@ -8,7 +8,7 @@ import java.util.List;
 
 /**
  * Filtros de la búsqueda de boletería, todos opcionales. "fecha" es un día; "fechaDesde"/"fechaHasta" un
- * rango. "sinFecha" trae sólo regalos y excluye a los otros tres.
+ * rango. "sinFecha" trae sólo regalos y excluye a los otros tres. "cupon" es parte del código de descuento.
  */
 public record BusquedaComprasFiltroDTO(
         String texto,
@@ -18,6 +18,7 @@ public record BusquedaComprasFiltroDTO(
         Boolean sinFecha,
         TipoListadoCompra tipo,
         List<EstadoCompra> estados,
-        FormaPago formaPago
+        FormaPago formaPago,
+        String cupon
 ) {
 }
