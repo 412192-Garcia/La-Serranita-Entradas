@@ -6,6 +6,8 @@ número y el CI la usa como nota de la Release de GitHub.
 
 ## Sin publicar
 
+## 0.10.8 — 2026-11-04
+
 - Control de accesos: en "Más filtros" se pueden buscar las reservas hechas con un código de
   descuento, y elegir si "Ver todas las fechas" agrupa por semana o por mes.
 - Control de accesos: la barra de semanas se ajusta al ancho de la pantalla, queda siempre centrada y
