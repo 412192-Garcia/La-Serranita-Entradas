@@ -123,6 +123,33 @@
           }
         </select>
       </div>
+
+      <div class="grupo-filtro">
+        <label class="etiqueta-filtro" for="input-cupon">Código de descuento</label>
+        <input
+          #inputCupon
+          id="input-cupon"
+          type="text"
+          class="select-forma-pago input-cupon"
+          placeholder="Ej: VERANO10"
+          autocomplete="off"
+          [value]="busqueda.cupon()"
+          (keyup.enter)="busqueda.onCuponChange(inputCupon.value)"
+          (blur)="busqueda.onCuponChange(inputCupon.value)"
+        />
+      </div>
+
+      <div class="grupo-filtro">
+        <span class="etiqueta-filtro">Agrupar todas las fechas por</span>
+        <div class="chips">
+          <button type="button" class="btn-filtro" [class.activo]="busqueda.agrupacion() === 'semana'" [attr.aria-pressed]="busqueda.agrupacion() === 'semana'" (click)="busqueda.cambiarAgrupacion('semana')">
+            Semana
+          </button>
+          <button type="button" class="btn-filtro" [class.activo]="busqueda.agrupacion() === 'mes'" [attr.aria-pressed]="busqueda.agrupacion() === 'mes'" (click)="busqueda.cambiarAgrupacion('mes')">
+            Mes
+          </button>
+        </div>
+      </div>
     }
 
     <button type="button" class="btn-ver-resultados" (click)="filtrosCelularAbiertos.set(false)">Ver resultados</button>

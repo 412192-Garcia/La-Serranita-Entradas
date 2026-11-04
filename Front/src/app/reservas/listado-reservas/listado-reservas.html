@@ -11,7 +11,7 @@
   <app-spinner />
 } @else if (busqueda.todasLasFechas()) {
   <!-- "Ver todas las fechas" (o una búsqueda por texto): agrupadas en un contenedor por día,
-       paginadas por semana calendario (lunes–domingo), arrancando en la semana que contiene
+       paginadas por semana (lunes–domingo) o mes, arrancando en la que contiene
        "hoy" — ver el comentario en busqueda-reservas.ts sobre `ejecutarBusquedaAgrupada`/`paginasDias`. -->
   @if (busqueda.gruposDia().length === 0) {
     <div class="sin-resultados">
@@ -111,20 +111,20 @@
 <ng-template #paginadorDiasTpl>
   <div class="paginador-dias">
     <!-- Ranuras de ancho fijo a los costados: el botón "Esta semana" entra y sale sin mover el resto de
-         la barra. Sólo aparece cuando la semana de hoy quedó fuera de la franja visible (a más de
-         una semana), porque si está a la vista ya se toca directo. -->
+         la barra. A una semana de distancia (`vecina`) se oculta, porque la semana de hoy ya se ve al
+         lado; en el celular las vecinas no se ven, así que ahí aparece igual. -->
     <span class="ranura-volver-hoy ranura-volver-hoy-izq">
-      @if (busqueda.pagina() > busqueda.paginaHoy() + 1) {
-        <button type="button" class="btn-volver-hoy" [disabled]="busqueda.buscando()" (click)="busqueda.irAPagina(busqueda.paginaHoy())">
+      @if (busqueda.pagina() > busqueda.paginaHoy()) {
+        <button type="button" class="btn-volver-hoy" [class.vecina]="busqueda.pagina() === busqueda.paginaHoy() + 1" [disabled]="busqueda.buscando()" (click)="busqueda.irAPagina(busqueda.paginaHoy())">
           <svg lucideChevronLeft [strokeWidth]="2.5"></svg>
-          Esta semana
+          {{ busqueda.etiquetaPaginaHoy() }}
         </button>
       }
     </span>
     <button
       type="button"
       class="btn-flecha-pagina"
-      aria-label="Semana anterior"
+      [attr.aria-label]="busqueda.agrupacion() === 'mes' ? 'Mes anterior' : 'Semana anterior'"
       [disabled]="busqueda.pagina() === 0 || busqueda.buscando()"
       (click)="busqueda.paginaAnterior()">
       <svg lucideChevronLeft [strokeWidth]="2.5"></svg>
@@ -140,7 +140,7 @@
           [title]="busqueda.etiquetaRangoPagina(p)"
           [disabled]="busqueda.buscando()"
           (click)="busqueda.irAPagina(p.indice)">
-          {{ p.indice === busqueda.paginaHoy() ? 'Esta semana' : busqueda.etiquetaRangoPagina(p) }}
+          {{ busqueda.etiquetaBotonPagina(p) }}
         </button>
       } @else {
         <span class="btn-pagina-dia btn-pagina-dia-vacia" aria-hidden="true"></span>
@@ -149,15 +149,15 @@
     <button
       type="button"
       class="btn-flecha-pagina"
-      aria-label="Semana siguiente"
+      [attr.aria-label]="busqueda.agrupacion() === 'mes' ? 'Mes siguiente' : 'Semana siguiente'"
       [disabled]="busqueda.pagina() + 1 >= busqueda.totalPaginasAgrupado() || busqueda.buscando()"
       (click)="busqueda.paginaSiguiente()">
       <svg lucideChevronRight [strokeWidth]="2.5"></svg>
     </button>
     <span class="ranura-volver-hoy ranura-volver-hoy-der">
-      @if (busqueda.pagina() < busqueda.paginaHoy() - 1) {
-        <button type="button" class="btn-volver-hoy" [disabled]="busqueda.buscando()" (click)="busqueda.irAPagina(busqueda.paginaHoy())">
-          Esta semana
+      @if (busqueda.pagina() < busqueda.paginaHoy()) {
+        <button type="button" class="btn-volver-hoy" [class.vecina]="busqueda.pagina() === busqueda.paginaHoy() - 1" [disabled]="busqueda.buscando()" (click)="busqueda.irAPagina(busqueda.paginaHoy())">
+          {{ busqueda.etiquetaPaginaHoy() }}
           <svg lucideChevronRight [strokeWidth]="2.5"></svg>
         </button>
       }

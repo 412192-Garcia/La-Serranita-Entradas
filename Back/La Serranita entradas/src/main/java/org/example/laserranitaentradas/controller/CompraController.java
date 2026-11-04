@@ -155,7 +155,7 @@ public class CompraController {
 
     @GetMapping("/buscar")
     @Operation(summary = "Búsqueda paginada de boletería",
-            description = "Texto libre (DNI, nombre, código, email), fecha, tipo, estado y forma de pago. Pagina en la base.")
+            description = "Texto libre (DNI, nombre, código, email), fecha, tipo, estado, forma de pago y cupón. Pagina en la base.")
     public ResponseEntity<Page<CompraResponseDTO>> buscar(
             @RequestParam(required = false) String texto,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fecha,
@@ -167,6 +167,7 @@ public class CompraController {
             @RequestParam(required = false) TipoListadoCompra tipo,
             @RequestParam(required = false) List<EstadoCompra> estados,
             @RequestParam(required = false) FormaPago formaPago,
+            @RequestParam(required = false) String cupon,
             @RequestParam(defaultValue = "fechaVisita") String ordenarPor,
             @RequestParam(defaultValue = "ASC") String direccion,
             @RequestParam(defaultValue = "0") int page,
@@ -180,7 +181,7 @@ public class CompraController {
             orden = orden.and(Sort.by(Sort.Direction.ASC, "codigoReserva"));
         }
         Pageable pageable = PageRequest.of(Math.max(page, 0), tamanioPagina, orden);
-        BusquedaComprasFiltroDTO filtro = new BusquedaComprasFiltroDTO(texto, fecha, fechaDesde, fechaHasta, sinFecha, tipo, estados, formaPago);
+        BusquedaComprasFiltroDTO filtro = new BusquedaComprasFiltroDTO(texto, fecha, fechaDesde, fechaHasta, sinFecha, tipo, estados, formaPago, cupon);
         Page<CompraResponseDTO> resultado = compraService.buscar(filtro, pageable).map(CompraController::entityToDto);
         return ResponseEntity.ok(resultado);
     }
@@ -195,11 +196,12 @@ public class CompraController {
             @RequestParam(required = false) TipoListadoCompra tipo,
             @RequestParam(required = false) List<EstadoCompra> estados,
             @RequestParam(required = false) FormaPago formaPago,
+            @RequestParam(required = false) String cupon,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         int tamanioPagina = Math.min(Math.max(size, 1), 200);
         Pageable pageable = PageRequest.of(Math.max(page, 0), tamanioPagina);
-        BusquedaComprasFiltroDTO filtro = new BusquedaComprasFiltroDTO(texto, null, fechaDesde, fechaHasta, null, tipo, estados, formaPago);
+        BusquedaComprasFiltroDTO filtro = new BusquedaComprasFiltroDTO(texto, null, fechaDesde, fechaHasta, null, tipo, estados, formaPago, cupon);
         return ResponseEntity.ok(compraService.fechasDistintas(filtro, pageable));
     }
 

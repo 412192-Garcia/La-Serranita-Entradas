@@ -62,7 +62,7 @@ const PASOS_TUTORIAL: TourStep[] = [
     selector: '[data-tour="mas-filtros"]',
     alternativo: '[data-tour="boton-filtros"]',
     titulo: 'Más filtros',
-    texto: 'Más filtros: otros estados, tipo de venta y forma de pago.',
+    texto: 'Más filtros: otros estados, tipo de venta, forma de pago, código de descuento y agrupar por semana o mes.',
   },
   {
     selector: '[data-tour="resultados"]',

@@ -613,3 +613,13 @@
     font-size: 0.95rem;
   }
 }
+
+.input-cupon {
+  cursor: text;
+  text-transform: uppercase;
+  max-width: 220px;
+}
+
+.input-cupon::placeholder {
+  text-transform: none;
+}
