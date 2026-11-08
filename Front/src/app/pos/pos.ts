@@ -95,7 +95,7 @@ export class Pos implements OnInit, OnDestroy {
       selector: '[data-tour="carrito"]',
       alternativo: '[data-tour="barra-cobro"]',
       titulo: 'Venta: cobrar',
-      texto: 'Revisá el resumen, elegí la forma de pago y tocá Cobrar. Con un Point elegido, tocá Posnet: el cliente paga en el Point con tarjeta o QR y la venta se guarda sola.',
+      texto: 'Revisá el resumen, elegí la forma de pago y tocá Cobrar. Con un Point elegido, tocá Posnet: el cliente paga en el Point con tarjeta o QR y la venta se guarda sola. Si paga con dos formas (por ejemplo efectivo y tarjeta), tocá Dos formas.',
       antes: () => this.consultaAnticipada.set(null),
     },
     {

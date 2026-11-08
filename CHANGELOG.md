@@ -6,6 +6,9 @@ número y el CI la usa como nota de la Release de GitHub.
 
 ## Sin publicar
 
+- POS: "Dos formas" es un botón más junto a Efectivo, Tarjeta y QR. Abajo aparecen los dos pagos,
+  cada uno con sus botones de forma de pago y su monto. Al borrar un monto ya no se vuelve a llenar
+  solo.
 - Sistema > Estado: se sacó la tarjeta de Cajas (las cajas sin cerrar y las diferencias se ven en
   Cajas).
 - Control de accesos: el botón "Esta semana" / "Este mes" es del mismo tamaño que los de la barra, y

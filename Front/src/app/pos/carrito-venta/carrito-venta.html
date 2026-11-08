@@ -83,32 +83,25 @@
     @if (sinCobro()) {
       <p class="aviso-sin-cobro">Sin cobro — el total es $0 (entradas bonificadas)</p>
     } @else {
-      <div class="fila-formas-pago">
-        <div class="formas-pago" [class.formas-pago-sin-elegir]="hayItems() && formaPago() === null">
-          @for (f of formasPago(); track f.valor) {
-            <button
-              type="button"
-              class="btn-forma-pago"
-              [class.activo]="formaPago() === f.valor"
-              (click)="setFormaPago(f.valor)">
-              {{ f.etiqueta }}
-            </button>
-          }
-        </div>
-        <!-- Siempre presente (deshabilitado hasta elegir la principal) para que el ancho de
-             Efectivo/Tarjeta/QR no cambie al aparecer/desaparecer este botón. -->
+      <div class="formas-pago" [class.formas-pago-sin-elegir]="hayItems() && formaPago() === null && !pagoMixtoActivo()">
+        @for (f of formasPago(); track f.valor) {
+          <button
+            type="button"
+            class="btn-forma-pago"
+            [class.activo]="formaPago() === f.valor && !pagoMixtoActivo()"
+            (click)="elegirFormaUnica(f.valor)">
+            {{ f.etiqueta }}
+          </button>
+        }
         <button
           type="button"
-          class="btn-pago-mixto-toggle"
+          class="btn-forma-pago"
           [class.activo]="pagoMixtoActivo()"
-          [disabled]="formaPago() === null || pagoEnDolares()"
-          title="Pagó con dos formas de pago"
-          aria-label="Pagó con dos formas de pago"
-          (click)="setPagoMixtoActivo(!pagoMixtoActivo())">
-          +2ª
+          (click)="setPagoMixtoActivo(true)">
+          Dos formas
         </button>
       </div>
-      @if (hayItems() && formaPago() === null) {
+      @if (hayItems() && formaPago() === null && !pagoMixtoActivo()) {
         <p class="aviso-elegir-forma">Selecciona el método de pago</p>
       }
     }
@@ -191,46 +184,37 @@
     </div>
 
     @if (pagoMixtoActivo()) {
+      <!-- Cada parte con su forma de pago; al tipear un monto, el otro se completa con el resto. -->
       <div class="bloque-pago-mixto">
-        <!-- Sin header propio: el on/off vive en el botón "+2ª" de la fila de formas de pago
-             (queda toggleado ahí), no hace falta un título ni una ✕ acá abajo.
-             Simétrico a propósito: cualquiera de las dos formas se puede tipear
-             directamente, la otra se ajusta sola para seguir sumando el total (ver
-             setMontoFormaPagoPrincipal/setMontoFormaPagoSecundaria). La 2ª forma se elige
-             con un mini-toggle metido en el label, no con botones de tamaño completo. -->
-        <div class="fila-descuento-manual">
-          <label>
-            <span class="etiqueta-monto-mixto">{{ etiquetaFormaPagoActual() }}</span>
-            <input
-              type="text"
-              inputmode="numeric"
-              placeholder="0"
-              appMoneyInput
-              [ngModel]="montoFormaPagoPrincipal()"
-              (ngModelChange)="setMontoFormaPagoPrincipal($event)" />
-          </label>
-          <label>
-            <span class="etiqueta-monto-mixto mini-toggle-forma">
-              @for (f of opcionesFormaPagoSecundaria(); track f.valor) {
+        @for (rol of ROLES_MIXTO; track rol; let i = $index) {
+          <div class="parte-pago-mixto">
+            <span class="etiqueta-parte-mixta">Pago {{ i + 1 }}</span>
+            <div class="mini-toggle-forma">
+              @for (f of opcionesParteMixta(rol); track f.valor) {
                 <button
                   type="button"
                   class="btn-mini-forma"
-                  [class.activo]="formaPagoSecundaria() === f.valor"
-                  (click)="formaPagoSecundaria.set(f.valor)">
+                  [class.activo]="formaDeParte(rol) === f.valor"
+                  [disabled]="f.deshabilitada"
+                  (click)="setFormaDeParte(rol, f.valor)">
                   {{ f.etiqueta }}
                 </button>
               }
-            </span>
+            </div>
             <input
               type="text"
               inputmode="numeric"
-              placeholder="0"
+              placeholder="Monto"
               appMoneyInput
-              [disabled]="formaPagoSecundaria() === null"
-              [ngModel]="montoFormaPagoSecundaria()"
-              (ngModelChange)="setMontoFormaPagoSecundaria($event)" />
-          </label>
-        </div>
+              [attr.aria-label]="'Monto del pago ' + (i + 1)"
+              [disabled]="formaDeParte(rol) === null"
+              [ngModel]="rol === 'principal' ? montoFormaPagoPrincipal() : montoFormaPagoSecundaria()"
+              (ngModelChange)="setMontoParte(rol, $event)" />
+          </div>
+        }
+        @if (formaPago() === null || formaPagoSecundaria() === null) {
+          <p class="aviso-elegir-forma">Elegí la forma de cada pago</p>
+        }
       </div>
     }
 
