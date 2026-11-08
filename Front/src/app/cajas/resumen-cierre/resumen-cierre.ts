@@ -810,6 +810,32 @@ export class ResumenCierre {
     };
   });
 
+  /** El talonario paso a paso: con cuántas arrancó, qué se sumó/sacó, cuántas se entregaron y
+   * cuántas tendrían que quedar contra las que se contaron. */
+  talonario = computed(() => this.armarTalonario(this.caja().entradasFisicasEsperadas, this.caja().entradasFisicasRestantes));
+  talonarioRevision = computed(() => {
+    const e = this.entradasRevision();
+    return e ? this.armarTalonario(e.esperadasTalonario, e.restantes) : null;
+  });
+
+  private armarTalonario(esperadas: number | null, restantes: number | null) {
+    const c = this.caja();
+    const movs = c.ingresosEntradas ?? [];
+    const sumadas = movs.filter((m) => m.tipo !== 'RETIRO').reduce((a, m) => a + m.cantidad, 0);
+    const sacadas = movs.filter((m) => m.tipo === 'RETIRO').reduce((a, m) => a + m.cantidad, 0);
+    const inicial = c.entradasFisicasInicial;
+    return {
+      inicial,
+      sumadas,
+      sacadas,
+      entregadas: inicial === null || esperadas === null ? null : inicial + sumadas - sacadas - esperadas,
+      esperadas,
+      restantes: restantes ?? null,
+      // contadas − esperadas: negativo = faltan, positivo = sobran.
+      diferencia: esperadas === null || restantes === null || restantes === undefined ? null : restantes - esperadas,
+    };
+  }
+
   /** ¿El recuento del cierre se editó respecto de lo que ya tenía la caja? */
   private conteoModificado = computed(() => {
     const cc = this.conteoCierre();

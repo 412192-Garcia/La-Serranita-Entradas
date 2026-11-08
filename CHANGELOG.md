@@ -6,6 +6,9 @@ número y el CI la usa como nota de la Release de GitHub.
 
 ## Sin publicar
 
+- Cajas cerradas: las entradas de papel se ven paso a paso: con cuántas abrió la caja, cuántas se
+  sumaron o sacaron, cuántas se entregaron, cuántas deberían quedar y cuántas se contaron al cerrar,
+  con un "Faltan" / "Sobran" claro.
 - POS: "Dos formas" es un botón más junto a Efectivo, Tarjeta y QR. Abajo aparecen los dos pagos,
   cada uno con sus botones de forma de pago y su monto. Al borrar un monto ya no se vuelve a llenar
   solo.

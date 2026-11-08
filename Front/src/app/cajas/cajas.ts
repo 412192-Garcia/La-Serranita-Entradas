@@ -202,7 +202,7 @@ export class ConfiguracionCajas implements OnInit {
       selector: '[data-tour="resumen-talonario"]',
       alternativo: '[data-tour="tabla-cajas-cerradas"]',
       titulo: 'El talonario',
-      texto: '"Restantes" es lo que contó el boletero; "esperadas", lo que tendría que haber quedado.',
+      texto: 'Las entradas de papel: con cuántas abrió, cuántas entregó y cuántas deberían quedar. Se compara con las que contó al cerrar.',
       antes: () => this.tutorialMostrarCajaCerrada(),
     },
     {

@@ -134,22 +134,47 @@
   }
 }
 
-@if (caja().entradasFisicasRestantes !== null && caja().entradasFisicasRestantes !== undefined) {
-  <p class="fila-entradas-fisicas" data-tour="resumen-talonario">
-    Restantes en el talonario: <strong>{{ caja().entradasFisicasRestantes }}</strong>
-    @if (caja().entradasFisicasEsperadas !== null) {
-      · esperadas <strong>{{ caja().entradasFisicasEsperadas }}</strong>
-      @if (caja().diferenciaEntradas !== null) {
-        @if (caja().diferenciaEntradas! < 0) {
-          · <span class="diferencia-faltante">faltan {{ -caja().diferenciaEntradas! }}</span>
-        } @else if (caja().diferenciaEntradas! > 0) {
-          · <span>sobran {{ caja().diferenciaEntradas }}</span>
-        }
+@if (caja().entradasFisicasInicial != null || caja().entradasFisicasRestantes != null) {
+  <ng-container *ngTemplateOutlet="talonarioTpl; context: { $implicit: talonario() }" />
+}
+}
+
+<!-- Entradas de papel del talonario, paso a paso. -->
+<ng-template #talonarioTpl let-t>
+  <div class="talonario" data-tour="resumen-talonario">
+    <h3 class="titulo-talonario">Entradas de papel (talonario)</h3>
+    <ul class="lista-talonario">
+      @if (t.inicial !== null) {
+        <li><span>Al abrir la caja</span><strong>{{ t.inicial }}</strong></li>
+      }
+      @if (t.sumadas > 0) {
+        <li><span>Se sumaron durante el turno</span><strong>+{{ t.sumadas }}</strong></li>
+      }
+      @if (t.sacadas > 0) {
+        <li><span>Se sacaron durante el turno</span><strong>−{{ t.sacadas }}</strong></li>
+      }
+      @if (t.entregadas !== null) {
+        <li><span>Entregadas a clientes</span><strong>−{{ t.entregadas }}</strong></li>
+      }
+      @if (t.esperadas !== null) {
+        <li class="fila-talonario-total"><span>Deberían quedar</span><strong>{{ t.esperadas }}</strong></li>
+      }
+      @if (t.restantes !== null) {
+        <li><span>Quedaron al cerrar (contadas)</span><strong>{{ t.restantes }}</strong></li>
+      }
+    </ul>
+    @if (t.diferencia !== null) {
+      @if (t.diferencia < 0) {
+        <p class="resultado-talonario resultado-talonario-falta">Faltan {{ -t.diferencia }} entrada(s) de papel</p>
+      } @else if (t.diferencia > 0) {
+        <p class="resultado-talonario resultado-talonario-sobra">Sobran {{ t.diferencia }} entrada(s) de papel</p>
+      } @else {
+        <p class="resultado-talonario resultado-talonario-ok">Coincide con lo contado</p>
       }
     }
-  </p>
-}
-}
+  </div>
+</ng-template>
+
 
 <!-- Una fila de un grupo del desglose (por forma de pago): la comparten el resumen de ventas
      de esta caja y el de anticipadas validadas, que sólo difieren en de dónde sale la lista. -->
@@ -257,23 +282,13 @@
       }
     </div>
 
+    @if (talonarioRevision(); as t) {
+      <ng-container *ngTemplateOutlet="talonarioTpl; context: { $implicit: t }" />
+    }
     @if (entradasRevision(); as e) {
-      <p class="fila-entradas-revision" [class.fila-entradas-revision-cambio]="e.cambio">
-        @if (e.restantes !== null) {
-          Restantes en el talonario: <strong>{{ e.restantes }}</strong>
-          · esperadas <strong>{{ e.esperadasTalonario }}</strong>
-          @if (e.diferenciaTalonario! < 0) {
-            · <span class="diferencia-faltante">faltan {{ -e.diferenciaTalonario! }}</span>
-          } @else if (e.diferenciaTalonario! > 0) {
-            · <span>sobran {{ e.diferenciaTalonario }}</span>
-          }
-        } @else {
-          Deberían quedar en el talonario: <strong>{{ e.esperadasTalonario }}</strong>
-        }
-        @if (e.vendidasPagas !== null) {
-          · vendidas <strong>{{ e.vendidasPagas }}</strong>
-        }
-      </p>
+      @if (e.vendidasPagas !== null) {
+        <p class="fila-entradas-revision">Entradas vendidas: <strong>{{ e.vendidasPagas }}</strong></p>
+      }
     }
 
     <div class="matrices-scroll">

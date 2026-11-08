@@ -222,12 +222,59 @@
   color: var(--color-text-secondary);
 }
 
-.fila-entradas-fisicas {
-  margin: 0 0 14px;
-  font-size: 1rem;
-  font-weight: 600;
+.talonario {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-card-bg);
+  max-width: 420px;
+}
+
+.titulo-talonario {
+  margin: 0 0 8px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.lista-talonario {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.lista-talonario li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.92rem;
   color: var(--color-text-secondary);
 }
+
+.lista-talonario strong {
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.fila-talonario-total {
+  padding-top: 4px;
+  border-top: 1px solid var(--color-border);
+  font-weight: 700;
+}
+
+.resultado-talonario {
+  margin: 10px 0 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.resultado-talonario-falta { color: var(--color-danger); }
+.resultado-talonario-sobra { color: var(--color-accent-dark); }
+.resultado-talonario-ok { color: var(--color-primary-dark); }
 
 .btn-corregir-cierre {
   padding: 10px 16px;
@@ -1303,9 +1350,8 @@
 }
 
 @media (max-width: 720px) {
-  /* Debajo de los mosaicos: un renglón de dato, no un título que compita con ellos. */
-  .fila-entradas-fisicas {
-    font-size: 0.9rem;
+  .talonario {
+    max-width: none;
   }
 }
 
