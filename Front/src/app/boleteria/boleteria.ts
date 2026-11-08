@@ -3,7 +3,7 @@ import { ToastService } from '../shared/toast/toast.service';
 import { ConfirmacionService } from '../shared/confirmacion/confirmacion.service';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { BoleteriaService, Reserva } from '../services/boleteria.service';
+import { BoleteriaService, EstadoCompra, Reserva } from '../services/boleteria.service';
 import { esRegalo } from '../shared/reserva-vista.util';
 import { aFechaISO } from '../shared/fecha.util';
 import { Calendario } from '../compra/calendario/calendario';
@@ -19,7 +19,6 @@ import { DetectorEscaneoDni } from '../shared/escaner-dni.util';
 import {
   ESTADOS_ANTICIPADA_PRINCIPALES,
   ESTADOS_ANTICIPADA_SECUNDARIOS,
-  FORMAS_PAGO_FILTRABLES,
   ReservasBusqueda,
 } from '../reservas/busqueda-reservas';
 import { BuscadorReservas } from '../reservas/buscador-reservas/buscador-reservas';
@@ -43,7 +42,7 @@ const PASOS_TUTORIAL: TourStep[] = [
   {
     selector: '[data-tour="fecha"]',
     titulo: 'Día a consultar',
-    texto: 'Elegí un día puntual, o tocá "Ver todas las fechas" para buscar sin importar cuándo es la visita.',
+    texto: 'Elegí un día puntual, o tocá "Ver todas las fechas" para buscar sin importar cuándo es la visita. Ahí podés verlas por semana o por mes.',
   },
   {
     selector: '[data-tour="regalos"]',
@@ -56,13 +55,13 @@ const PASOS_TUTORIAL: TourStep[] = [
     selector: '[data-tour="estado"]',
     alternativo: '[data-tour="boton-filtros"]',
     titulo: 'Pagadas o a cobrar',
-    texto: 'Filtrá entre lo ya pagado online y lo que falta cobrar en caja.',
+    texto: 'Filtrá entre lo que falta cobrar en caja, lo pagado online y lo que ya entró. Al buscar a alguien se ven todos los estados.',
   },
   {
     selector: '[data-tour="mas-filtros"]',
     alternativo: '[data-tour="boton-filtros"]',
     titulo: 'Más filtros',
-    texto: 'Más filtros: otros estados, tipo de venta, forma de pago, código de descuento y agrupar por semana o mes.',
+    texto: 'Más filtros: otros estados, tipo de venta, forma de pago y código de descuento.',
   },
   {
     selector: '[data-tour="resultados"]',
@@ -115,7 +114,15 @@ export class Boleteria implements OnInit, OnDestroy {
 
   readonly estadosPrincipales = ESTADOS_ANTICIPADA_PRINCIPALES;
   readonly estadosSecundarios = ESTADOS_ANTICIPADA_SECUNDARIOS;
-  readonly formasPagoFiltrables = FORMAS_PAGO_FILTRABLES;
+
+  constructor() {
+    // Es una pantalla de control: también se ven las que ya entraron (el POS muestra sólo las que faltan).
+    this.busqueda.usarEstadosPorDefecto(['RESERVADO_EFECTIVO', 'APROBADO', 'USADO']);
+  }
+
+  toggleEstado(estado: EstadoCompra): void {
+    if (!this.busqueda.toggleEstado(estado)) this.toast.info('Dejá al menos un estado elegido.');
+  }
 
   /** undefined = todavía no llegó la respuesta; null = no tiene ninguna caja abierta. */
   cajaActual = signal<Caja | null | undefined>(undefined);

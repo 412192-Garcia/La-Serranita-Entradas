@@ -614,10 +614,41 @@
   }
 }
 
+.campo-cupon {
+  position: relative;
+  max-width: 220px;
+}
+
 .input-cupon {
+  width: 100%;
+  box-sizing: border-box;
+  padding-right: 36px;
   cursor: text;
   text-transform: uppercase;
-  max-width: 220px;
+}
+
+.btn-quitar-cupon {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  transform: translateY(-50%);
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.btn-quitar-cupon svg { width: 16px; height: 16px; }
+.btn-quitar-cupon:hover { background-color: var(--color-bg-soft); color: var(--color-primary-dark); }
+.btn-quitar-cupon:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 35%, transparent);
 }
 
 .input-cupon::placeholder {

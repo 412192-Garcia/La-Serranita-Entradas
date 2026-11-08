@@ -20,15 +20,18 @@
       <small>Ajustá los filtros de arriba, o revisá el texto buscado.</small>
     </div>
   } @else {
-    @if (busqueda.totalPaginasAgrupado() > 1) {
-      <ng-container [ngTemplateOutlet]="paginadorDiasTpl" />
-    }
+    <!-- Arriba va siempre, aunque haya una sola página, para ver qué semana o mes es. -->
+    <ng-container [ngTemplateOutlet]="paginadorDiasTpl" />
 
     <div class="resumen-dia">
       <span>
         {{ busqueda.totalElementos() }} reserva{{ busqueda.totalElementos() === 1 ? '' : 's' }} ·
         {{ busqueda.totalPasesPagina() }} pase{{ busqueda.totalPasesPagina() === 1 ? '' : 's' }} en esta página
       </span>
+      <div class="selector-agrupacion" role="group" aria-label="Agrupar por">
+        <button type="button" [class.activo]="busqueda.agrupacion() === 'semana'" [attr.aria-pressed]="busqueda.agrupacion() === 'semana'" [disabled]="busqueda.buscando()" (click)="busqueda.cambiarAgrupacion('semana')">Semana</button>
+        <button type="button" [class.activo]="busqueda.agrupacion() === 'mes'" [attr.aria-pressed]="busqueda.agrupacion() === 'mes'" [disabled]="busqueda.buscando()" (click)="busqueda.cambiarAgrupacion('mes')">Mes</button>
+      </div>
     </div>
 
     @for (grupo of busqueda.gruposDia(); track grupo.fecha) {

@@ -8,6 +8,13 @@ número y el CI la usa como nota de la Release de GitHub.
 
 - Control de accesos: el botón "Esta semana" / "Este mes" es del mismo tamaño que los de la barra, y
   "Restablecer filtros" va al final, así al aparecer no corre los filtros a otra fila.
+- Control de accesos: Semana / Mes salió de "Más filtros" y está arriba de la lista, junto al total. La
+  barra de semanas o meses se ve aunque haya una sola página (antes desaparecía, por ejemplo al buscar
+  por código de descuento).
+- Control de accesos: filtros más claros. Por defecto también se ven las reservas ya utilizadas (el
+  POS sigue mostrando sólo las que faltan). Buscar por DNI, nombre o código encuentra la reserva en
+  cualquier estado, aunque ya haya entrado. No se puede apagar el último estado (antes mostraba todo).
+  En Boletería sólo quedan los filtros que aplican, y el código de descuento tiene una X para quitarlo.
 
 ## 0.10.8 — 2026-11-04
 
