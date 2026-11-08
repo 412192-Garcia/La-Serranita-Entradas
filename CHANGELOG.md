@@ -6,6 +6,8 @@ número y el CI la usa como nota de la Release de GitHub.
 
 ## Sin publicar
 
+- Sistema > Estado: se sacó la tarjeta de Cajas (las cajas sin cerrar y las diferencias se ven en
+  Cajas).
 - Control de accesos: el botón "Esta semana" / "Este mes" es del mismo tamaño que los de la barra, y
   "Restablecer filtros" va al final, así al aparecer no corre los filtros a otra fila.
 - Control de accesos: Semana / Mes salió de "Más filtros" y está arriba de la lista, junto al total. La

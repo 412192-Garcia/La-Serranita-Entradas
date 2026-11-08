@@ -116,7 +116,7 @@ class MonitoreoIntegracionTest {
         JsonNode notificaciones = objectMapper.readTree(mockMvc.perform(get("/api/interno/notificaciones/resumen")
                 .header("Authorization", "Bearer " + token)).andReturn().getResponse().getContentAsString());
 
-        assertThat(estado.get("tarjetas")).hasSize(13);
+        assertThat(estado.get("tarjetas")).hasSize(12);
         assertThat(notificaciones.get("SISTEMA").asBoolean()).isTrue();
     }
 
