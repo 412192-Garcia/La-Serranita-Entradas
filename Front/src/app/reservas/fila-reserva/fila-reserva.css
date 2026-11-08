@@ -180,6 +180,33 @@
 .btn-cobrar { background-color: var(--color-accent-dark); }
 .btn-cobrar:hover:not(:disabled) { background-color: #a35f1a; }
 
+.btn-link-parcial {
+  margin-top: 4px;
+  padding: 6px 4px;
+  border: none;
+  background: none;
+  color: var(--color-primary-dark);
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.btn-link-parcial:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.lista-vouchers {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
 .btn-accion:disabled {
   opacity: 0.6;
   cursor: not-allowed;

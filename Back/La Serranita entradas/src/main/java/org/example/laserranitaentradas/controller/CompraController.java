@@ -220,10 +220,17 @@ public class CompraController {
     @PutMapping("/{id}/validar")
     @Operation(summary = "Validar/Marcar entradas como usadas", description = "Marca la compra como usada y registra al boletero autenticado como validador")
     public ResponseEntity<CompraResponseDTO> validarCompra(@PathVariable @Parameter(description = "ID de la compra") Long id,
+                                                           @RequestBody(required = false) org.example.laserranitaentradas.model.dto.ValidarIngresoRequestDTO request,
                                                            @AuthenticationPrincipal UsuarioAutenticado operador) {
         // El validador sale del token: si viniera en el request, un boletero podría atribuirle el ingreso a
         // otro.
-        Compra actualizada = compraService.marcarEntradasComoUsadas(id, operador.id());
+        java.util.Map<Long, Integer> ausentes = new java.util.HashMap<>();
+        if (request != null && request.getAusentes() != null) {
+            for (var a : request.getAusentes()) {
+                if (a.getDetalleId() != null && a.getCantidad() != null) ausentes.merge(a.getDetalleId(), a.getCantidad(), Integer::sum);
+            }
+        }
+        Compra actualizada = compraService.validarIngreso(id, operador.id(), ausentes, request == null ? null : request.getImpresora());
         return ResponseEntity.ok(entityToDto(actualizada));
     }
 
@@ -266,6 +273,12 @@ public class CompraController {
             List<CompraDetalleResponseDTO> detalles = c.getDetalles().stream().map(CompraController::detalleEntityToDto).collect(Collectors.toList());
             dto.setDetalles(detalles);
         }
+        if ("USADO".equals(dto.getEstado()) && c.getVouchers() != null && !c.getVouchers().isEmpty()) {
+            dto.setVouchers(c.getVouchers().stream().map(v -> org.example.laserranitaentradas.model.dto.VoucherResponseDTO.builder()
+                    .id(v.getId()).codigo(v.getCodigo()).tipo(v.getTipo()).descripcion(v.getDescripcion())
+                    .cantidad(v.getCantidad()).monto(v.getMonto()).fechaEmision(v.getFechaEmision()).anulado(v.isAnulado())
+                    .build()).toList());
+        }
         return dto;
     }
 
@@ -297,6 +310,7 @@ public class CompraController {
             dto.setPrecioUnitario(d.getPrecioUnitario());
         }
         dto.setCantidad(d.getCantidad());
+        dto.setCantidadAusente(d.getCantidadAusente());
         return dto;
     }
 

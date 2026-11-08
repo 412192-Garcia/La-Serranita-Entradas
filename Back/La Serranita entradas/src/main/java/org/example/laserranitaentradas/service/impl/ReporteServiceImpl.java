@@ -422,18 +422,23 @@ public class ReporteServiceImpl implements ReporteService {
                         continue;
                     }
                     nombreTipoIngresado.putIfAbsent(tipoDetalle.getId(), tipoDetalle.getNombre());
-                    ingresadosPorTipoDestino.merge(tipoDetalle.getId(), (long) detalle.getCantidad(), Long::sum);
+                    ingresadosPorTipoDestino.merge(tipoDetalle.getId(), (long) detalle.getCantidadPresente(), Long::sum);
                 }
+                // Los ausentes de una anticipada no cruzaron la puerta.
+                long pasesIngresados = compra.getDetalles().stream()
+                        .filter(d -> d.getTipoEntrada() != null && d.getTipoEntrada().getTipo() == Tipo.ENTRADA)
+                        .mapToLong(CompraDetalle::getCantidadPresente)
+                        .sum();
                 if (esBoleteria) {
-                    vendidosBoleteriaPorDia.merge(diaIngreso, pasesEntrada, Long::sum);
+                    vendidosBoleteriaPorDia.merge(diaIngreso, pasesIngresados, Long::sum);
                 } else {
-                    validadosAnticipadaPorDia.merge(diaIngreso, pasesEntrada, Long::sum);
+                    validadosAnticipadaPorDia.merge(diaIngreso, pasesIngresados, Long::sum);
                     // Anticipación: cuántos días antes se compró esta anticipada que se está usando.
                     long diasAntes = Math.max(0,
                             ChronoUnit.DAYS.between(compra.getFechaCreacion().toLocalDate(), diaIngreso));
-                    anticipacionPorTramo[tramoAnticipacion(diasAntes)] += pasesEntrada;
+                    anticipacionPorTramo[tramoAnticipacion(diasAntes)] += pasesIngresados;
                 }
-                personasIngresadas += pasesEntrada;
+                personasIngresadas += pasesIngresados;
             }
         }
 

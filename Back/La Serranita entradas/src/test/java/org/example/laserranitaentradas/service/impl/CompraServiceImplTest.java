@@ -32,6 +32,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -64,6 +65,7 @@ class CompraServiceImplTest {
     @Mock private org.example.laserranitaentradas.service.point.CobroPointService cobroPointService;
     /** El bean a través del proxy; sólo lo usa iniciarCompraConPago, que acá no se prueba. */
     @Mock private CompraService autoReferencia;
+    @Mock private org.example.laserranitaentradas.service.impresion.VoucherService voucherService;
 
     private CompraServiceImpl service;
 
@@ -77,7 +79,7 @@ class CompraServiceImplTest {
                 clienteService, usuarioService, calculoPrecioService, emailService, cajaService, cajaRepository, promocionRepository,
                 articuloVarioRepository, facturaService, List.of(mercadoPagoEstrategia, efectivoEstrategia, reservaAdminEstrategia), em,
                 // Los tests llaman a create() directo: alcanza con el propio service.
-                autoReferencia, cobroPointService);
+                autoReferencia, cobroPointService, voucherService);
         // Webhook y verificación directa confirman a través de `self`: el mock delega al service real.
         lenient().when(autoReferencia.confirmarAprobado(any(), any(), any())).thenAnswer(inv ->
                 service.confirmarAprobado(inv.getArgument(0), inv.getArgument(1), inv.getArgument(2)));
@@ -1838,5 +1840,58 @@ class CompraServiceImplTest {
 
         verify(compraRepository, never()).aprobarSiSigueSinPagar(anyLong(), any());
         verify(emailService, never()).enviarComprobanteCompra(anyLong());
+    }
+
+    // ---------- Validación con ausentes ----------
+
+    private Compra anticipadaOnline(int generales) {
+        TipoEntrada general = TipoEntrada.builder().id(1L).nombre("General").tipo(Tipo.ENTRADA).precio(new java.math.BigDecimal("10000")).build();
+        CompraDetalle detalle = CompraDetalle.builder().id(10L).tipoEntrada(general).cantidad(generales).build();
+        Compra compra = Compra.builder().id(7L).codigoReserva("261108-1").estado(EstadoCompra.APROBADO)
+                .formaPago(FormaPago.MERCADO_PAGO).montoTotal(new java.math.BigDecimal(generales * 10000))
+                .detalles(new ArrayList<>(List.of(detalle))).build();
+        detalle.setCompra(compra);
+        when(compraRepository.findById(7L)).thenReturn(Optional.of(compra));
+        lenient().when(usuarioService.obtenerUsuarioPorId(anyLong())).thenReturn(Optional.of(new org.example.laserranitaentradas.model.entity.Usuario()));
+        lenient().when(compraRepository.save(any(Compra.class))).thenAnswer(inv -> inv.getArgument(0));
+        return compra;
+    }
+
+    @Test
+    void validarIngreso_conAusentes_losGuardaYEmiteVouchers() {
+        Compra compra = anticipadaOnline(10);
+
+        Compra validada = service.validarIngreso(7L, 1L, java.util.Map.of(10L, 1), "Boleteria");
+
+        assertThat(validada.getEstado()).isEqualTo(EstadoCompra.USADO);
+        assertThat(compra.getDetalles().get(0).getCantidadAusente()).isEqualTo(1);
+        assertThat(compra.getDetalles().get(0).getCantidadPresente()).isEqualTo(9);
+        verify(voucherService).emitir(eq(compra), any(), eq("Boleteria"));
+    }
+
+    @Test
+    void validarIngreso_noDejaQueFaltenTodos() {
+        anticipadaOnline(2);
+
+        assertThatThrownBy(() -> service.validarIngreso(7L, 1L, java.util.Map.of(10L, 2), null))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void validarIngreso_conAusentes_soloPagadasOnline() {
+        Compra compra = anticipadaOnline(2);
+        compra.setFormaPago(FormaPago.RESERVA_ADMIN);
+
+        assertThatThrownBy(() -> service.validarIngreso(7L, 1L, java.util.Map.of(10L, 1), null))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void validarIngreso_yaUsada_seRechaza() {
+        Compra compra = anticipadaOnline(2);
+        compra.setEstado(EstadoCompra.USADO);
+
+        assertThatThrownBy(() -> service.validarIngreso(7L, 1L, java.util.Map.of(), null))
+                .isInstanceOf(IllegalStateException.class);
     }
 }

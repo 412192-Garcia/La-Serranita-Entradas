@@ -107,6 +107,7 @@ public class CompraServiceImpl implements CompraService {
      */
     private final CompraService self;
     private final CobroPointService cobroPointService;
+    private final org.example.laserranitaentradas.service.impresion.VoucherService voucherService;
 
     public CompraServiceImpl
             (CompraRepository compraRepository,
@@ -125,8 +126,10 @@ public class CompraServiceImpl implements CompraService {
              List<PagoService> estrategiasDisponibles,
              EntityManager em,
              @Lazy CompraService self,
-             CobroPointService cobroPointService)
+             CobroPointService cobroPointService,
+             org.example.laserranitaentradas.service.impresion.VoucherService voucherService)
     {
+        this.voucherService = voucherService;
         this.compraRepository = compraRepository;
         this.tipoEntradaService = tipoEntradaService;
         this.cuponService = cuponService;
@@ -753,6 +756,37 @@ public class CompraServiceImpl implements CompraService {
         return compraRepository.save(compra);
     }
 
+    @Transactional
+    @Override
+    public Compra validarIngreso(Long compraId, Long usuarioValidadorId, Map<Long, Integer> ausentesPorDetalle, String impresora) {
+        Compra compra = compraRepository.findById(compraId)
+                .orElseThrow(() -> new IllegalArgumentException("Compra no encontrada para id: " + compraId));
+        if (compra.getEstado() != EstadoCompra.APROBADO) {
+            throw new IllegalStateException("Esta reserva no está para validar (estado actual: " + compra.getEstado() + ")");
+        }
+        boolean hayAusentes = ausentesPorDetalle != null && ausentesPorDetalle.values().stream().anyMatch(n -> n != null && n > 0);
+        if (hayAusentes) {
+            if (compra.getFormaPago() != FormaPago.MERCADO_PAGO || compra.getMontoTotal().signum() <= 0) {
+                throw new IllegalStateException("Sólo se puede validar una parte en reservas pagadas online");
+            }
+            int presentes = 0;
+            for (CompraDetalle d : compra.getDetalles()) {
+                Integer pedido = ausentesPorDetalle.get(d.getId());
+                int ausentes = pedido == null ? 0 : pedido;
+                boolean esEntrada = d.getTipoEntrada() != null && d.getTipoEntrada().getTipo() == Tipo.ENTRADA;
+                if (ausentes < 0 || ausentes > d.getCantidad() || (ausentes > 0 && !esEntrada)) {
+                    throw new IllegalArgumentException("Cantidad de ausentes inválida");
+                }
+                d.setCantidadAusente(ausentes > 0 ? ausentes : null);
+                if (esEntrada) presentes += d.getCantidad() - ausentes;
+            }
+            if (presentes < 1) throw new IllegalArgumentException("Tiene que entrar al menos una persona");
+        }
+        Compra actualizada = marcarEntradasComoUsadas(compraId, usuarioValidadorId);
+        voucherService.emitir(actualizada, actualizada.getUsuarioValidador(), impresora);
+        return actualizada;
+    }
+
     /** Igual que Boleteria.VENTANA_DESHACER_MENU_MS en el front: mantenerlos iguales. */
     private static final long VENTANA_DESHACER_VALIDACION_SEGUNDOS = 2400;
 
@@ -779,6 +813,8 @@ public class CompraServiceImpl implements CompraService {
         compra.setUsuarioValidador(null);
         compra.setFechaValidacion(null);
         compra.setCaja(null);
+        compra.getDetalles().forEach(d -> d.setCantidadAusente(null));
+        voucherService.anularDeCompra(compra.getId());
 
         return compraRepository.save(compra);
     }
@@ -804,6 +840,7 @@ public class CompraServiceImpl implements CompraService {
                 });
         Compra actualizada = marcarEntradasComoUsadas(compraId, usuarioValidadorId);
         actualizada.setCaja(caja);
+        voucherService.emitir(actualizada, actualizada.getUsuarioValidador(), null);
         return compraRepository.save(actualizada);
     }
 
@@ -1162,6 +1199,9 @@ public class CompraServiceImpl implements CompraService {
         vincularCobroPoint(request, venta);
         // Misma transacción que la venta; la emisión arranca después del commit.
         facturaService.solicitar(venta, request.getFacturacion());
+        if (request.getCompraReservadaId() != null) {
+            voucherService.emitir(venta, vendedor, request.getFacturacion() == null ? null : request.getFacturacion().getImpresora());
+        }
         return venta;
     }
 

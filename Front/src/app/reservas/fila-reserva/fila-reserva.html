@@ -63,6 +63,11 @@
         <button type="button" class="btn-accion btn-validar" [disabled]="busqueda.procesando(r)" (click)="busqueda.validarIngreso(r)">
           {{ busqueda.procesando(r) ? 'Validando…' : 'Validar Ingreso' }}
         </button>
+        @if (busqueda.admiteValidacionParcial(r)) {
+          <button type="button" class="btn-link-parcial" [disabled]="busqueda.procesando(r)" (click)="busqueda.validandoParcial.set(r)">
+            Faltó alguien
+          </button>
+        }
       }
       @case ('RESERVADO_EFECTIVO') {
         <span class="monto-cobrar">{{ r.montoTotal | pesos }}</span>
@@ -77,6 +82,20 @@
             {{ r.fechaValidacion | date: 'dd/MM HH:mm' }}
           }
         </span>
+        @if (busqueda.vouchersVigentes(r); as vouchers) {
+          @if (vouchers.length) {
+            <ul class="lista-vouchers">
+              @for (v of vouchers; track v.id) {
+                <li>
+                  @if (v.tipo === 'CANTINA') { Cantina {{ v.monto | pesos }} } @else { {{ v.cantidad }}× {{ v.descripcion }} }
+                </li>
+              }
+            </ul>
+            <button type="button" class="btn-link-parcial" [disabled]="busqueda.reimprimiendoId() === r.id" (click)="busqueda.reimprimirVouchers(r)">
+              {{ busqueda.reimprimiendoId() === r.id ? 'Imprimiendo…' : 'Reimprimir vouchers' }}
+            </button>
+          }
+        }
         @if (busqueda.recienValidados().has(r.id)) {
           <div class="deshacer-validacion">
             <div class="barra-deshacer">

@@ -1,3 +1,7 @@
+@if (busqueda.validandoParcial(); as reserva) {
+  <app-validar-parcial [reserva]="reserva" (cerrar)="busqueda.validandoParcial.set(null)" (confirmar)="busqueda.confirmarValidacionParcial($event)" />
+}
+
 @if (busqueda.errorBusqueda()) {
   <p class="alerta-error">{{ busqueda.errorBusqueda() }}</p>
 }

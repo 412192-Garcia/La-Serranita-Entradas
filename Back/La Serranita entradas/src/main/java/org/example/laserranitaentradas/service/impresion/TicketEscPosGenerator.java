@@ -13,6 +13,7 @@ import java.math.BigDecimal;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.text.NumberFormat;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 import java.util.Map;
@@ -27,6 +28,10 @@ public class TicketEscPosGenerator {
     private static final int CODEPAGE_PC850 = 2;
     private static final Charset CHARSET = Charset.forName("IBM850");
     private static final DateTimeFormatter FECHA = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+    private static final DateTimeFormatter FECHA_HORA = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+
+    @Value("${impresion.nombre-parque:Parque Recreativo La Serranita}")
+    private String nombreParque = "Parque Recreativo La Serranita";
 
     /** Caracteres por línea con la fuente A: 48 en papel de 80 mm, 32 en 58 mm. */
     @Value("${impresion.columnas:48}")
@@ -124,6 +129,37 @@ public class TicketEscPosGenerator {
 
         t.comando(ESC, 'd', 4);                    // avanzar papel hasta pasar la cuchilla
         t.comando(GS, 'V', 66, 0);                 // corte parcial
+        return t.bytes();
+    }
+
+    /** Lo que lleva el papel de un voucher. */
+    public record DatosVoucher(String titulo, String valor, String detalle, String codigo, String reserva,
+                               LocalDateTime fecha, String entregadoPor) {}
+
+    /** Voucher de un extra o de la cantina: no es comprobante fiscal. */
+    public byte[] generarVoucher(DatosVoucher v) {
+        Ticket t = new Ticket();
+        t.comando(ESC, '@');
+        t.comando(ESC, 't', CODEPAGE_PC850);
+
+        t.centro().negrita(true).linea(nombreParque).negrita(false);
+        t.separador();
+        t.grande(true).negrita(true).linea(v.titulo()).negrita(false).grande(false);
+        t.saltos(1);
+        t.grande(true).negrita(true).linea(v.valor()).negrita(false).grande(false);
+        if (v.detalle() != null) t.linea(v.detalle());
+        t.saltos(1);
+        t.separador();
+
+        t.izquierda();
+        t.fila("Voucher: " + v.codigo(), "Reserva: " + v.reserva());
+        t.linea("Fecha: " + v.fecha().format(FECHA_HORA));
+        if (v.entregadoPor() != null) t.linea("Entregado por: " + v.entregadoPor());
+        t.centro().negrita(true).linea("Válido sólo el " + v.fecha().format(FECHA)).negrita(false);
+        t.linea("No válido como factura");
+
+        t.comando(ESC, 'd', 4);
+        t.comando(GS, 'V', 66, 0);
         return t.bytes();
     }
 

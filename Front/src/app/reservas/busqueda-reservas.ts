@@ -1,6 +1,8 @@
 import { Injectable, OnDestroy, computed, inject, signal } from '@angular/core';
 import { Observable, forkJoin, map, of, switchMap } from 'rxjs';
-import { BoleteriaService, CampoOrdenCompras, EstadoCompra, Pagina, Reserva, TipoListadoCompra } from '../services/boleteria.service';
+import { AusenteValidacion, BoleteriaService, CampoOrdenCompras, EstadoCompra, Pagina, Reserva, TipoListadoCompra, VoucherReserva } from '../services/boleteria.service';
+import { ImpresorasService } from '../services/impresoras.service';
+import { ToastService } from '../shared/toast/toast.service';
 import { FormaPagoType } from '../models/compra';
 import { crearOrdenable } from '../shared/ordenable';
 import { esEscaneoDocumento, extraerDniDeEscaneo } from '../shared/escaner-dni.util';
@@ -143,6 +145,8 @@ function nombreMes(fecha: string, corto = false): string {
 @Injectable()
 export class ReservasBusqueda implements OnDestroy {
   private boleteriaService = inject(BoleteriaService);
+  private impresoras = inject(ImpresorasService);
+  private toast = inject(ToastService);
 
   texto = signal('');
   fecha = signal(hoyComoFechaInput());
@@ -618,8 +622,53 @@ export class ReservasBusqueda implements OnDestroy {
   // ---------- Validar / cobrar ----------
 
   /** Compra ya pagada online (APROBADO) → habilita el ingreso. */
-  validarIngreso(reserva: Reserva): void {
-    this.ejecutarAccion(reserva, () => this.boleteriaService.validarIngreso(reserva.id));
+  validarIngreso(reserva: Reserva, ausentes: AusenteValidacion[] = []): void {
+    this.ejecutarAccion(reserva, () =>
+      this.boleteriaService.validarIngreso(reserva.id, { ausentes, impresora: this.impresoraVouchers() })
+    );
+  }
+
+  /** Reserva a la que se le está eligiendo quiénes vinieron. */
+  validandoParcial = signal<Reserva | null>(null);
+
+  /** Pagada online y para más de una persona: se puede validar sólo a los que vinieron. */
+  admiteValidacionParcial(reserva: Reserva): boolean {
+    if (reserva.formaPago !== 'MERCADO_PAGO' || reserva.montoTotal <= 0) return false;
+    const personas = (reserva.detalles ?? [])
+      .filter((d) => d.tipoEntrada?.tipo === 'ENTRADA')
+      .reduce((a, d) => a + d.cantidad, 0);
+    return personas > 1;
+  }
+
+  confirmarValidacionParcial(ausentes: AusenteValidacion[]): void {
+    const reserva = this.validandoParcial();
+    this.validandoParcial.set(null);
+    if (reserva) this.validarIngreso(reserva, ausentes);
+  }
+
+  vouchersVigentes(reserva: Reserva): VoucherReserva[] {
+    return (reserva.vouchers ?? []).filter((v) => !v.anulado);
+  }
+
+  reimprimiendoId = signal<number | null>(null);
+
+  reimprimirVouchers(reserva: Reserva): void {
+    this.reimprimiendoId.set(reserva.id);
+    this.boleteriaService.reimprimirVouchers(reserva.id, this.impresoraVouchers()).subscribe({
+      next: () => {
+        this.reimprimiendoId.set(null);
+        this.toast.exito('Vouchers enviados a la ticketera');
+      },
+      error: (err) => {
+        this.reimprimiendoId.set(null);
+        this.toast.error(typeof err?.error === 'string' ? err.error : 'No se pudieron reimprimir los vouchers');
+      },
+    });
+  }
+
+  /** La ticketera de esta tablet; null = la única conectada. */
+  private impresoraVouchers(): string | null {
+    return this.impresoras.efectiva()?.nombre ?? this.impresoras.elegida();
   }
 
   /** Reserva con pago en efectivo (RESERVADO_EFECTIVO) → cobra y habilita el ingreso. */
@@ -634,6 +683,10 @@ export class ReservasBusqueda implements OnDestroy {
     accion().subscribe({
       next: (actualizada) => {
         this.reemplazarEnResultado(actualizada);
+        const vouchers = this.vouchersVigentes(actualizada).length;
+        if (actualizada.estado === 'USADO' && vouchers > 0) {
+          this.toast.info(vouchers === 1 ? 'Se mandó a imprimir 1 voucher' : `Se mandaron a imprimir ${vouchers} vouchers`);
+        }
         if (actualizada.estado === 'USADO') this.iniciarOcultamientoPorValidacion(actualizada.id);
       },
       error: (err) => {

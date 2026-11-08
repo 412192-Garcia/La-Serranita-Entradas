@@ -66,7 +66,7 @@ const PASOS_TUTORIAL: TourStep[] = [
   {
     selector: '[data-tour="resultados"]',
     titulo: 'Validar o cobrar',
-    texto: 'Validá el ingreso o cobrá con el botón de cada reserva. En el menú ⋮ podés editar el contacto, cambiar la fecha, reenviar el mail, ver la factura o reembolsar.',
+    texto: 'Validá el ingreso o cobrá con el botón de cada reserva. Si no vinieron todos, tocá "Faltó alguien": lo que no se usó sale en un voucher para la cantina. En el menú ⋮ podés editar el contacto, cambiar la fecha, reenviar el mail, ver la factura o reembolsar.',
   },
 ];
 

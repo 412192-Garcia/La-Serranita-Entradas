@@ -60,8 +60,28 @@ export interface DetalleReserva {
   articuloVario: { id: number; nombre: string; precioSugerido: number | null; activo: boolean } | null;
   /** Sólo en líneas de artículo libre (sin catálogo): tipoEntrada y articuloVario vienen null. */
   descripcionLibre: string | null;
+  /** Entradas de una anticipada cuyo titular no vino (se le dio voucher de cantina). */
+  cantidadAusente?: number | null;
   /** Líneas de artículo: precio cargado al vender, congelado en la compra. Líneas de entrada: precio de lista que tenía el tipo al armar la compra (null en compras anteriores a ese dato: ahí vale el actual de tipoEntrada). */
   precioUnitario: number | null;
+}
+
+/** Papel que se entrega al validar: un extra (ej. almuerzo) o plata para la cantina. */
+export interface VoucherReserva {
+  id: number;
+  codigo: string;
+  tipo: 'EXTRA' | 'CANTINA';
+  descripcion: string;
+  cantidad: number | null;
+  monto: number | null;
+  fechaEmision: string;
+  anulado: boolean;
+}
+
+/** Entradas de una línea cuyo titular no vino. */
+export interface AusenteValidacion {
+  detalleId: number;
+  cantidad: number;
 }
 
 export interface Reserva {
@@ -86,6 +106,8 @@ export interface Reserva {
   receptorEmail: string | null;
   receptorDni: string | null;
   receptorTelefono: string | null;
+  /** Vouchers entregados al validar (sólo en USADO). */
+  vouchers?: VoucherReserva[] | null;
 }
 
 export interface EditarContactoRequest {
@@ -229,8 +251,14 @@ export class BoleteriaService {
   // dos operaciones no mandan el id del operador en el cuerpo.
 
   /** Compra ya pagada online: habilita el ingreso del grupo (pasa a USADO). */
-  validarIngreso(compraId: number): Observable<Reserva> {
-    return this.http.put<Reserva>(`${this.comprasUrl}/${compraId}/validar`, {});
+  validarIngreso(compraId: number, opciones: { ausentes?: AusenteValidacion[]; impresora?: string | null } = {}): Observable<Reserva> {
+    return this.http.put<Reserva>(`${this.comprasUrl}/${compraId}/validar`, opciones);
+  }
+
+  /** Vuelve a mandar a la ticketera los vouchers de una reserva validada. */
+  reimprimirVouchers(compraId: number, impresora: string | null): Observable<{ vouchers: number }> {
+    const params = impresora ? `?impresora=${encodeURIComponent(impresora)}` : '';
+    return this.http.post<{ vouchers: number }>(`${environment.apiBase}/interno/impresion/compras/${compraId}/vouchers${params}`, null);
   }
 
   /** Reserva con pago en efectivo: cobra en caja y habilita el ingreso (pasa a USADO). */

@@ -13,5 +13,7 @@ public class CompraDetalleResponseDTO {
     /** Siempre poblado: precio de lista para entradas (en vivo), el guardado para artículos. */
     private BigDecimal precioUnitario;
     private Integer cantidad;
+    /** Entradas de una anticipada cuyo titular no vino. */
+    private Integer cantidadAusente;
 }
 

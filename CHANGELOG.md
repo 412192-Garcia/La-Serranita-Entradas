@@ -6,6 +6,13 @@ número y el CI la usa como nota de la Release de GitHub.
 
 ## Sin publicar
 
+- Anticipadas: al validar una reserva con extras (por ejemplo almuerzo) se imprime en la ticketera
+  un voucher por cada extra, con la cantidad que vale. También al cobrar una reserva en efectivo.
+- Anticipadas pagadas online: si no vinieron todos, "Faltó alguien" deja validar sólo a los que
+  vinieron. Lo que no se usó sale en un voucher para la cantina por lo que se pagó. Las que no
+  entraron no cuentan como ingresos ni como entradas de papel entregadas. Los vouchers se pueden
+  reimprimir desde la reserva.
+  **Antes de subir:** correr `scripts/vouchers-impresion.sql` en la base.
 - Cajas cerradas: las entradas de papel se ven paso a paso: con cuántas abrió la caja, cuántas se
   sumaron o sacaron, cuántas se entregaron, cuántas deberían quedar y cuántas se contaron al cerrar,
   con un "Faltan" / "Sobran" claro.
