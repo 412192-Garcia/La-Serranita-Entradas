@@ -6,6 +6,8 @@ número y el CI la usa como nota de la Release de GitHub.
 
 ## Sin publicar
 
+## 0.10.9 — 2026-11-09
+
 - Control de Accesos y Anticipadas del POS: "Ver detalle" en el menú ⋮ de cada compra muestra todos sus datos: titular
   (y quien recibe, si es regalo), fecha de compra, qué se compró con precios y descuento, cómo y
   cuándo se pagó (con la tarjeta, si fue con el Point), factura, ingreso y vouchers, y cancelación.
