@@ -611,6 +611,7 @@ export class Entradas implements OnInit, OnDestroy, DoCheck {
         telefono: this.compraAcumulada.receptor.telefono || null,
       } : null,
       confirmarDniExistente,
+      enIframe: window.self !== window.top,
       // Sólo tiene efecto junto con confirmarDniExistente=true (ver checkbox del cartel).
       actualizarDatosCliente: confirmarDniExistente ? this.actualizarDatosCliente : false,
       esOtraPersona,
@@ -621,6 +622,7 @@ export class Entradas implements OnInit, OnDestroy, DoCheck {
       next: (res) => {
         this.compraIdActual = res.id;
         this.codigoReservaActual = res.codigoReserva;
+        this.cierreAnotado = false;
         // El total del backend (con cupón aplicado), que es lo que cobra Mercado Pago.
         this.montoTotalActual = res.montoTotal;
 
@@ -629,6 +631,7 @@ export class Entradas implements OnInit, OnDestroy, DoCheck {
           // El botón sigue "procesando" mientras esperamos que el usuario complete el
           // pago en la ventana de Mercado Pago (se libera al cerrarla, al confirmarse o al fallar el pago).
           this.ventanaPago = this.abrirVentanaPago(res.initPoint);
+          this.anotarPaso(this.ventanaPago ? 'VENTANA_ABIERTA' : 'VENTANA_BLOQUEADA');
 
           if (!this.ventanaPago) {
             // Bloqueada: la compra queda esperando y se ofrece el botón "Abrir Mercado Pago".
@@ -714,6 +717,10 @@ export class Entradas implements OnInit, OnDestroy, DoCheck {
     // llegó (por ejemplo, con el túnel de notificaciones caído), esto lo detecta igual
     // sin depender de esa notificación — es el caso real que motivó este chequeo.
     if (this.ventanaPago?.closed && !this.pagoConfirmado) {
+      if (!this.cierreAnotado) {
+        this.cierreAnotado = true;
+        this.anotarPaso('VENTANA_CERRADA');
+      }
       return this.verificarConMercadoPago();
     }
     if (!this.compraIdActual) {
@@ -810,6 +817,7 @@ export class Entradas implements OnInit, OnDestroy, DoCheck {
   abrirPagoBloqueado(): void {
     if (!this.linkPagoBloqueado) return;
     const ventana = this.abrirVentanaPago(this.linkPagoBloqueado);
+    this.anotarPaso(ventana ? 'ABRIO_TRAS_BLOQUEO' : 'SIGUE_BLOQUEADA');
     if (!ventana) {
       this.aviso = 'Tu navegador sigue sin dejar abrir Mercado Pago. Probá abrir esta página en Chrome o Safari.';
       return;
@@ -823,9 +831,20 @@ export class Entradas implements OnInit, OnDestroy, DoCheck {
   /** Desiste del pago bloqueado: vuelve a dejar elegir forma de pago o datos. La compra pendiente
    * se reusa si vuelve a pagar lo mismo (backend), o la cancela el barrido. */
   cancelarPagoBloqueado(): void {
+    this.anotarPaso('DESISTIO');
     this.detenerVerificacion();
     this.linkPagoBloqueado = null;
     this.procesandoPago = false;
+  }
+
+  /** La ventana de esta compra ya se anotó como cerrada (se revisa varias veces). */
+  private cierreAnotado = false;
+
+  /** Para Reportes: hasta dónde llegó el pago de esta compra. */
+  private anotarPaso(tipo: string): void {
+    if (this.compraIdActual && this.codigoReservaActual) {
+      this.compraService.registrarEventoPago(this.compraIdActual, this.codigoReservaActual, tipo);
+    }
   }
 
   private registrarConversion(): void {

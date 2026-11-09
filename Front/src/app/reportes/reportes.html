@@ -177,6 +177,181 @@
     }
   </div>
 
+  @if (sinCompletar(); as s) {
+    <div appPlegableCelular class="tarjeta tarjeta-ancha" data-tour="compras-sin-completar">
+      <h2>Compras online sin completar</h2>
+      <p class="ayuda">Compras con Mercado Pago, por el día en que se empezaron. El número de reserva no sirve para
+        contarlas: también cuenta las ventas de puerta y las reservas de ese día.</p>
+      @if (s.iniciadas === 0) {
+        <p class="ayuda">No se empezó ninguna compra online en el rango.</p>
+      } @else {
+        <div class="embudo-online">
+          <div><span>Empezadas</span><strong>{{ s.iniciadas | number }}</strong></div>
+          <div><span>Pagadas</span><strong>{{ s.pagadas | number }}</strong><small>{{ porcentaje(s.pagadas, s.iniciadas) }}</small></div>
+          <div><span>Abrieron el pago y no lo intentaron</span><strong>{{ s.abandonadas | number }}</strong><small>{{ porcentaje(s.abandonadas, s.iniciadas) }}</small></div>
+          <div><span>Pago rechazado</span><strong>{{ s.rechazadas | number }}</strong><small>{{ porcentaje(s.rechazadas, s.iniciadas) }}</small></div>
+          <div><span>No se pudo generar el pago</span><strong>{{ s.noIniciadas | number }}</strong><small>{{ porcentaje(s.noIniciadas, s.iniciadas) }}</small></div>
+          <div><span>Esperando el pago</span><strong>{{ s.pendientes | number }}</strong></div>
+          @if (s.otras > 0) {
+            <div><span>Canceladas por otro motivo</span><strong>{{ s.otras | number }}</strong><small>{{ porcentaje(s.otras, s.iniciadas) }}</small></div>
+          }
+        </div>
+        @if (s.noRecuperadas > 0) {
+          <p class="ayuda">
+            No se volvieron a intentar: <strong>{{ s.montoNoRecuperado | pesos }}</strong> en {{ s.noRecuperadas | number }}
+            compra{{ s.noRecuperadas === 1 ? '' : 's' }} (no hay otra compra pagada después con el mismo email o DNI).
+          </p>
+        }
+
+        @if (s.pasosAbandonadas.length) {
+          <h3 class="subtitulo-reporte">Hasta dónde llegaron las que abrieron el pago y no lo intentaron</h3>
+          <div class="tabla-simple">
+            <div class="fila-simple fila-simple-desglose-simple fila-simple-header">
+              <span>Último paso</span><span>Compras</span><span>%</span>
+            </div>
+            @for (p of s.pasosAbandonadas; track p.texto) {
+              <div class="fila-simple fila-simple-desglose-simple">
+                <span>{{ p.texto }}</span>
+                <span data-label="Compras">{{ p.cantidad | number }}</span>
+                <span data-label="%">{{ porcentaje(p.cantidad, s.abandonadas) }}</span>
+              </div>
+            }
+          </div>
+        }
+
+        <h3 class="subtitulo-reporte">Cuántas se pagan según desde dónde se compra</h3>
+        <div class="tablas-sin-completar">
+          <div class="tabla-simple">
+            <div class="fila-simple fila-simple-desglose-simple fila-simple-header">
+              <span>Dispositivo y navegador</span><span>Empezadas</span><span>Pagadas</span>
+            </div>
+            @for (g of s.porDispositivo; track g.nombre) {
+              <div class="fila-simple fila-simple-desglose-simple">
+                <span>{{ g.nombre }}</span>
+                <span data-label="Empezadas">{{ g.iniciadas | number }}</span>
+                <span data-label="Pagadas">{{ g.pagadas | number }} ({{ porcentaje(g.pagadas, g.iniciadas) }})</span>
+              </div>
+            }
+          </div>
+          <div class="tabla-simple">
+            <div class="fila-simple fila-simple-desglose-simple fila-simple-header">
+              <span>Desde dónde</span><span>Empezadas</span><span>Pagadas</span>
+            </div>
+            @for (g of s.porOrigen; track g.nombre) {
+              <div class="fila-simple fila-simple-desglose-simple">
+                <span>{{ g.nombre }}</span>
+                <span data-label="Empezadas">{{ g.iniciadas | number }}</span>
+                <span data-label="Pagadas">{{ g.pagadas | number }} ({{ porcentaje(g.pagadas, g.iniciadas) }})</span>
+              </div>
+            }
+          </div>
+        </div>
+
+        <h3 class="subtitulo-reporte">Pagadas y sin completar, comparadas</h3>
+        <div class="tabla-simple">
+          <div class="fila-simple fila-simple-perfil fila-simple-header">
+            <span></span><span>Pagadas</span><span>Sin completar</span>
+          </div>
+          <div class="fila-simple fila-simple-perfil">
+            <span>Entradas por compra</span>
+            <span data-label="Pagadas">{{ s.perfilPagadas.entradasPromedio | number: '1.0-1' }}</span>
+            <span data-label="Sin completar">{{ s.perfilSinCompletar.entradasPromedio | number: '1.0-1' }}</span>
+          </div>
+          <div class="fila-simple fila-simple-perfil">
+            <span>Monto por compra</span>
+            <span data-label="Pagadas">{{ s.perfilPagadas.montoPromedio | pesos }}</span>
+            <span data-label="Sin completar">{{ s.perfilSinCompletar.montoPromedio | pesos }}</span>
+          </div>
+          <div class="fila-simple fila-simple-perfil">
+            <span>Días antes de la visita</span>
+            <span data-label="Pagadas">{{ s.perfilPagadas.diasAnticipacionPromedio | number: '1.0-1' }}</span>
+            <span data-label="Sin completar">{{ s.perfilSinCompletar.diasAnticipacionPromedio | number: '1.0-1' }}</span>
+          </div>
+          <div class="fila-simple fila-simple-perfil">
+            <span>Con cupón</span>
+            <span data-label="Pagadas">{{ s.perfilPagadas.porcentajeConCupon | number: '1.0-0' }}%</span>
+            <span data-label="Sin completar">{{ s.perfilSinCompletar.porcentajeConCupon | number: '1.0-0' }}%</span>
+          </div>
+          <div class="fila-simple fila-simple-perfil">
+            <span>Regalos</span>
+            <span data-label="Pagadas">{{ s.perfilPagadas.porcentajeRegalo | number: '1.0-0' }}%</span>
+            <span data-label="Sin completar">{{ s.perfilSinCompletar.porcentajeRegalo | number: '1.0-0' }}%</span>
+          </div>
+        </div>
+
+        <h3 class="subtitulo-reporte">Por día</h3>
+
+        <div class="tablas-sin-completar">
+          <div class="tabla-simple">
+            <div class="fila-simple fila-simple-desglose-simple fila-simple-header">
+              <span>Día</span><span>Empezadas</span><span>Pagadas</span>
+            </div>
+            @for (d of s.porDia; track d.fecha) {
+              <div class="fila-simple fila-simple-desglose-simple">
+                <span>{{ d.fecha + 'T12:00:00' | date: 'EEE dd/MM' }}</span>
+                <span data-label="Empezadas">{{ d.iniciadas | number }}</span>
+                <span data-label="Pagadas">{{ d.pagadas | number }} ({{ porcentaje(d.pagadas, d.iniciadas) }})</span>
+              </div>
+            }
+          </div>
+
+          @if (s.motivosRechazo.length) {
+            <div class="tabla-simple">
+              <div class="fila-simple fila-simple-desglose-simple fila-simple-header">
+                <span>Respuesta de Mercado Pago</span><span>Veces</span><span></span>
+              </div>
+              @for (m of s.motivosRechazo; track m.texto) {
+                <div class="fila-simple fila-simple-desglose-simple">
+                  <span>{{ m.texto }}</span>
+                  <span data-label="Veces">{{ m.cantidad | number }}</span>
+                  <span></span>
+                </div>
+              }
+            </div>
+          }
+        </div>
+
+        @if (s.intentos.length) {
+          <button type="button" class="btn-ver-cancelaciones" (click)="verIntentos.set(!verIntentos())">
+            {{ verIntentos() ? 'Ocultar el detalle' : 'Ver cada una (' + s.intentos.length + ')' }}
+          </button>
+          @if (verIntentos()) {
+            <div class="tabla-simple">
+              <div class="fila-simple fila-simple-intento fila-simple-header">
+                <span>Compra</span><span>Empezada</span><span>Qué pasó</span><span>Contacto</span><span>Monto</span><span>Después</span>
+              </div>
+              @for (i of s.intentos; track i.id) {
+                <div class="fila-simple fila-simple-intento">
+                  <span>
+                    #{{ i.codigoReserva }}
+                    <small class="detalle-cancelacion">
+                      {{ i.entradas }} entrada{{ i.entradas === 1 ? '' : 's' }}
+                      @if (i.fechaVisita) { · para el {{ i.fechaVisita + 'T12:00:00' | date: 'dd/MM' }} }
+                    </small>
+                  </span>
+                  <span data-label="Empezada">{{ i.fechaCreacion | date: 'dd/MM HH:mm' }}</span>
+                  <span data-label="Qué pasó">
+                    {{ queFalloIntento(i) }}
+                    @if (i.detalle) { <small class="detalle-cancelacion">{{ i.detalle }}</small> }
+                    @for (p of i.pasos; track $index) { <small class="detalle-cancelacion">{{ p }}</small> }
+                    @if (i.dispositivo) { <small class="detalle-cancelacion">{{ i.dispositivo }} · {{ i.origen }}</small> }
+                  </span>
+                  <span data-label="Contacto">
+                    {{ i.nombre || '—' }}
+                    @if (i.email) { <small class="detalle-cancelacion">{{ i.email }}</small> }
+                    @if (i.telefono) { <small class="detalle-cancelacion">{{ i.telefono }}</small> }
+                  </span>
+                  <span data-label="Monto">{{ i.monto | pesos }}</span>
+                  <span data-label="Después">{{ i.compraPosterior ? 'Compró (#' + i.compraPosterior + ')' : 'No compró' }}</span>
+                </div>
+              }
+            </div>
+          }
+        }
+      }
+    </div>
+  }
+
   @if (resumen(); as r) {
     <div appPlegableCelular class="tarjeta tarjeta-ancha">
       <h2>Cancelaciones</h2>

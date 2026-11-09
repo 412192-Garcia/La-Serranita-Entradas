@@ -194,3 +194,59 @@ export interface ReporteResumen {
   /** Canceladas del rango con su motivo, las más recientes primero. */
   cancelaciones: CompraCancelada[];
 }
+
+/** Compras online (Mercado Pago) empezadas en el rango y qué pasó con cada una. */
+export interface ComprasSinCompletar {
+  iniciadas: number;
+  pagadas: number;
+  abandonadas: number;
+  rechazadas: number;
+  noIniciadas: number;
+  pendientes: number;
+  otras: number;
+  noRecuperadas: number;
+  montoNoRecuperado: number;
+  pasosAbandonadas: { texto: string; cantidad: number }[];
+  motivosRechazo: { texto: string; cantidad: number }[];
+  porDispositivo: GrupoConversion[];
+  porOrigen: GrupoConversion[];
+  perfilPagadas: PerfilCompras;
+  perfilSinCompletar: PerfilCompras;
+  porDia: { fecha: string; iniciadas: number; pagadas: number }[];
+  intentos: IntentoSinCompletar[];
+}
+
+export interface IntentoSinCompletar {
+  id: number;
+  codigoReserva: string;
+  fechaCreacion: string;
+  fechaVisita: string | null;
+  monto: number;
+  entradas: number;
+  estado: string;
+  motivo: string | null;
+  detalle: string | null;
+  nombre: string | null;
+  email: string | null;
+  telefono: string | null;
+  dispositivo: string | null;
+  origen: string;
+  pasos: string[];
+  compraPosterior: string | null;
+}
+
+export interface GrupoConversion {
+  nombre: string;
+  iniciadas: number;
+  pagadas: number;
+}
+
+/** Cómo son las compras de un grupo (pagadas o sin completar), para compararlas. */
+export interface PerfilCompras {
+  cantidad: number;
+  entradasPromedio: number;
+  montoPromedio: number;
+  diasAnticipacionPromedio: number;
+  porcentajeConCupon: number;
+  porcentajeRegalo: number;
+}

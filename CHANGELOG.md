@@ -6,6 +6,13 @@ número y el CI la usa como nota de la Release de GitHub.
 
 ## Sin publicar
 
+- Reportes: nueva sección "Compras online sin completar". Muestra cuántas compras con Mercado Pago se
+  empezaron y cuántas se pagaron, abandonaron, rechazaron o siguen esperando el pago; las respuestas
+  de Mercado Pago a los rechazos; cuánta plata quedó sin volver a intentarse; cuántas se pagan según
+  el dispositivo, el navegador (Instagram, Facebook, Chrome...) y si vinieron desde el sitio del
+  parque; y una comparación con las pagadas. Desde ahora la página de compra anota hasta dónde
+  llegó cada pago (ventana bloqueada, abrió Mercado Pago, lo cerró, volvió sin pagar), así se ve
+  qué pasa con las que abren el pago y no lo intentan.
 - Reportes: las anticipadas se separan según cómo se pagaron: online (Mercado Pago), al llegar, y
   las reservadas para pagar al llegar que todavía no se cobraron, con compras, entradas y monto.
   "Recaudación anticipada" muestra cuánto fue online y cuánto al llegar.

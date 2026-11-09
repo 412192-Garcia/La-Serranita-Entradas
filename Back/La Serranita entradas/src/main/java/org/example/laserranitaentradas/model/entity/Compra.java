@@ -100,6 +100,14 @@ public class Compra extends BaseEntity {
     @OneToMany(mappedBy = "compra", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<CompraDetalle> detalles;
 
+    /** Compra online: "Celular · Android · Instagram", según el navegador con el que se empezó. */
+    @Column(length = 80)
+    private String dispositivo;
+
+    /** Compra online: true si se hizo desde el sitio del parque (embebida), false si en la app directo. */
+    @Column(name = "en_iframe")
+    private Boolean enIframe;
+
     /** Los que se entregaron al validarla (extras y cantina). */
     @OneToMany(mappedBy = "compra", fetch = FetchType.LAZY)
     @OrderBy("id ASC")

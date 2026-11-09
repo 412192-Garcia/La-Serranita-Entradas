@@ -37,8 +37,11 @@ public class CompraController {
 
     private final CompraService compraService;
     private final ModulosService modulos;
+    private final org.example.laserranitaentradas.service.impl.SeguimientoPagoService seguimientoPago;
 
-    public CompraController(CompraService compraService, ModulosService modulos) {
+    public CompraController(CompraService compraService, ModulosService modulos,
+                            org.example.laserranitaentradas.service.impl.SeguimientoPagoService seguimientoPago) {
+        this.seguimientoPago = seguimientoPago;
         this.compraService = compraService;
         this.modulos = modulos;
     }
@@ -52,13 +55,24 @@ public class CompraController {
 
     @PostMapping("/iniciar-pago")
     @Operation(summary = "Iniciar compra con pago online", description = "Crea la compra en estado PENDIENTE y genera la preferencia de Mercado Pago")
-    public ResponseEntity<CompraResponseDTO> iniciarPago(@RequestBody @Parameter(description = "Datos de la compra") CompraRequestDTO compraRequest) throws Exception {
+    public ResponseEntity<CompraResponseDTO> iniciarPago(@RequestBody @Parameter(description = "Datos de la compra") CompraRequestDTO compraRequest,
+                                                         @RequestHeader(value = "User-Agent", required = false) String userAgent) throws Exception {
         rechazarFormaPagoSoloInterna(compraRequest);
         if (compraRequest.getFormaPago() == FormaPago.EFECTIVO_BOLETERIA && !modulos.activo(Modulo.RESERVA_EFECTIVO)) {
             throw new IllegalArgumentException("Por ahora no se puede reservar para pagar en el parque: elegí pagar online.");
         }
         CompraResponseDTO response = compraService.iniciarCompraConPago(compraRequest);
+        if (response.getFormaPago() == FormaPago.MERCADO_PAGO && response.getId() != null) {
+            seguimientoPago.registrarOrigen(response.getId(), userAgent, compraRequest.getEnIframe());
+        }
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @PostMapping("/{id}/evento-pago")
+    @Operation(summary = "Anotar un paso del pago online", description = "La página de compra avisa qué pasó con la ventana de Mercado Pago. Sólo para estadística.")
+    public ResponseEntity<Void> eventoPago(@PathVariable Long id, @RequestBody Map<String, String> body) {
+        seguimientoPago.registrar(id, body.get("codigoReserva"), body.get("tipo"));
+        return ResponseEntity.noContent().build();
     }
 
     /** RESERVA_ADMIN y SIN_COBRO no se aceptan en el endpoint público: serían entradas sin cobro. */

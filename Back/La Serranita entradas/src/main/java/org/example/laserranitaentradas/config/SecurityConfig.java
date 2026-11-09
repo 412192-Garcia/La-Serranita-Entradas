@@ -60,7 +60,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/compras/opciones-pago").permitAll()
                 // {id:\d+} y no {id}: si no matchea /api/compras/buscar y la deja abierta sin login.
                 .requestMatchers(HttpMethod.GET, "/api/compras/{id:\\d+}", "/api/compras/{id:\\d+}/estado", "/api/compras/codigo/*").permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/compras/{id:\\d+}/verificar-pago").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/compras/{id:\\d+}/verificar-pago", "/api/compras/{id:\\d+}/evento-pago").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/pagos/webhook").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/ping").permitAll()
                 // Para el monitor externo y el healthcheck de Docker; no expone datos.

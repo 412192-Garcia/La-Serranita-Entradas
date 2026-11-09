@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { ReporteResumen } from '../models/reporte';
+import { ComprasSinCompletar, ReporteResumen } from '../models/reporte';
 import { environment } from '../../environments/environment';
 
 @Injectable({
@@ -13,5 +13,9 @@ export class ReporteService {
 
   getResumen(desde: string, hasta: string): Observable<ReporteResumen> {
     return this.http.get<ReporteResumen>(`${this.apiUrl}/resumen`, { params: { desde, hasta } });
+  }
+
+  getComprasSinCompletar(desde: string, hasta: string): Observable<ComprasSinCompletar> {
+    return this.http.get<ComprasSinCompletar>(`${this.apiUrl}/compras-sin-completar`, { params: { desde, hasta } });
   }
 }
