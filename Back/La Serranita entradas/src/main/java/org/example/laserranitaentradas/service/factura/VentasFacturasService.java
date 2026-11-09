@@ -6,6 +6,10 @@ import org.example.laserranitaentradas.model.dto.FacturacionPosDTO;
 import org.example.laserranitaentradas.model.dto.VentaFacturaDTO;
 import org.example.laserranitaentradas.model.entity.*;
 import org.example.laserranitaentradas.repository.CajaRepository;
+import org.example.laserranitaentradas.repository.CobroPointRepository;
+import org.example.laserranitaentradas.model.dto.CorreccionVentaDTO;
+import org.example.laserranitaentradas.service.CorreccionVentaService;
+import java.time.LocalDateTime;
 import org.example.laserranitaentradas.repository.CompraRepository;
 import org.example.laserranitaentradas.repository.FacturaRepository;
 import org.example.laserranitaentradas.service.EmailService;
@@ -38,15 +42,20 @@ public class VentasFacturasService {
     private final FacturaRepository facturaRepository;
     private final FacturaService facturaService;
     private final EmailService emailService;
+    private final CobroPointRepository cobroPointRepository;
+    private final CorreccionVentaService correccionVentaService;
 
     public VentasFacturasService(CajaRepository cajaRepository, CompraRepository compraRepository,
                                  FacturaRepository facturaRepository, FacturaService facturaService,
-                                 EmailService emailService) {
+                                 EmailService emailService, CobroPointRepository cobroPointRepository,
+                                 CorreccionVentaService correccionVentaService) {
         this.cajaRepository = cajaRepository;
         this.compraRepository = compraRepository;
         this.facturaRepository = facturaRepository;
         this.facturaService = facturaService;
         this.emailService = emailService;
+        this.cobroPointRepository = cobroPointRepository;
+        this.correccionVentaService = correccionVentaService;
     }
 
     /** Las ventas cobradas de un turno, de la más nueva a la más vieja, cada una con su factura. */
@@ -59,12 +68,45 @@ public class VentasFacturasService {
                 .filter(c -> FACTURABLES.contains(c.getEstado()))
                 .sorted(Comparator.comparing(Compra::getFechaValidacion, Comparator.nullsLast(Comparator.reverseOrder())))
                 .toList();
-        // Se consulta cada 2,5 s: todo el turno en dos consultas.
-        Map<Long, FacturaResponseDTO> facturas = facturaService.obtenerPorCompras(ventas.stream().map(Compra::getId).toList());
-        return ventas.stream()
-                .map(c -> new VentaFacturaDTO(c.getId(), c.getCodigoReserva(), c.getFechaValidacion(), c.getMontoTotal(),
-                        c.getFormaPago(), resumen(c), facturas.get(c.getId())))
+        // Se consulta cada 2,5 s mientras algo se emite: todo el turno en pocas consultas.
+        List<Long> ids = ventas.stream().map(Compra::getId).toList();
+        Map<Long, FacturaResponseDTO> facturas = facturaService.obtenerPorCompras(ids);
+        Map<Long, CobroPoint> cobrosPoint = ids.isEmpty() ? Map.of() : cobroPointRepository.findAllByCompraIdIn(ids).stream()
+                .filter(cp -> cp.getEstado() == EstadoCobroPoint.APROBADO)
+                .collect(Collectors.toMap(cp -> cp.getCompra().getId(), cp -> cp, (a, b) -> a));
+        Map<Long, List<CorreccionVentaDTO>> correcciones = correccionVentaService.deCompras(ids);
+        LocalDateTime ahora = LocalDateTime.now();
+        return ventas.stream().map(c -> aDto(c, facturas.get(c.getId()), cobrosPoint.get(c.getId()),
+                CorreccionVentaService.corregibleHasta(c, operador, ahora), correcciones.getOrDefault(c.getId(), List.of()))).toList();
+    }
+
+    private static VentaFacturaDTO aDto(Compra c, FacturaResponseDTO factura, CobroPoint point, LocalDateTime corregibleHasta,
+                                        List<CorreccionVentaDTO> correcciones) {
+        List<VentaFacturaDTO.Linea> lineas = c.getDetalles() == null ? List.of() : c.getDetalles().stream()
+                .map(d -> new VentaFacturaDTO.Linea(d.getCantidad(), nombre(d),
+                        d.getPrecioUnitario() != null ? d.getPrecioUnitario()
+                                : d.getTipoEntrada() != null ? d.getTipoEntrada().getPrecio() : null,
+                        d.getTipoEntrada() != null && d.getTipoEntrada().getTipo() == Tipo.ENTRADA,
+                        d.getTipoEntrada() != null ? d.getTipoEntrada().getId() : null,
+                        d.getArticuloVario() != null ? d.getArticuloVario().getId() : null))
                 .toList();
+        // En una caja, USADO es una reserva que se cobró acá; la venta de puerta queda VENDIDO_EN_PUERTA.
+        boolean anticipada = c.getEstado() == EstadoCompra.USADO;
+        String titular = anticipada && c.getCliente() != null
+                ? (c.getCliente().getNombre() + " " + c.getCliente().getApellido()).trim() : null;
+        return new VentaFacturaDTO(c.getId(), c.getCodigoReserva(), c.getFechaValidacion(), c.getMontoTotal(),
+                c.getFormaPago(), resumen(c), factura, lineas, c.getDescuentoAplicado(),
+                c.getPromocion() != null ? c.getPromocion().getNombre() : null,
+                c.getFormaPagoSecundaria(), c.getMontoFormaPagoSecundaria(), c.getDolaresRecibidos(), c.getCotizacionDolar(),
+                anticipada, titular,
+                point != null ? point.getMedioPago() : null, point != null ? point.getTipoMedio() : null,
+                point != null ? point.getCuotas() : null, corregibleHasta, correcciones);
+    }
+
+    private static String nombre(CompraDetalle d) {
+        return d.getTipoEntrada() != null ? d.getTipoEntrada().getNombre()
+                : d.getArticuloVario() != null ? d.getArticuloVario().getNombre()
+                : Objects.requireNonNullElse(d.getDescripcionLibre(), "Artículo");
     }
 
     /** Mismo camino que el POS: se emite al commitear. */
@@ -137,9 +179,7 @@ public class VentasFacturasService {
     private static String resumen(Compra c) {
         if (c.getDetalles() == null) return "";
         return c.getDetalles().stream()
-                .map(d -> d.getCantidad() + "x " + (d.getTipoEntrada() != null ? d.getTipoEntrada().getNombre()
-                        : d.getArticuloVario() != null ? d.getArticuloVario().getNombre()
-                        : Objects.requireNonNullElse(d.getDescripcionLibre(), "Artículo")))
+                .map(d -> d.getCantidad() + "x " + nombre(d))
                 .collect(Collectors.joining(", "));
     }
 }

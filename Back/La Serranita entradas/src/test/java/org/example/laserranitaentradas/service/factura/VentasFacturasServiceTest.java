@@ -6,8 +6,10 @@ import org.example.laserranitaentradas.model.dto.FacturacionPosDTO;
 import org.example.laserranitaentradas.model.dto.VentaFacturaDTO;
 import org.example.laserranitaentradas.model.entity.*;
 import org.example.laserranitaentradas.repository.CajaRepository;
+import org.example.laserranitaentradas.repository.CobroPointRepository;
 import org.example.laserranitaentradas.repository.CompraRepository;
 import org.example.laserranitaentradas.repository.FacturaRepository;
+import org.example.laserranitaentradas.service.CorreccionVentaService;
 import org.example.laserranitaentradas.service.EmailService;
 import org.example.laserranitaentradas.service.FacturaService;
 import org.junit.jupiter.api.BeforeEach;
@@ -44,13 +46,16 @@ class VentasFacturasServiceTest {
     @Mock private FacturaRepository facturaRepository;
     @Mock private FacturaService facturaService;
     @Mock private EmailService emailService;
+    @Mock private CobroPointRepository cobroPointRepository;
+    @Mock private CorreccionVentaService correccionVentaService;
 
     private VentasFacturasService service;
     private Caja caja;
 
     @BeforeEach
     void setUp() {
-        service = new VentasFacturasService(cajaRepository, compraRepository, facturaRepository, facturaService, emailService);
+        service = new VentasFacturasService(cajaRepository, compraRepository, facturaRepository, facturaService, emailService,
+                cobroPointRepository, correccionVentaService);
         Usuario usuario = new Usuario();
         usuario.setId(BOLETERO_ID);
         caja = new Caja();
@@ -84,6 +89,51 @@ class VentasFacturasServiceTest {
         assertThat(ventas.get(0).detalle()).isEqualTo("2x General");
         assertThat(ventas.get(0).factura()).isSameAs(factura);
         assertThat(ventas.get(1).factura()).isNull();
+    }
+
+    @Test
+    void ventasDeCaja_anticipadaConTitularLineasYTarjetaDelPoint() {
+        Compra reserva = compra(20L, EstadoCompra.USADO, LocalDateTime.of(2026, 10, 2, 11, 0));
+        Cliente cliente = new Cliente();
+        cliente.setNombre("Ana");
+        cliente.setApellido("Paz");
+        reserva.setCliente(cliente);
+        reserva.setDescuentoAplicado(new BigDecimal("500"));
+        TipoEntrada general = new TipoEntrada();
+        general.setNombre("General");
+        general.setTipo(Tipo.ENTRADA);
+        general.setPrecio(new BigDecimal("1000"));
+        CompraDetalle detalle = new CompraDetalle();
+        detalle.setTipoEntrada(general);
+        detalle.setCantidad(3);
+        reserva.setDetalles(List.of(detalle));
+        Compra puerta = compra(21L, EstadoCompra.VENDIDO_EN_PUERTA, LocalDateTime.of(2026, 10, 2, 10, 0));
+        when(compraRepository.findAllByCajaIdConDetalles(3L)).thenReturn(List.of(reserva, puerta));
+        CobroPoint point = new CobroPoint();
+        point.setCompra(reserva);
+        point.setEstado(EstadoCobroPoint.APROBADO);
+        point.setMedioPago("visa");
+        point.setTipoMedio("credit_card");
+        point.setCuotas(3);
+        CobroPoint rechazado = new CobroPoint();
+        rechazado.setCompra(puerta);
+        rechazado.setEstado(EstadoCobroPoint.RECHAZADO);
+        rechazado.setMedioPago("master");
+        when(cobroPointRepository.findAllByCompraIdIn(List.of(20L, 21L))).thenReturn(List.of(point, rechazado));
+
+        List<VentaFacturaDTO> ventas = service.ventasDeCaja(3L, boletero);
+
+        VentaFacturaDTO r = ventas.get(0);
+        assertThat(r.anticipada()).isTrue();
+        assertThat(r.titular()).isEqualTo("Ana Paz");
+        assertThat(r.descuento()).isEqualByComparingTo("500");
+        assertThat(r.lineas()).containsExactly(new VentaFacturaDTO.Linea(3, "General", new BigDecimal("1000"), true, null, null));
+        assertThat(r.pointMedioPago()).isEqualTo("visa");
+        assertThat(r.pointCuotas()).isEqualTo(3);
+        VentaFacturaDTO p = ventas.get(1);
+        assertThat(p.anticipada()).isFalse();
+        assertThat(p.titular()).isNull();
+        assertThat(p.pointMedioPago()).isNull();
     }
 
     @Test

@@ -325,9 +325,7 @@ export class ConfiguracionCajas implements OnInit {
   boleterosDisponibles = signal<string[]>([]);
 
   ngOnInit(): void {
-    // "Ventas y facturas" (en caja abierta y cerrada) sólo aparece con la facturación activa. Ese
-    // dato se refrescaba sólo desde el POS: un admin que entra directo acá con el almacenamiento
-    // vacío no veía el botón.
+    // Las opciones de factura de "Ventas y facturas" dependen de esto, y sólo se refrescaba desde el POS.
     this.facturaService.actualizarEstadoServicio();
     // Arranca DESC (más reciente primero): crearOrdenable siempre empieza en ASC, y acá
     // queremos la misma vista que ya trae el backend por defecto.
@@ -388,8 +386,9 @@ export class ConfiguracionCajas implements OnInit {
       });
   }
 
-  cargarCajasAbiertas(): void {
-    this.cargandoCajasAbiertas.set(true);
+  /** `silencioso`: sin spinner, para no rearmar el detalle abierto (y perder su filtro) al refrescar. */
+  cargarCajasAbiertas(silencioso = false): void {
+    if (!silencioso) this.cargandoCajasAbiertas.set(true);
     this.cajaService.obtenerCajasAbiertas().subscribe({
       next: (cs) => {
         this.cajasAbiertas.set(cs);
@@ -447,7 +446,7 @@ export class ConfiguracionCajas implements OnInit {
 
   /** Se canceló o editó una venta desde el detalle: refresca los totales de "Cajas abiertas ahora". */
   onCambiosOperaciones(): void {
-    this.cargarCajasAbiertas();
+    this.cargarCajasAbiertas(true);
   }
 
   /** Abre el modal para cerrar esa caja abierta (busca su detalle, sin exponer lo esperado: sigue abierta). */

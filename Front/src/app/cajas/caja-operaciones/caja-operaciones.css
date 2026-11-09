@@ -108,9 +108,9 @@
 .fila-simple-operaciones-admin {
   /* Ancho fijo (no "auto") en la columna de acciones: como cada fila es su propio grid
    * independiente, un "auto" reserva un ancho distinto según si esa fila tiene los botones
-   * Editar/Cancelar (las ventas), sólo uno, o ninguno (retiros/ingresos de entradas, y el
+   * Ver detalle/Editar/Cancelar (las ventas), sólo uno, o ninguno (retiros/ingresos de entradas, y el
    * header) — eso desalineaba "Monto" y "Detalle" contra los valores reales de cada fila. */
-  grid-template-columns: 22px 60px 100px 1fr 100px 145px;
+  grid-template-columns: 22px 60px 100px 1fr 100px 240px;
   font-size: 0.8rem;
   align-items: center;
   /* Más compacta que una fila de tabla admin común: acá puede haber muchas ventas en una
@@ -185,17 +185,6 @@
   cursor: default;
 }
 
-.form-edicion-venta {
-  background-color: var(--color-card-bg);
-  border: 2px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-card);
-  padding: 16px;
-  margin: 4px 0 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
 
 .fila-edicion-linea {
   display: flex;
@@ -229,6 +218,11 @@
   flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 12px;
+}
+
+/* "Nueva venta" en su modal: un poco más ancho que retiro/entradas por las líneas de entradas. */
+.panel-nueva-venta {
+  max-width: 560px;
 }
 
 .titulo-form-venta {
@@ -496,47 +490,3 @@
   }
 }
 
-.fondo-form-venta,
-.titulo-editar-venta {
-  display: none;
-}
-
-/* Celular: agregar o editar una venta sale como hoja, igual que retiro y entradas físicas. */
-@media (max-width: 600px) {
-  .fondo-form-venta {
-    position: fixed;
-    inset: 0;
-    z-index: 100;
-    display: block;
-    background-color: rgba(0, 0, 0, 0.4);
-  }
-
-  .form-edicion-venta {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 101;
-    max-height: 92dvh;
-    margin: 0;
-    overflow-y: auto;
-    border: none;
-    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-    box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.18);
-    animation: subir-form-venta 0.22s ease-out;
-  }
-
-  .titulo-editar-venta {
-    display: block;
-  }
-
-  .form-edicion-venta .grupo-toggle-pill {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
-@keyframes subir-form-venta {
-  from { transform: translateY(40px); }
-  to { transform: none; }
-}

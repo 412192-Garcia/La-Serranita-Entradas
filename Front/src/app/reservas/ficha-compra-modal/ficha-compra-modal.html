@@ -129,11 +129,20 @@
         @if (f?.cajaUsuario) {
           <dt>Caja</dt><dd>{{ f?.cajaUsuario }} · abierta {{ f?.cajaFechaApertura | date: 'dd/MM HH:mm' }}</dd>
         }
-        @if (f?.factura) {
+        @if (f?.factura || (conFactura() && f && c.montoTotal > 0)) {
           <dt>Factura</dt>
-          <dd>
-            {{ f?.factura }}
-            @if (estadoFactura(f?.facturaEstado ?? null); as e) { <span class="secundario">· {{ e }}</span> }
+          <dd class="dd-factura">
+            <span>
+              @if (f?.factura) {
+                {{ f?.factura }}
+                @if (estadoFactura(f?.facturaEstado ?? null); as e) { <span class="secundario">· {{ e }}</span> }
+              } @else {
+                <span class="secundario">Sin factura</span>
+              }
+            </span>
+            @if (conFactura() && f) {
+              <button type="button" class="btn-factura" (click)="verFactura.emit(c)">{{ f.factura ? 'Ver factura' : 'Facturar' }}</button>
+            }
           </dd>
         }
       </dl>

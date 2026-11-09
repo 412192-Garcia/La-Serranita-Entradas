@@ -3,7 +3,7 @@ import { ToastService } from '../../shared/toast/toast.service';
 import { DatePipe, NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CajaDetalleAbierta, CajaService, OperacionCaja, etiquetaTipoOperacion } from '../../services/caja.service';
-import { BoleteriaService, EditarVentaRequest, VentaPosRequest } from '../../services/boleteria.service';
+import { BoleteriaService, Reserva, VentaPosRequest } from '../../services/boleteria.service';
 import { TipoEntradaService } from '../../services/tipo-entrada.service';
 import { ArticuloVarioService } from '../../services/articulo-vario.service';
 import { TipoEntrada } from '../../models/tipo-entrada';
@@ -17,7 +17,7 @@ import { AgregarArticulo } from '../../pos/agregar-articulo/agregar-articulo';
 import { RetiroEfectivoModal } from '../../shared/retiro-efectivo-modal/retiro-efectivo-modal';
 import { IngresoEntradasModal } from '../../pos/ingreso-entradas-modal/ingreso-entradas-modal';
 import { LucideShoppingCart, LucideArrowDownRight, LucideArrowUpRight, LucideTicketPlus, LucideTicketMinus, LucideTicketCheck, LucideEllipsisVertical } from '@lucide/angular';
-import { cerrarConAtrasEnCelular } from '../../shared/modal/atras.service';
+import { AtrasService, cerrarConAtrasEnCelular } from '../../shared/modal/atras.service';
 
 interface LineaEdicion {
   tipoEntradaId: number | null;
@@ -35,7 +35,10 @@ const OPERACIONES_POR_PAGINA = 15;
  * mientras sigue trabajando. Se muestra igual que ResumenCierre: como contenido desplegado
  * debajo de la fila en la tabla de "Cajas abiertas ahora" (ver cajas.html), no como un modal aparte.
  */
-import { VentasFacturasModal } from '../../shared/ventas-facturas-modal/ventas-facturas-modal';
+import { FichaCompraModal } from '../../reservas/ficha-compra-modal/ficha-compra-modal';
+import { CorregirVenta, VentaACorregir } from '../../shared/corregir-venta/corregir-venta';
+import { Modal } from '../../shared/modal/modal';
+import { FacturaCompraModal } from '../../shared/factura-compra-modal/factura-compra-modal';
 import { DialogoConfirmacion } from '../../shared/confirmacion/dialogo-confirmacion';
 import { FacturaService } from '../../services/factura.service';
 @Component({
@@ -49,7 +52,10 @@ import { FacturaService } from '../../services/factura.service';
     AgregarArticulo,
     RetiroEfectivoModal,
     IngresoEntradasModal,
-    VentasFacturasModal,
+    FichaCompraModal,
+    CorregirVenta,
+    Modal,
+    FacturaCompraModal,
     DialogoConfirmacion,
     LucideShoppingCart,
     LucideArrowDownRight,
@@ -63,12 +69,6 @@ import { FacturaService } from '../../services/factura.service';
   styleUrl: './caja-operaciones.css',
 })
 export class CajaOperaciones implements OnInit {
-  /** En celular el formulario de venta es una hoja: el botón atrás la cierra. */
-  private atrasFormularioVenta = cerrarConAtrasEnCelular(
-    () => this.formularioVentaAbierto(),
-    () => this.cancelarFormulario(),
-  );
-
   /** En celular: la venta cuya hoja de acciones (⋮) está abierta. */
   menuOperacionId = signal<number | null>(null);
   private atrasMenuOperacion = cerrarConAtrasEnCelular(
@@ -129,11 +129,9 @@ export class CajaOperaciones implements OnInit {
   tiposEntrada = signal<TipoEntrada[]>([]);
   catalogoArticulos = signal<ArticuloVario[]>([]);
 
-  // ---------- Formulario de venta: mismo formulario para "editar" (editandoCompraId seteado)
-  // y para "agregar una venta nueva" (agregandoVenta) — nunca los dos a la vez. ----------
-  editandoCompraId = signal<number | null>(null);
+  // ---------- "Nueva venta" (modal). Editar usa el formulario de corrección (ver editandoVenta). ----------
   agregandoVenta = signal(false);
-  formularioVentaAbierto = computed(() => this.editandoCompraId() !== null || this.agregandoVenta());
+  formularioVentaAbierto = computed(() => this.agregandoVenta());
   cargandoFormulario = signal(false);
   guardandoFormulario = signal(false);
   errorFormulario = signal<string | null>(null);
@@ -144,7 +142,6 @@ export class CajaOperaciones implements OnInit {
   // ---------- Agregar un movimiento de caja (retiro/aporte o entradas físicas) ----------
   mostrarRetiro = signal(false);
   mostrarIngresoEntradas = signal(false);
-  mostrarVentasFacturas = signal(false);
   readonly facturacionHabilitada = inject(FacturaService).habilitada;
 
   /** Mismo criterio que el resumen del cierre: con la facturación prendida, o si igual hay algo facturado. */
@@ -156,6 +153,18 @@ export class CajaOperaciones implements OnInit {
 
   ngOnInit(): void {
     this.cargarOperaciones();
+  }
+
+  /** Venta abierta en "Ver detalle". */
+  fichaDe = signal<number | null>(null);
+
+  /** La factura de una venta: se abre desde "Ver detalle", en lugar del detalle. */
+  facturaDe = signal<Reserva | null>(null);
+  private atras = inject(AtrasService);
+
+  pasarAFactura(reserva: Reserva): void {
+    this.fichaDe.set(null);
+    setTimeout(() => this.atras.cuandoTermineDeCerrar(() => this.facturaDe.set(reserva)));
   }
 
   elegirFiltroTipo(filtro: FiltroTipoOperacion): void {
@@ -171,13 +180,14 @@ export class CajaOperaciones implements OnInit {
     this.paginaActual.update((p) => Math.min(this.totalPaginas() - 1, p + 1));
   }
 
-  private cargarOperaciones(): void {
-    this.cargando.set(true);
+  /** `silencioso`: sin spinner, así lo que está abierto (las ventas) no se rearma. */
+  private cargarOperaciones(silencioso = false): void {
+    if (!silencioso) this.cargando.set(true);
     this.error.set(null);
     this.cajaService.obtenerOperaciones(this.cajaId()).subscribe({
       next: (d) => {
         this.detalle.set(d);
-        this.paginaActual.set(0);
+        if (!silencioso) this.paginaActual.set(0);
         this.cargando.set(false);
       },
       error: (err) => {
@@ -241,7 +251,6 @@ export class CajaOperaciones implements OnInit {
   /** Abre el formulario vacío para cargar una venta que le faltó registrar al boletero. */
   iniciarAgregarVenta(): void {
     this.cargarCatalogos();
-    this.editandoCompraId.set(null);
     this.agregandoVenta.set(true);
     this.formaPagoEdicion.set('EFECTIVO_BOLETERIA');
     this.lineasEdicion.set([]);
@@ -249,46 +258,50 @@ export class CajaOperaciones implements OnInit {
     this.errorFormulario.set(null);
   }
 
+  /** Venta abierta en "Editar" (modal con el mismo formulario de corrección que el boletero). */
+  editandoVenta = signal<VentaACorregir | null>(null);
+  cargandoEdicionId = signal<number | null>(null);
+
   iniciarEdicion(op: OperacionCaja): void {
     if (op.compraId === null) return;
-    this.cargarCatalogos();
-
-    this.agregandoVenta.set(false);
-    this.editandoCompraId.set(op.compraId);
-    this.cargandoFormulario.set(true);
-    this.errorFormulario.set(null);
-    this.boleteriaService.obtenerPorId(op.compraId).subscribe({
-      next: (reserva) => {
-        this.formaPagoEdicion.set((reserva.formaPago as FormaPagoPos) ?? 'EFECTIVO_BOLETERIA');
-        const detalles = reserva.detalles ?? [];
-        this.lineasEdicion.set(
-          detalles
-            .filter((d) => d.tipoEntrada !== null)
-            .map((d) => ({ tipoEntradaId: d.tipoEntrada!.id, cantidad: d.cantidad }))
-        );
-        this.articulosEdicion.set(
-          detalles
-            .filter((d) => d.tipoEntrada === null)
-            .map((d) => ({
-              articuloVarioId: d.articuloVario?.id ?? null,
-              descripcionLibre: d.descripcionLibre,
-              nombre: d.articuloVario?.nombre ?? d.descripcionLibre ?? '?',
-              precioUnitario: d.precioUnitario ?? 0,
-              cantidad: d.cantidad,
-            }))
-        );
-        this.cargandoFormulario.set(false);
+    this.cargandoEdicionId.set(op.compraId);
+    this.boleteriaService.obtenerFicha(op.compraId).subscribe({
+      next: (f) => {
+        this.cargandoEdicionId.set(null);
+        const c = f.compra;
+        this.editandoVenta.set({
+          compraId: c.id,
+          codigoReserva: c.codigoReserva,
+          montoTotal: c.montoTotal,
+          formaPago: c.formaPago ?? 'EFECTIVO_BOLETERIA',
+          formaPagoSecundaria: f.formaPagoSecundaria,
+          montoFormaPagoSecundaria: f.montoFormaPagoSecundaria,
+          corregibleHasta: null,
+          lineas: (c.detalles ?? []).map((d) => ({
+            cantidad: d.cantidad,
+            nombre: d.tipoEntrada?.nombre ?? d.articuloVario?.nombre ?? d.descripcionLibre ?? 'Artículo',
+            precioUnitario: d.precioUnitario ?? d.tipoEntrada?.precio ?? null,
+            entrada: d.tipoEntrada?.tipo === 'ENTRADA',
+            tipoEntradaId: d.tipoEntrada?.id ?? null,
+            articuloVarioId: d.articuloVario?.id ?? null,
+          })),
+        });
       },
-      error: (err) => {
-        console.error('Error al cargar la venta a editar:', err);
-        this.errorFormulario.set('No se pudo cargar esta venta.');
-        this.cargandoFormulario.set(false);
+      error: () => {
+        this.cargandoEdicionId.set(null);
+        this.toast.error('No se pudo cargar esta venta.');
       },
     });
   }
 
+  alEditarVenta(): void {
+    this.editandoVenta.set(null);
+    this.toast.exito('Venta corregida.');
+    this.cargarOperaciones(true);
+    this.cambios.emit();
+  }
+
   cancelarFormulario(): void {
-    this.editandoCompraId.set(null);
     this.agregandoVenta.set(false);
     this.lineasEdicion.set([]);
     this.articulosEdicion.set([]);
@@ -344,15 +357,6 @@ export class CajaOperaciones implements OnInit {
     this.guardandoFormulario.set(true);
     this.errorFormulario.set(null);
 
-    const compraId = this.editandoCompraId();
-    if (compraId !== null) {
-      const payload: EditarVentaRequest = { entradas: entradasPayload, articulos: articulosPayload, formaPago: this.formaPagoEdicion() };
-      this.boleteriaService.editarVenta(compraId, payload).subscribe({
-        next: () => this.onGuardadoOk(),
-        error: (err) => this.onGuardadoError(err, 'No se pudo guardar la corrección. Reintentá.'),
-      });
-      return;
-    }
 
     const payload: VentaPosRequest = { entradas: entradasPayload, articulos: articulosPayload, formaPago: this.formaPagoEdicion() };
     this.boleteriaService.registrarVentaPosComoAdmin(this.cajaId(), payload).subscribe({

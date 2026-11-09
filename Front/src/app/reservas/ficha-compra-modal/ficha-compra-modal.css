@@ -125,6 +125,32 @@ dd {
 
 .codigo { font-family: monospace; font-size: 0.82rem; }
 
+.dd-factura {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.btn-factura {
+  padding: 4px 10px;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-card-bg);
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-factura:hover { border-color: var(--color-primary); color: var(--color-primary-dark); }
+
+@media (pointer: coarse) {
+  .btn-factura { min-height: 44px; }
+}
+
 .lineas {
   list-style: none;
   margin: 8px 0;

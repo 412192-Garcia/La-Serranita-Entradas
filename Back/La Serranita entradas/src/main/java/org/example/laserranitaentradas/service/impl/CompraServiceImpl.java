@@ -223,18 +223,22 @@ public class CompraServiceImpl implements CompraService {
      * total, y sin dólares.
      */
     private void validarPagoMixto(VentaPosRequestDTO request, BigDecimal montoFinal) {
-        FormaPago secundaria = request.getFormaPagoSecundaria();
+        validarPagoMixto(request.getFormaPago(), request.getFormaPagoSecundaria(), request.getMontoFormaPagoSecundaria(),
+                request.getCotizacionDolar() != null, montoFinal);
+    }
+
+    private static void validarPagoMixto(FormaPago principal, FormaPago secundaria, BigDecimal monto, boolean enDolares,
+                                         BigDecimal montoFinal) {
         if (secundaria == null) return;
-        if (request.getCotizacionDolar() != null) {
+        if (enDolares) {
             throw new IllegalArgumentException("No se puede combinar pago mixto con pago en dólares");
         }
-        if (!FORMAS_PAGO_MIXTO.contains(request.getFormaPago()) || !FORMAS_PAGO_MIXTO.contains(secundaria)) {
+        if (!FORMAS_PAGO_MIXTO.contains(principal) || !FORMAS_PAGO_MIXTO.contains(secundaria)) {
             throw new IllegalArgumentException("El pago mixto sólo admite efectivo, tarjeta o QR");
         }
-        if (secundaria == request.getFormaPago() && secundaria == FormaPago.EFECTIVO_BOLETERIA) {
+        if (secundaria == principal && secundaria == FormaPago.EFECTIVO_BOLETERIA) {
             throw new IllegalArgumentException("Las dos formas de pago tienen que ser distintas");
         }
-        BigDecimal monto = request.getMontoFormaPagoSecundaria();
         if (monto == null || monto.compareTo(BigDecimal.ZERO) <= 0 || monto.compareTo(montoFinal) >= 0) {
             throw new IllegalArgumentException("El monto de la segunda forma de pago tiene que ser mayor a cero y menor al total");
         }
@@ -1922,7 +1926,7 @@ public class CompraServiceImpl implements CompraService {
             throw new IllegalArgumentException("Falta indicar la forma de pago.");
         }
         BigDecimal montoAnterior = compra.getMontoTotal();
-        FormaPago formaAnterior = compra.getFormaPago();
+        String formaAnterior = describirPago(compra);
         String itemsAnteriores = resumenItems(compra.getDetalles());
         AuditoriaContexto.referencia("#" + compra.getCodigoReserva());
 
@@ -1984,7 +1988,13 @@ public class CompraServiceImpl implements CompraService {
         for (CompraDetalle det : todosLosDetalles) {
             det.setCompra(compra);
         }
+        // Sin segunda forma en el pedido = se pagó con una sola: se limpia la que hubiera.
+        boolean sigueEnDolares = compra.getCotizacionDolar() != null;
+        validarPagoMixto(request.getFormaPago(), request.getFormaPagoSecundaria(), request.getMontoFormaPagoSecundaria(),
+                sigueEnDolares, montoFinal);
         compra.setFormaPago(request.getFormaPago());
+        compra.setFormaPagoSecundaria(request.getFormaPagoSecundaria());
+        compra.setMontoFormaPagoSecundaria(request.getFormaPagoSecundaria() != null ? request.getMontoFormaPagoSecundaria() : null);
         compra.setMontoTotal(montoFinal);
         compra.setDescuentoAplicado(descuento);
         // Lo que cobró el Point no se puede cambiar editando: ver CobroPointService#validarEdicion.
@@ -1992,11 +2002,18 @@ public class CompraServiceImpl implements CompraService {
 
         Compra guardada = compraRepository.save(compra);
         AuditoriaContexto.cambio("Total", montoAnterior, guardada.getMontoTotal());
-        AuditoriaContexto.cambio("Forma de pago", formaAnterior, guardada.getFormaPago());
+        AuditoriaContexto.cambio("Forma de pago", formaAnterior, describirPago(guardada));
         AuditoriaContexto.cambio("Ítems", itemsAnteriores, resumenItems(guardada.getDetalles()));
         // Si cambió el total de una venta facturada: nota de crédito + factura nueva.
         facturaService.alEditarVenta(guardada, montoAnterior);
         return guardada;
+    }
+
+    /** "TARJETA" o "TARJETA + EFECTIVO_BOLETERIA $40000" para el antes/después del historial. */
+    private static String describirPago(Compra c) {
+        if (c.getFormaPagoSecundaria() == null) return String.valueOf(c.getFormaPago());
+        return c.getFormaPago() + " + " + c.getFormaPagoSecundaria() + " $"
+                + c.getMontoFormaPagoSecundaria().stripTrailingZeros().toPlainString();
     }
 
     /** "2× General, 1× Gorra" para el antes/después del historial. */

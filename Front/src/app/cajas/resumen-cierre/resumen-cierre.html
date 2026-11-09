@@ -137,6 +137,27 @@
 @if (caja().entradasFisicasInicial != null || caja().entradasFisicasRestantes != null) {
   <ng-container *ngTemplateOutlet="talonarioTpl; context: { $implicit: talonario() }" />
 }
+
+@if (correcciones().length > 0) {
+  <button type="button" class="btn-desglose-detalle btn-ver-correcciones" (click)="mostrarCorrecciones.set(!mostrarCorrecciones())">
+    {{ mostrarCorrecciones() ? 'Ocultar correcciones del boletero' : 'Ver correcciones del boletero (' + correcciones().length + ')' }}
+  </button>
+  @if (mostrarCorrecciones()) {
+    <ul class="lista-desglose-detalle lista-correcciones">
+      @for (c of correcciones(); track $index) {
+        <li>
+          <span class="correccion-titulo">
+            #{{ c.codigoReserva }} · {{ c.tipo === 'CANCELACION' ? 'cancelada' : 'corregida' }} a las {{ c.fecha | date: 'HH:mm' }}
+          </span>
+          <span>{{ c.antes }}@if (c.despues) { → {{ c.despues }}}</span>
+          @if (c.motivo) {
+            <span>Motivo: {{ c.motivo }}</span>
+          }
+        </li>
+      }
+    </ul>
+  }
+}
 }
 
 <!-- Entradas del talonario, paso a paso. -->
@@ -381,21 +402,21 @@
         type="button"
         class="btn-toggle-extra"
         [class.activo]="mostrarFormVentaExtra()"
-        (click)="mostrarFormVentaExtra.set(!mostrarFormVentaExtra())">
+        (click)="alternarForm('venta')">
         {{ mostrarFormVentaExtra() ? '−' : '+' }} Agregar una venta
       </button>
       <button
         type="button"
         class="btn-toggle-extra"
         [class.activo]="mostrarFormMontoSuelto()"
-        (click)="mostrarFormMontoSuelto.set(!mostrarFormMontoSuelto())">
+        (click)="alternarForm('monto')">
         {{ mostrarFormMontoSuelto() ? '−' : '+' }} Sumar o restar un monto
       </button>
       <button
         type="button"
         class="btn-toggle-extra"
         [class.activo]="mostrarFormArticulo()"
-        (click)="mostrarFormArticulo.set(!mostrarFormArticulo())">
+        (click)="alternarForm('articulo')">
         {{ mostrarFormArticulo() ? '−' : '+' }} Agregar un artículo vendido
       </button>
     </div>
@@ -595,15 +616,8 @@
 @if (mostrarAcciones() && !modoRevision() && caja().habilitada !== false) {
   <div class="acciones-resumen" data-tour="acciones-resumen">
     <button type="button" class="btn-corregir-cierre" (click)="toggleRevision()">Corregir caja</button>
-    @if (facturacionHabilitada()) {
-      <button type="button" class="btn-corregir-cierre" (click)="mostrarVentasFacturas.set(true)">Ventas y facturas</button>
-    }
     <button type="button" class="btn-borrar-caja" (click)="abrirModalDeshabilitar()">Borrar caja</button>
   </div>
-}
-
-@if (mostrarVentasFacturas()) {
-  <app-ventas-facturas-modal [cajaId]="caja().id" (cerrar)="mostrarVentasFacturas.set(false)" />
 }
 
 @if (mostrarModalDeshabilitar()) {
@@ -662,7 +676,7 @@
         } @else {
           <div class="tabla-simple tabla-detalle-operaciones">
             <div class="fila-simple fila-simple-operaciones fila-simple-header">
-              <span></span><span>Hora</span><span>Tipo</span><span>Detalle</span><span>Monto</span>
+              <span></span><span>Hora</span><span>Tipo</span><span>Detalle</span><span>Monto</span><span></span>
             </div>
             @for (op of operacionesFiltradas(); track $index) {
               <div class="fila-simple fila-simple-operaciones" [class.fila-operacion-retiro]="op.tipo === 'RETIRO' || op.tipo === 'RETIRO_ENTRADAS'" [class.fila-operacion-aporte]="op.tipo === 'APORTE'" [class.fila-operacion-anticipada]="op.tipo === 'ANTICIPADA_VALIDADA'">
@@ -680,6 +694,11 @@
                 <span>{{ etiquetaTipoOperacion(op) }}</span>
                 <span data-label="Detalle">{{ op.detalle }}</span>
                 <span data-label="Monto">{{ op.monto !== null ? (op.monto | pesos) : '' }}</span>
+                <span class="celda-ver-detalle">
+                  @if (op.compraId !== null) {
+                    <button type="button" class="btn-ver-detalle-operacion" (click)="fichaDe.set(op.compraId)">Ver detalle</button>
+                  }
+                </span>
               </div>
             }
           </div>
@@ -687,4 +706,12 @@
       </div>
     }
   </div>
+}
+
+@if (fichaDe(); as id) {
+  <app-ficha-compra-modal [compraId]="id" [conFactura]="facturacionHabilitada()" (cerrar)="fichaDe.set(null)" (verFactura)="pasarAFactura($event)" />
+}
+
+@if (facturaDe(); as reserva) {
+  <app-factura-compra-modal [reserva]="reserva" (cerrar)="facturaDe.set(null)" />
 }

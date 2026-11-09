@@ -1,0 +1,264 @@
+<section class="panel-ventas" [attr.aria-labelledby]="conTitulo() ? 'titulo-ventas-turno' : null" aria-label="Ventas del turno">
+    @if (conTitulo()) {
+      <div class="encabezado">
+        <h3 id="titulo-ventas-turno">{{ facturacion() ? 'Ventas y facturas' : 'Ventas del turno' }}</h3>
+        <ng-container [ngTemplateOutlet]="btnActualizar" />
+      </div>
+    }
+
+    <!-- Un solo aviso arriba en vez de repetirlo en cada venta: PC de la entrada apagada, ticketera
+         apagada, sin conexión... "Reimprimir" e "Imprimir factura" quedan bloqueados. -->
+    @if (facturacion()) {
+      @if (impresoras.motivoNoDisponible(); as motivo) {
+        <p class="nota nota-ticketera">{{ motivo }}</p>
+      }
+    }
+
+    @if (cargando()) {
+      <p class="estado-lista"><svg lucideLoaderCircle class="icono-girando" [strokeWidth]="2"></svg> Cargando ventas…</p>
+    } @else if (errorCarga(); as error) {
+      <p class="estado-lista estado-error">
+        {{ error }}
+        <button type="button" class="btn-accion" (click)="cargar()">Reintentar</button>
+      </p>
+    } @else if (ventas().length === 0) {
+      <p class="estado-lista">Todavía no hay ventas cobradas en este turno.</p>
+    } @else {
+      @let r = resumen();
+      <div class="resumen">
+        <div class="resumen-total">
+          <span class="resumen-etiqueta">{{ r.cantidad }} {{ r.cantidad === 1 ? 'venta' : 'ventas' }}</span>
+          <strong>{{ r.total | pesos }}</strong>
+        </div>
+        <div class="resumen-formas">
+          @for (fp of r.formas; track fp.forma) {
+            <span class="forma forma-{{ fp.forma }}">
+              <ng-container [ngTemplateOutlet]="iconoForma" [ngTemplateOutletContext]="{ $implicit: fp.forma }" />
+              {{ etiquetaFormaPago(fp.forma) }} <strong>{{ fp.monto | pesos }}</strong>
+            </span>
+          }
+        </div>
+      </div>
+
+      <div class="filtros">
+        <label class="buscador">
+          <svg lucideSearch [strokeWidth]="2"></svg>
+          <input type="search" placeholder="Código, titular o artículo" aria-label="Buscar venta"
+            [ngModel]="busqueda()" (ngModelChange)="busqueda.set($event)" />
+        </label>
+        @if (!conTitulo()) {
+          <ng-container [ngTemplateOutlet]="btnActualizar" />
+        }
+        @if (facturacion()) {
+          <div class="segmentos" role="group" aria-label="Filtrar ventas">
+            <button type="button" [class.activo]="filtro() === 'todas'" (click)="filtro.set('todas')">Todas</button>
+            <button type="button" [class.activo]="filtro() === 'sin-factura'" (click)="filtro.set('sin-factura')">
+              Sin factura @if (r.sinFactura) { <span class="contador">{{ r.sinFactura }}</span> }
+            </button>
+          </div>
+        }
+      </div>
+
+      @if (visibles().length === 0) {
+        <p class="estado-lista">Ninguna venta coincide.</p>
+      }
+
+      <ul class="lista-ventas">
+        @for (v of visibles(); track v.compraId) {
+          @let estado = estadoVisible(v);
+          <li class="venta">
+            <div class="venta-cabecera">
+              <span class="venta-hora">{{ v.fecha | date: (esDeHoy(v.fecha) ? 'HH:mm' : 'dd/MM HH:mm') }}</span>
+              <div class="venta-titulo">
+                <span class="venta-codigo">#{{ v.codigoReserva }}</span>
+                @if (v.anticipada) {
+                  <span class="etiqueta etiqueta-anticipada">Anticipada</span>
+                }
+              </div>
+              <span class="venta-monto">{{ v.montoTotal | pesos }}</span>
+            </div>
+
+            @for (c of v.correcciones; track $index) {
+              <div class="venta-corregida">Corregida a las {{ c.fecha | date: 'HH:mm' }}. Antes: {{ c.antes }}</div>
+            }
+
+            @if (v.titular) {
+              <div class="venta-titular"><svg lucideUser [strokeWidth]="2"></svg> {{ v.titular }}</div>
+            }
+
+            @if (v.lineas.length) {
+              <ul class="venta-lineas">
+                @for (l of v.lineas; track $index) {
+                  <li [class.extra]="!l.entrada">
+                    <span><span class="cantidad">{{ l.cantidad }}×</span> {{ l.nombre }}</span>
+                    @if (l.precioUnitario !== null) {
+                      <span class="importe">{{ l.precioUnitario * l.cantidad | pesos }}</span>
+                    }
+                  </li>
+                }
+                @if (v.descuento > 0) {
+                  <li class="descuento">
+                    <span><svg lucideTag [strokeWidth]="2"></svg> {{ v.promocion || 'Descuento' }}</span>
+                    <span class="importe">−{{ v.descuento | pesos }}</span>
+                  </li>
+                }
+              </ul>
+            }
+
+            <div class="venta-pago">
+              <span class="forma forma-{{ v.formaPago }}">
+                <ng-container [ngTemplateOutlet]="iconoForma" [ngTemplateOutletContext]="{ $implicit: v.formaPago }" />
+                {{ etiquetaFormaPago(v.formaPago) }}
+                @if (v.formaPagoSecundaria) { <strong>{{ montoPrincipal(v) | pesos }}</strong> }
+              </span>
+              @if (v.formaPagoSecundaria) {
+                <span class="forma forma-{{ v.formaPagoSecundaria }}">
+                  <ng-container [ngTemplateOutlet]="iconoForma" [ngTemplateOutletContext]="{ $implicit: v.formaPagoSecundaria }" />
+                  {{ etiquetaFormaPago(v.formaPagoSecundaria) }} <strong>{{ v.montoFormaPagoSecundaria | pesos }}</strong>
+                </span>
+              }
+              @if (descripcionTarjeta(v.pointMedioPago, v.pointTipoMedio, v.pointCuotas); as tarjeta) {
+                <span class="pago-extra">{{ tarjeta }}</span>
+              }
+              @if (v.dolaresRecibidos) {
+                <span class="pago-extra">US$ {{ v.dolaresRecibidos }} a {{ v.cotizacionDolar | pesos }}</span>
+              }
+            </div>
+
+            <!-- Estado de la factura. Con la facturación apagada sólo si la venta ya tenía una. -->
+            @if (facturacion() || v.factura) {
+            <div class="venta-factura estado-{{ estado }}">
+              @if (v.factura; as f) {
+                @if (vigente(f)) {
+                  <svg lucideFileText [strokeWidth]="2"></svg>
+                  <span>
+                    <strong>Factura B {{ numeroComprobante(f) }}</strong>
+                    @if (f.impresionEstado === 'IMPRESO') { · impresa }
+                    @else if (f.impresionEstado === 'ERROR') { · no se imprimió: {{ f.impresionError }} }
+                    @else if (f.impresionEstado === 'PENDIENTE' || f.impresionEstado === 'ENVIADO') { · imprimiendo… }
+                    @if (f.mailEnviadoEn) { · enviada a {{ f.email }} }
+                  </span>
+                } @else if (f.estado === 'PENDIENTE') {
+                  <svg lucideLoaderCircle class="icono-girando" [strokeWidth]="2"></svg>
+                  <span>Emitiendo factura…</span>
+                } @else if (f.estado === 'ERROR') {
+                  <svg lucideCircleAlert [strokeWidth]="2"></svg>
+                  <span>No se pudo emitir. Un administrador la tiene que reintentar.</span>
+                } @else {
+                  <svg lucideCircleAlert [strokeWidth]="2"></svg>
+                  <span>Factura anulada (la venta cambió o se canceló)</span>
+                }
+              } @else if (v.montoTotal > 0) {
+                <svg lucideCircleAlert [strokeWidth]="2"></svg>
+                <span>Sin factura</span>
+              } @else {
+                <span>Venta sin cobro: no se factura</span>
+              }
+            </div>
+            }
+
+            <!-- Acciones -->
+            @if (!enEdicion(v)) {
+            <div class="venta-acciones">
+              @if (facturacion() && vigente(v.factura)) {
+                <button type="button" class="btn-accion" [disabled]="enviando() !== null || !impresoras.lista()"
+                  [title]="impresoras.motivoNoDisponible() ?? 'Mandar el ticket a la ticketera'" (click)="reimprimir(v)">
+                  <svg lucidePrinter [strokeWidth]="2"></svg> Reimprimir
+                </button>
+                <button type="button" class="btn-accion" [class.activo]="abierta(v, 'mail')" [disabled]="enviando() !== null"
+                  (click)="abrir(v, 'mail')">
+                  <svg lucideMail [strokeWidth]="2"></svg> Mandar por mail
+                </button>
+                <button type="button" class="btn-accion" (click)="verPdf(v)">
+                  <svg lucideFileText [strokeWidth]="2"></svg> Ver PDF
+                </button>
+              } @else if (facturacion() && facturable(v)) {
+                <button type="button" class="btn-accion btn-facturar" [class.activo]="abierta(v, 'facturar')" [disabled]="enviando() !== null"
+                  (click)="abrir(v, 'facturar')">
+                  <svg lucideFileText [strokeWidth]="2"></svg> Facturar
+                </button>
+              }
+              @if (puedeCorregir(v)) {
+                <button type="button" class="btn-accion" (click)="abrirCorreccion(v)">
+                  <svg lucidePencil [strokeWidth]="2"></svg> Corregir
+                </button>
+                <button type="button" class="btn-accion btn-cancelar-venta" (click)="abrirCancelacion(v)">
+                  <svg lucideBan [strokeWidth]="2"></svg> Cancelar venta
+                </button>
+              }
+              <button type="button" class="btn-accion btn-detalle" (click)="fichaDe.set(v.compraId)">
+                <svg lucideEye [strokeWidth]="2"></svg> Ver detalle
+              </button>
+            </div>
+            }
+
+            @if (corrigiendo()?.compraId === v.compraId) {
+              <app-corregir-venta [venta]="v" (cerrar)="corrigiendo.set(null)" (guardado)="alCorregir()" />
+            }
+            @if (cancelandoVenta()?.compraId === v.compraId) {
+              <div class="form-cancelar">
+                <p>La venta deja de contar en la caja. Si estaba facturada, se anula la factura. Si se cobró con el Point, se le devuelve la plata al cliente.</p>
+                <label class="campo-motivo">
+                  <span>¿Por qué la cancelás?</span>
+                  <textarea rows="2" maxlength="300" placeholder="Ej. se cargó dos veces"
+                    [ngModel]="motivoCancelacion()" (ngModelChange)="motivoCancelacion.set($event); errorCancelacion.set(null)"></textarea>
+                </label>
+                @if (errorCancelacion(); as e) {
+                  <p class="texto-error">{{ e }}</p>
+                }
+                <div class="acciones-cancelar">
+                  <button type="button" class="btn-accion" [disabled]="cancelando()" (click)="cancelandoVenta.set(null)">No, dejarla</button>
+                  <button type="button" class="btn-peligro" [disabled]="cancelando()" (click)="confirmarCancelacion()">
+                    {{ cancelando() ? 'Cancelando…' : 'Cancelar la venta' }}
+                  </button>
+                </div>
+              </div>
+            }
+
+            @if (abierta(v, 'mail')) {
+              <form class="form-mail" (ngSubmit)="mandarPorMail(v)">
+                <input type="email" name="email" placeholder="email@del-cliente.com" autocomplete="off"
+                  [ngModel]="email()" (ngModelChange)="email.set($event)" />
+                <button type="submit" class="btn-confirmar" [disabled]="!emailValido() || enviando() !== null">
+                  {{ enviando() === v.compraId ? 'Enviando…' : 'Enviar' }}
+                </button>
+              </form>
+            }
+            @if (abierta(v, 'facturar')) {
+              <div class="form-facturar">
+                <button type="button" class="btn-confirmar" [disabled]="!impresoras.lista() || enviando() !== null"
+                  (click)="facturar(v, 'IMPRIMIR')">
+                  <svg lucidePrinter [strokeWidth]="2"></svg> Imprimir factura
+                </button>
+                <form class="form-mail" (ngSubmit)="facturar(v, 'MAIL')">
+                  <input type="email" name="email" placeholder="o mandala a email@del-cliente.com" autocomplete="off"
+                    [ngModel]="email()" (ngModelChange)="email.set($event)" />
+                  <button type="submit" class="btn-confirmar" [disabled]="!emailValido() || enviando() !== null || !enLinea()">
+                    <svg lucideMail [strokeWidth]="2"></svg> Enviar
+                  </button>
+                </form>
+              </div>
+            }
+          </li>
+        }
+      </ul>
+    }
+</section>
+
+@if (fichaDe(); as id) {
+  <app-ficha-compra-modal [compraId]="id" (cerrar)="fichaDe.set(null)" />
+}
+
+<ng-template #iconoForma let-forma>
+  @switch (forma) {
+    @case ('EFECTIVO_BOLETERIA') { <svg lucideBanknote [strokeWidth]="2"></svg> }
+    @case ('TARJETA') { <svg lucideCreditCard [strokeWidth]="2"></svg> }
+    @case ('MERCADO_PAGO_QR') { <svg lucideQrCode [strokeWidth]="2"></svg> }
+  }
+</ng-template>
+
+<ng-template #btnActualizar>
+  <button type="button" class="btn-icono" title="Actualizar" aria-label="Actualizar" [disabled]="cargando()" (click)="cargar()">
+    <svg lucideRefreshCw [strokeWidth]="2"></svg>
+  </button>
+</ng-template>

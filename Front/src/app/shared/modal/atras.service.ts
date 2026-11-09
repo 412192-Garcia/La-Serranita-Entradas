@@ -51,6 +51,8 @@ export class AtrasService {
   /** Entradas cerradas por la app que están saliendo del historial: ese popstate no cierra nada. */
   private popstatesPropios = 0;
   private cambiandoDeRuta = false;
+  /** Lo que espera a que termine de salir del historial lo que se acaba de cerrar. */
+  private pendientes: (() => void)[] = [];
 
   constructor() {
     window.addEventListener('popstate', () => this.alVolver());
@@ -75,6 +77,16 @@ export class AtrasService {
     history.back();
   }
 
+  /**
+   * Para cerrar un modal y abrir otro en su lugar: si se abre el nuevo antes de que el viejo salga
+   * del historial, se cruzan y al cerrar el nuevo se vuelve una pantalla de más. Llamarlo después
+   * de cerrar el viejo (en el próximo tick, cuando ya se destruyó).
+   */
+  cuandoTermineDeCerrar(fn: () => void): void {
+    if (this.popstatesPropios === 0) fn();
+    else this.pendientes.push(fn);
+  }
+
   /** Para un enlace que abandona la pantalla: el router reemplaza la entrada al navegar. */
   soltar(entrada: EntradaAtras): void {
     this.quitar(entrada);
@@ -90,6 +102,11 @@ export class AtrasService {
   private alVolver(): void {
     if (this.popstatesPropios > 0) {
       this.popstatesPropios--;
+      if (this.popstatesPropios === 0) {
+        const pendientes = this.pendientes;
+        this.pendientes = [];
+        pendientes.forEach((fn) => fn());
+      }
       return;
     }
     const entrada = this.pila.pop();

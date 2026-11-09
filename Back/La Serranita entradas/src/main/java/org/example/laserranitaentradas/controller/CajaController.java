@@ -1,5 +1,7 @@
 package org.example.laserranitaentradas.controller;
 
+import org.example.laserranitaentradas.model.dto.CorreccionVentaDTO;
+import org.example.laserranitaentradas.service.CorreccionVentaService;
 import org.example.laserranitaentradas.config.UsuarioAutenticado;
 import org.example.laserranitaentradas.model.dto.AbrirCajaRequestDTO;
 import org.example.laserranitaentradas.model.dto.CajaAbiertaDTO;
@@ -30,10 +32,13 @@ public class CajaController {
 
     private final CajaService cajaService;
     private final RechazoOperacionService rechazoService;
+    private final CorreccionVentaService correccionVentaService;
 
-    public CajaController(CajaService cajaService, RechazoOperacionService rechazoService) {
+    public CajaController(CajaService cajaService, RechazoOperacionService rechazoService,
+                          CorreccionVentaService correccionVentaService) {
         this.cajaService = cajaService;
         this.rechazoService = rechazoService;
+        this.correccionVentaService = correccionVentaService;
     }
 
     @GetMapping("/actual")
@@ -141,6 +146,12 @@ public class CajaController {
     @Operation(summary = "Detalle completo de una caja (ADMIN)", description = "Cualquier caja cerrada")
     public ResponseEntity<CajaResponseDTO> getDetalle(@PathVariable Long id) {
         return ResponseEntity.ok(cajaService.getDetalle(id));
+    }
+
+    @GetMapping("/{id}/correcciones")
+    @Operation(summary = "Correcciones que hizo el boletero en sus ventas (ADMIN)", description = "Para el resumen del cierre.")
+    public ResponseEntity<List<CorreccionVentaDTO>> getCorrecciones(@PathVariable Long id) {
+        return ResponseEntity.ok(correccionVentaService.deCaja(id));
     }
 
     @GetMapping("/{id}/operaciones")

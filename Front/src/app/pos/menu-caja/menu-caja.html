@@ -30,8 +30,8 @@
         <button type="button" role="menuitem" class="opcion" (click)="elegir('ventas')">
           <svg lucideReceiptText [strokeWidth]="2"></svg>
           <span class="opcion-texto">
-            <span class="opcion-nombre">Ventas y facturas</span>
-            <span class="opcion-detalle">Reimprimir, mandar por mail o facturar una venta</span>
+            <span class="opcion-nombre">{{ facturacion() ? 'Ventas y facturas' : 'Ventas del turno' }}</span>
+            <span class="opcion-detalle">{{ facturacion() ? 'Ver tus ventas, reimprimir o facturar' : 'Ver lo que vendiste en este turno' }}</span>
           </span>
         </button>
       }

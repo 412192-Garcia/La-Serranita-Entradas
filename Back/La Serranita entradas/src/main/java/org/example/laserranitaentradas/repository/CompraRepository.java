@@ -125,8 +125,8 @@ public interface CompraRepository extends JpaRepository<Compra, Long>, JpaSpecif
     /** Todo lo cobrado durante ese turno de caja, para calcular el efectivo esperado al cerrar. */
     List<Compra> findAllByCajaId(Long cajaId);
 
-    /** Igual que findAllByCajaId pero con los detalles ya cargados (una consulta, no una por venta). */
-    @Query("SELECT DISTINCT c FROM Compra c LEFT JOIN FETCH c.detalles WHERE c.caja.id = :cajaId")
+    /** Igual que findAllByCajaId pero con detalles, cliente y promo ya cargados (una consulta, no una por venta). */
+    @Query("SELECT DISTINCT c FROM Compra c LEFT JOIN FETCH c.detalles LEFT JOIN FETCH c.cliente LEFT JOIN FETCH c.promocion WHERE c.caja.id = :cajaId")
     List<Compra> findAllByCajaIdConDetalles(@Param("cajaId") Long cajaId);
 
     /**

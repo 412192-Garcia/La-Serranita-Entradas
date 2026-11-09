@@ -206,11 +206,14 @@ export interface VentaPosRequest extends DescuentoPos {
   cobrosPointIds?: number[];
 }
 
-/** Corrección de una venta de puerta (ADMIN): reemplaza entradas, artículos y forma de pago por completo (mandar la lista final, no un diff). */
+/** Corrección de una venta de puerta: reemplaza entradas, artículos y forma(s) de pago por completo (mandar la lista final, no un diff). */
 export interface EditarVentaRequest {
   entradas: LineaVentaPos[];
   articulos: LineaArticuloPos[];
   formaPago: FormaPagoPos;
+  /** Pago con dos formas: la segunda y lo cobrado con ella. Null = una sola. */
+  formaPagoSecundaria?: FormaPagoPos | null;
+  montoFormaPagoSecundaria?: number | null;
 }
 
 export interface CotizacionResponse {

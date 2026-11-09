@@ -1894,4 +1894,72 @@ class CompraServiceImplTest {
         assertThatThrownBy(() -> service.validarIngreso(7L, 1L, java.util.Map.of(), null))
                 .isInstanceOf(IllegalStateException.class);
     }
+
+    // ---------- editarVenta: pago con dos formas ----------
+
+    private Compra ventaParaEditar() {
+        org.example.laserranitaentradas.model.entity.TipoEntrada general = org.example.laserranitaentradas.model.entity.TipoEntrada.builder()
+                .id(1L).nombre("General").tipo(org.example.laserranitaentradas.model.entity.Tipo.ENTRADA)
+                .obligatorio(true).precio(new java.math.BigDecimal("34300")).build();
+        lenient().when(tipoEntradaService.findById(1L)).thenReturn(Optional.of(general));
+        lenient().when(calculoPrecioService.calcularTotal(any(), org.mockito.ArgumentMatchers.eq(2), any()))
+                .thenReturn(new java.math.BigDecimal("68600"));
+        Compra venta = new Compra();
+        venta.setId(50L);
+        venta.setCodigoReserva("261109-1");
+        venta.setCaja(new org.example.laserranitaentradas.model.entity.Caja());
+        venta.setEstado(EstadoCompra.VENDIDO_EN_PUERTA);
+        venta.setFormaPago(FormaPago.EFECTIVO_BOLETERIA);
+        venta.setMontoTotal(new java.math.BigDecimal("68600"));
+        venta.setDetalles(new java.util.ArrayList<>());
+        when(compraRepository.findById(50L)).thenReturn(Optional.of(venta));
+        lenient().when(compraRepository.save(any(Compra.class))).thenAnswer(inv -> inv.getArgument(0));
+        return venta;
+    }
+
+    private org.example.laserranitaentradas.model.dto.EditarVentaRequestDTO pedidoEdicion(FormaPago forma, FormaPago secundaria, String monto) {
+        org.example.laserranitaentradas.model.dto.DetalleCompraDTO detalle = new org.example.laserranitaentradas.model.dto.DetalleCompraDTO();
+        detalle.setTipoEntradaId(1L);
+        detalle.setCantidad(2);
+        org.example.laserranitaentradas.model.dto.EditarVentaRequestDTO r = new org.example.laserranitaentradas.model.dto.EditarVentaRequestDTO();
+        r.setEntradas(List.of(detalle));
+        r.setFormaPago(forma);
+        r.setFormaPagoSecundaria(secundaria);
+        r.setMontoFormaPagoSecundaria(monto != null ? new java.math.BigDecimal(monto) : null);
+        return r;
+    }
+
+    @Test
+    void editarVenta_conSegundaFormaDePago_laGuarda() {
+        ventaParaEditar();
+
+        Compra editada = service.editarVenta(50L, pedidoEdicion(FormaPago.TARJETA, FormaPago.EFECTIVO_BOLETERIA, "20000"));
+
+        assertThat(editada.getFormaPago()).isEqualTo(FormaPago.TARJETA);
+        assertThat(editada.getFormaPagoSecundaria()).isEqualTo(FormaPago.EFECTIVO_BOLETERIA);
+        assertThat(editada.getMontoFormaPagoSecundaria()).isEqualByComparingTo("20000");
+        assertThat(editada.montoPorForma(FormaPago.TARJETA)).isEqualByComparingTo("48600");
+    }
+
+    @Test
+    void editarVenta_sinSegundaForma_limpiaLaQueTenia() {
+        Compra venta = ventaParaEditar();
+        venta.setFormaPagoSecundaria(FormaPago.TARJETA);
+        venta.setMontoFormaPagoSecundaria(new java.math.BigDecimal("10000"));
+
+        Compra editada = service.editarVenta(50L, pedidoEdicion(FormaPago.EFECTIVO_BOLETERIA, null, null));
+
+        assertThat(editada.getFormaPagoSecundaria()).isNull();
+        assertThat(editada.getMontoFormaPagoSecundaria()).isNull();
+    }
+
+    @Test
+    void editarVenta_segundaFormaPorElTotal_rechazada() {
+        ventaParaEditar();
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+                service.editarVenta(50L, pedidoEdicion(FormaPago.TARJETA, FormaPago.MERCADO_PAGO_QR, "68600")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("menor al total");
+    }
 }

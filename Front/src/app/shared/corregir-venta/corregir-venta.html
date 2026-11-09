@@ -1,0 +1,83 @@
+@let v = venta();
+<div class="corregir" [class.con-separador]="conSeparador()" role="group" aria-label="Corregir venta">
+  @if (v.corregibleHasta) {
+    <p class="subtitulo">Podés corregirla hasta las {{ v.corregibleHasta | date: 'HH:mm' }}. El total se recalcula al guardar.</p>
+  }
+
+  <div class="bloque">
+    <span class="etiqueta">Entradas</span>
+    @for (l of entradas(); track $index) {
+      <div class="fila-entrada">
+        <select [ngModel]="l.tipoEntradaId" (ngModelChange)="cambiarTipo($index, $event)" aria-label="Tipo de entrada">
+          <option [ngValue]="null">Elegí el tipo…</option>
+          @for (t of opcionesEntrada(); track t.id) {
+            <option [ngValue]="t.id">{{ t.nombre }}</option>
+          }
+        </select>
+        <div class="stepper">
+          <button type="button" class="btn-cant" aria-label="Una menos" [disabled]="l.cantidad <= 1" (click)="sumar($index, -1)">−</button>
+          <span class="cantidad">{{ l.cantidad }}</span>
+          <button type="button" class="btn-cant" aria-label="Una más" (click)="sumar($index, 1)">+</button>
+        </div>
+        <button type="button" class="btn-quitar-cierre" aria-label="Quitar entrada" (click)="quitarEntrada($index)">✕</button>
+      </div>
+    }
+    <button type="button" class="btn-secundario-caja" (click)="agregarEntrada()">+ Agregar entrada</button>
+  </div>
+
+  <div class="bloque">
+    <span class="etiqueta">Artículos</span>
+    @if (articulos().length) {
+      <ul class="lista-articulos">
+        @for (a of articulos(); track $index) {
+          <li>
+            <span>{{ a.cantidad }}× {{ a.nombre }}</span>
+            <span class="importe">
+              {{ a.precioUnitario * a.cantidad | pesos }}
+              <button type="button" class="btn-quitar-cierre" aria-label="Quitar artículo" (click)="quitarArticulo($index)">✕</button>
+            </span>
+          </li>
+        }
+      </ul>
+    }
+    <app-agregar-articulo [catalogo]="catalogoArticulos()" (articuloAgregado)="agregarArticulo($event)" />
+  </div>
+
+  <div class="bloque">
+    <span class="etiqueta">{{ dosFormas() ? 'Primera forma de pago' : 'Forma de pago' }}</span>
+    <div class="grupo-toggle-pill">
+      @for (f of formasPago; track f.valor) {
+        <button type="button" class="btn-toggle-pill" [class.activo]="formaPago() === f.valor" (click)="formaPago.set(f.valor)">
+          {{ f.etiqueta }}
+        </button>
+      }
+      <button type="button" class="btn-toggle-pill" [class.activo]="dosFormas()" (click)="dosFormas.set(!dosFormas())">+2ª</button>
+    </div>
+    @if (dosFormas()) {
+      <span class="etiqueta">Segunda forma de pago</span>
+      <div class="fila-segunda">
+        <div class="grupo-toggle-pill">
+          @for (f of formasPago; track f.valor) {
+            <button type="button" class="btn-toggle-pill" [class.activo]="formaSecundaria() === f.valor" (click)="formaSecundaria.set(f.valor)">
+              {{ f.etiqueta }}
+            </button>
+          }
+        </div>
+        <input type="text" inputmode="numeric" class="input-monto" placeholder="Monto" aria-label="Monto de la segunda forma de pago"
+          appMoneyInput [ngModel]="montoSecundaria()" (ngModelChange)="montoSecundaria.set($event)" />
+      </div>
+      <p class="subtitulo">El resto del total va con la primera. Total ahora: {{ v.montoTotal | pesos }}.</p>
+    }
+  </div>
+
+  @if (error(); as e) {
+    <p class="alerta-error">{{ e }}</p>
+  }
+
+  <div class="acciones">
+    <button type="button" class="btn-limpiar" [disabled]="guardando()" (click)="cerrar.emit()">Volver</button>
+    <button type="button" class="btn-cobrar" [disabled]="guardando()" (click)="guardar()">
+      {{ guardando() ? 'Guardando…' : 'Guardar cambios' }}
+    </button>
+  </div>
+</div>

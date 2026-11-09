@@ -51,6 +51,8 @@ public interface CobroPointRepository extends JpaRepository<CobroPoint, Long> {
 
     List<CobroPoint> findAllByCompraId(Long compraId);
 
+    List<CobroPoint> findAllByCompraIdIn(java.util.Collection<Long> compraIds);
+
     /** Lo que cobró el Point en esta caja: aprobados de ventas que siguen en pie, por forma de pago. */
     @Query("SELECT c.formaPago, COALESCE(SUM(c.monto), 0), COUNT(c) FROM CobroPoint c WHERE c.caja.id = :cajaId "
             + "AND c.estado = org.example.laserranitaentradas.model.entity.EstadoCobroPoint.APROBADO "

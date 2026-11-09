@@ -60,7 +60,10 @@ export class FichaCompraModal implements OnInit {
   compraId = input.required<number>();
   /** Lo que ya se tiene de la compra, para mostrar algo mientras carga. */
   reserva = input<Reserva | null>(null);
+  /** Muestra el botón de la factura (ver, mandar o facturar); quien lo usa abre la ventana. */
+  conFactura = input(false);
   cerrar = output<void>();
+  verFactura = output<Reserva>();
 
   ficha = signal<FichaCompra | null>(null);
   error = signal<string | null>(null);

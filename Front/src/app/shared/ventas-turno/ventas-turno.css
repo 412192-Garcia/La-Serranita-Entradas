@@ -1,0 +1,521 @@
+.panel-ventas {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+
+.encabezado {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.encabezado h3 {
+  flex: 1;
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
+.btn-icono {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-card-bg);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.btn-icono svg { width: 18px; height: 18px; }
+.btn-icono:hover:not(:disabled) { border-color: var(--color-primary); }
+.btn-icono:disabled { opacity: 0.5; cursor: default; }
+
+.estado-lista {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0;
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+}
+
+.estado-lista svg { width: 18px; height: 18px; }
+.estado-error { color: var(--color-danger-dark); }
+
+/* ---------- Resumen del turno ---------- */
+.resumen {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-soft);
+}
+
+.resumen-total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.resumen-etiqueta {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+}
+
+.resumen-total strong {
+  font-family: var(--font-heading);
+  font-size: 1.35rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.resumen-formas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* ---------- Forma de pago (chips) ---------- */
+.forma {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  background-color: var(--color-card-bg);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.forma svg { width: 14px; height: 14px; }
+.forma strong { color: var(--color-text); font-variant-numeric: tabular-nums; }
+
+.forma-EFECTIVO_BOLETERIA {
+  background-color: var(--color-primary-light);
+  border-color: transparent;
+  color: var(--color-primary-dark);
+}
+
+.forma-TARJETA {
+  background-color: var(--color-accent-light);
+  border-color: transparent;
+  color: var(--color-accent-dark);
+}
+
+/* ---------- Filtros ---------- */
+.filtros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.buscador {
+  flex: 1 1 220px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-input-bg, var(--color-card-bg));
+  color: var(--color-text-secondary);
+}
+
+.buscador:focus-within { border-color: var(--color-primary); }
+.buscador svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+.buscador input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 0.86rem;
+}
+
+.segmentos {
+  display: inline-flex;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.segmentos button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border: none;
+  background-color: var(--color-card-bg);
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.segmentos button + button { border-left: 1.5px solid var(--color-border); }
+
+.segmentos button.activo {
+  background-color: var(--color-primary);
+  color: #fff;
+}
+
+.contador {
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background-color: var(--color-danger);
+  color: #fff;
+  font-size: 0.7rem;
+  line-height: 18px;
+  text-align: center;
+}
+
+/* ---------- Venta ---------- */
+.lista-ventas {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.venta {
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background-color: var(--color-card-bg);
+}
+
+.venta-cabecera {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.venta-hora {
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  background-color: var(--color-bg-soft);
+  font-size: 0.85rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.venta-titulo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.venta-codigo {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+}
+
+.etiqueta {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+}
+
+.etiqueta-anticipada {
+  background-color: var(--color-accent-light);
+  color: var(--color-accent-dark);
+}
+
+.venta-monto {
+  font-family: var(--font-heading);
+  font-size: 1.05rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.venta-titular {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.venta-titular svg { width: 14px; height: 14px; color: var(--color-text-secondary); }
+
+.venta-lineas {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 0.86rem;
+}
+
+.venta-lineas li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.venta-lineas .cantidad { font-weight: 800; }
+.venta-lineas li.extra { color: var(--color-text-secondary); }
+.venta-lineas .importe { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.venta-lineas li.descuento {
+  color: var(--color-primary-dark);
+  font-weight: 700;
+}
+
+.venta-lineas li.descuento span:first-child {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.venta-lineas li.descuento svg { width: 13px; height: 13px; }
+
+.venta-pago {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.pago-extra {
+  font-size: 0.78rem;
+  color: var(--color-text-secondary);
+}
+
+/* ---------- Factura ---------- */
+.venta-factura {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  background-color: var(--color-bg-soft);
+  color: var(--color-text-secondary);
+}
+
+.venta-factura svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.venta-factura.estado-ok {
+  background-color: var(--color-primary-light);
+  color: var(--color-primary-dark);
+}
+
+.venta-factura.estado-ok strong { color: inherit; }
+
+.venta-factura.estado-curso {
+  background-color: var(--color-accent-light);
+  color: var(--color-accent-dark);
+}
+
+.venta-factura.estado-error {
+  background-color: var(--color-danger-light);
+  color: var(--color-danger-dark);
+}
+
+.icono-girando { animation: girar 1s linear infinite; }
+
+@keyframes girar {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .icono-girando { animation: none; }
+}
+
+/* ---------- Corrección del boletero ---------- */
+.venta-corregida {
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+}
+
+.btn-cancelar-venta:hover:not(:disabled) { border-color: var(--color-danger); color: var(--color-danger-dark); }
+
+.campo-motivo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.campo-motivo textarea {
+  padding: 8px 10px;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-card-bg);
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 0.88rem;
+  font-weight: 400;
+  resize: vertical;
+}
+
+.texto-error { margin: 0; font-size: 0.85rem; color: var(--color-danger-dark); }
+
+/* Cancelar dentro de la tarjeta. */
+.form-cancelar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-border);
+}
+
+.form-cancelar p {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--color-text-secondary);
+}
+
+.acciones-cancelar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.btn-peligro {
+  padding: 6px 14px;
+  border: 1.5px solid var(--color-danger);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-danger);
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-peligro:disabled { opacity: 0.5; cursor: default; }
+
+/* ---------- Acciones ---------- */
+.venta-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.btn-accion,
+.btn-confirmar {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-card-bg);
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-accion svg,
+.btn-confirmar svg { width: 15px; height: 15px; }
+
+.btn-accion:hover:not(:disabled),
+.btn-accion.activo { border-color: var(--color-primary); color: var(--color-primary-dark); }
+
+.btn-facturar {
+  border-color: var(--color-primary);
+  color: var(--color-primary-dark);
+}
+
+.btn-detalle { margin-left: auto; }
+
+.btn-confirmar {
+  border-color: var(--color-primary);
+  background-color: var(--color-primary);
+  color: #fff;
+}
+
+.btn-accion:disabled,
+.btn-confirmar:disabled { opacity: 0.5; cursor: default; }
+
+.form-facturar {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.form-mail {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+}
+
+.form-mail input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 10px;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-card-bg);
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 0.85rem;
+}
+
+.form-mail input:focus { outline: none; border-color: var(--color-primary); }
+
+.nota {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--color-accent-dark);
+}
+
+.nota-ticketera {
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  border: 1.5px solid var(--color-border);
+}
+
+@media (pointer: coarse) {
+  .btn-icono { width: 44px; height: 44px; }
+  .btn-accion, .btn-confirmar, .form-mail input, .segmentos button, .btn-peligro { min-height: 44px; }
+  .buscador input { min-height: 40px; }
+}
+
+@media (max-width: 600px) {
+  .btn-detalle { margin-left: 0; }
+}
