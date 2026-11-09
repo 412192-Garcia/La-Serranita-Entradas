@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Chart, ChartOptions, registerables } from 'chart.js';
 import { ReporteService } from '../services/reporte.service';
 import { FacturaService } from '../services/factura.service';
-import { AfluenciaDiaria, CompraCancelada, ComprasPorEstado, MotivoCancelacion, DiaSemana, RecaudacionPorFormaPago, ReporteResumen, VentasPorOrigen } from '../models/reporte';
+import { AfluenciaDiaria, CompraCancelada, ComprasPorEstado, MotivoCancelacion, DiaSemana, RecaudacionPorFormaPago, ReporteResumen, VentasPorOrigen, AnticipadasPorPago } from '../models/reporte';
 import { CabeceraInterna } from '../shared/cabecera-interna/cabecera-interna';
 import { FiltroRangoFechas } from '../shared/filtro-rango-fechas/filtro-rango-fechas';
 import { aFechaISO, restarUnAnio } from '../shared/fecha.util';
@@ -334,6 +334,11 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
     this.comparacionRecaudacionChart?.destroy();
     this.comparacionPersonasChart?.destroy();
     this.comparacionTiposChart?.destroy();
+  }
+
+  /** Plata de las anticipadas según cómo se pagaron. */
+  montoAnticipadas(r: ReporteResumen, clave: AnticipadasPorPago['clave']): number {
+    return r.anticipadasPorPago?.find((a) => a.clave === clave)?.monto ?? 0;
   }
 
   /** Plata cobrada para el origen dado (BOLETERIA = venta en puerta, ANTICIPADA = reservas); null si no hay datos. */
@@ -694,10 +699,14 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
       this.origenChart = new Chart(this.origenCanvas()!.nativeElement, {
         type: 'doughnut',
         data: {
-          labels: r.ventasPorOrigen.map((o) => o.etiqueta),
+          labels: ['Venta en puerta', 'Anticipadas online', 'Anticipadas al llegar'],
           datasets: [{
-            data: r.ventasPorOrigen.map((o) => o.monto),
-            backgroundColor: r.ventasPorOrigen.map((o) => COLOR_POR_ORIGEN[o.origen]),
+            data: [
+              this.recaudacionPorOrigen(r, 'BOLETERIA') ?? 0,
+              this.montoAnticipadas(r, 'ONLINE'),
+              this.montoAnticipadas(r, 'AL_LLEGAR'),
+            ],
+            backgroundColor: [COLOR_POR_ORIGEN.BOLETERIA, COLOR_POR_ORIGEN.ANTICIPADA, '#8fd18c'],
           }],
         },
         options: this.opcionesTorta(),

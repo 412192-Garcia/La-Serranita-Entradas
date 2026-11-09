@@ -1,6 +1,7 @@
 package org.example.laserranitaentradas.service.impl;
 
 import org.example.laserranitaentradas.model.dto.AfluenciaDiariaDTO;
+import org.example.laserranitaentradas.model.dto.AnticipadasPorPagoDTO;
 import org.example.laserranitaentradas.model.dto.AnticipacionCompraDTO;
 import org.example.laserranitaentradas.model.dto.CajaResumenReporteDTO;
 import org.example.laserranitaentradas.model.dto.CompraCanceladaDTO;
@@ -198,6 +199,13 @@ public class ReporteServiceImpl implements ReporteService {
 
         Map<TipoListadoCompra, Long> cantidadPorOrigen = new EnumMap<>(TipoListadoCompra.class);
         Map<TipoListadoCompra, BigDecimal> montoPorOrigen = new EnumMap<>(TipoListadoCompra.class);
+        // Anticipadas por cómo se pagaron: [compras, entradas] y monto, por clave.
+        Map<String, long[]> anticipadasPorPago = new LinkedHashMap<>();
+        Map<String, BigDecimal> montoAnticipadasPorPago = new LinkedHashMap<>();
+        for (String clave : List.of(ANT_ONLINE, ANT_AL_LLEGAR, ANT_SIN_COBRAR)) {
+            anticipadasPorPago.put(clave, new long[2]);
+            montoAnticipadasPorPago.put(clave, BigDecimal.ZERO);
+        }
         BigDecimal totalDescuentos = BigDecimal.ZERO;
         long cantidadComprasConDescuento = 0;
         /** Gente que entró: venta en puerta + anticipadas validadas. */
@@ -274,6 +282,11 @@ public class ReporteServiceImpl implements ReporteService {
                     .mapToLong(CompraDetalle::getCantidad)
                     .sum();
 
+            // Reservada para pagar al llegar, todavía sin cobrar: va por el día de visita.
+            if (compra.getEstado() == EstadoCompra.RESERVADO_EFECTIVO && enRango(compra.getFechaVisita(), desde, hasta)) {
+                sumarAnticipada(anticipadasPorPago, montoAnticipadasPorPago, ANT_SIN_COBRAR, pasesEntrada, compra.getMontoTotal());
+            }
+
             if (cuentaRecaudacion) {
                 recaudacionTotal = recaudacionTotal.add(compra.getMontoTotal());
                 cantidadCompras++;
@@ -323,6 +336,10 @@ public class ReporteServiceImpl implements ReporteService {
                 TipoListadoCompra origen = esBoleteria ? TipoListadoCompra.BOLETERIA : TipoListadoCompra.ANTICIPADA;
                 cantidadPorOrigen.merge(origen, 1L, Long::sum);
                 montoPorOrigen.merge(origen, compra.getMontoTotal(), BigDecimal::add);
+                if (!esBoleteria && compra.getFormaPago() != FormaPago.RESERVA_ADMIN) {
+                    sumarAnticipada(anticipadasPorPago, montoAnticipadasPorPago, esMercadoPago ? ANT_ONLINE : ANT_AL_LLEGAR,
+                            pasesEntrada, compra.getMontoTotal());
+                }
 
                 // Hora del cobro: para MP la del pago, para el resto la del cobro en puerta.
                 LocalDateTime momentoCobro = esMercadoPago ? momentoPagoOnline : compra.getFechaValidacion();
@@ -666,7 +683,27 @@ public class ReporteServiceImpl implements ReporteService {
                 cancelaciones.stream()
                         .sorted(Comparator.comparing(CompraCanceladaDTO::getFechaCreacion).reversed())
                         .toList(),
-                entradasCobradasParque, entradasCobradasWeb);
+                entradasCobradasParque, entradasCobradasWeb,
+                anticipadasPorPago.entrySet().stream()
+                        .map(e -> new AnticipadasPorPagoDTO(e.getKey(), ETIQUETAS_ANTICIPADAS.get(e.getKey()),
+                                e.getValue()[0], e.getValue()[1], montoAnticipadasPorPago.get(e.getKey())))
+                        .toList());
+    }
+
+    private static final String ANT_ONLINE = "ONLINE";
+    private static final String ANT_AL_LLEGAR = "AL_LLEGAR";
+    private static final String ANT_SIN_COBRAR = "SIN_COBRAR";
+    private static final Map<String, String> ETIQUETAS_ANTICIPADAS = Map.of(
+            ANT_ONLINE, "Pagadas online (Mercado Pago)",
+            ANT_AL_LLEGAR, "Pagadas al llegar",
+            ANT_SIN_COBRAR, "Reservadas para pagar al llegar, sin cobrar");
+
+    private static void sumarAnticipada(Map<String, long[]> cantidades, Map<String, BigDecimal> montos, String clave,
+                                        long entradas, BigDecimal monto) {
+        long[] c = cantidades.get(clave);
+        c[0]++;
+        c[1] += entradas;
+        montos.merge(clave, monto, BigDecimal::add);
     }
 
     /** true si `fecha` (puede ser null) cae dentro de [desde, hasta], ambos inclusive. */

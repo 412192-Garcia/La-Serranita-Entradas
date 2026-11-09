@@ -6,6 +6,9 @@ número y el CI la usa como nota de la Release de GitHub.
 
 ## Sin publicar
 
+- Reportes: las anticipadas se separan según cómo se pagaron: online (Mercado Pago), al llegar, y
+  las reservadas para pagar al llegar que todavía no se cobraron, con compras, entradas y monto.
+  "Recaudación anticipada" muestra cuánto fue online y cuánto al llegar.
 - Anticipadas: al validar una reserva con extras (por ejemplo almuerzo) se imprime en la ticketera
   un voucher por cada extra, con la cantidad que vale. También al cobrar una reserva en efectivo.
 - Anticipadas pagadas online: si no vinieron todos, "Faltó alguien" (en el menú ⋮ de la reserva) deja validar sólo a los que

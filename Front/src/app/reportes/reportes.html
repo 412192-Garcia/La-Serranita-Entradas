@@ -49,7 +49,7 @@
         } @else {
           <p class="kpi-numero kpi-numero-secundario">—</p>
         }
-        <p class="ayuda">Reservas pagadas online o al llegar</p>
+        <p class="ayuda">{{ montoAnticipadas(r, 'ONLINE') | pesos }} online · {{ montoAnticipadas(r, 'AL_LLEGAR') | pesos }} al llegar</p>
       </div>
       <div>
         <h2>Recaudación en puerta</h2>
@@ -156,11 +156,25 @@
   </div>
 
   <div appPlegableCelular class="tarjeta" [class.oculta]="!resumen()">
-    <h2>Boletería vs. anticipada</h2>
-    <p class="ayuda">Lo vendido en la puerta contra lo reservado antes.</p>
+    <h2>Puerta y anticipadas</h2>
+    <p class="ayuda">Lo vendido en la puerta y las anticipadas, según cómo se pagaron.</p>
     <div class="grafico-contenedor grafico-torta">
       <canvas #origenCanvas></canvas>
     </div>
+    @if (resumen(); as r) {
+      <div class="tabla-simple">
+        <div class="fila-simple fila-simple-desglose-simple fila-simple-header">
+          <span>Anticipadas</span><span>Compras</span><span>Monto</span>
+        </div>
+        @for (a of r.anticipadasPorPago; track a.clave) {
+          <div class="fila-simple fila-simple-desglose-simple">
+            <span>{{ a.etiqueta }}</span>
+            <span data-label="Compras">{{ a.cantidad | number }} ({{ a.entradas | number }} entradas)</span>
+            <span data-label="Monto">{{ a.monto | pesos }}</span>
+          </div>
+        }
+      </div>
+    }
   </div>
 
   @if (resumen(); as r) {

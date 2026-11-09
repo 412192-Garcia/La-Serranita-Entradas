@@ -71,4 +71,7 @@ public class ReporteResumenDTO {
     private long entradasCobradasParque;
     /** Entradas de lo cobrado en el rango por Mercado Pago. */
     private long entradasCobradasWeb;
+
+    /** Anticipadas pagadas online, pagadas al llegar y reservadas para pagar al llegar sin cobrar. */
+    private List<AnticipadasPorPagoDTO> anticipadasPorPago;
 }

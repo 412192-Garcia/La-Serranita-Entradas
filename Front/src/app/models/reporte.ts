@@ -140,6 +140,15 @@ export interface VentasDolares {
   cotizacionPromedio: number | null;
 }
 
+/** Anticipadas según cómo se pagaron. */
+export interface AnticipadasPorPago {
+  clave: 'ONLINE' | 'AL_LLEGAR' | 'SIN_COBRAR';
+  etiqueta: string;
+  cantidad: number;
+  entradas: number;
+  monto: number;
+}
+
 export interface ReporteResumen {
   desde: string;
   hasta: string;
@@ -172,6 +181,7 @@ export interface ReporteResumen {
   entradasCobradasParque: number;
   /** Entradas de lo cobrado en el rango por Mercado Pago. */
   entradasCobradasWeb: number;
+  anticipadasPorPago: AnticipadasPorPago[];
   /** Histograma: con cuántos días de anticipación se compraron las anticipadas usadas en el rango. */
   anticipacionCompra: AnticipacionCompra[];
   /** Cupones aplicados en el rango, por valor de descuento, ordenados de más a menos usado. */
