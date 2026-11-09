@@ -8,17 +8,17 @@ número y el CI la usa como nota de la Release de GitHub.
 
 - Anticipadas: al validar una reserva con extras (por ejemplo almuerzo) se imprime en la ticketera
   un voucher por cada extra, con la cantidad que vale. También al cobrar una reserva en efectivo.
-- Anticipadas pagadas online: si no vinieron todos, "Faltó alguien" deja validar sólo a los que
+- Anticipadas pagadas online: si no vinieron todos, "Faltó alguien" (en el menú ⋮ de la reserva) deja validar sólo a los que
   vinieron. Lo que no se usó sale en un voucher para la cantina por lo que se pagó. Las que no
-  entraron no cuentan como ingresos ni como entradas de papel entregadas. Los vouchers se pueden
-  reimprimir desde la reserva.
+  entraron no cuentan como ingresos ni como entradas entregadas. Los vouchers se pueden
+  reimprimir desde el mismo menú.
   **Antes de subir:** correr `scripts/vouchers-impresion.sql` en la base.
-- Cajas cerradas: las entradas de papel se ven paso a paso: con cuántas abrió la caja, cuántas se
+- Cajas cerradas: las entradas del talonario se ven paso a paso: con cuántas abrió la caja, cuántas se
   sumaron o sacaron, cuántas se entregaron, cuántas deberían quedar y cuántas se contaron al cerrar,
   con un "Faltan" / "Sobran" claro.
-- POS: "Dos formas" es un botón más junto a Efectivo, Tarjeta y QR. Abajo aparecen los dos pagos,
-  cada uno con sus botones de forma de pago y su monto. Al borrar un monto ya no se vuelve a llenar
-  solo.
+- POS: "+2ª" es un botón más junto a Efectivo, Tarjeta y QR. Abajo aparecen los dos pagos,
+  cada uno con sus botones de forma de pago y su monto. Se puede pagar con dos QR, como con dos
+  tarjetas. Al borrar un monto ya no se vuelve a llenar solo.
 - Sistema > Estado: se sacó la tarjeta de Cajas (las cajas sin cerrar y las diferencias se ven en
   Cajas).
 - Control de accesos: el botón "Esta semana" / "Este mes" es del mismo tamaño que los de la barra, y

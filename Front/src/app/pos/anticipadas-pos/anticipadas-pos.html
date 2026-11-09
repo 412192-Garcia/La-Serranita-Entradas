@@ -3,5 +3,27 @@
 
   <app-panel-regalos textoCobrar="Cobrar" (cobrar)="cobrarEnPos.emit($event)" />
 
-  <app-listado-reservas textoCobrar="Cobrar" (cobrar)="cobrarEnPos.emit($event)" />
+  <app-listado-reservas textoCobrar="Cobrar" [menu]="menuTpl" (cobrar)="cobrarEnPos.emit($event)" />
 </div>
+
+<ng-template #menuTpl let-reserva>
+  <div class="col-menu celda-menu">
+    @if (tieneAcciones(reserva)) {
+      <button type="button" class="btn-menu" (click)="toggleMenu(reserva, $event)" aria-label="Más acciones">
+        <svg lucideEllipsisVertical [strokeWidth]="2"></svg>
+      </button>
+      @if (menuAbiertoId() === reserva.id) {
+        <div class="menu-dropdown" (click)="$event.stopPropagation()">
+          @if (reserva.estado === 'APROBADO' && busqueda.admiteValidacionParcial(reserva)) {
+            <button type="button" (click)="busqueda.validandoParcial.set(reserva); cerrarMenu()">Faltó alguien</button>
+          }
+          @if (busqueda.vouchersVigentes(reserva).length) {
+            <button type="button" [disabled]="busqueda.reimprimiendoId() === reserva.id" (click)="busqueda.reimprimirVouchers(reserva); cerrarMenu()">
+              Reimprimir vouchers
+            </button>
+          }
+        </div>
+      }
+    }
+  </div>
+</ng-template>

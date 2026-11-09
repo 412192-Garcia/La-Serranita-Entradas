@@ -126,7 +126,7 @@
 
 .formas-pago {
   display: grid;
-  /* Efectivo / Tarjeta / QR / Dos formas, o 3 con el Point integrado (Efectivo / Posnet). */
+  /* Efectivo / Tarjeta / QR / +2ª, o 3 con el Point integrado (Efectivo / Posnet). */
   grid-auto-flow: column;
   grid-auto-columns: 1fr;
   gap: 8px;

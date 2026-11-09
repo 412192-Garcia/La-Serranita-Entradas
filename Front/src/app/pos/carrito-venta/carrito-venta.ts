@@ -247,11 +247,11 @@ export class CarritoVenta {
     return m.rol === rol ? m.valor : Math.max(0, this.total() - m.valor);
   }
 
-  /** Las formas para cada parte del pago mixto: no se repite la de la otra parte, salvo tarjeta
-   * (dos tarjetas distintas). */
+  /** Las formas para cada parte del pago mixto: efectivo no se repite; tarjeta y QR sí (dos
+   * tarjetas o dos QR distintos). */
   opcionesParteMixta(rol: 'principal' | 'secundaria'): { valor: FormaPagoPos; etiqueta: string; deshabilitada: boolean }[] {
     const otra = rol === 'principal' ? this.formaPagoSecundaria() : this.formaPago();
-    return this.formasPago().map((f) => ({ ...f, deshabilitada: f.valor === otra && f.valor !== 'TARJETA' }));
+    return this.formasPago().map((f) => ({ ...f, deshabilitada: f.valor === otra && f.valor === 'EFECTIVO_BOLETERIA' }));
   }
 
   formaDeParte(rol: 'principal' | 'secundaria'): FormaPagoPos | null {
@@ -642,8 +642,8 @@ export class CarritoVenta {
     if (formaPago !== 'EFECTIVO_BOLETERIA') {
       this.limpiarPagoDolares();
     }
-    // Con pago mixto las dos partes no pueden tener la misma forma (salvo tarjeta + tarjeta).
-    if (this.pagoMixtoActivo() && this.formaPagoSecundaria() === formaPago && formaPago !== 'TARJETA') {
+    // Con pago mixto no puede ir efectivo en las dos partes.
+    if (this.pagoMixtoActivo() && this.formaPagoSecundaria() === formaPago && formaPago === 'EFECTIVO_BOLETERIA') {
       this.formaPagoSecundaria.set(null);
     }
   }

@@ -97,8 +97,10 @@
           type="button"
           class="btn-forma-pago"
           [class.activo]="pagoMixtoActivo()"
+          title="Pagó con dos formas de pago"
+          aria-label="Pagó con dos formas de pago"
           (click)="setPagoMixtoActivo(true)">
-          Dos formas
+          +2ª
         </button>
       </div>
       @if (hayItems() && formaPago() === null && !pagoMixtoActivo()) {

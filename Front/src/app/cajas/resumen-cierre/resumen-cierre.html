@@ -139,10 +139,10 @@
 }
 }
 
-<!-- Entradas de papel del talonario, paso a paso. -->
+<!-- Entradas del talonario, paso a paso. -->
 <ng-template #talonarioTpl let-t>
   <div class="talonario" data-tour="resumen-talonario">
-    <h3 class="titulo-talonario">Entradas de papel (talonario)</h3>
+    <div class="cabecera-grupo-desglose"><span>Entradas</span></div>
     <ul class="lista-talonario">
       @if (t.inicial !== null) {
         <li><span>Al abrir la caja</span><strong>{{ t.inicial }}</strong></li>
@@ -160,16 +160,16 @@
         <li class="fila-talonario-total"><span>Deberían quedar</span><strong>{{ t.esperadas }}</strong></li>
       }
       @if (t.restantes !== null) {
-        <li><span>Quedaron al cerrar (contadas)</span><strong>{{ t.restantes }}</strong></li>
+        <li><span>Contadas al cerrar</span><strong>{{ t.restantes }}</strong></li>
       }
     </ul>
     @if (t.diferencia !== null) {
       @if (t.diferencia < 0) {
-        <p class="resultado-talonario resultado-talonario-falta">Faltan {{ -t.diferencia }} entrada(s) de papel</p>
+        <p class="resultado-talonario resultado-talonario-falta">Faltan {{ -t.diferencia }} en el talonario</p>
       } @else if (t.diferencia > 0) {
-        <p class="resultado-talonario resultado-talonario-sobra">Sobran {{ t.diferencia }} entrada(s) de papel</p>
+        <p class="resultado-talonario resultado-talonario-sobra">Sobran {{ t.diferencia }} en el talonario</p>
       } @else {
-        <p class="resultado-talonario resultado-talonario-ok">Coincide con lo contado</p>
+        <p class="resultado-talonario resultado-talonario-ok">El talonario coincide</p>
       }
     }
   </div>

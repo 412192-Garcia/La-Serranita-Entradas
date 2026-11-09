@@ -160,6 +160,14 @@
       </button>
       @if (menuAbiertoId() === reserva.id) {
         <div class="menu-dropdown" (click)="$event.stopPropagation()">
+          @if (reserva.estado === 'APROBADO' && busqueda.admiteValidacionParcial(reserva)) {
+            <button type="button" (click)="busqueda.validandoParcial.set(reserva); cerrarMenu()">Faltó alguien</button>
+          }
+          @if (busqueda.vouchersVigentes(reserva).length) {
+            <button type="button" [disabled]="busqueda.reimprimiendoId() === reserva.id" (click)="busqueda.reimprimirVouchers(reserva); cerrarMenu()">
+              Reimprimir vouchers
+            </button>
+          }
           @if (puedeDeshacerDesdeMenu(reserva)) {
             <button type="button" [disabled]="busqueda.deshaciendoId() === reserva.id" (click)="busqueda.deshacerValidacion(reserva, $event)">
               {{ busqueda.deshaciendoId() === reserva.id ? 'Deshaciendo…' : 'Deshacer validación' }}

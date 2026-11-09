@@ -95,7 +95,7 @@ export class Pos implements OnInit, OnDestroy {
       selector: '[data-tour="carrito"]',
       alternativo: '[data-tour="barra-cobro"]',
       titulo: 'Venta: cobrar',
-      texto: 'Revisá el resumen, elegí la forma de pago y tocá Cobrar. Con un Point elegido, tocá Posnet: el cliente paga en el Point con tarjeta o QR y la venta se guarda sola. Si paga con dos formas (por ejemplo efectivo y tarjeta), tocá Dos formas.',
+      texto: 'Revisá el resumen, elegí la forma de pago y tocá Cobrar. Con un Point elegido, tocá Posnet: el cliente paga en el Point con tarjeta o QR y la venta se guarda sola. Si paga con dos formas (por ejemplo efectivo y tarjeta), tocá +2ª.',
       antes: () => this.consultaAnticipada.set(null),
     },
     {
@@ -136,7 +136,7 @@ export class Pos implements OnInit, OnDestroy {
     {
       selector: '[data-tour="resultados"]',
       titulo: 'Anticipadas: validar o cobrar',
-      texto: '"Validar Ingreso" es para quien ya pagó online; si te equivocás, tenés unos segundos para cancelar. Si no vinieron todos, tocá "Faltó alguien". Los extras (como el almuerzo) salen impresos como voucher. "Cobrar" es para las reservas a pagar en caja.',
+      texto: '"Validar Ingreso" es para quien ya pagó online; si te equivocás, tenés unos segundos para cancelar. Si no vinieron todos, usá "Faltó alguien" en el menú ⋮. Los extras (como el almuerzo) salen impresos como voucher. "Cobrar" es para las reservas a pagar en caja.',
       antes: () => this.abrirAnticipadasParaTutorial(),
     },
   ];
