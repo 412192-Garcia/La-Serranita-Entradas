@@ -1,10 +1,10 @@
 <div class="panel-pos">
 
-  <!-- Con el panel de anticipadas abierto la cabecera cambia de título, y el botón "Anticipadas"
-       pasa a ser el de volver a la venta: no hace falta ni una X ni un título aparte en el panel. -->
+  <!-- Con un panel abierto (anticipadas o ventas del turno) la cabecera cambia de título, y el
+       botón "Anticipadas" pasa a ser el de volver a la venta: el panel no lleva X ni título aparte. -->
   <app-cabecera-interna
-    [titulo]="consultaAnticipada() !== null ? 'Anticipadas' : 'Venta en Boletería'"
-    [descripcion]="consultaAnticipada() !== null ? 'Buscá una reserva para validar el ingreso o cobrarla.' : 'Cobrá y registra la compra.'"
+    [titulo]="tituloCabecera()"
+    [descripcion]="descripcionCabecera()"
     [pasosTutorial]="pasosTutorial"
     [tutorialCompacto]="true"
     [sinBarraInferior]="true"
@@ -12,8 +12,8 @@
     (tutorialCerrado)="alCerrarTutorial()">
     @if (caja()) {
       <div class="acciones-caja-cabecera" cabecera-acciones data-tour="barra-caja">
-        @if (consultaAnticipada() !== null) {
-          <button type="button" class="btn-secundario-caja" data-tour="boton-anticipadas" (click)="consultaAnticipada.set(null)">
+        @if (consultaAnticipada() !== null || verVentas()) {
+          <button type="button" class="btn-secundario-caja" data-tour="boton-anticipadas" (click)="volverALaVenta()">
             <svg lucideArrowLeft [strokeWidth]="2"></svg>
             Volver a la venta
           </button>
@@ -29,7 +29,7 @@
           data-tour="acciones-caja"
           (retiro)="mostrarRetiro.set(true)"
           (talonario)="mostrarIngresoEntradas.set(true)"
-          (ventas)="mostrarVentasFacturas.set(true)" />
+          (ventas)="abrirVentas()" />
         <!-- Dónde imprime esta tablet y con qué Point cobra, y si están listos: se elige una vez
              y queda guardado. Cada parte aparece sólo si su módulo está prendido. -->
         <app-selector-dispositivos data-tour="dispositivos" />
@@ -66,10 +66,6 @@
         (cerrar)="mostrarIngresoEntradas.set(false)" />
     }
 
-    @if (mostrarVentasFacturas()) {
-      <app-ventas-facturas-modal [cajaId]="caja()!.id" (cerrar)="mostrarVentasFacturas.set(false)" />
-    }
-
     @if (escaneoPendiente() !== null) {
       <app-modal (cerrar)="escaneoPendiente.set(null)">
         <div class="dialogo-escaneo">
@@ -93,6 +89,9 @@
       <app-anticipadas-pos
         [consulta]="consultaAnticipada()!"
         (cobrarEnPos)="onCargarAnticipada($event)" />
+    } @else if (verVentas()) {
+      <!-- Igual que anticipadas: tapa el catálogo/carrito y al volver queda todo como estaba. -->
+      <app-ventas-turno class="ventas-turno-pos" [cajaId]="caja()!.id" [conTitulo]="false" />
     } @else if (ultimaVenta(); as venta) {
       <app-comprobante-venta
         [venta]="venta.venta"

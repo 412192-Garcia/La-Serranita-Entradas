@@ -3,15 +3,21 @@ package org.example.laserranitaentradas.controller;
 import org.example.laserranitaentradas.config.UsuarioAutenticado;
 import org.example.laserranitaentradas.model.dto.CambiarFechaRequest;
 import org.example.laserranitaentradas.model.dto.CancelarVentaRequest;
+import org.example.laserranitaentradas.model.dto.CompraFichaDTO;
 import org.example.laserranitaentradas.model.dto.CompraRequestDTO;
 import org.example.laserranitaentradas.model.dto.CompraResponseDTO;
 import org.example.laserranitaentradas.model.dto.EditarContactoRequest;
 import org.example.laserranitaentradas.model.dto.EditarVentaRequestDTO;
 import org.example.laserranitaentradas.model.dto.VentaPosRequestDTO;
 import org.example.laserranitaentradas.model.entity.Compra;
+import org.example.laserranitaentradas.model.entity.EstadoCobroPoint;
+import org.example.laserranitaentradas.repository.CobroPointRepository;
+import org.example.laserranitaentradas.repository.FacturaRepository;
+import org.example.laserranitaentradas.service.afip.WsfeService;
 import org.example.laserranitaentradas.model.entity.FormaPago;
 import org.example.laserranitaentradas.model.entity.RolUsuario;
 import org.example.laserranitaentradas.service.CompraService;
+import org.example.laserranitaentradas.service.CorreccionVentaService;
 import org.example.laserranitaentradas.service.RechazoOperacionService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -28,10 +34,18 @@ public class CompraInternoController {
 
     private final CompraService compraService;
     private final RechazoOperacionService rechazoService;
+    private final FacturaRepository facturaRepository;
+    private final CobroPointRepository cobroPointRepository;
+    private final CorreccionVentaService correccionVentaService;
 
-    public CompraInternoController(CompraService compraService, RechazoOperacionService rechazoService) {
+    public CompraInternoController(CompraService compraService, RechazoOperacionService rechazoService,
+                                   FacturaRepository facturaRepository, CobroPointRepository cobroPointRepository,
+                                   CorreccionVentaService correccionVentaService) {
         this.compraService = compraService;
         this.rechazoService = rechazoService;
+        this.facturaRepository = facturaRepository;
+        this.cobroPointRepository = cobroPointRepository;
+        this.correccionVentaService = correccionVentaService;
     }
 
     @PostMapping("/{id}/confirmar-pago-efectivo")
@@ -109,11 +123,13 @@ public class CompraInternoController {
     }
 
     @PutMapping("/{id}/cancelar-venta")
-    @Operation(summary = "Cancelar una venta de puerta mal cargada (ADMIN)",
-            description = "Motivo opcional. Queda CANCELADO y deja de contar en cupo, caja y reportes. Sólo ventas de caja.")
+    @Operation(summary = "Cancelar una venta de caja",
+            description = "Deja de contar en cupo, caja y reportes. El boletero: sólo su venta de puerta, con caja abierta, "
+                    + "dentro de los 15 minutos y con motivo.")
     public ResponseEntity<CompraResponseDTO> cancelarVenta(@PathVariable @Parameter(description = "ID de la compra") Long id,
-                                                           @RequestBody(required = false) CancelarVentaRequest request) {
-        Compra compra = compraService.cancelarVenta(id, request != null ? request.getMotivo() : null);
+                                                           @RequestBody(required = false) CancelarVentaRequest request,
+                                                           @AuthenticationPrincipal UsuarioAutenticado operador) {
+        Compra compra = correccionVentaService.cancelar(id, request != null ? request.getMotivo() : null, operador);
         return ResponseEntity.ok(CompraController.entityToDto(compra));
     }
 
@@ -126,13 +142,70 @@ public class CompraInternoController {
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
+    @GetMapping("/{id}/ficha")
+    @Operation(summary = "Todos los datos de una compra",
+            description = "Para el \"Ver detalle\" de Control de Accesos: la compra más pago, caja, auditoría y cancelación.")
+    public ResponseEntity<CompraFichaDTO> obtenerFicha(@PathVariable @Parameter(description = "ID de la compra") Long id) {
+        return compraService.findById(id)
+                .map(c -> ResponseEntity.ok(aFicha(c)))
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    private CompraFichaDTO aFicha(Compra c) {
+        CompraFichaDTO f = new CompraFichaDTO();
+        f.setCompra(CompraController.entityToDto(c));
+        f.setFechaCompra(c.getFechaCreacion());
+        cobroPointRepository.findAllByCompraId(c.getId()).stream()
+                .filter(cp -> cp.getEstado() == EstadoCobroPoint.APROBADO)
+                .findFirst()
+                .ifPresent(cp -> {
+                    f.setPointMedioPago(cp.getMedioPago());
+                    f.setPointTipoMedio(cp.getTipoMedio());
+                    f.setPointCuotas(cp.getCuotas());
+                });
+        facturaRepository.findFirstByCompraIdAndTipoComprobanteOrderByIdDesc(c.getId(), WsfeService.CBTE_TIPO_FACTURA_B)
+                .or(() -> facturaRepository.findFirstByCompraIdAndTipoComprobanteOrderByIdDesc(c.getId(), WsfeService.CBTE_TIPO_FACTURA_A))
+                .ifPresent(fa -> {
+                    String nombre = WsfeService.nombre(fa.getTipoComprobante());
+                    f.setFactura(fa.getNumero() != null
+                            ? String.format("%s %04d-%08d", nombre, fa.getPuntoVenta(), fa.getNumero()) : nombre);
+                    f.setFacturaEstado(fa.getEstado() != null ? fa.getEstado().name() : null);
+                });
+        if (c.getCliente() != null) {
+            f.setClienteLocalidad(c.getCliente().getLocalidad());
+            f.setClienteEdad(c.getCliente().getEdad());
+        }
+        f.setPromocionNombre(c.getPromocion() != null ? c.getPromocion().getNombre() : null);
+        f.setFechaPago(c.getFechaPago());
+        f.setPagoConfirmadoPor(c.getPagoConfirmadoPor());
+        f.setPagosMercadoPago(c.pagosMercadoPago().stream().map(String::valueOf).toList());
+        f.setDispositivo(c.getDispositivo());
+        f.setEnIframe(c.getEnIframe());
+        if (c.getCaja() != null) {
+            f.setCajaId(c.getCaja().getId());
+            f.setCajaUsuario(c.getCaja().getUsuario() != null ? c.getCaja().getUsuario().getUsername() : null);
+            f.setCajaFechaApertura(c.getCaja().getFechaApertura());
+        }
+        f.setFormaPagoSecundaria(c.getFormaPagoSecundaria());
+        f.setMontoFormaPagoSecundaria(c.getMontoFormaPagoSecundaria());
+        f.setCotizacionDolar(c.getCotizacionDolar());
+        f.setDolaresRecibidos(c.getDolaresRecibidos());
+        f.setMotivoCancelacion(c.getMotivoCancelacion());
+        f.setDetalleCancelacion(c.getDetalleCancelacion());
+        f.setFechaCancelacion(c.getFechaCancelacion());
+        f.setCanceladaPor(c.getCanceladaPor());
+        return f;
+    }
+
     @PutMapping("/{id}/editar-venta")
-    @Operation(summary = "Corregir las entradas, artículos y/o la forma de pago de una venta de puerta (ADMIN)",
-            description = "Reemplaza entradas y artículos (la lista final, no un diff). El descuento queda igual; revalida cupo y recalcula el monto.")
+    @Operation(summary = "Corregir las entradas, artículos y/o la forma de pago de una venta de caja",
+            description = "Reemplaza entradas y artículos (la lista final). El descuento queda igual; revalida cupo y recalcula el monto. "
+                    + "El boletero: sólo su venta de puerta, con caja abierta y dentro de los 15 minutos.")
     public ResponseEntity<CompraResponseDTO> editarVenta(
             @PathVariable @Parameter(description = "ID de la compra") Long id,
-            @RequestBody EditarVentaRequestDTO request) {
-        Compra compra = compraService.editarVenta(id, request);
+            @RequestBody EditarVentaRequestDTO request,
+            @AuthenticationPrincipal UsuarioAutenticado operador) {
+        Compra compra = correccionVentaService.editar(id, request, operador);
         return ResponseEntity.ok(CompraController.entityToDto(compra));
     }
 

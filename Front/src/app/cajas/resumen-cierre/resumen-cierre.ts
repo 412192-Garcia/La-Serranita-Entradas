@@ -1,4 +1,4 @@
-import { Component, computed, inject, input, output, signal, viewChild } from '@angular/core';
+import { Component, computed, effect, inject, input, output, signal, untracked, viewChild } from '@angular/core';
 import { DatePipe, DecimalPipe, NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AjusteCaja, AjusteCajaInput, Caja, CajaService, OperacionCaja, SegmentoEntrada, etiquetaTipoOperacion } from '../../services/caja.service';
@@ -169,11 +169,15 @@ const COLUMNAS: ColumnaDesglose[] = [
   { clave: 'MERCADO_PAGO_QR', etiqueta: 'QR' },
 ];
 
-import { VentasFacturasModal } from '../../shared/ventas-facturas-modal/ventas-facturas-modal';
+import { AtrasService } from '../../shared/modal/atras.service';
+import { FichaCompraModal } from '../../reservas/ficha-compra-modal/ficha-compra-modal';
+import { FacturaCompraModal } from '../../shared/factura-compra-modal/factura-compra-modal';
+import { Reserva } from '../../services/boleteria.service';
 import { FacturaService } from '../../services/factura.service';
+import { CorreccionVenta } from '../../models/factura';
 @Component({
   selector: 'app-resumen-cierre',
-  imports: [PesosPipe, DatePipe, DecimalPipe, NgTemplateOutlet, FormsModule, MoneyInputDirective, Modal, ConteoCierre, VentasFacturasModal, LucideShoppingCart, LucideArrowDownRight, LucideArrowUpRight, LucideTicketPlus, LucideTicketMinus, LucideTicketCheck, LucideChevronDown],
+  imports: [PesosPipe, DatePipe, DecimalPipe, NgTemplateOutlet, FormsModule, MoneyInputDirective, Modal, ConteoCierre, FichaCompraModal, FacturaCompraModal, LucideShoppingCart, LucideArrowDownRight, LucideArrowUpRight, LucideTicketPlus, LucideTicketMinus, LucideTicketCheck, LucideChevronDown],
   templateUrl: './resumen-cierre.html',
   styleUrl: './resumen-cierre.css',
 })
@@ -200,13 +204,39 @@ export class ResumenCierre {
       next: (as) => this.articulosVarios.set(as),
       error: () => {},
     });
+    effect(() => {
+      const id = this.caja().id;
+      untracked(() => this.cargarCorrecciones(id));
+    });
+  }
+
+  /** Lo que corrigió o canceló el boletero en sus ventas. Sólo lo ve el admin. */
+  correcciones = signal<CorreccionVenta[]>([]);
+  mostrarCorrecciones = signal(false);
+
+  private cargarCorrecciones(cajaId: number): void {
+    this.cajaService.obtenerCorrecciones(cajaId).subscribe({
+      next: (cs) => this.correcciones.set(cs),
+      error: () => this.correcciones.set([]),
+    });
   }
 
   caja = input.required<Caja>();
   mostrarAcciones = input(true);
 
   readonly facturacionHabilitada = inject(FacturaService).habilitada;
-  mostrarVentasFacturas = signal(false);
+  /** Venta abierta en "Ver detalle". */
+  fichaDe = signal<number | null>(null);
+
+  /** La factura de una venta: se abre desde "Ver detalle", en lugar del detalle. */
+  facturaDe = signal<Reserva | null>(null);
+  private atras = inject(AtrasService);
+
+  pasarAFactura(reserva: Reserva): void {
+    this.fichaDe.set(null);
+    setTimeout(() => this.atras.cuandoTermineDeCerrar(() => this.facturaDe.set(reserva)));
+  }
+
 
   /** El KPI "Facturado" se muestra con la facturación prendida, o si esta caja igual tiene
    * algo facturado (se apagó después): sin facturación nunca, sólo sería un $0 de ruido. */
@@ -454,6 +484,14 @@ export class ResumenCierre {
   mostrarFormVentaExtra = signal(false);
   mostrarFormMontoSuelto = signal(false);
   mostrarFormArticulo = signal(false);
+
+  /** Venta, monto o artículo: de a un formulario por vez. */
+  alternarForm(cual: 'venta' | 'monto' | 'articulo'): void {
+    const abrir = !{ venta: this.mostrarFormVentaExtra, monto: this.mostrarFormMontoSuelto, articulo: this.mostrarFormArticulo }[cual]();
+    this.mostrarFormVentaExtra.set(abrir && cual === 'venta');
+    this.mostrarFormMontoSuelto.set(abrir && cual === 'monto');
+    this.mostrarFormArticulo.set(abrir && cual === 'articulo');
+  }
 
   /** segmentoIds "sacados" con el − de una celda. Sin par (un +) al aplicar = venta fantasma; con par = reubicación. */
   private removidos = signal<Set<string>>(new Set());
@@ -809,6 +847,32 @@ export class ResumenCierre {
       cambio: dTal !== 0,
     };
   });
+
+  /** El talonario paso a paso: con cuántas arrancó, qué se sumó/sacó, cuántas se entregaron y
+   * cuántas tendrían que quedar contra las que se contaron. */
+  talonario = computed(() => this.armarTalonario(this.caja().entradasFisicasEsperadas, this.caja().entradasFisicasRestantes));
+  talonarioRevision = computed(() => {
+    const e = this.entradasRevision();
+    return e ? this.armarTalonario(e.esperadasTalonario, e.restantes) : null;
+  });
+
+  private armarTalonario(esperadas: number | null, restantes: number | null) {
+    const c = this.caja();
+    const movs = c.ingresosEntradas ?? [];
+    const sumadas = movs.filter((m) => m.tipo !== 'RETIRO').reduce((a, m) => a + m.cantidad, 0);
+    const sacadas = movs.filter((m) => m.tipo === 'RETIRO').reduce((a, m) => a + m.cantidad, 0);
+    const inicial = c.entradasFisicasInicial;
+    return {
+      inicial,
+      sumadas,
+      sacadas,
+      entregadas: inicial === null || esperadas === null ? null : inicial + sumadas - sacadas - esperadas,
+      esperadas,
+      restantes: restantes ?? null,
+      // contadas − esperadas: negativo = faltan, positivo = sobran.
+      diferencia: esperadas === null || restantes === null || restantes === undefined ? null : restantes - esperadas,
+    };
+  }
 
   /** ¿El recuento del cierre se editó respecto de lo que ya tenía la caja? */
   private conteoModificado = computed(() => {

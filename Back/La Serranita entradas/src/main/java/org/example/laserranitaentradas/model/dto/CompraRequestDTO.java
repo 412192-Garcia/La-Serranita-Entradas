@@ -24,6 +24,9 @@ public class CompraRequestDTO {
     Boolean actualizarDatosCliente;
     /** El usuario aclaró que NO es la misma persona: cliente nuevo con el mismo DNI. */
     Boolean esOtraPersona;
+
+    /** La página de compra está embebida en el sitio del parque. Sólo para estadística. */
+    private Boolean enIframe;
 }
 
 

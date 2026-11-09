@@ -37,6 +37,12 @@ public interface CompraService {
     Compra marcarEntradasComoUsadas(Long compraId, Long usuarioValidadorId);
 
     /**
+     * Valida una anticipada (APROBADO). `ausentesPorDetalle`: entradas que no se usaron, sólo en compras
+     * pagadas online; por ellas sale un voucher de cantina. Los extras salen como voucher.
+     */
+    Compra validarIngreso(Long compraId, Long usuarioValidadorId, java.util.Map<Long, Integer> ausentesPorDetalle, String impresora);
+
+    /**
      * Cobra en efectivo una reserva y habilita el ingreso. Con `permitirSinCaja` (ADMIN) la compra queda sin
      * caja, fuera de cualquier cierre.
      */

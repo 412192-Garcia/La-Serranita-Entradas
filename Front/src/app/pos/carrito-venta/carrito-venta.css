@@ -124,61 +124,12 @@
   box-shadow: none;
 }
 
-/* Agrupa las 3 formas de pago con el toggle de pago mixto en una sola fila: separado no
-   alcanzaba a compartir el espacio (ver .btn-pago-mixto-toggle). */
-.fila-formas-pago {
-  display: flex;
-  align-items: stretch;
-  gap: 6px;
-}
-
 .formas-pago {
-  flex: 1;
-  min-width: 0;
   display: grid;
-  /* 3 botones, o 2 con el Point integrado (Efectivo / Posnet). */
+  /* Efectivo / Tarjeta / QR / +2ª, o 3 con el Point integrado (Efectivo / Posnet). */
   grid-auto-flow: column;
   grid-auto-columns: 1fr;
   gap: 8px;
-}
-
-/* Chico y discreto a propósito: es la excepción a una venta normal, no debería pesar como
-   elegir Efectivo/Tarjeta/QR. Se queda toggleado (no desaparece) mientras el pago mixto
-   está activo — es el único on/off, la fila de abajo no repite un título ni una ✕ propios. */
-.btn-pago-mixto-toggle {
-  flex: 0 0 auto;
-  padding: 12px 8px;
-  border: 1.5px dashed var(--color-border);
-  background-color: var(--color-card-bg);
-  border-radius: var(--radius-sm);
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  font-family: inherit;
-}
-
-.btn-pago-mixto-toggle:hover {
-  border-color: var(--color-primary);
-  color: var(--color-primary-dark);
-}
-
-.btn-pago-mixto-toggle.activo {
-  border-style: solid;
-  border-color: var(--color-primary);
-  background-color: var(--color-primary);
-  color: #fff;
-}
-
-.btn-pago-mixto-toggle:disabled {
-  border-style: dashed;
-  color: var(--color-text-muted);
-  cursor: not-allowed;
-}
-
-.btn-pago-mixto-toggle:disabled:hover {
-  border-color: var(--color-border);
-  color: var(--color-text-muted);
 }
 
 /* Fila que junta "Paga con"/"Cotización del dólar" con el toggle de dólares: antes el
@@ -283,27 +234,51 @@
   color: var(--color-accent-dark);
 }
 
-/* Mismo lenguaje visual que el resto del carrito: input con label como el de "Precio final"
-   (reusa .fila-descuento-manual) — nada de select ni fila suelta con estilo propio. Sin
-   header propio (el on/off es el botón "+2ª" de arriba), así que es sólo el margen. */
 .bloque-pago-mixto {
   margin: 8px 0 0;
-}
-
-/* Los dos montos uno debajo del otro. Lado a lado, el selector de la 2ª forma (Efectivo /
-   Tarjeta 2 / QR) tenía media tarjeta del carrito: quedaba "Efect… Tarje…" en botones de
-   20px, imposibles de tocar en la tablet (el carrito mide 350-450px en cualquier pantalla). */
-.bloque-pago-mixto .fila-descuento-manual {
+  display: flex;
   flex-direction: column;
   gap: 10px;
 }
 
-.etiqueta-monto-mixto {
+.parte-pago-mixto {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.etiqueta-parte-mixta {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+}
+
+.parte-pago-mixto input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  outline: none;
+  background-color: var(--color-input-bg);
+  color: var(--color-text);
+}
+
+.parte-pago-mixto input:disabled {
+  background-color: var(--color-border);
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+}
+
+.parte-pago-mixto input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 15%, transparent);
 }
 
 .mini-toggle-forma {
+  display: flex;
   gap: 6px;
 }
 
@@ -324,6 +299,12 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.btn-mini-forma:disabled {
+  color: var(--color-text-muted);
+  border-style: dashed;
+  cursor: not-allowed;
 }
 
 .btn-mini-forma.activo {

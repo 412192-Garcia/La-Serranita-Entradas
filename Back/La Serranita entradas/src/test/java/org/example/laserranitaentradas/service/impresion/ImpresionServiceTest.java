@@ -41,7 +41,8 @@ class ImpresionServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new ImpresionService(trabajoRepository, facturaRepository, comprobanteService, escPos, transactionManager);
+        service = new ImpresionService(trabajoRepository, facturaRepository, comprobanteService, escPos,
+                org.mockito.Mockito.mock(org.example.laserranitaentradas.repository.VoucherRepository.class), transactionManager);
         when(facturaRepository.findById(1L)).thenReturn(Optional.of(Factura.builder().id(1L).build()));
         when(trabajoRepository.save(any(TrabajoImpresion.class))).thenAnswer(inv -> {
             guardado = inv.getArgument(0);

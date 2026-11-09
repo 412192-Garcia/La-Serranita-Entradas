@@ -1,0 +1,197 @@
+.panel-ficha {
+  background-color: var(--color-card-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card-lg);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+  max-width: 520px;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+.encabezado {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.encabezado h3 {
+  flex: 1;
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.btn-icono {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-card-bg);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.btn-icono svg { width: 18px; height: 18px; }
+
+@media (pointer: coarse) {
+  .btn-icono { width: 44px; height: 44px; }
+}
+
+.badge {
+  display: inline-block;
+  padding: 5px 11px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+
+.badge-APROBADO { background-color: var(--color-primary-light); color: var(--color-primary-dark); }
+.badge-RESERVADO_EFECTIVO { background-color: var(--color-accent-light); color: var(--color-accent-dark); }
+.badge-USADO,
+.badge-REEMBOLSADA { background-color: var(--color-danger-light); color: var(--color-danger-dark); }
+.badge-VENDIDO_EN_PUERTA { background-color: #e3edfa; color: #2c5896; }
+.badge-PENDIENTE_PAGO,
+.badge-CANCELADO { background-color: var(--color-border); color: var(--color-text-secondary); }
+
+.cargando {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+}
+
+.cargando svg { width: 16px; height: 16px; }
+
+.texto-error {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--color-danger-dark);
+}
+
+section {
+  border-top: 1px solid var(--color-border);
+  padding-top: 10px;
+}
+
+h4 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 8px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.icono-titulo { width: 14px; height: 14px; }
+
+dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 14px;
+  margin: 0;
+  font-size: 0.88rem;
+}
+
+dt { color: var(--color-text-secondary); }
+
+dd {
+  margin: 0;
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+
+.secundario {
+  color: var(--color-text-secondary);
+  font-size: 0.82rem;
+}
+
+.codigo { font-family: monospace; font-size: 0.82rem; }
+
+.dd-factura {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.btn-factura {
+  padding: 4px 10px;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-card-bg);
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-factura:hover { border-color: var(--color-primary); color: var(--color-primary-dark); }
+
+@media (pointer: coarse) {
+  .btn-factura { min-height: 44px; }
+}
+
+.lineas {
+  list-style: none;
+  margin: 8px 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.88rem;
+}
+
+.lineas li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.lineas li.extra .linea-nombre { color: var(--color-text-secondary); }
+
+.linea-monto { white-space: nowrap; }
+
+.totales {
+  padding-top: 6px;
+  border-top: 1px dashed var(--color-border);
+}
+
+.totales dd { text-align: right; }
+
+.total { font-weight: 800; }
+
+.icono-girando { animation: girar 1s linear infinite; }
+
+@keyframes girar {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .icono-girando { animation: none; }
+}
+
+@media (max-width: 600px) {
+  .panel-ficha { max-height: 90vh; padding: 16px; }
+  dl { grid-template-columns: 1fr; gap: 0; }
+  dt { margin-top: 6px; font-size: 0.78rem; }
+}

@@ -194,6 +194,48 @@ export interface VentaFactura {
   detalle: string;
   /** Null = la venta no se facturó. */
   factura: Factura | null;
+  lineas: LineaVenta[];
+  descuento: number;
+  promocion: string | null;
+  formaPagoSecundaria: string | null;
+  montoFormaPagoSecundaria: number | null;
+  dolaresRecibidos: number | null;
+  cotizacionDolar: number | null;
+  /** Reserva cobrada en esta caja, no una venta de puerta. */
+  anticipada: boolean;
+  /** Sólo en anticipadas. */
+  titular: string | null;
+  /** Cobro con el Point: visa, debmaster... / credit_card, debit_card... */
+  pointMedioPago: string | null;
+  pointTipoMedio: string | null;
+  pointCuotas: number | null;
+  /** Hasta cuándo el boletero la puede corregir (hora local); null si no puede. */
+  corregibleHasta: string | null;
+  correcciones: CorreccionVenta[];
+}
+
+/** Una entrada (tipoEntradaId) o un artículo (articuloVarioId, o ninguno si es libre). */
+export interface LineaVenta {
+  cantidad: number;
+  nombre: string;
+  /** Null en ventas viejas sin precio guardado. */
+  precioUnitario: number | null;
+  entrada: boolean;
+  tipoEntradaId: number | null;
+  articuloVarioId: number | null;
+}
+
+/** Corrección que hizo el boletero sobre una venta suya. */
+export interface CorreccionVenta {
+  compraId: number;
+  codigoReserva: string;
+  fecha: string;
+  usuario: string;
+  tipo: 'EDICION' | 'CANCELACION';
+  /** "Efectivo · 2× Pase General · $68.600". */
+  antes: string;
+  despues: string | null;
+  motivo: string | null;
 }
 
 /** "0037-00000019", como se imprime en el comprobante. */

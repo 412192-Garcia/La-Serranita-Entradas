@@ -34,6 +34,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
@@ -482,6 +483,23 @@ class ReporteServiceImplTest {
         t.setTipo(Tipo.ENTRADA);
         t.setPrecio(new BigDecimal("4500"));
         return t;
+    }
+
+    @Test
+    void generarResumen_anticipadasPorPago_separaOnlineAlLlegarYSinCobrar() {
+        Compra online = mpAprobada("7000", DIA, DIA);
+        Compra alLlegar = efectivoUsada("5000", DIA, DIA.atTime(11, 0));
+        Compra sinCobrar = base("3000", FormaPago.EFECTIVO_BOLETERIA, EstadoCompra.RESERVADO_EFECTIVO);
+        sinCobrar.setFechaCreacion(DIA.minusDays(2).atTime(9, 0));
+        sinCobrar.setFechaVisita(DIA);
+        Compra puerta = ventaPuerta("10000", FormaPago.EFECTIVO_BOLETERIA, DIA);
+        stubReporte(online, alLlegar, sinCobrar, puerta);
+
+        ReporteResumenDTO resumen = service.generarResumen(DIA, DIA);
+
+        assertThat(resumen.getAnticipadasPorPago()).extracting(a -> a.getClave(), a -> a.getCantidad(), a -> a.getEntradas())
+                .containsExactly(tuple("ONLINE", 1L, 2L), tuple("AL_LLEGAR", 1L, 2L), tuple("SIN_COBRAR", 1L, 2L));
+        assertThat(resumen.getAnticipadasPorPago().get(1).getMonto()).isEqualByComparingTo("5000");
     }
 
     private static CompraDetalle detalleEntrada(int cantidad) {

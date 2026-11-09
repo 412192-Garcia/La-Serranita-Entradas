@@ -1,0 +1,63 @@
+/* Menú ⋮ de una fila de reserva: lo usan Control de Accesos y las anticipadas del POS. */
+.celda-menu {
+  position: relative;
+  display: flex;
+  justify-content: center;
+}
+
+.btn-menu {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  border-radius: 50%;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.btn-menu svg {
+  width: 18px;
+  height: 18px;
+}
+
+.btn-menu:hover { background-color: var(--color-bg-soft); }
+
+.menu-dropdown {
+  position: absolute;
+  top: 44px;
+  right: 0;
+  z-index: 10;
+  background-color: var(--color-card-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-card-lg);
+  display: flex;
+  flex-direction: column;
+  min-width: 170px;
+  overflow: hidden;
+}
+
+.menu-dropdown button {
+  padding: 10px 16px;
+  border: none;
+  background: none;
+  text-align: left;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text);
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.menu-dropdown button:hover:not(:disabled) { background-color: var(--color-bg-soft); }
+.menu-dropdown button:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.btn-menu:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 35%, transparent);
+}

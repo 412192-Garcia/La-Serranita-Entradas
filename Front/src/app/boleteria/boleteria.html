@@ -49,19 +49,14 @@
       </button>
     </div>
 
-    <!-- Sólo los 2 estados que un boletero toca todo el día (pagada online / a cobrar en caja)
-         quedan siempre visibles, para ver cuánto falta por llegar de un vistazo; el resto de
-         los estados ocupaba mucho espacio para lo poco que se usan, así que van junto al tipo
-         de listado (Anticipada/Boletería) y la forma de pago, todos detrás de "Más filtros". El
-         wrapper con data-tour queda siempre en el DOM aunque adentro no haya nada en modo
-         Boletería, para que el tutorial siempre encuentre el elemento. -->
+    <!-- Queda siempre en el DOM, aunque en Boletería esté vacío, para que el tutorial lo encuentre. -->
     <div data-tour="estado">
       @if (busqueda.tipoListado() === 'ANTICIPADA') {
         <div class="grupo-filtro">
           <span class="etiqueta-filtro">Estado</span>
           <div class="chips">
             @for (e of estadosPrincipales; track e.valor) {
-              <button type="button" class="btn-filtro" [class.activo]="busqueda.estadoActivo(e.valor)" [attr.aria-pressed]="busqueda.estadoActivo(e.valor)" (click)="busqueda.toggleEstado(e.valor)">
+              <button type="button" class="btn-filtro" [class.activo]="busqueda.estadoActivo(e.valor)" [attr.aria-pressed]="busqueda.estadoActivo(e.valor)" (click)="toggleEstado(e.valor)">
                 {{ e.etiqueta }}
               </button>
             }
@@ -78,15 +73,11 @@
       [attr.aria-expanded]="mostrarMasFiltros()"
       (click)="mostrarMasFiltros.set(!mostrarMasFiltros())">
       Más filtros
-      @if (!mostrarMasFiltros() && !busqueda.filtrosAvanzadosEnDefecto()) {
+      @if (!mostrarMasFiltros() && busqueda.hayFiltrosEnMasFiltros()) {
         <span class="punto-filtro-activo" aria-label="Hay más filtros activos"></span>
       }
       <svg lucideChevronDown class="icono-mas-filtros" [strokeWidth]="2.5"></svg>
     </button>
-
-    @if (!busqueda.filtrosEnDefecto()) {
-      <button type="button" class="btn-restablecer" (click)="busqueda.restablecerFiltros()">Restablecer filtros</button>
-    }
 
     @if (mostrarMasFiltros()) {
       @if (busqueda.tipoListado() === 'ANTICIPADA') {
@@ -94,7 +85,7 @@
           <span class="etiqueta-filtro">Otros estados</span>
           <div class="chips">
             @for (e of estadosSecundarios; track e.valor) {
-              <button type="button" class="btn-filtro" [class.activo]="busqueda.estadoActivo(e.valor)" [attr.aria-pressed]="busqueda.estadoActivo(e.valor)" (click)="busqueda.toggleEstado(e.valor)">
+              <button type="button" class="btn-filtro" [class.activo]="busqueda.estadoActivo(e.valor)" [attr.aria-pressed]="busqueda.estadoActivo(e.valor)" (click)="toggleEstado(e.valor)">
                 {{ e.etiqueta }}
               </button>
             }
@@ -118,38 +109,41 @@
         <label class="etiqueta-filtro" for="select-forma-pago">Forma de pago</label>
         <select id="select-forma-pago" class="select-forma-pago" [ngModel]="busqueda.formaPago()" (ngModelChange)="busqueda.onFormaPagoChange($event)">
           <option value="">Todas</option>
-          @for (f of formasPagoFiltrables; track f.valor) {
+          @for (f of busqueda.formasPagoDisponibles(); track f.valor) {
             <option [value]="f.valor">{{ f.etiqueta }}</option>
           }
         </select>
       </div>
 
-      <div class="grupo-filtro">
-        <label class="etiqueta-filtro" for="input-cupon">Código de descuento</label>
-        <input
-          #inputCupon
-          id="input-cupon"
-          type="text"
-          class="select-forma-pago input-cupon"
-          placeholder="Ej: VERANO10"
-          autocomplete="off"
-          [value]="busqueda.cupon()"
-          (keyup.enter)="busqueda.onCuponChange(inputCupon.value)"
-          (blur)="busqueda.onCuponChange(inputCupon.value)"
-        />
-      </div>
-
-      <div class="grupo-filtro">
-        <span class="etiqueta-filtro">Agrupar todas las fechas por</span>
-        <div class="chips">
-          <button type="button" class="btn-filtro" [class.activo]="busqueda.agrupacion() === 'semana'" [attr.aria-pressed]="busqueda.agrupacion() === 'semana'" (click)="busqueda.cambiarAgrupacion('semana')">
-            Semana
-          </button>
-          <button type="button" class="btn-filtro" [class.activo]="busqueda.agrupacion() === 'mes'" [attr.aria-pressed]="busqueda.agrupacion() === 'mes'" (click)="busqueda.cambiarAgrupacion('mes')">
-            Mes
-          </button>
+      @if (busqueda.tipoListado() === 'ANTICIPADA') {
+        <div class="grupo-filtro">
+          <label class="etiqueta-filtro" for="input-cupon">Código de descuento</label>
+          <div class="campo-cupon">
+            <input
+              #inputCupon
+              id="input-cupon"
+              type="text"
+              class="select-forma-pago input-cupon"
+              placeholder="Ej: VERANO10"
+              autocomplete="off"
+              enterkeyhint="search"
+              [value]="busqueda.cupon()"
+              (keyup.enter)="busqueda.onCuponChange(inputCupon.value)"
+              (blur)="busqueda.onCuponChange(inputCupon.value)"
+            />
+            @if (busqueda.cupon()) {
+              <button type="button" class="btn-quitar-cupon" aria-label="Quitar código de descuento" (mousedown)="$event.preventDefault()" (click)="inputCupon.value = ''; busqueda.onCuponChange('')">
+                <svg lucideX [strokeWidth]="2.5" aria-hidden="true"></svg>
+              </button>
+            }
+          </div>
         </div>
-      </div>
+      }
+    }
+
+    <!-- Al final, para que al aparecer no corra los filtros a otra fila. -->
+    @if (!busqueda.filtrosEnDefecto()) {
+      <button type="button" class="btn-restablecer" (click)="busqueda.restablecerFiltros()">Restablecer filtros</button>
     }
 
     <button type="button" class="btn-ver-resultados" (click)="filtrosCelularAbiertos.set(false)">Ver resultados</button>
@@ -166,6 +160,15 @@
       </button>
       @if (menuAbiertoId() === reserva.id) {
         <div class="menu-dropdown" (click)="$event.stopPropagation()">
+          <button type="button" (click)="abrirFicha(reserva, $event)">Ver detalle</button>
+          @if (reserva.estado === 'APROBADO' && busqueda.admiteValidacionParcial(reserva)) {
+            <button type="button" (click)="busqueda.validandoParcial.set(reserva); cerrarMenu()">Faltó alguien</button>
+          }
+          @if (busqueda.vouchersVigentes(reserva).length) {
+            <button type="button" [disabled]="busqueda.reimprimiendoId() === reserva.id" (click)="busqueda.reimprimirVouchers(reserva); cerrarMenu()">
+              Reimprimir vouchers
+            </button>
+          }
           @if (puedeDeshacerDesdeMenu(reserva)) {
             <button type="button" [disabled]="busqueda.deshaciendoId() === reserva.id" (click)="busqueda.deshacerValidacion(reserva, $event)">
               {{ busqueda.deshaciendoId() === reserva.id ? 'Deshaciendo…' : 'Deshacer validación' }}
@@ -203,6 +206,10 @@
       }
     </div>
   </ng-template>
+
+  @if (fichaDe(); as reserva) {
+    <app-ficha-compra-modal [compraId]="reserva.id" [reserva]="reserva" (cerrar)="fichaDe.set(null)" />
+  }
 
   @if (facturaDe(); as reserva) {
     <app-factura-compra-modal [reserva]="reserva" (cerrar)="facturaDe.set(null)" />

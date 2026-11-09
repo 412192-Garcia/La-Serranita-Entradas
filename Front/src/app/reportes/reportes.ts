@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Chart, ChartOptions, registerables } from 'chart.js';
 import { ReporteService } from '../services/reporte.service';
 import { FacturaService } from '../services/factura.service';
-import { AfluenciaDiaria, CompraCancelada, ComprasPorEstado, MotivoCancelacion, DiaSemana, RecaudacionPorFormaPago, ReporteResumen, VentasPorOrigen } from '../models/reporte';
+import { AfluenciaDiaria, CompraCancelada, ComprasPorEstado, MotivoCancelacion, DiaSemana, RecaudacionPorFormaPago, ReporteResumen, VentasPorOrigen, AnticipadasPorPago, ComprasSinCompletar, IntentoSinCompletar } from '../models/reporte';
 import { CabeceraInterna } from '../shared/cabecera-interna/cabecera-interna';
 import { FiltroRangoFechas } from '../shared/filtro-rango-fechas/filtro-rango-fechas';
 import { aFechaISO, restarUnAnio } from '../shared/fecha.util';
@@ -208,6 +208,24 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
   cargando = signal(false);
   error = signal<string | null>(null);
   resumen = signal<ReporteResumen | null>(null);
+  /** Compras online empezadas en el rango y qué pasó con las que no se pagaron. */
+  sinCompletar = signal<ComprasSinCompletar | null>(null);
+  verIntentos = signal(false);
+
+  porcentaje(parte: number, total: number): string {
+    return total === 0 ? '—' : Math.round((parte / total) * 100) + '%';
+  }
+
+  /** Qué pasó con un intento, en criollo. */
+  queFalloIntento(i: IntentoSinCompletar): string {
+    if (i.estado === 'PENDIENTE_PAGO') return 'Esperando el pago';
+    switch (i.motivo) {
+      case 'CHECKOUT_ABANDONADO': return 'Abrió el pago y no lo intentó';
+      case 'PAGO_RECHAZADO': return 'Pago rechazado';
+      case 'PAGO_NO_INICIADO': return 'No se pudo generar el pago';
+      default: return 'Cancelada';
+    }
+  }
 
   vista = signal<'resumen' | 'comparacion'>('resumen');
   pasosTutorial = computed(() => (this.vista() === 'resumen' ? PASOS_RESUMEN : PASOS_COMPARACION));
@@ -336,6 +354,11 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
     this.comparacionTiposChart?.destroy();
   }
 
+  /** Plata de las anticipadas según cómo se pagaron. */
+  montoAnticipadas(r: ReporteResumen, clave: AnticipadasPorPago['clave']): number {
+    return r.anticipadasPorPago?.find((a) => a.clave === clave)?.monto ?? 0;
+  }
+
   /** Plata cobrada para el origen dado (BOLETERIA = venta en puerta, ANTICIPADA = reservas); null si no hay datos. */
   recaudacionPorOrigen(r: ReporteResumen, origen: VentasPorOrigen['origen']): number | null {
     return r.ventasPorOrigen.find((o) => o.origen === origen)?.monto ?? null;
@@ -427,6 +450,13 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
   cargar(): void {
     this.cargando.set(true);
     this.error.set(null);
+    this.reporteService.getComprasSinCompletar(this.desde(), this.hasta()).subscribe({
+      next: (s) => this.sinCompletar.set(s),
+      error: (err) => {
+        console.error('Error al cargar las compras sin completar:', err);
+        this.sinCompletar.set(null);
+      },
+    });
     this.reporteService.getResumen(this.desde(), this.hasta()).subscribe({
       next: (r) => {
         this.resumen.set(r);
@@ -694,10 +724,14 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
       this.origenChart = new Chart(this.origenCanvas()!.nativeElement, {
         type: 'doughnut',
         data: {
-          labels: r.ventasPorOrigen.map((o) => o.etiqueta),
+          labels: ['Venta en puerta', 'Anticipadas online', 'Anticipadas al llegar'],
           datasets: [{
-            data: r.ventasPorOrigen.map((o) => o.monto),
-            backgroundColor: r.ventasPorOrigen.map((o) => COLOR_POR_ORIGEN[o.origen]),
+            data: [
+              this.recaudacionPorOrigen(r, 'BOLETERIA') ?? 0,
+              this.montoAnticipadas(r, 'ONLINE'),
+              this.montoAnticipadas(r, 'AL_LLEGAR'),
+            ],
+            backgroundColor: [COLOR_POR_ORIGEN.BOLETERIA, COLOR_POR_ORIGEN.ANTICIPADA, '#8fd18c'],
           }],
         },
         options: this.opcionesTorta(),

@@ -9,7 +9,7 @@ import { ConectividadService } from '../../services/conectividad.service';
  *
  * Sigue visible sin conexión a propósito: las dos operaciones pasan por la cola offline y se
  * sincronizan solas cuando vuelve la señal (ver OperacionesPendientesService). "Ventas y facturas"
- * sí necesita conexión, así que esa opción sola se oculta sin señal (y sin facturación configurada).
+ * sí necesita conexión, así que esa opción sola se oculta sin señal.
  */
 @Component({
   selector: 'app-menu-caja',
@@ -26,9 +26,9 @@ export class MenuCaja {
 
   abierto = signal(false);
 
-  private facturacion = inject(FacturaService).habilitada;
+  readonly facturacion = inject(FacturaService).habilitada;
   private enLinea = inject(ConectividadService).enLinea;
-  readonly mostrarVentas = computed(() => this.facturacion() && this.enLinea());
+  readonly mostrarVentas = computed(() => this.enLinea());
 
   elegir(accion: 'retiro' | 'talonario' | 'ventas'): void {
     this.abierto.set(false);

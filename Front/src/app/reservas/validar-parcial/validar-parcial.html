@@ -1,0 +1,44 @@
+<app-modal (cerrar)="cerrar.emit()">
+  <div class="modal-validar-parcial">
+    <h3>¿Cuántos vinieron? — #{{ reserva().codigoReserva }}</h3>
+    <p class="ayuda">Las entradas que no se usan se devuelven en un voucher para la cantina.</p>
+
+    <ul class="lista-vinieron">
+      @for (d of lineas(); track d.id) {
+        <li>
+          <span class="nombre-linea">{{ d.tipoEntrada?.nombre }} <small>de {{ d.cantidad }}</small></span>
+          <span class="stepper">
+            <button type="button" [disabled]="cuantosVinieron(d) === 0" (click)="cambiar(d, -1)" aria-label="Uno menos">
+              <svg lucideMinus [strokeWidth]="2.5"></svg>
+            </button>
+            <strong>{{ cuantosVinieron(d) }}</strong>
+            <button type="button" [disabled]="cuantosVinieron(d) === d.cantidad" (click)="cambiar(d, 1)" aria-label="Uno más">
+              <svg lucidePlus [strokeWidth]="2.5"></svg>
+            </button>
+          </span>
+        </li>
+      }
+    </ul>
+
+    @if (totalFaltan() > 0) {
+      <p class="resultado-voucher">
+        Faltan {{ totalFaltan() }}: voucher para la cantina por <strong>{{ montoVoucher() | pesos }}</strong>
+      </p>
+    }
+    @if (extras().length) {
+      <p class="ayuda">
+        También se imprime:
+        @for (e of extras(); track e.id; let ultimo = $last) {
+          {{ e.cantidad }}× {{ e.tipoEntrada?.nombre }}{{ ultimo ? '' : ', ' }}
+        }
+      </p>
+    }
+
+    <div class="acciones">
+      <button type="button" class="btn-cancelar" (click)="cerrar.emit()">Cancelar</button>
+      <button type="button" class="btn-confirmar" [disabled]="totalVinieron() === 0" (click)="validar()">
+        Validar {{ totalVinieron() }}
+      </button>
+    </div>
+  </div>
+</app-modal>

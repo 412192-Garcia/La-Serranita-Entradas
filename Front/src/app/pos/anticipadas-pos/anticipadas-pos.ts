@@ -1,15 +1,17 @@
-import { Component, HostListener, OnInit, effect, inject, input, output, untracked, viewChild } from '@angular/core';
+import { Component, HostListener, OnInit, effect, inject, input, output, signal, untracked, viewChild } from '@angular/core';
+import { LucideEllipsisVertical } from '@lucide/angular';
 import { Reserva } from '../../services/boleteria.service';
 import { ReservasBusqueda } from '../../reservas/busqueda-reservas';
 import { BuscadorReservas } from '../../reservas/buscador-reservas/buscador-reservas';
 import { PanelRegalos } from '../../reservas/panel-regalos/panel-regalos';
 import { ListadoReservas } from '../../reservas/listado-reservas/listado-reservas';
+import { FichaCompraModal } from '../../reservas/ficha-compra-modal/ficha-compra-modal';
 
 /**
  * Panel de anticipadas dentro del POS: tapa el catálogo/carrito (sin destruirlos) para validar
  * el ingreso de quien ya tiene una entrada, con el mismo buscador, listado y filas que Control de
- * Accesos pero sin filtros ni el menú ⋮ (editar, reenviar mail y reembolsar son de esa pantalla,
- * sólo del admin). No tiene cabecera ni botón de cerrar: el título lo pone la cabecera del POS
+ * Accesos pero sin filtros. Su menú ⋮ trae "Ver detalle" y lo de validar (editar, reenviar mail
+ * y reembolsar son de esa pantalla, sólo del admin). No tiene cabecera ni botón de cerrar: el título lo pone la cabecera del POS
  * y se vuelve a la venta con el botón "Volver a la venta" de esa misma cabecera.
  *
  * Se abre de dos formas (ver Pos.abrirAnticipadas): escaneando un DNI, que llega en `consulta` y
@@ -20,13 +22,13 @@ import { ListadoReservas } from '../../reservas/listado-reservas/listado-reserva
  */
 @Component({
   selector: 'app-anticipadas-pos',
-  imports: [BuscadorReservas, PanelRegalos, ListadoReservas],
+  imports: [BuscadorReservas, PanelRegalos, ListadoReservas, LucideEllipsisVertical, FichaCompraModal],
   providers: [ReservasBusqueda],
   templateUrl: './anticipadas-pos.html',
   styleUrl: './anticipadas-pos.css',
 })
 export class AnticipadasPos implements OnInit {
-  private busqueda = inject(ReservasBusqueda);
+  protected busqueda = inject(ReservasBusqueda);
 
   /** DNI recién escaneado. Vacío = se abre con la lista de hoy, sin buscar nada. */
   consulta = input('');
@@ -61,6 +63,27 @@ export class AnticipadasPos implements OnInit {
     } else {
       this.busqueda.ejecutarBusqueda();
     }
+  }
+
+  menuAbiertoId = signal<number | null>(null);
+
+  fichaDe = signal<Reserva | null>(null);
+
+  abrirFicha(reserva: Reserva, event: MouseEvent): void {
+    event.stopPropagation();
+    this.menuAbiertoId.set(null);
+    this.fichaDe.set(reserva);
+  }
+
+  toggleMenu(reserva: Reserva, event: MouseEvent): void {
+    event.stopPropagation();
+    this.menuAbiertoId.update((actual) => (actual === reserva.id ? null : reserva.id));
+  }
+
+  @HostListener('document:click')
+  @HostListener('window:keydown.escape')
+  cerrarMenu(): void {
+    this.menuAbiertoId.set(null);
   }
 
   /** F2 con el panel ya abierto: vuelve al buscador para atender a otra persona. */

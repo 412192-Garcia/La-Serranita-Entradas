@@ -99,6 +99,11 @@ export class CompraService {
    * webhook). Se llama al volver del pago y como respaldo si el monitoreo del popup
    * no logra confirmar nada por su cuenta.
    */
+  /** Anota qué pasó con la ventana de pago, para Reportes. No importa si falla. */
+  registrarEventoPago(compraId: number, codigoReserva: string, tipo: string): void {
+    this.http.post(`${this.apiUrl}/${compraId}/evento-pago`, { codigoReserva, tipo }).subscribe({ error: () => {} });
+  }
+
   verificarPago(compraId: number): Observable<EstadoCompraResponse> {
     return this.http.post<EstadoCompraResponse>(`${this.apiUrl}/${compraId}/verificar-pago`, {});
   }

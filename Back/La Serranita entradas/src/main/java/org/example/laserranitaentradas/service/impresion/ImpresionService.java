@@ -2,9 +2,12 @@ package org.example.laserranitaentradas.service.impresion;
 
 import org.example.laserranitaentradas.model.entity.EstadoTrabajoImpresion;
 import org.example.laserranitaentradas.model.entity.Factura;
+import org.example.laserranitaentradas.model.entity.TipoVoucher;
 import org.example.laserranitaentradas.model.entity.TrabajoImpresion;
+import org.example.laserranitaentradas.model.entity.Voucher;
 import org.example.laserranitaentradas.repository.FacturaRepository;
 import org.example.laserranitaentradas.repository.TrabajoImpresionRepository;
+import org.example.laserranitaentradas.repository.VoucherRepository;
 import org.example.laserranitaentradas.service.factura.ComprobanteFacturaService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,6 +47,7 @@ public class ImpresionService {
     private final FacturaRepository facturaRepository;
     private final ComprobanteFacturaService comprobanteService;
     private final TicketEscPosGenerator escPos;
+    private final VoucherRepository voucherRepository;
     private final TransactionTemplate tx;
 
     private final Map<String, AgenteConectado> agentes = new ConcurrentHashMap<>();
@@ -62,7 +66,8 @@ public class ImpresionService {
 
     public ImpresionService(TrabajoImpresionRepository trabajoRepository, FacturaRepository facturaRepository,
                             ComprobanteFacturaService comprobanteService, TicketEscPosGenerator escPos,
-                            PlatformTransactionManager transactionManager) {
+                            VoucherRepository voucherRepository, PlatformTransactionManager transactionManager) {
+        this.voucherRepository = voucherRepository;
         this.trabajoRepository = trabajoRepository;
         this.facturaRepository = facturaRepository;
         this.comprobanteService = comprobanteService;
@@ -162,6 +167,21 @@ public class ImpresionService {
         return trabajoRepository.findById(trabajo.getId()).orElse(trabajo);
     }
 
+    /** Encola el papel de un voucher, igual que una factura. */
+    public TrabajoImpresion imprimirVoucher(Long voucherId, String impresoraPedida) {
+        String impresora = resolverImpresora(impresoraPedida);
+        TrabajoImpresion trabajo = tx.execute(s -> {
+            Voucher voucher = voucherRepository.findById(voucherId)
+                    .orElseThrow(() -> new IllegalArgumentException("Voucher no encontrado ID: " + voucherId));
+            return trabajoRepository.save(TrabajoImpresion.builder()
+                    .voucher(voucher)
+                    .impresora(impresora)
+                    .build());
+        });
+        despachar(trabajo.getId());
+        return trabajoRepository.findById(trabajo.getId()).orElse(trabajo);
+    }
+
     /** Factura anulada: sus trabajos sin imprimir no salen. Corre en la transacción de la cancelación. */
     public void cancelarTrabajos(Long facturaId) {
         int n = trabajoRepository.cancelarDeFactura(facturaId, "Cancelado: la factura se anuló",
@@ -207,25 +227,19 @@ public class ImpresionService {
             log.info("Trabajo de impresión ID {} en espera: la impresora '{}' no está conectada", trabajoId, trabajo.getImpresora());
             return;
         }
-        // Por si la anulación llegó entre la consulta y el envío (o el trabajo es anterior a ella).
-        Factura factura = facturaRepository.findById(trabajo.getFactura().getId()).orElse(null);
-        if (factura == null || Boolean.TRUE.equals(factura.getAnulacionPedida())
-                || factura.getEstado() == org.example.laserranitaentradas.model.entity.EstadoFactura.ANULADA) {
-            registrarResultado(trabajoId, false, "Cancelado: la factura se anuló");
-            return;
-        }
         String impresora = CUALQUIERA.equals(trabajo.getImpresora())
                 ? agente.impresoras().iterator().next()
                 : trabajo.getImpresora();
 
         byte[] ticket;
         try {
-            ticket = escPos.generar(comprobanteService.armar(trabajo.getFactura().getId()));
+            ticket = tx.execute(s -> armarTicket(trabajoId));
         } catch (Exception e) {
             log.error("No se pudo armar el ticket del trabajo ID {}", trabajoId, e);
             registrarResultado(trabajoId, false, "No se pudo armar el ticket: " + e.getMessage());
             return;
         }
+        if (ticket == null) return; // cancelado: ya quedó registrado
 
         // ENVIADO antes de mandarlo, para no pisar un IMPRESO que llega enseguida. 0 filas = ya tenía
         // resultado.
@@ -239,6 +253,37 @@ public class ImpresionService {
         if (!enviar(agente, "trabajo", datos)) {
             trabajoRepository.volverAPendiente(trabajoId, EstadoTrabajoImpresion.PENDIENTE, EstadoTrabajoImpresion.ENVIADO);
         }
+    }
+
+    /** Los bytes del ticket, o null si ya no tiene que salir (factura o voucher anulado). */
+    private byte[] armarTicket(Long trabajoId) {
+        TrabajoImpresion trabajo = trabajoRepository.findById(trabajoId).orElseThrow();
+        if (trabajo.getVoucher() != null) {
+            Voucher v = trabajo.getVoucher();
+            if (v.isAnulado()) {
+                registrarResultado(trabajoId, false, "Cancelado: el voucher se anuló");
+                return null;
+            }
+            boolean extra = v.getTipo() == TipoVoucher.EXTRA;
+            String entregadoPor = v.getEmitidoPor() == null ? null : v.getEmitidoPor().getNombre();
+            return escPos.generarVoucher(new TicketEscPosGenerator.DatosVoucher(
+                    extra ? "VOUCHER" : "VOUCHER CANTINA",
+                    extra ? v.getCantidad() + " x " + v.getDescripcion() : pesosTicket(v.getMonto()),
+                    extra ? null : "Para consumir en la cantina (" + v.getDescripcion() + ")",
+                    v.getCodigo(), v.getCompra().getCodigoReserva(), v.getFechaEmision(), entregadoPor));
+        }
+        // Por si la anulación llegó entre la consulta y el envío (o el trabajo es anterior a ella).
+        Factura factura = trabajo.getFactura();
+        if (Boolean.TRUE.equals(factura.getAnulacionPedida())
+                || factura.getEstado() == org.example.laserranitaentradas.model.entity.EstadoFactura.ANULADA) {
+            registrarResultado(trabajoId, false, "Cancelado: la factura se anuló");
+            return null;
+        }
+        return escPos.generar(comprobanteService.armar(factura.getId()));
+    }
+
+    private static String pesosTicket(java.math.BigDecimal monto) {
+        return "$ " + String.format("%,.0f", monto).replace(',', '.');
     }
 
     private void reenviarSinConfirmar(AgenteConectado agente) {

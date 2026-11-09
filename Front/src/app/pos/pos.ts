@@ -1,4 +1,5 @@
-import { Component, HostListener, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import { Component, HostListener, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { FacturaService } from '../services/factura.service';
 import { BoleteriaService, Reserva } from '../services/boleteria.service';
 import { TipoEntradaService } from '../services/tipo-entrada.service';
 import { CajaService, Caja } from '../services/caja.service';
@@ -31,10 +32,10 @@ import { LucideArrowLeft, LucideSearch } from '@lucide/angular';
 import { DetectorEscaneoDni, extraerDniDeEscaneo } from '../shared/escaner-dni.util';
 
 
-import { VentasFacturasModal } from '../shared/ventas-facturas-modal/ventas-facturas-modal';
+import { VentasTurno } from '../shared/ventas-turno/ventas-turno';
 @Component({
   selector: 'app-pos',
-  imports: [SelectorDispositivos, MenuCaja, VentasFacturasModal,
+  imports: [SelectorDispositivos, MenuCaja, VentasTurno,
     CabeceraInterna,
     Spinner,
     Modal,
@@ -76,7 +77,7 @@ export class Pos implements OnInit, OnDestroy {
     {
       selector: '[data-tour="acciones-caja"]',
       titulo: 'Tu caja',
-      texto: 'Con el botón Caja hacés un retiro o aporte, o reponés el talonario. Primero vemos la venta y después Anticipadas.',
+      texto: 'Con el botón Caja hacés un retiro o aporte, reponés el talonario o ves tus ventas. Si te equivocaste en una venta, ahí la podés corregir o cancelar durante 15 minutos. Primero vemos la venta y después Anticipadas.',
       antes: () => this.consultaAnticipada.set(null),
     },
     {
@@ -95,7 +96,7 @@ export class Pos implements OnInit, OnDestroy {
       selector: '[data-tour="carrito"]',
       alternativo: '[data-tour="barra-cobro"]',
       titulo: 'Venta: cobrar',
-      texto: 'Revisá el resumen, elegí la forma de pago y tocá Cobrar. Con un Point elegido, tocá Posnet: el cliente paga en el Point con tarjeta o QR y la venta se guarda sola.',
+      texto: 'Revisá el resumen, elegí la forma de pago y tocá Cobrar. Con un Point elegido, tocá Posnet: el cliente paga en el Point con tarjeta o QR y la venta se guarda sola. Si paga con dos formas (por ejemplo efectivo y tarjeta), tocá +2ª.',
       antes: () => this.consultaAnticipada.set(null),
     },
     {
@@ -136,7 +137,7 @@ export class Pos implements OnInit, OnDestroy {
     {
       selector: '[data-tour="resultados"]',
       titulo: 'Anticipadas: validar o cobrar',
-      texto: '"Validar Ingreso" es para quien ya pagó online; si te equivocás, tenés unos segundos para cancelar. "Cobrar" es para las reservas a pagar en caja.',
+      texto: '"Validar Ingreso" es para quien ya pagó online; si te equivocás, tenés unos segundos para cancelar. En el menú ⋮ podés ver todos los datos de la compra y, si no vinieron todos, usar "Faltó alguien". Los extras (como el almuerzo) salen impresos como voucher. "Cobrar" es para las reservas a pagar en caja.',
       antes: () => this.abrirAnticipadasParaTutorial(),
     },
   ];
@@ -146,11 +147,16 @@ export class Pos implements OnInit, OnDestroy {
 
   alIniciarTutorial(): void {
     this.consultaAntesDelTutorial = this.consultaAnticipada();
+    this.ventasAntesDelTutorial = this.verVentas();
+    this.verVentas.set(false);
   }
 
   alCerrarTutorial(): void {
     this.consultaAnticipada.set(this.consultaAntesDelTutorial);
+    this.verVentas.set(this.ventasAntesDelTutorial);
   }
+
+  private ventasAntesDelTutorial = false;
 
   /** Abre el panel sin pasar por la pregunta del carrito (abrirAnticipadas): el panel tapa el
    * catálogo y el carrito sin destruirlos, así que una compra a medio cargar sigue ahí al volver. */
@@ -164,7 +170,31 @@ export class Pos implements OnInit, OnDestroy {
   caja = signal<Caja | null>(null);
 
   mostrarRetiro = signal(false);
-  mostrarVentasFacturas = signal(false);
+  /** Panel de ventas del turno (Caja > Ventas): tapa el catálogo como el de anticipadas. */
+  verVentas = signal(false);
+  private readonly facturacionVentas = inject(FacturaService).habilitada;
+
+  readonly tituloCabecera = computed(() => {
+    if (this.consultaAnticipada() !== null) return 'Anticipadas';
+    if (this.verVentas()) return this.facturacionVentas() ? 'Ventas y facturas' : 'Ventas del turno';
+    return 'Venta en Boletería';
+  });
+
+  readonly descripcionCabecera = computed(() => {
+    if (this.consultaAnticipada() !== null) return 'Buscá una reserva para validar el ingreso o cobrarla.';
+    if (this.verVentas()) return 'Lo que vendiste en este turno.';
+    return 'Cobrá y registra la compra.';
+  });
+
+  abrirVentas(): void {
+    this.consultaAnticipada.set(null);
+    this.verVentas.set(true);
+  }
+
+  volverALaVenta(): void {
+    this.consultaAnticipada.set(null);
+    this.verVentas.set(false);
+  }
   mostrarIngresoEntradas = signal(false);
 
   tiposEntrada = signal<TipoEntrada[]>([]);
@@ -394,6 +424,7 @@ export class Pos implements OnInit, OnDestroy {
       this.escaneoPendiente.set(consulta);
       return;
     }
+    this.verVentas.set(false);
     this.consultaAnticipada.set(consulta);
   }
 
@@ -404,6 +435,7 @@ export class Pos implements OnInit, OnDestroy {
     if (consulta === null) return;
     this.compraReservada.set(null);
     this.onLimpiar();
+    this.verVentas.set(false);
     this.consultaAnticipada.set(consulta);
   }
 

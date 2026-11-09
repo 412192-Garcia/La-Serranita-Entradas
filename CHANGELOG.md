@@ -6,6 +6,64 @@ número y el CI la usa como nota de la Release de GitHub.
 
 ## Sin publicar
 
+- Control de Accesos y Anticipadas del POS: "Ver detalle" en el menú ⋮ de cada compra muestra todos sus datos: titular
+  (y quien recibe, si es regalo), fecha de compra, qué se compró con precios y descuento, cómo y
+  cuándo se pagó (con la tarjeta, si fue con el Point), factura, ingreso y vouchers, y cancelación.
+- Reportes: nueva sección "Compras online sin completar". Muestra cuántas compras con Mercado Pago se
+  empezaron y cuántas se pagaron, abandonaron, rechazaron o siguen esperando el pago; las respuestas
+  de Mercado Pago a los rechazos; cuánta plata quedó sin volver a intentarse; cuántas se pagan según
+  el dispositivo, el navegador (Instagram, Facebook, Chrome...) y si vinieron desde el sitio del
+  parque; y una comparación con las pagadas. Desde ahora la página de compra anota hasta dónde
+  llegó cada pago (ventana bloqueada, abrió Mercado Pago, lo cerró, volvió sin pagar), así se ve
+  qué pasa con las que abren el pago y no lo intentan.
+- Control de Accesos y Anticipadas del POS: "Ver detalle" en el menú ⋮ de cada compra muestra todos sus datos: titular
+  (y quien recibe, si es regalo), fecha de compra, qué se compró con precios y descuento, cómo y
+  cuándo se pagó (con la tarjeta, si fue con el Point), factura, ingreso y vouchers, y cancelación.
+- POS: "Caja > Ventas" muestra las ventas del turno en lugar de la pantalla de venta (como
+  Anticipadas, se vuelve con "Volver a la venta" y el carrito queda como estaba). Arriba, el total y
+  cuánto se cobró en efectivo, tarjeta y QR, con un buscador y, con la facturación prendida, un filtro
+  de las ventas sin factura. Cada venta muestra qué se vendió con sus precios, el descuento, cómo se
+  pagó (las dos formas si se pagó con dos, la tarjeta del Point, los dólares) y un "Ver detalle". Se ve
+  también con la facturación apagada, sin las opciones de factura.
+- Cajas: en el historial de operaciones, cada venta tiene "Ver detalle" con todos sus datos. Con la
+  facturación prendida, desde ahí se abre su factura para verla o mandarla por mail, o se factura.
+- Cajas: "+ Agregar venta" y "Editar" en una caja abierta se abren en una ventana, como Retiro / Aporte
+  y Entradas físicas. Al editar (y al corregir desde el POS) se puede poner que se pagó con dos formas
+  ("+2ª", con el monto de la segunda), o pasar una venta con dos formas a una sola. Al corregir una
+  caja cerrada, "Agregar una venta", "Sumar o restar un monto" y "Agregar un artículo vendido" se
+  abren de a uno.
+- POS: el boletero puede corregir o cancelar una venta suya durante 15 minutos, con la caja abierta,
+  desde Caja > Ventas: cambiar lo vendido o la forma de pago, o cancelarla diciendo por qué. La venta
+  queda marcada como corregida y el admin las ve en el resumen de la caja ("Ver correcciones del
+  boletero").
+- Reportes: las anticipadas se separan según cómo se pagaron: online (Mercado Pago), al llegar, y
+  las reservadas para pagar al llegar que todavía no se cobraron, con compras, entradas y monto.
+  "Recaudación anticipada" muestra cuánto fue online y cuánto al llegar.
+- Anticipadas: al validar una reserva con extras (por ejemplo almuerzo) se imprime en la ticketera
+  un voucher por cada extra, con la cantidad que vale. También al cobrar una reserva en efectivo.
+- Anticipadas pagadas online: si no vinieron todos, "Faltó alguien" (en el menú ⋮ de la reserva) deja validar sólo a los que
+  vinieron. Lo que no se usó sale en un voucher para la cantina por lo que se pagó. Las que no
+  entraron no cuentan como ingresos ni como entradas entregadas. Los vouchers se pueden
+  reimprimir desde el mismo menú.
+  **Antes de subir:** correr `scripts/vouchers-impresion.sql` en la base.
+- Cajas cerradas: las entradas del talonario se ven paso a paso: con cuántas abrió la caja, cuántas se
+  sumaron o sacaron, cuántas se entregaron, cuántas deberían quedar y cuántas se contaron al cerrar,
+  con un "Faltan" / "Sobran" claro.
+- POS: "+2ª" es un botón más junto a Efectivo, Tarjeta y QR. Abajo aparecen los dos pagos,
+  cada uno con sus botones de forma de pago y su monto. Se puede pagar con dos QR, como con dos
+  tarjetas. Al borrar un monto ya no se vuelve a llenar solo.
+- Sistema > Estado: se sacó la tarjeta de Cajas (las cajas sin cerrar y las diferencias se ven en
+  Cajas).
+- Control de accesos: el botón "Esta semana" / "Este mes" es del mismo tamaño que los de la barra, y
+  "Restablecer filtros" va al final, así al aparecer no corre los filtros a otra fila.
+- Control de accesos: Semana / Mes salió de "Más filtros" y está arriba de la lista, junto al total. La
+  barra de semanas o meses se ve aunque haya una sola página (antes desaparecía, por ejemplo al buscar
+  por código de descuento).
+- Control de accesos: filtros más claros. Por defecto también se ven las reservas ya utilizadas (el
+  POS sigue mostrando sólo las que faltan). Buscar por DNI, nombre o código encuentra la reserva en
+  cualquier estado, aunque ya haya entrado. No se puede apagar el último estado (antes mostraba todo).
+  En Boletería sólo quedan los filtros que aplican, y el código de descuento tiene una X para quitarlo.
+
 ## 0.10.8 — 2026-11-04
 
 - Control de accesos: en "Más filtros" se pueden buscar las reservas hechas con un código de

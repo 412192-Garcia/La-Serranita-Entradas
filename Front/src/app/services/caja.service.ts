@@ -5,6 +5,7 @@ import { environment } from '../../environments/environment';
 import { etiquetaFormaPago } from '../models/forma-pago';
 import { FormaPagoPos } from '../models/compra';
 import { Pagina } from './boleteria.service';
+import { CorreccionVenta } from '../models/factura';
 
 export type TipoMovimientoCaja = 'RETIRO' | 'APORTE';
 
@@ -378,6 +379,11 @@ export class CajaService {
   /** Todas las cajas abiertas ahora mismo (ADMIN), para el dashboard de hoy. */
   obtenerCajasAbiertas(): Observable<CajaAbierta[]> {
     return this.http.get<CajaAbierta[]>(`${this.cajaUrl}/abiertas`);
+  }
+
+  /** Lo que corrigió el boletero en sus ventas (ADMIN), para el resumen del cierre. */
+  obtenerCorrecciones(cajaId: number): Observable<CorreccionVenta[]> {
+    return this.http.get<CorreccionVenta[]>(`${this.cajaUrl}/${cajaId}/correcciones`);
   }
 
   /** Ventas, retiros/aportes e ingresos de entradas de una caja, más un resumen de lo vendido

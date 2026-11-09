@@ -105,6 +105,12 @@ public interface CompraRepository extends JpaRepository<Compra, Long>, JpaSpecif
     List<Compra> findParaReporte(@Param("desde") LocalDate desde, @Param("hasta") LocalDate hasta,
                                  @Param("desdeDt") LocalDateTime desdeDt, @Param("hastaDt") LocalDateTime hastaDt);
 
+    /** Compras con esa forma de pago creadas en [desde, hasta), con cliente y líneas. */
+    @Query("SELECT DISTINCT c FROM Compra c LEFT JOIN FETCH c.cliente LEFT JOIN FETCH c.detalles d LEFT JOIN FETCH d.tipoEntrada "
+            + "WHERE c.formaPago = :formaPago AND c.fechaCreacion >= :desde AND c.fechaCreacion < :hasta")
+    List<Compra> findOnlineCreadasEntre(@Param("formaPago") org.example.laserranitaentradas.model.entity.FormaPago formaPago,
+                                        @Param("desde") LocalDateTime desde, @Param("hasta") LocalDateTime hasta);
+
     /** Checkouts de MP sin pagar desde `desde`, para reusar. */
     @Query("SELECT c FROM Compra c WHERE c.estado = org.example.laserranitaentradas.model.entity.EstadoCompra.PENDIENTE_PAGO "
             + "AND c.formaPago = org.example.laserranitaentradas.model.entity.FormaPago.MERCADO_PAGO "
@@ -119,8 +125,8 @@ public interface CompraRepository extends JpaRepository<Compra, Long>, JpaSpecif
     /** Todo lo cobrado durante ese turno de caja, para calcular el efectivo esperado al cerrar. */
     List<Compra> findAllByCajaId(Long cajaId);
 
-    /** Igual que findAllByCajaId pero con los detalles ya cargados (una consulta, no una por venta). */
-    @Query("SELECT DISTINCT c FROM Compra c LEFT JOIN FETCH c.detalles WHERE c.caja.id = :cajaId")
+    /** Igual que findAllByCajaId pero con detalles, cliente y promo ya cargados (una consulta, no una por venta). */
+    @Query("SELECT DISTINCT c FROM Compra c LEFT JOIN FETCH c.detalles LEFT JOIN FETCH c.cliente LEFT JOIN FETCH c.promocion WHERE c.caja.id = :cajaId")
     List<Compra> findAllByCajaIdConDetalles(@Param("cajaId") Long cajaId);
 
     /**

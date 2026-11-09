@@ -27,8 +27,8 @@ import java.util.List;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@EqualsAndHashCode(callSuper = true, exclude = {"usuarioValidador", "cupon", "promocion", "detalles", "cliente", "caja"})
-@ToString(callSuper = true, exclude = {"usuarioValidador", "cupon", "promocion", "detalles", "cliente", "caja"})
+@EqualsAndHashCode(callSuper = true, exclude = {"usuarioValidador", "cupon", "promocion", "detalles", "cliente", "caja", "vouchers"})
+@ToString(callSuper = true, exclude = {"usuarioValidador", "cupon", "promocion", "detalles", "cliente", "caja", "vouchers"})
 @Builder
 public class Compra extends BaseEntity {
 
@@ -99,6 +99,19 @@ public class Compra extends BaseEntity {
 
     @OneToMany(mappedBy = "compra", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<CompraDetalle> detalles;
+
+    /** Compra online: "Celular · Android · Instagram", según el navegador con el que se empezó. */
+    @Column(length = 80)
+    private String dispositivo;
+
+    /** Compra online: true si se hizo desde el sitio del parque (embebida), false si en la app directo. */
+    @Column(name = "en_iframe")
+    private Boolean enIframe;
+
+    /** Los que se entregaron al validarla (extras y cantina). */
+    @OneToMany(mappedBy = "compra", fetch = FetchType.LAZY)
+    @OrderBy("id ASC")
+    private List<Voucher> vouchers;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "forma_pago", nullable = false, length = 30)

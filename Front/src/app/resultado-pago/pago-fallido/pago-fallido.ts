@@ -13,6 +13,7 @@ import { cerrarOVolverAlSitio, esVentanaDePago } from '../ventana-resultado.util
 })
 export class PagoFallido implements OnInit {
   codigoReserva: string | null = null;
+  private compraId: number | null = null;
   esPopup = false;
 
   constructor(
@@ -35,6 +36,7 @@ export class PagoFallido implements OnInit {
     // concretó), se muestra la pantalla de éxito en vez de la de fallo.
     this.compraService.obtenerCompraPorCodigo(codigo).pipe(
       switchMap((compra) => {
+        this.compraId = compra.id;
         this.ngZone.run(() => {
           this.codigoReserva = compra.codigoReserva;
           this.cdr.detectChanges();
@@ -45,6 +47,8 @@ export class PagoFallido implements OnInit {
       next: (res) => {
         if (res.estado === 'APROBADO' || res.estado === 'USADO') {
           this.router.navigate(['/pago-exitoso'], { queryParams: { external_reference: codigo } });
+        } else if (this.compraId !== null) {
+          this.compraService.registrarEventoPago(this.compraId, codigo, 'VOLVIO_SIN_PAGAR');
         }
       },
       error: (err) => console.error('No se pudo verificar la compra:', err),

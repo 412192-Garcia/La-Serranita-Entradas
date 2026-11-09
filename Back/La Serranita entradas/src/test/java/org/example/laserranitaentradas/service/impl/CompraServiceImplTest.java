@@ -32,6 +32,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -64,6 +65,7 @@ class CompraServiceImplTest {
     @Mock private org.example.laserranitaentradas.service.point.CobroPointService cobroPointService;
     /** El bean a través del proxy; sólo lo usa iniciarCompraConPago, que acá no se prueba. */
     @Mock private CompraService autoReferencia;
+    @Mock private org.example.laserranitaentradas.service.impresion.VoucherService voucherService;
 
     private CompraServiceImpl service;
 
@@ -77,7 +79,7 @@ class CompraServiceImplTest {
                 clienteService, usuarioService, calculoPrecioService, emailService, cajaService, cajaRepository, promocionRepository,
                 articuloVarioRepository, facturaService, List.of(mercadoPagoEstrategia, efectivoEstrategia, reservaAdminEstrategia), em,
                 // Los tests llaman a create() directo: alcanza con el propio service.
-                autoReferencia, cobroPointService);
+                autoReferencia, cobroPointService, voucherService);
         // Webhook y verificación directa confirman a través de `self`: el mock delega al service real.
         lenient().when(autoReferencia.confirmarAprobado(any(), any(), any())).thenAnswer(inv ->
                 service.confirmarAprobado(inv.getArgument(0), inv.getArgument(1), inv.getArgument(2)));
@@ -1838,5 +1840,126 @@ class CompraServiceImplTest {
 
         verify(compraRepository, never()).aprobarSiSigueSinPagar(anyLong(), any());
         verify(emailService, never()).enviarComprobanteCompra(anyLong());
+    }
+
+    // ---------- Validación con ausentes ----------
+
+    private Compra anticipadaOnline(int generales) {
+        TipoEntrada general = TipoEntrada.builder().id(1L).nombre("General").tipo(Tipo.ENTRADA).precio(new java.math.BigDecimal("10000")).build();
+        CompraDetalle detalle = CompraDetalle.builder().id(10L).tipoEntrada(general).cantidad(generales).build();
+        Compra compra = Compra.builder().id(7L).codigoReserva("261108-1").estado(EstadoCompra.APROBADO)
+                .formaPago(FormaPago.MERCADO_PAGO).montoTotal(new java.math.BigDecimal(generales * 10000))
+                .detalles(new ArrayList<>(List.of(detalle))).build();
+        detalle.setCompra(compra);
+        when(compraRepository.findById(7L)).thenReturn(Optional.of(compra));
+        lenient().when(usuarioService.obtenerUsuarioPorId(anyLong())).thenReturn(Optional.of(new org.example.laserranitaentradas.model.entity.Usuario()));
+        lenient().when(compraRepository.save(any(Compra.class))).thenAnswer(inv -> inv.getArgument(0));
+        return compra;
+    }
+
+    @Test
+    void validarIngreso_conAusentes_losGuardaYEmiteVouchers() {
+        Compra compra = anticipadaOnline(10);
+
+        Compra validada = service.validarIngreso(7L, 1L, java.util.Map.of(10L, 1), "Boleteria");
+
+        assertThat(validada.getEstado()).isEqualTo(EstadoCompra.USADO);
+        assertThat(compra.getDetalles().get(0).getCantidadAusente()).isEqualTo(1);
+        assertThat(compra.getDetalles().get(0).getCantidadPresente()).isEqualTo(9);
+        verify(voucherService).emitir(eq(compra), any(), eq("Boleteria"));
+    }
+
+    @Test
+    void validarIngreso_noDejaQueFaltenTodos() {
+        anticipadaOnline(2);
+
+        assertThatThrownBy(() -> service.validarIngreso(7L, 1L, java.util.Map.of(10L, 2), null))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void validarIngreso_conAusentes_soloPagadasOnline() {
+        Compra compra = anticipadaOnline(2);
+        compra.setFormaPago(FormaPago.RESERVA_ADMIN);
+
+        assertThatThrownBy(() -> service.validarIngreso(7L, 1L, java.util.Map.of(10L, 1), null))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void validarIngreso_yaUsada_seRechaza() {
+        Compra compra = anticipadaOnline(2);
+        compra.setEstado(EstadoCompra.USADO);
+
+        assertThatThrownBy(() -> service.validarIngreso(7L, 1L, java.util.Map.of(), null))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    // ---------- editarVenta: pago con dos formas ----------
+
+    private Compra ventaParaEditar() {
+        org.example.laserranitaentradas.model.entity.TipoEntrada general = org.example.laserranitaentradas.model.entity.TipoEntrada.builder()
+                .id(1L).nombre("General").tipo(org.example.laserranitaentradas.model.entity.Tipo.ENTRADA)
+                .obligatorio(true).precio(new java.math.BigDecimal("34300")).build();
+        lenient().when(tipoEntradaService.findById(1L)).thenReturn(Optional.of(general));
+        lenient().when(calculoPrecioService.calcularTotal(any(), org.mockito.ArgumentMatchers.eq(2), any()))
+                .thenReturn(new java.math.BigDecimal("68600"));
+        Compra venta = new Compra();
+        venta.setId(50L);
+        venta.setCodigoReserva("261109-1");
+        venta.setCaja(new org.example.laserranitaentradas.model.entity.Caja());
+        venta.setEstado(EstadoCompra.VENDIDO_EN_PUERTA);
+        venta.setFormaPago(FormaPago.EFECTIVO_BOLETERIA);
+        venta.setMontoTotal(new java.math.BigDecimal("68600"));
+        venta.setDetalles(new java.util.ArrayList<>());
+        when(compraRepository.findById(50L)).thenReturn(Optional.of(venta));
+        lenient().when(compraRepository.save(any(Compra.class))).thenAnswer(inv -> inv.getArgument(0));
+        return venta;
+    }
+
+    private org.example.laserranitaentradas.model.dto.EditarVentaRequestDTO pedidoEdicion(FormaPago forma, FormaPago secundaria, String monto) {
+        org.example.laserranitaentradas.model.dto.DetalleCompraDTO detalle = new org.example.laserranitaentradas.model.dto.DetalleCompraDTO();
+        detalle.setTipoEntradaId(1L);
+        detalle.setCantidad(2);
+        org.example.laserranitaentradas.model.dto.EditarVentaRequestDTO r = new org.example.laserranitaentradas.model.dto.EditarVentaRequestDTO();
+        r.setEntradas(List.of(detalle));
+        r.setFormaPago(forma);
+        r.setFormaPagoSecundaria(secundaria);
+        r.setMontoFormaPagoSecundaria(monto != null ? new java.math.BigDecimal(monto) : null);
+        return r;
+    }
+
+    @Test
+    void editarVenta_conSegundaFormaDePago_laGuarda() {
+        ventaParaEditar();
+
+        Compra editada = service.editarVenta(50L, pedidoEdicion(FormaPago.TARJETA, FormaPago.EFECTIVO_BOLETERIA, "20000"));
+
+        assertThat(editada.getFormaPago()).isEqualTo(FormaPago.TARJETA);
+        assertThat(editada.getFormaPagoSecundaria()).isEqualTo(FormaPago.EFECTIVO_BOLETERIA);
+        assertThat(editada.getMontoFormaPagoSecundaria()).isEqualByComparingTo("20000");
+        assertThat(editada.montoPorForma(FormaPago.TARJETA)).isEqualByComparingTo("48600");
+    }
+
+    @Test
+    void editarVenta_sinSegundaForma_limpiaLaQueTenia() {
+        Compra venta = ventaParaEditar();
+        venta.setFormaPagoSecundaria(FormaPago.TARJETA);
+        venta.setMontoFormaPagoSecundaria(new java.math.BigDecimal("10000"));
+
+        Compra editada = service.editarVenta(50L, pedidoEdicion(FormaPago.EFECTIVO_BOLETERIA, null, null));
+
+        assertThat(editada.getFormaPagoSecundaria()).isNull();
+        assertThat(editada.getMontoFormaPagoSecundaria()).isNull();
+    }
+
+    @Test
+    void editarVenta_segundaFormaPorElTotal_rechazada() {
+        ventaParaEditar();
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+                service.editarVenta(50L, pedidoEdicion(FormaPago.TARJETA, FormaPago.MERCADO_PAGO_QR, "68600")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("menor al total");
     }
 }

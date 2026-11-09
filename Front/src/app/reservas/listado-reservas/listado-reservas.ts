@@ -6,6 +6,7 @@ import { ColumnaOrdenable } from '../../shared/columna-ordenable/columna-ordenab
 import { Spinner } from '../../shared/spinner/spinner';
 import { ReservasBusqueda } from '../busqueda-reservas';
 import { FilaReserva } from '../fila-reserva/fila-reserva';
+import { ValidarParcial } from '../validar-parcial/validar-parcial';
 
 /**
  * Resultados de la búsqueda de reservas: un día puntual como tabla, o "todas las fechas" en un
@@ -15,6 +16,7 @@ import { FilaReserva } from '../fila-reserva/fila-reserva';
 @Component({
   selector: 'app-listado-reservas',
   imports: [
+    ValidarParcial,
     NgTemplateOutlet,
     ColumnaOrdenable,
     Spinner,

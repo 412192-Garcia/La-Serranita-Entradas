@@ -232,36 +232,36 @@ export class CarritoVenta {
   // ---------- Pago mixto: el cliente paga parte con una forma y el resto con otra (ej. mitad
   // efectivo, mitad tarjeta). Excluyente con dólares. ----------
   pagoMixtoActivo = signal(false);
+  readonly ROLES_MIXTO = ['principal', 'secundaria'] as const;
   formaPagoSecundaria = signal<FormaPagoPos | null>(null);
-  /** Lo que se cobra con formaPagoSecundaria; lo de la forma principal es el resto del total. */
-  montoFormaPagoSecundaria = signal<number | null>(null);
+  /** El último monto que se tipeó y en qué parte; la otra parte es el resto del total. Vacío = las
+   * dos vacías (así borrar un monto no lo vuelve a llenar solo). */
+  private montoMixto = signal<{ rol: 'principal' | 'secundaria'; valor: number | null }>({ rol: 'secundaria', valor: null });
 
-  /** Opciones para la segunda forma: las presenciales salvo la ya elegida como principal. La
-   * tarjeta es la excepción: tarjeta + tarjeta = dos tarjetas distintas ("Tarjeta 1" y "Tarjeta 2"). */
-  opcionesFormaPagoSecundaria = computed(() =>
-    this.formasPago()
-      .filter((f) => f.valor !== this.formaPago() || f.valor === 'TARJETA')
-      .map((f) => (f.valor === this.formaPago() ? { ...f, etiqueta: `${f.etiqueta} 2` } : f))
-  );
-  /** Pago mixto con dos tarjetas distintas. */
-  dosTarjetas = computed(
-    () => this.pagoMixtoActivo() && this.formaPago() === 'TARJETA' && this.formaPagoSecundaria() === 'TARJETA'
-  );
+  montoFormaPagoPrincipal = computed(() => this.montoDeParte('principal'));
+  montoFormaPagoSecundaria = computed(() => this.montoDeParte('secundaria'));
 
-  /** Etiqueta de la forma principal elegida, para mostrar "Efectivo: $X" en el pago mixto. */
-  etiquetaFormaPagoActual = computed(() => {
-    const etiqueta = this.formasPago().find((f) => f.valor === this.formaPago())?.etiqueta ?? '';
-    return this.dosTarjetas() ? `${etiqueta} 1` : etiqueta;
-  });
+  private montoDeParte(rol: 'principal' | 'secundaria'): number | null {
+    const m = this.montoMixto();
+    if (m.valor === null) return null;
+    return m.rol === rol ? m.valor : Math.max(0, this.total() - m.valor);
+  }
 
-  /** Etiqueta de la segunda forma ya elegida, para el label "Monto en Tarjeta". Genérico
-   * mientras no eligió ninguna todavía (el input queda deshabilitado hasta entonces). */
-  etiquetaFormaPagoSecundariaActual = computed(
-    () => this.formasPago().find((f) => f.valor === this.formaPagoSecundaria())?.etiqueta ?? 'la 2ª forma'
-  );
+  /** Las formas para cada parte del pago mixto: efectivo no se repite; tarjeta y QR sí (dos
+   * tarjetas o dos QR distintos). */
+  opcionesParteMixta(rol: 'principal' | 'secundaria'): { valor: FormaPagoPos; etiqueta: string; deshabilitada: boolean }[] {
+    const otra = rol === 'principal' ? this.formaPagoSecundaria() : this.formaPago();
+    return this.formasPago().map((f) => ({ ...f, deshabilitada: f.valor === otra && f.valor === 'EFECTIVO_BOLETERIA' }));
+  }
 
-  /** Lo que se cobra con la forma principal cuando hay pago mixto: el resto del total. */
-  montoFormaPagoPrincipal = computed(() => Math.max(0, this.total() - (this.montoFormaPagoSecundaria() ?? 0)));
+  formaDeParte(rol: 'principal' | 'secundaria'): FormaPagoPos | null {
+    return rol === 'principal' ? this.formaPago() : this.formaPagoSecundaria();
+  }
+
+  setFormaDeParte(rol: 'principal' | 'secundaria', forma: FormaPagoPos): void {
+    if (rol === 'principal') this.setFormaPago(forma);
+    else this.formaPagoSecundaria.set(forma);
+  }
 
   /** Sólo los tipos con cantidad > 0, listos para mostrar en el carrito. */
   lineas = computed(() => {
@@ -348,7 +348,7 @@ export class CarritoVenta {
    * corresponde mostrar "Paga con"/vuelto. */
   montoEfectivoACobrar = computed<number | null>(() => {
     if (this.pagoMixtoActivo()) {
-      if (this.formaPago() === 'EFECTIVO_BOLETERIA') return this.montoFormaPagoPrincipal();
+      if (this.formaPago() === 'EFECTIVO_BOLETERIA') return this.montoFormaPagoPrincipal() ?? 0;
       if (this.formaPagoSecundaria() === 'EFECTIVO_BOLETERIA') return this.montoFormaPagoSecundaria() ?? 0;
       return null;
     }
@@ -413,7 +413,7 @@ export class CarritoVenta {
   private faltaCompletarPagoMixto = computed(() => {
     if (!this.pagoMixtoActivo()) return false;
     const monto = this.montoFormaPagoSecundaria();
-    return this.formaPagoSecundaria() === null || monto === null || monto <= 0 || monto >= this.total();
+    return this.formaPago() === null || this.formaPagoSecundaria() === null || monto === null || monto <= 0 || monto >= this.total();
   });
 
   puedeCobrar = computed(
@@ -622,7 +622,13 @@ export class CarritoVenta {
   private limpiarPagoMixto(): void {
     this.pagoMixtoActivo.set(false);
     this.formaPagoSecundaria.set(null);
-    this.montoFormaPagoSecundaria.set(null);
+    this.montoMixto.set({ rol: 'secundaria', valor: null });
+  }
+
+  /** Efectivo / Tarjeta / QR de la fila de arriba: una sola forma, apaga el pago mixto. */
+  elegirFormaUnica(formaPago: FormaPagoPos): void {
+    this.limpiarPagoMixto();
+    this.setFormaPago(formaPago);
   }
 
   /** El checkbox de dólares sólo tiene sentido pagando en efectivo: cambiar de forma de pago lo apaga. */
@@ -636,14 +642,9 @@ export class CarritoVenta {
     if (formaPago !== 'EFECTIVO_BOLETERIA') {
       this.limpiarPagoDolares();
     }
-    // La principal y la secundaria tienen que ser distintas (salvo tarjeta + tarjeta). Si tocan como principal la que
-    // ya estaba de secundaria, lo más probable es que se confundieron de botón — no que
-    // quisieron cancelar el pago mixto — así que se intercambian (con sus montos) en vez de
-    // perder la carga.
-    if (this.pagoMixtoActivo() && this.formaPagoSecundaria() === formaPago && formaPago !== 'TARJETA') {
-      const montoSecundarioViejo = this.montoFormaPagoSecundaria() ?? 0;
-      this.formaPagoSecundaria.set(anterior);
-      this.montoFormaPagoSecundaria.set(Math.max(0, this.total() - montoSecundarioViejo));
+    // Con pago mixto no puede ir efectivo en las dos partes.
+    if (this.pagoMixtoActivo() && this.formaPagoSecundaria() === formaPago && formaPago === 'EFECTIVO_BOLETERIA') {
+      this.formaPagoSecundaria.set(null);
     }
   }
 
@@ -688,31 +689,18 @@ export class CarritoVenta {
 
   /** Pago mixto y dólares son excluyentes: activar uno apaga el otro. */
   setPagoMixtoActivo(valor: boolean): void {
-    this.pagoMixtoActivo.set(valor);
-    if (valor) {
-      this.limpiarPagoDolares();
-    } else {
-      this.formaPagoSecundaria.set(null);
-      this.montoFormaPagoSecundaria.set(null);
-    }
-  }
-
-  /** No deja tipear un monto mayor o igual al total (la principal se llevaría $0 o menos). */
-  setMontoFormaPagoSecundaria(valor: number | null): void {
-    const tope = Math.max(0, this.total() - 1);
-    this.montoFormaPagoSecundaria.set(valor === null ? null : Math.max(0, Math.min(valor, tope)));
-  }
-
-  /** Simétrico a setMontoFormaPagoSecundaria: el pago mixto se puede tipear desde cualquiera
-   * de las dos formas, la otra se ajusta sola para seguir sumando el total. */
-  setMontoFormaPagoPrincipal(valor: number | null): void {
-    if (valor === null) {
-      this.montoFormaPagoSecundaria.set(null);
+    if (!valor) {
+      this.limpiarPagoMixto();
       return;
     }
+    this.pagoMixtoActivo.set(true);
+    this.limpiarPagoDolares();
+  }
+
+  /** Tipear una parte calcula la otra; no deja que una se lleve todo el total. */
+  setMontoParte(rol: 'principal' | 'secundaria', valor: number | null): void {
     const tope = Math.max(0, this.total() - 1);
-    const principalAcotado = Math.max(0, Math.min(valor, tope));
-    this.montoFormaPagoSecundaria.set(this.total() - principalAcotado);
+    this.montoMixto.set({ rol, valor: valor === null ? null : Math.max(0, Math.min(valor, tope)) });
   }
 
   private articulosCarritoPayload(): LineaArticuloPos[] {

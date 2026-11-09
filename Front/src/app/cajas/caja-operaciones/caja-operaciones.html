@@ -61,20 +61,16 @@
     <button type="button" class="btn-secundario" [disabled]="formularioVentaAbierto()" (click)="iniciarAgregarVenta()">+ Agregar venta</button>
     <button type="button" class="btn-secundario" (click)="mostrarRetiro.set(true)">Retiro / Aporte</button>
     <button type="button" class="btn-secundario" (click)="mostrarIngresoEntradas.set(true)">Entradas físicas</button>
-    @if (facturacionHabilitada()) {
-      <button type="button" class="btn-secundario" (click)="mostrarVentasFacturas.set(true)">Ventas y facturas</button>
-    }
   </div>
 
-  @if (formularioVentaAbierto()) {
-    <div class="fondo-form-venta"></div>
-  }
-
+  <!-- Igual que Retiro / Aporte y Entradas físicas: en un modal. -->
   @if (agregandoVenta()) {
-    <div class="form-edicion-venta">
-      <h3 class="titulo-form-venta">Nueva venta</h3>
-      <ng-container [ngTemplateOutlet]="formularioVentaTpl" />
-    </div>
+    <app-modal [cerrarAlTocarFondo]="false" (cerrar)="cancelarFormulario()">
+      <div class="panel-caja panel-nueva-venta">
+        <h3>Nueva venta</h3>
+        <ng-container [ngTemplateOutlet]="formularioVentaTpl" />
+      </div>
+    </app-modal>
   }
 
   @if (d.operaciones.length === 0) {
@@ -110,7 +106,7 @@
           <span class="fc-dato fc-dato-flexible" data-label="Detalle">{{ op.detalle }}</span>
           <span class="fc-principal" data-label="Monto">{{ op.monto !== null ? (op.monto | pesos) : '' }}</span>
           <span class="acciones-operacion">
-            @if (op.compraId !== null && editandoCompraId() !== op.compraId) {
+            @if (op.compraId !== null) {
               <!-- En celular, Editar y Cancelar van en una hoja que abre este botón (ver CSS). -->
               <button type="button" class="btn-menu-operacion" aria-label="Acciones de la venta" (click)="menuOperacionId.set(op.compraId)">
                 <svg lucideEllipsisVertical [strokeWidth]="2" aria-hidden="true"></svg>
@@ -119,7 +115,8 @@
                 <div class="fondo-menu-operacion" (click)="menuOperacionId.set(null)"></div>
               }
               <span class="botones-operacion" [class.abierto]="menuOperacionId() === op.compraId">
-                <button type="button" class="btn-secundario" [disabled]="agregandoVenta()" (click)="menuOperacionId.set(null); iniciarEdicion(op)">Editar</button>
+                <button type="button" class="btn-secundario" (click)="menuOperacionId.set(null); fichaDe.set(op.compraId)">Ver detalle</button>
+                <button type="button" class="btn-secundario" [disabled]="cargandoEdicionId() === op.compraId" (click)="menuOperacionId.set(null); iniciarEdicion(op)">Editar</button>
                 <button type="button" class="btn-cancelar-venta" [disabled]="cancelandoId() === op.compraId" (click)="menuOperacionId.set(null); cancelar(op)">
                   {{ cancelandoId() === op.compraId ? 'Cancelando…' : 'Cancelar' }}
                 </button>
@@ -127,12 +124,6 @@
             }
           </span>
         </div>
-        @if (op.compraId !== null && editandoCompraId() === op.compraId) {
-          <div class="form-edicion-venta">
-            <h3 class="titulo-form-venta titulo-editar-venta">Editar venta</h3>
-            <ng-container [ngTemplateOutlet]="formularioVentaTpl" />
-          </div>
-        }
       }
     </div>
 
@@ -148,9 +139,6 @@
 
   @if (mostrarRetiro()) {
     <app-retiro-efectivo-modal [cajaId]="cajaId()" (retiroRegistrado)="onMovimientoRegistrado()" (cerrar)="mostrarRetiro.set(false)" />
-  }
-  @if (mostrarVentasFacturas()) {
-    <app-ventas-facturas-modal [cajaId]="cajaId()" (cerrar)="mostrarVentasFacturas.set(false)" />
   }
   @if (mostrarIngresoEntradas()) {
     <app-ingreso-entradas-modal
@@ -245,8 +233,26 @@
     <div class="acciones">
       <button type="button" class="btn-limpiar" (click)="cancelarFormulario()">Cancelar</button>
       <button type="button" class="btn-cobrar" [disabled]="guardandoFormulario()" (click)="guardarFormulario()">
-        {{ guardandoFormulario() ? 'Guardando…' : (editandoCompraId() !== null ? 'Guardar cambios' : 'Registrar venta') }}
+        {{ guardandoFormulario() ? 'Guardando…' : 'Registrar venta' }}
       </button>
     </div>
   }
 </ng-template>
+
+@if (fichaDe(); as id) {
+  <app-ficha-compra-modal [compraId]="id" [conFactura]="facturacionHabilitada()" (cerrar)="fichaDe.set(null)" (verFactura)="pasarAFactura($event)" />
+}
+
+@if (facturaDe(); as reserva) {
+  <app-factura-compra-modal [reserva]="reserva" (cerrar)="facturaDe.set(null)" />
+}
+
+<!-- Editar una venta: el mismo formulario que usa el boletero para corregir las suyas. -->
+@if (editandoVenta(); as v) {
+  <app-modal [cerrarAlTocarFondo]="false" (cerrar)="editandoVenta.set(null)">
+    <div class="panel-caja panel-nueva-venta">
+      <h3>Editar venta #{{ v.codigoReserva }}</h3>
+      <app-corregir-venta [venta]="v" [conSeparador]="false" (cerrar)="editandoVenta.set(null)" (guardado)="alEditarVenta()" />
+    </div>
+  </app-modal>
+}

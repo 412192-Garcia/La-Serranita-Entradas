@@ -1,6 +1,8 @@
 import { Injectable, OnDestroy, computed, inject, signal } from '@angular/core';
 import { Observable, forkJoin, map, of, switchMap } from 'rxjs';
-import { BoleteriaService, CampoOrdenCompras, EstadoCompra, Pagina, Reserva, TipoListadoCompra } from '../services/boleteria.service';
+import { AusenteValidacion, BoleteriaService, CampoOrdenCompras, EstadoCompra, Pagina, Reserva, TipoListadoCompra, VoucherReserva } from '../services/boleteria.service';
+import { ImpresorasService } from '../services/impresoras.service';
+import { ToastService } from '../shared/toast/toast.service';
 import { FormaPagoType } from '../models/compra';
 import { crearOrdenable } from '../shared/ordenable';
 import { esEscaneoDocumento, extraerDniDeEscaneo } from '../shared/escaner-dni.util';
@@ -20,8 +22,12 @@ export interface GrupoDia {
   totalPases: number;
 }
 
-/** Todas las formas de pago posibles: las de la compra online y las que agrega la venta en puerta. */
-export const FORMAS_PAGO_FILTRABLES: { valor: FormaPagoType; etiqueta: string }[] = [
+export interface OpcionFiltro<T> {
+  valor: T;
+  etiqueta: string;
+}
+
+const FORMAS_PAGO: OpcionFiltro<FormaPagoType>[] = [
   { valor: 'MERCADO_PAGO', etiqueta: 'Mercado Pago' },
   { valor: 'EFECTIVO_BOLETERIA', etiqueta: 'Efectivo' },
   { valor: 'TARJETA', etiqueta: 'Tarjeta' },
@@ -30,17 +36,18 @@ export const FORMAS_PAGO_FILTRABLES: { valor: FormaPagoType; etiqueta: string }[
   { valor: 'SIN_COBRO', etiqueta: 'Sin cobro' },
 ];
 
-/** Los dos que un boletero toca todo el día, para ver cuánto falta por llegar: siempre
- * visibles, fuera de "Más filtros". También son los que quedan activos por defecto. */
-export const ESTADOS_ANTICIPADA_PRINCIPALES: { valor: EstadoCompra; etiqueta: string }[] = [
+/** La venta de puerta nunca es online ni generada por un admin. */
+const FORMAS_PAGO_PUERTA: ReadonlySet<FormaPagoType> = new Set(['EFECTIVO_BOLETERIA', 'TARJETA', 'MERCADO_PAGO_QR', 'SIN_COBRO']);
+
+/** Siempre a la vista. */
+export const ESTADOS_ANTICIPADA_PRINCIPALES: OpcionFiltro<EstadoCompra>[] = [
   { valor: 'RESERVADO_EFECTIVO', etiqueta: 'A cobrar en caja' },
   { valor: 'APROBADO', etiqueta: 'Pagada online' },
+  { valor: 'USADO', etiqueta: 'Ya utilizada' },
 ];
 
-/** El resto de los estados: casi no se usan y ocupaban mucho espacio a la vista, así que
- * quedan detrás de "Más filtros" junto con el tipo de listado y la forma de pago. */
-export const ESTADOS_ANTICIPADA_SECUNDARIOS: { valor: EstadoCompra; etiqueta: string }[] = [
-  { valor: 'USADO', etiqueta: 'Ya utilizada' },
+/** Los que casi no se usan: van en "Más filtros". */
+export const ESTADOS_ANTICIPADA_SECUNDARIOS: OpcionFiltro<EstadoCompra>[] = [
   { valor: 'PENDIENTE_PAGO', etiqueta: 'Pago pendiente' },
   { valor: 'CANCELADO', etiqueta: 'Cancelada' },
   { valor: 'REEMBOLSADA', etiqueta: 'Reembolsada' },
@@ -48,8 +55,8 @@ export const ESTADOS_ANTICIPADA_SECUNDARIOS: { valor: EstadoCompra; etiqueta: st
 
 const VALORES_ESTADOS_SECUNDARIOS = new Set(ESTADOS_ANTICIPADA_SECUNDARIOS.map((e) => e.valor));
 
-/** Los dos que un boletero realmente toca todo el día; el resto se activa a mano. */
-const ESTADOS_POR_DEFECTO: EstadoCompra[] = ['APROBADO', 'RESERVADO_EFECTIVO'];
+/** Lo que falta entrar. Cada pantalla puede cambiarlo con `usarEstadosPorDefecto`. */
+const ESTADOS_POR_DEFECTO: readonly EstadoCompra[] = ['APROBADO', 'RESERVADO_EFECTIVO'];
 
 /** Devuelve un Set nuevo con el valor agregado o sacado: los signals necesitan otra referencia. */
 function alternar<T>(actuales: ReadonlySet<T>, valor: T): ReadonlySet<T> {
@@ -58,9 +65,6 @@ function alternar<T>(actuales: ReadonlySet<T>, valor: T): ReadonlySet<T> {
   return copia;
 }
 
-function mismosElementos<T>(conjunto: ReadonlySet<T>, esperados: readonly T[]): boolean {
-  return conjunto.size === esperados.length && esperados.every((e) => conjunto.has(e));
-}
 
 const TAMANIO_PAGINA = 50;
 /** Techo duro del backend para /buscar (ver CompraController): si un rango lo pasa, se pide por partes. */
@@ -141,6 +145,8 @@ function nombreMes(fecha: string, corto = false): string {
 @Injectable()
 export class ReservasBusqueda implements OnDestroy {
   private boleteriaService = inject(BoleteriaService);
+  private impresoras = inject(ImpresorasService);
+  private toast = inject(ToastService);
 
   texto = signal('');
   fecha = signal(hoyComoFechaInput());
@@ -152,10 +158,15 @@ export class ReservasBusqueda implements OnDestroy {
 
   /** BOLETERIA = venta de puerta; ANTICIPADA = todo lo que se reservó de antemano. */
   tipoListado = signal<TipoListadoCompra>('ANTICIPADA');
+  private estadosPorDefecto: readonly EstadoCompra[] = ESTADOS_POR_DEFECTO;
   estadosActivos = signal<ReadonlySet<EstadoCompra>>(new Set(ESTADOS_POR_DEFECTO));
   formaPago = signal<FormaPagoType | ''>('');
   /** Parte del código de descuento usado en la compra; vacío = sin filtro. */
   cupon = signal('');
+
+  formasPagoDisponibles = computed(() =>
+    this.tipoListado() === 'BOLETERIA' ? FORMAS_PAGO.filter((f) => FORMAS_PAGO_PUERTA.has(f.valor)) : FORMAS_PAGO
+  );
   agrupacion = signal<AgrupacionFechas>('semana');
   pagina = signal(0);
   private orden = crearOrdenable<CampoOrdenCompras>('fechaVisita');
@@ -317,67 +328,84 @@ export class ReservasBusqueda implements OnDestroy {
     return this.estadosActivos().has(estado);
   }
 
-  toggleTipoListado(tipo: TipoListadoCompra): void {
-    if (this.tipoListado() === tipo) return;
-    this.tipoListado.set(tipo);
-    this.pagina.set(0);
-    this.ejecutarBusqueda();
+  /** Llamarlo antes de la primera búsqueda. */
+  usarEstadosPorDefecto(estados: readonly EstadoCompra[]): void {
+    this.estadosPorDefecto = estados;
+    this.estadosActivos.set(new Set(estados));
   }
 
-  toggleEstado(estado: EstadoCompra): void {
-    this.estadosActivos.update((actuales) => alternar(actuales, estado));
-    this.pagina.set(0);
-    this.ejecutarBusqueda();
+  toggleTipoListado(tipo: TipoListadoCompra): void {
+    if (this.tipoListado() === tipo) return;
+    this.aplicarFiltro(() => {
+      this.tipoListado.set(tipo);
+      // En la venta de puerta no hay cupones ni pagos online.
+      if (tipo === 'BOLETERIA') {
+        this.cupon.set('');
+        if (this.formaPago() && !FORMAS_PAGO_PUERTA.has(this.formaPago() as FormaPagoType)) this.formaPago.set('');
+      }
+    });
+  }
+
+  /** Devuelve false si era el último estado elegido: sin ninguno no habría nada que mostrar. */
+  toggleEstado(estado: EstadoCompra): boolean {
+    const actuales = this.estadosActivos();
+    if (actuales.size === 1 && actuales.has(estado)) return false;
+    this.aplicarFiltro(() => this.estadosActivos.set(alternar(actuales, estado)));
+    return true;
   }
 
   onFormaPagoChange(valor: string): void {
-    this.formaPago.set(valor as FormaPagoType | '');
-    this.pagina.set(0);
-    this.ejecutarBusqueda();
+    this.aplicarFiltro(() => this.formaPago.set(valor as FormaPagoType | ''));
   }
 
   /** Con un cupón se pasa a "todas las fechas": lo normal es querer ver todas las reservas que lo usaron. */
   onCuponChange(valor: string): void {
     const limpio = valor.trim();
     if (limpio === this.cupon()) return;
-    this.cupon.set(limpio);
-    if (limpio) this.todasLasFechas.set(true);
+    this.aplicarFiltro(() => {
+      this.cupon.set(limpio);
+      if (limpio) this.todasLasFechas.set(true);
+    });
+  }
+
+  private aplicarFiltro(cambio: () => void): void {
+    cambio();
     this.pagina.set(0);
     this.ejecutarBusqueda();
   }
 
-  /** Sólo lo que vive detrás de "Más filtros" (tipo de listado, forma de pago, cupón, y los estados
-   * secundarios que se activaron a mano): controla el puntito de aviso en ese botón — los dos
-   * estados principales no cuentan porque ya son siempre visibles. */
-  filtrosAvanzadosEnDefecto = computed(() => {
-    const hayEstadoSecundarioActivo = [...this.estadosActivos()].some((e) => VALORES_ESTADOS_SECUNDARIOS.has(e));
-    return (
-      this.tipoListado() === 'ANTICIPADA' && this.formaPago() === '' && this.cupon() === '' && !hayEstadoSecundarioActivo
-    );
+  /** Los filtros que difieren del valor por defecto, y si están en "Más filtros". En Boletería
+   * no cuentan los estados ni el cupón, que ahí no se usan. */
+  private filtrosCambiados = computed<{ enMasFiltros: boolean }[]>(() => {
+    const anticipada = this.tipoListado() === 'ANTICIPADA';
+    const cambiados: { enMasFiltros: boolean }[] = [];
+    if (anticipada) {
+      const activos = this.estadosActivos();
+      const porDefecto = new Set(this.estadosPorDefecto);
+      for (const e of new Set([...activos, ...porDefecto])) {
+        if (activos.has(e) !== porDefecto.has(e)) cambiados.push({ enMasFiltros: VALORES_ESTADOS_SECUNDARIOS.has(e) });
+      }
+      if (this.cupon()) cambiados.push({ enMasFiltros: true });
+    } else {
+      cambiados.push({ enMasFiltros: true });
+    }
+    if (this.formaPago()) cambiados.push({ enMasFiltros: true });
+    return cambiados;
   });
 
-  /** Todos los filtros a la vez, Estado incluido: controla "Restablecer filtros", que por eso
-   * vive fuera del panel colapsable — si no, no habría forma de resetear Estado sin abrirlo. */
-  filtrosEnDefecto = computed(() =>
-    this.filtrosAvanzadosEnDefecto() && mismosElementos(this.estadosActivos(), ESTADOS_POR_DEFECTO)
-  );
-
-  /** Cuántos filtros difieren de los de por defecto: el contador del botón "Filtros" en celular. */
-  cantidadFiltrosActivos = computed(() => {
-    const activos = this.estadosActivos();
-    const estadosDistintos =
-      [...activos].filter((e) => !ESTADOS_POR_DEFECTO.includes(e)).length +
-      ESTADOS_POR_DEFECTO.filter((e) => !activos.has(e)).length;
-    return estadosDistintos + (this.tipoListado() === 'ANTICIPADA' ? 0 : 1) + (this.formaPago() === '' ? 0 : 1) + (this.cupon() === '' ? 0 : 1);
-  });
+  /** El contador del botón "Filtros" en celular. */
+  cantidadFiltrosActivos = computed(() => this.filtrosCambiados().length);
+  filtrosEnDefecto = computed(() => this.filtrosCambiados().length === 0);
+  /** El puntito de aviso de "Más filtros". */
+  hayFiltrosEnMasFiltros = computed(() => this.filtrosCambiados().some((f) => f.enMasFiltros));
 
   restablecerFiltros(): void {
-    this.tipoListado.set('ANTICIPADA');
-    this.estadosActivos.set(new Set(ESTADOS_POR_DEFECTO));
-    this.formaPago.set('');
-    this.cupon.set('');
-    this.pagina.set(0);
-    this.ejecutarBusqueda();
+    this.aplicarFiltro(() => {
+      this.tipoListado.set('ANTICIPADA');
+      this.estadosActivos.set(new Set(this.estadosPorDefecto));
+      this.formaPago.set('');
+      this.cupon.set('');
+    });
   }
 
   /** Clic en un encabezado ordenable: si ya se ordena por esa columna, invierte la dirección; si no, la adopta ascendente. */
@@ -445,15 +473,18 @@ export class ReservasBusqueda implements OnDestroy {
     this.errorAccion.set(null);
   }
 
-  /** Filtros comunes a cualquier búsqueda de boletería, sin fecha/orden/paginación. */
+  /** Filtros comunes a cualquier búsqueda, sin fecha/orden/paginación. Al buscar a alguien por
+   * texto no se filtra por estado: si ya entró o la cancelaron, igual tiene que aparecer. */
   private construirFiltroBase() {
     const tipo = this.tipoListado();
+    const texto = this.texto().trim() || undefined;
+    const anticipada = tipo === 'ANTICIPADA';
     return {
-      texto: this.texto().trim() || undefined,
+      texto,
       tipo,
-      estados: tipo === 'ANTICIPADA' ? Array.from(this.estadosActivos()) : undefined,
+      estados: anticipada && !texto ? Array.from(this.estadosActivos()) : undefined,
       formaPago: this.formaPago() || undefined,
-      cupon: this.cupon() || undefined,
+      cupon: anticipada ? this.cupon() || undefined : undefined,
     };
   }
 
@@ -591,8 +622,53 @@ export class ReservasBusqueda implements OnDestroy {
   // ---------- Validar / cobrar ----------
 
   /** Compra ya pagada online (APROBADO) → habilita el ingreso. */
-  validarIngreso(reserva: Reserva): void {
-    this.ejecutarAccion(reserva, () => this.boleteriaService.validarIngreso(reserva.id));
+  validarIngreso(reserva: Reserva, ausentes: AusenteValidacion[] = []): void {
+    this.ejecutarAccion(reserva, () =>
+      this.boleteriaService.validarIngreso(reserva.id, { ausentes, impresora: this.impresoraVouchers() })
+    );
+  }
+
+  /** Reserva a la que se le está eligiendo quiénes vinieron. */
+  validandoParcial = signal<Reserva | null>(null);
+
+  /** Pagada online y para más de una persona: se puede validar sólo a los que vinieron. */
+  admiteValidacionParcial(reserva: Reserva): boolean {
+    if (reserva.formaPago !== 'MERCADO_PAGO' || reserva.montoTotal <= 0) return false;
+    const personas = (reserva.detalles ?? [])
+      .filter((d) => d.tipoEntrada?.tipo === 'ENTRADA')
+      .reduce((a, d) => a + d.cantidad, 0);
+    return personas > 1;
+  }
+
+  confirmarValidacionParcial(ausentes: AusenteValidacion[]): void {
+    const reserva = this.validandoParcial();
+    this.validandoParcial.set(null);
+    if (reserva) this.validarIngreso(reserva, ausentes);
+  }
+
+  vouchersVigentes(reserva: Reserva): VoucherReserva[] {
+    return (reserva.vouchers ?? []).filter((v) => !v.anulado);
+  }
+
+  reimprimiendoId = signal<number | null>(null);
+
+  reimprimirVouchers(reserva: Reserva): void {
+    this.reimprimiendoId.set(reserva.id);
+    this.boleteriaService.reimprimirVouchers(reserva.id, this.impresoraVouchers()).subscribe({
+      next: () => {
+        this.reimprimiendoId.set(null);
+        this.toast.exito('Vouchers enviados a la ticketera');
+      },
+      error: (err) => {
+        this.reimprimiendoId.set(null);
+        this.toast.error(typeof err?.error === 'string' ? err.error : 'No se pudieron reimprimir los vouchers');
+      },
+    });
+  }
+
+  /** La ticketera de esta tablet; null = la única conectada. */
+  private impresoraVouchers(): string | null {
+    return this.impresoras.efectiva()?.nombre ?? this.impresoras.elegida();
   }
 
   /** Reserva con pago en efectivo (RESERVADO_EFECTIVO) → cobra y habilita el ingreso. */
@@ -607,6 +683,10 @@ export class ReservasBusqueda implements OnDestroy {
     accion().subscribe({
       next: (actualizada) => {
         this.reemplazarEnResultado(actualizada);
+        const vouchers = this.vouchersVigentes(actualizada).length;
+        if (actualizada.estado === 'USADO' && vouchers > 0) {
+          this.toast.info(vouchers === 1 ? 'Se mandó a imprimir 1 voucher' : `Se mandaron a imprimir ${vouchers} vouchers`);
+        }
         if (actualizada.estado === 'USADO') this.iniciarOcultamientoPorValidacion(actualizada.id);
       },
       error: (err) => {

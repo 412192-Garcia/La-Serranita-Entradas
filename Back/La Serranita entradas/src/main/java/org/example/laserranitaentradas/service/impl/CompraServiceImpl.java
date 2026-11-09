@@ -107,6 +107,7 @@ public class CompraServiceImpl implements CompraService {
      */
     private final CompraService self;
     private final CobroPointService cobroPointService;
+    private final org.example.laserranitaentradas.service.impresion.VoucherService voucherService;
 
     public CompraServiceImpl
             (CompraRepository compraRepository,
@@ -125,8 +126,10 @@ public class CompraServiceImpl implements CompraService {
              List<PagoService> estrategiasDisponibles,
              EntityManager em,
              @Lazy CompraService self,
-             CobroPointService cobroPointService)
+             CobroPointService cobroPointService,
+             org.example.laserranitaentradas.service.impresion.VoucherService voucherService)
     {
+        this.voucherService = voucherService;
         this.compraRepository = compraRepository;
         this.tipoEntradaService = tipoEntradaService;
         this.cuponService = cuponService;
@@ -220,18 +223,22 @@ public class CompraServiceImpl implements CompraService {
      * total, y sin dólares.
      */
     private void validarPagoMixto(VentaPosRequestDTO request, BigDecimal montoFinal) {
-        FormaPago secundaria = request.getFormaPagoSecundaria();
+        validarPagoMixto(request.getFormaPago(), request.getFormaPagoSecundaria(), request.getMontoFormaPagoSecundaria(),
+                request.getCotizacionDolar() != null, montoFinal);
+    }
+
+    private static void validarPagoMixto(FormaPago principal, FormaPago secundaria, BigDecimal monto, boolean enDolares,
+                                         BigDecimal montoFinal) {
         if (secundaria == null) return;
-        if (request.getCotizacionDolar() != null) {
+        if (enDolares) {
             throw new IllegalArgumentException("No se puede combinar pago mixto con pago en dólares");
         }
-        if (!FORMAS_PAGO_MIXTO.contains(request.getFormaPago()) || !FORMAS_PAGO_MIXTO.contains(secundaria)) {
+        if (!FORMAS_PAGO_MIXTO.contains(principal) || !FORMAS_PAGO_MIXTO.contains(secundaria)) {
             throw new IllegalArgumentException("El pago mixto sólo admite efectivo, tarjeta o QR");
         }
-        if (secundaria == request.getFormaPago() && secundaria == FormaPago.EFECTIVO_BOLETERIA) {
+        if (secundaria == principal && secundaria == FormaPago.EFECTIVO_BOLETERIA) {
             throw new IllegalArgumentException("Las dos formas de pago tienen que ser distintas");
         }
-        BigDecimal monto = request.getMontoFormaPagoSecundaria();
         if (monto == null || monto.compareTo(BigDecimal.ZERO) <= 0 || monto.compareTo(montoFinal) >= 0) {
             throw new IllegalArgumentException("El monto de la segunda forma de pago tiene que ser mayor a cero y menor al total");
         }
@@ -753,6 +760,37 @@ public class CompraServiceImpl implements CompraService {
         return compraRepository.save(compra);
     }
 
+    @Transactional
+    @Override
+    public Compra validarIngreso(Long compraId, Long usuarioValidadorId, Map<Long, Integer> ausentesPorDetalle, String impresora) {
+        Compra compra = compraRepository.findById(compraId)
+                .orElseThrow(() -> new IllegalArgumentException("Compra no encontrada para id: " + compraId));
+        if (compra.getEstado() != EstadoCompra.APROBADO) {
+            throw new IllegalStateException("Esta reserva no está para validar (estado actual: " + compra.getEstado() + ")");
+        }
+        boolean hayAusentes = ausentesPorDetalle != null && ausentesPorDetalle.values().stream().anyMatch(n -> n != null && n > 0);
+        if (hayAusentes) {
+            if (compra.getFormaPago() != FormaPago.MERCADO_PAGO || compra.getMontoTotal().signum() <= 0) {
+                throw new IllegalStateException("Sólo se puede validar una parte en reservas pagadas online");
+            }
+            int presentes = 0;
+            for (CompraDetalle d : compra.getDetalles()) {
+                Integer pedido = ausentesPorDetalle.get(d.getId());
+                int ausentes = pedido == null ? 0 : pedido;
+                boolean esEntrada = d.getTipoEntrada() != null && d.getTipoEntrada().getTipo() == Tipo.ENTRADA;
+                if (ausentes < 0 || ausentes > d.getCantidad() || (ausentes > 0 && !esEntrada)) {
+                    throw new IllegalArgumentException("Cantidad de ausentes inválida");
+                }
+                d.setCantidadAusente(ausentes > 0 ? ausentes : null);
+                if (esEntrada) presentes += d.getCantidad() - ausentes;
+            }
+            if (presentes < 1) throw new IllegalArgumentException("Tiene que entrar al menos una persona");
+        }
+        Compra actualizada = marcarEntradasComoUsadas(compraId, usuarioValidadorId);
+        voucherService.emitir(actualizada, actualizada.getUsuarioValidador(), impresora);
+        return actualizada;
+    }
+
     /** Igual que Boleteria.VENTANA_DESHACER_MENU_MS en el front: mantenerlos iguales. */
     private static final long VENTANA_DESHACER_VALIDACION_SEGUNDOS = 2400;
 
@@ -779,6 +817,8 @@ public class CompraServiceImpl implements CompraService {
         compra.setUsuarioValidador(null);
         compra.setFechaValidacion(null);
         compra.setCaja(null);
+        compra.getDetalles().forEach(d -> d.setCantidadAusente(null));
+        voucherService.anularDeCompra(compra.getId());
 
         return compraRepository.save(compra);
     }
@@ -804,6 +844,7 @@ public class CompraServiceImpl implements CompraService {
                 });
         Compra actualizada = marcarEntradasComoUsadas(compraId, usuarioValidadorId);
         actualizada.setCaja(caja);
+        voucherService.emitir(actualizada, actualizada.getUsuarioValidador(), null);
         return compraRepository.save(actualizada);
     }
 
@@ -1162,6 +1203,9 @@ public class CompraServiceImpl implements CompraService {
         vincularCobroPoint(request, venta);
         // Misma transacción que la venta; la emisión arranca después del commit.
         facturaService.solicitar(venta, request.getFacturacion());
+        if (request.getCompraReservadaId() != null) {
+            voucherService.emitir(venta, vendedor, request.getFacturacion() == null ? null : request.getFacturacion().getImpresora());
+        }
         return venta;
     }
 
@@ -1882,7 +1926,7 @@ public class CompraServiceImpl implements CompraService {
             throw new IllegalArgumentException("Falta indicar la forma de pago.");
         }
         BigDecimal montoAnterior = compra.getMontoTotal();
-        FormaPago formaAnterior = compra.getFormaPago();
+        String formaAnterior = describirPago(compra);
         String itemsAnteriores = resumenItems(compra.getDetalles());
         AuditoriaContexto.referencia("#" + compra.getCodigoReserva());
 
@@ -1944,7 +1988,13 @@ public class CompraServiceImpl implements CompraService {
         for (CompraDetalle det : todosLosDetalles) {
             det.setCompra(compra);
         }
+        // Sin segunda forma en el pedido = se pagó con una sola: se limpia la que hubiera.
+        boolean sigueEnDolares = compra.getCotizacionDolar() != null;
+        validarPagoMixto(request.getFormaPago(), request.getFormaPagoSecundaria(), request.getMontoFormaPagoSecundaria(),
+                sigueEnDolares, montoFinal);
         compra.setFormaPago(request.getFormaPago());
+        compra.setFormaPagoSecundaria(request.getFormaPagoSecundaria());
+        compra.setMontoFormaPagoSecundaria(request.getFormaPagoSecundaria() != null ? request.getMontoFormaPagoSecundaria() : null);
         compra.setMontoTotal(montoFinal);
         compra.setDescuentoAplicado(descuento);
         // Lo que cobró el Point no se puede cambiar editando: ver CobroPointService#validarEdicion.
@@ -1952,11 +2002,18 @@ public class CompraServiceImpl implements CompraService {
 
         Compra guardada = compraRepository.save(compra);
         AuditoriaContexto.cambio("Total", montoAnterior, guardada.getMontoTotal());
-        AuditoriaContexto.cambio("Forma de pago", formaAnterior, guardada.getFormaPago());
+        AuditoriaContexto.cambio("Forma de pago", formaAnterior, describirPago(guardada));
         AuditoriaContexto.cambio("Ítems", itemsAnteriores, resumenItems(guardada.getDetalles()));
         // Si cambió el total de una venta facturada: nota de crédito + factura nueva.
         facturaService.alEditarVenta(guardada, montoAnterior);
         return guardada;
+    }
+
+    /** "TARJETA" o "TARJETA + EFECTIVO_BOLETERIA $40000" para el antes/después del historial. */
+    private static String describirPago(Compra c) {
+        if (c.getFormaPagoSecundaria() == null) return String.valueOf(c.getFormaPago());
+        return c.getFormaPago() + " + " + c.getFormaPagoSecundaria() + " $"
+                + c.getMontoFormaPagoSecundaria().stripTrailingZeros().toPlainString();
     }
 
     /** "2× General, 1× Gorra" para el antes/después del historial. */

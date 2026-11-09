@@ -1,21 +1,16 @@
 package org.example.laserranitaentradas.monitoreo;
 
-import org.example.laserranitaentradas.model.entity.TipoNotificacion;
-import org.example.laserranitaentradas.service.NotificacionService;
 import org.example.laserranitaentradas.model.dto.ControlFacturacionDTO;
 import org.example.laserranitaentradas.model.dto.EstadoSistemaDTO;
 import org.example.laserranitaentradas.model.dto.EstadoSistemaDTO.Tarjeta;
-import org.example.laserranitaentradas.model.entity.Caja;
 import org.example.laserranitaentradas.model.entity.EstadoCompra;
 import org.example.laserranitaentradas.model.entity.EstadoTrabajoImpresion;
 import org.example.laserranitaentradas.model.entity.FormaPago;
 import org.example.laserranitaentradas.model.entity.Incidente;
 import org.example.laserranitaentradas.model.entity.TerminalPos;
-import org.example.laserranitaentradas.repository.CajaRepository;
 import org.example.laserranitaentradas.repository.CompraRepository;
 import org.example.laserranitaentradas.repository.FacturaRepository;
 import org.example.laserranitaentradas.repository.TrabajoImpresionRepository;
-import org.example.laserranitaentradas.service.CajaService;
 import org.example.laserranitaentradas.service.FacturaService;
 import org.example.laserranitaentradas.service.ModulosService;
 import org.example.laserranitaentradas.model.entity.Modulo;
@@ -29,7 +24,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.io.File;
 import java.lang.management.ManagementFactory;
-import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -57,8 +51,6 @@ public class EstadoSistemaService {
     private final FacturaService facturaService;
     private final FacturaRepository facturaRepository;
     private final CompraRepository compraRepository;
-    private final CajaRepository cajaRepository;
-    private final CajaService cajaService;
     private final TrabajoImpresionRepository trabajoRepository;
     private final ImpresionService impresionService;
     private final IncidenteService incidenteService;
@@ -72,7 +64,6 @@ public class EstadoSistemaService {
     private final AnomaliasVentas anomaliasVentas;
     private final PedidoBackup pedidoBackup;
     private final ModulosService modulos;
-    private final NotificacionService notificacionService;
 
     @Value("${app.backups.dir:/backups}")
     private String carpetaBackups;
@@ -80,8 +71,6 @@ public class EstadoSistemaService {
     private int diasSinBackup;
     @Value("${app.backups.drive-remoto:}")
     private String driveRemoto;
-    @Value("${app.monitoreo.diferencia-caja:10000}")
-    private BigDecimal umbralDiferenciaCaja;
     @Value("${compras.checkout-abandonado.horas:3}")
     private int horasCheckoutAbandonado;
     @Value("${app.monitoreo.logins-fallidos:5}")
@@ -94,18 +83,15 @@ public class EstadoSistemaService {
     private String latidoUrl;
 
     public EstadoSistemaService(FacturaService facturaService, FacturaRepository facturaRepository, CompraRepository compraRepository,
-                                CajaRepository cajaRepository, CajaService cajaService, TrabajoImpresionRepository trabajoRepository,
+                                TrabajoImpresionRepository trabajoRepository,
                                 ImpresionService impresionService, IncidenteService incidenteService,
                                 AuditoriaService auditoriaService, EstadoMails estadoMails, JdbcTemplate jdbc,
                                 ObjectProvider<BuildProperties> build, EstadoTareas estadoTareas,
                                 TerminalesService terminalesService, MetricasRequests metricasRequests,
-                                AnomaliasVentas anomaliasVentas, PedidoBackup pedidoBackup, ModulosService modulos,
-                                NotificacionService notificacionService) {
+                                AnomaliasVentas anomaliasVentas, PedidoBackup pedidoBackup, ModulosService modulos) {
         this.facturaService = facturaService;
         this.facturaRepository = facturaRepository;
         this.compraRepository = compraRepository;
-        this.cajaRepository = cajaRepository;
-        this.cajaService = cajaService;
         this.trabajoRepository = trabajoRepository;
         this.impresionService = impresionService;
         this.incidenteService = incidenteService;
@@ -119,7 +105,6 @@ public class EstadoSistemaService {
         this.anomaliasVentas = anomaliasVentas;
         this.pedidoBackup = pedidoBackup;
         this.modulos = modulos;
-        this.notificacionService = notificacionService;
     }
 
     @Transactional(readOnly = true)
@@ -131,7 +116,6 @@ public class EstadoSistemaService {
         tarjetas.add(seguro("backups", "Backups", this::backups));
         tarjetas.add(seguro("mails", "Mails", this::mails));
         tarjetas.add(seguro("impresion", "Impresión", this::impresion));
-        tarjetas.add(seguro("cajas", "Cajas", this::cajas));
         tarjetas.add(seguro("seguridad", "Seguridad", this::seguridad));
         tarjetas.add(seguro("errores", "Errores del sistema", this::errores));
         tarjetas.add(seguro("terminales", "Terminales del POS", this::terminales));
@@ -323,30 +307,6 @@ public class EstadoSistemaService {
         return new Tarjeta("impresion", "Impresión", fallidos > 0 ? "ALERTA" : (conectadas.isEmpty() ? "INFO" : "OK"), resumen, detalles, null);
     }
 
-    private Tarjeta cajas() {
-        List<String> detalles = new ArrayList<>();
-        List<Caja> conDiferencia = cajaRepository.cerradasConDiferencia(LocalDateTime.now(AuditoriaService.ZONA).minusDays(7), umbralDiferenciaCaja);
-        for (Caja c : conDiferencia) {
-            BigDecimal d = c.getDiferencia();
-            detalles.add("Caja de " + c.getUsuario().getNombre() + " del " + c.getFechaApertura().format(FECHA) + ": "
-                    + (d.signum() < 0 ? "faltan " : "sobran ") + pesos(d.abs()));
-        }
-        // Una caja atrasada avisa hasta que un admin la ve en Cajas; después sigue acá sin alerta.
-        List<Long> atrasadas = cajaService.getIdsCajasAtrasadas();
-        java.util.Set<Long> vistas = notificacionService.vistosPorAlguien(TipoNotificacion.CAJA_ATRASADA, atrasadas);
-        long sinVer = atrasadas.stream().filter(id -> !vistas.contains(id)).count();
-        if (sinVer > 0) detalles.add(sinVer + " caja(s) de días anteriores sin cerrar");
-        if (!vistas.isEmpty()) detalles.add(vistas.size() + " caja(s) de días anteriores sin cerrar, ya vista(s) en Cajas");
-        boolean alerta = !conDiferencia.isEmpty() || sinVer > 0;
-        if (conDiferencia.isEmpty()) detalles.add("Sin cierres con diferencias de " + pesos(umbralDiferenciaCaja) + " o más en la última semana");
-        String estado = alerta ? "ALERTA" : vistas.isEmpty() ? "OK" : "INFO";
-        return new Tarjeta("cajas", "Cajas", estado,
-                !conDiferencia.isEmpty() ? conDiferencia.size() + " cierre(s) con diferencia grande"
-                        : sinVer > 0 ? "Cajas sin cerrar"
-                        : !vistas.isEmpty() ? "Cajas abiertas de otros días (ya vistas)" : "Sin novedades",
-                detalles, "/cajas");
-    }
-
     private Tarjeta seguridad() {
         List<Object[]> fallidos = auditoriaService.loginsFallidos(24);
         List<String> detalles = new ArrayList<>();
@@ -510,9 +470,5 @@ public class EstadoSistemaService {
         if (bytes >= 1024L * 1024 * 1024) return String.format("%.1f GB", bytes / (1024.0 * 1024 * 1024));
         if (bytes >= 1024L * 1024) return String.format("%.1f MB", bytes / (1024.0 * 1024));
         return String.format("%d KB", Math.max(1, bytes / 1024));
-    }
-
-    private static String pesos(BigDecimal monto) {
-        return "$" + String.format("%,.0f", monto).replace(',', '.');
     }
 }

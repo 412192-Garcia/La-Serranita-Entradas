@@ -60,7 +60,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/compras/opciones-pago").permitAll()
                 // {id:\d+} y no {id}: si no matchea /api/compras/buscar y la deja abierta sin login.
                 .requestMatchers(HttpMethod.GET, "/api/compras/{id:\\d+}", "/api/compras/{id:\\d+}/estado", "/api/compras/codigo/*").permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/compras/{id:\\d+}/verificar-pago").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/compras/{id:\\d+}/verificar-pago", "/api/compras/{id:\\d+}/evento-pago").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/pagos/webhook").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/ping").permitAll()
                 // Para el monitor externo y el healthcheck de Docker; no expone datos.
@@ -77,6 +77,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/interno/compras/generar-reserva").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.GET, "/api/interno/caja/*/detalle").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.GET, "/api/interno/caja/*/operaciones").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.GET, "/api/interno/caja/*/correcciones").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.GET, "/api/interno/caja/abiertas").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.GET, "/api/interno/caja/cerradas").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.GET, "/api/interno/caja/cerradas/boleteros").hasRole("ADMIN")
@@ -86,8 +87,6 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/interno/point/terminales/actualizadas").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/api/interno/point/terminales/*/nombre", "/api/interno/point/terminales/*/habilitado",
                         "/api/interno/point/terminales/*/modo").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.PUT, "/api/interno/compras/*/cancelar-venta").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.PUT, "/api/interno/compras/*/editar-venta").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.GET, "/api/interno/compras/*").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/interno/compras/caja/*/venta-pos").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/interno/facturas/*/reintentar").hasRole("ADMIN")
@@ -128,6 +127,9 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/compras/buscar").hasAnyRole("BOLETERO", "ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/api/compras/*/validar").hasAnyRole("BOLETERO", "ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/api/compras/*/deshacer-validacion").hasAnyRole("BOLETERO", "ADMIN")
+                // Corregir o cancelar una venta: el boletero, sólo la suya y con límites (ver CorreccionVentaService).
+                .requestMatchers(HttpMethod.PUT, "/api/interno/compras/*/editar-venta", "/api/interno/compras/*/cancelar-venta")
+                        .hasAnyRole("BOLETERO", "ADMIN")
                 .requestMatchers("/api/interno/**").hasAnyRole("BOLETERO", "ADMIN")
                 .requestMatchers(HttpMethod.GET, "/api/promociones/**").hasAnyRole("BOLETERO", "ADMIN")
                 .requestMatchers(HttpMethod.GET, "/api/articulos-varios/**").hasAnyRole("BOLETERO", "ADMIN")

@@ -6,7 +6,7 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 /**
- * Un ticket para la ticketera. Lo imprime el agente de la PC de la entrada (el backend no llega a la red del
+ * Un ticket para la ticketera (factura o voucher). Lo imprime el agente de la PC de la entrada (el backend no llega a la red del
  * parque). Se guarda para reenviarlo si se corta la conexión.
  */
 @Entity
@@ -14,8 +14,8 @@ import java.time.LocalDateTime;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@EqualsAndHashCode(callSuper = true, exclude = {"factura"})
-@ToString(callSuper = true, exclude = {"factura"})
+@EqualsAndHashCode(callSuper = true, exclude = {"factura", "voucher"})
+@ToString(callSuper = true, exclude = {"factura", "voucher"})
 @Builder
 public class TrabajoImpresion extends BaseEntity {
 
@@ -23,9 +23,14 @@ public class TrabajoImpresion extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    /** Una factura o un voucher, nunca los dos. */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "id_factura", nullable = false)
+    @JoinColumn(name = "id_factura")
     private Factura factura;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_voucher")
+    private Voucher voucher;
 
     /** Nombre de la impresora tal como la anuncia el agente (ej. "Boletería"). */
     @Column(nullable = false, length = 60)

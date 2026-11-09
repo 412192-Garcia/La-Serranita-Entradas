@@ -77,6 +77,17 @@
             {{ r.fechaValidacion | date: 'dd/MM HH:mm' }}
           }
         </span>
+        @if (busqueda.vouchersVigentes(r); as vouchers) {
+          @if (vouchers.length) {
+            <ul class="lista-vouchers">
+              @for (v of vouchers; track v.id) {
+                <li>
+                  @if (v.tipo === 'CANTINA') { Cantina {{ v.monto | pesos }} } @else { {{ v.cantidad }}× {{ v.descripcion }} }
+                </li>
+              }
+            </ul>
+          }
+        }
         @if (busqueda.recienValidados().has(r.id)) {
           <div class="deshacer-validacion">
             <div class="barra-deshacer">

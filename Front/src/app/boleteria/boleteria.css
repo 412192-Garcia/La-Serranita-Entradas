@@ -1,3 +1,5 @@
+@import '../reservas/menu-fila.css';
+
 :host {
   display: block;
   width: 100%;
@@ -254,65 +256,6 @@
   font-size: 0.9rem;
   margin: 0;
 }
-
-/* ---------- Menú de 3 puntitos ---------- */
-.celda-menu {
-  position: relative;
-  display: flex;
-  justify-content: center;
-}
-
-.btn-menu {
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  background: transparent;
-  border-radius: 50%;
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  transition: background-color 0.15s ease;
-}
-
-.btn-menu svg {
-  width: 18px;
-  height: 18px;
-}
-
-.btn-menu:hover { background-color: var(--color-bg-soft); }
-
-.menu-dropdown {
-  position: absolute;
-  top: 44px;
-  right: 0;
-  z-index: 10;
-  background-color: var(--color-card-bg);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  box-shadow: var(--shadow-card-lg);
-  display: flex;
-  flex-direction: column;
-  min-width: 170px;
-  overflow: hidden;
-}
-
-.menu-dropdown button {
-  padding: 10px 16px;
-  border: none;
-  background: none;
-  text-align: left;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--color-text);
-  cursor: pointer;
-  font-family: inherit;
-  white-space: nowrap;
-}
-
-.menu-dropdown button:hover:not(:disabled) { background-color: var(--color-bg-soft); }
-.menu-dropdown button:disabled { opacity: 0.6; cursor: not-allowed; }
 
 /* Reembolsar mueve dinero real: se distingue del resto de las acciones del menú. */
 .opcion-riesgosa { color: var(--color-danger-dark) !important; }
@@ -614,10 +557,41 @@
   }
 }
 
+.campo-cupon {
+  position: relative;
+  max-width: 220px;
+}
+
 .input-cupon {
+  width: 100%;
+  box-sizing: border-box;
+  padding-right: 36px;
   cursor: text;
   text-transform: uppercase;
-  max-width: 220px;
+}
+
+.btn-quitar-cupon {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  transform: translateY(-50%);
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.btn-quitar-cupon svg { width: 16px; height: 16px; }
+.btn-quitar-cupon:hover { background-color: var(--color-bg-soft); color: var(--color-primary-dark); }
+.btn-quitar-cupon:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 35%, transparent);
 }
 
 .input-cupon::placeholder {

@@ -950,7 +950,7 @@ public class CajaServiceImpl implements CajaService {
                 .filter(c -> c.getEstado() != EstadoCompra.CANCELADO)
                 .flatMap(c -> c.getDetalles().stream())
                 .filter(d -> d.getTipoEntrada() != null && Boolean.TRUE.equals(d.getTipoEntrada().getEntregaEntrada()))
-                .mapToInt(CompraDetalle::getCantidad)
+                .mapToInt(CompraDetalle::getCantidadPresente)
                 .sum();
         return base + impactoAjustesEntradas(ajustes, tiposEntradaPorId(),
                 t -> Boolean.TRUE.equals(t.getEntregaEntrada()));
@@ -961,11 +961,11 @@ public class CajaServiceImpl implements CajaService {
         return anticipadasValidadas.stream()
                 .flatMap(c -> c.getDetalles().stream())
                 .filter(d -> d.getTipoEntrada() != null && Boolean.TRUE.equals(d.getTipoEntrada().getEntregaEntrada()))
-                .mapToInt(CompraDetalle::getCantidad)
+                .mapToInt(CompraDetalle::getCantidadPresente)
                 .sum();
     }
 
-    /** Unidades de entradas con precio > 0, sin canceladas. */
+    /** Unidades de entradas con precio > 0, sin canceladas ni ausentes. */
     private int contarUnidadesEntradaPaga(List<Compra> compras) {
         return compras.stream()
                 .filter(c -> c.getEstado() != EstadoCompra.CANCELADO)
@@ -974,7 +974,7 @@ public class CajaServiceImpl implements CajaService {
                         && d.getTipoEntrada().getTipo() == Tipo.ENTRADA
                         && d.getTipoEntrada().getPrecio() != null
                         && d.getTipoEntrada().getPrecio().compareTo(BigDecimal.ZERO) > 0)
-                .mapToInt(CompraDetalle::getCantidad)
+                .mapToInt(CompraDetalle::getCantidadPresente)
                 .sum();
     }
 
@@ -1008,7 +1008,7 @@ public class CajaServiceImpl implements CajaService {
             if (compra.getEstado() == EstadoCompra.CANCELADO) continue;
             for (CompraDetalle detalle : compra.getDetalles()) {
                 if (detalle.getTipoEntrada() != null && detalle.getTipoEntrada().getTipo() == Tipo.ENTRADA) {
-                    cantidadPorTipo.merge(detalle.getTipoEntrada().getNombre(), detalle.getCantidad(), Integer::sum);
+                    cantidadPorTipo.merge(detalle.getTipoEntrada().getNombre(), detalle.getCantidadPresente(), Integer::sum);
                 }
             }
         }

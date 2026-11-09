@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
+import org.example.laserranitaentradas.model.dto.ComprasSinCompletarDTO;
+import org.example.laserranitaentradas.service.impl.ComprasSinCompletarService;
 
 @RestController
 @RequestMapping("/api/reportes")
@@ -20,9 +22,20 @@ import java.time.LocalDate;
 public class ReporteController {
 
     private final ReporteService reporteService;
+    private final ComprasSinCompletarService comprasSinCompletarService;
 
-    public ReporteController(ReporteService reporteService) {
+    public ReporteController(ReporteService reporteService, ComprasSinCompletarService comprasSinCompletarService) {
         this.reporteService = reporteService;
+        this.comprasSinCompletarService = comprasSinCompletarService;
+    }
+
+    @GetMapping("/compras-sin-completar")
+    @Operation(summary = "Compras online empezadas y qué pasó con cada una",
+            description = "Pagadas, abandonadas, rechazadas (con la respuesta de Mercado Pago) y pendientes, por fecha de creación")
+    public ResponseEntity<ComprasSinCompletarDTO> comprasSinCompletar(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
+        return ResponseEntity.ok(comprasSinCompletarService.generar(desde, hasta));
     }
 
     @GetMapping("/resumen")

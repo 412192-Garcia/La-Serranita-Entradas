@@ -22,6 +22,8 @@ public class CompraResponseDTO {
     private String estado;
     private String cuponCodigo;
     private List<CompraDetalleResponseDTO> detalles;
+    /** Vouchers entregados al validar (sólo en compras usadas). */
+    private List<VoucherResponseDTO> vouchers;
 
     /** Momento exacto del check-in en boletería (null si todavía no se validó). */
     private LocalDateTime fechaValidacion;

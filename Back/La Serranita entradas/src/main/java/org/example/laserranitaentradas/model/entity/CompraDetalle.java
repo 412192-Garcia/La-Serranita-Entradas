@@ -58,5 +58,14 @@ public class CompraDetalle extends BaseEntity {
     @Column(nullable = false)
     private Integer cantidad;
 
+    /** Entradas de una anticipada cuyos titulares no vinieron (se les dio voucher de cantina). */
+    @Column(name = "cantidad_ausente")
+    private Integer cantidadAusente;
+
+    /** Cantidad menos los ausentes: los que entraron de verdad. */
+    public int getCantidadPresente() {
+        return cantidad - (cantidadAusente == null ? 0 : cantidadAusente);
+    }
+
 }
 
