@@ -6,6 +6,9 @@ número y el CI la usa como nota de la Release de GitHub.
 
 ## Sin publicar
 
+- Control de Accesos y Anticipadas del POS: "Ver detalle" en el menú ⋮ de cada compra muestra todos sus datos: titular
+  (y quien recibe, si es regalo), fecha de compra, qué se compró con precios y descuento, cómo y
+  cuándo se pagó (con la tarjeta, si fue con el Point), factura, ingreso y vouchers, y cancelación.
 - Reportes: nueva sección "Compras online sin completar". Muestra cuántas compras con Mercado Pago se
   empezaron y cuántas se pagaron, abandonaron, rechazaron o siguen esperando el pago; las respuestas
   de Mercado Pago a los rechazos; cuánta plata quedó sin volver a intentarse; cuántas se pagan según

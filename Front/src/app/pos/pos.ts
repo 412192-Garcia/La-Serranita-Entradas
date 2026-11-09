@@ -136,7 +136,7 @@ export class Pos implements OnInit, OnDestroy {
     {
       selector: '[data-tour="resultados"]',
       titulo: 'Anticipadas: validar o cobrar',
-      texto: '"Validar Ingreso" es para quien ya pagó online; si te equivocás, tenés unos segundos para cancelar. Si no vinieron todos, usá "Faltó alguien" en el menú ⋮. Los extras (como el almuerzo) salen impresos como voucher. "Cobrar" es para las reservas a pagar en caja.',
+      texto: '"Validar Ingreso" es para quien ya pagó online; si te equivocás, tenés unos segundos para cancelar. En el menú ⋮ podés ver todos los datos de la compra y, si no vinieron todos, usar "Faltó alguien". Los extras (como el almuerzo) salen impresos como voucher. "Cobrar" es para las reservas a pagar en caja.',
       antes: () => this.abrirAnticipadasParaTutorial(),
     },
   ];

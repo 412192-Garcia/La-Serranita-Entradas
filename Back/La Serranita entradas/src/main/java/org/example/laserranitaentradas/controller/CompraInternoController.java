@@ -3,12 +3,17 @@ package org.example.laserranitaentradas.controller;
 import org.example.laserranitaentradas.config.UsuarioAutenticado;
 import org.example.laserranitaentradas.model.dto.CambiarFechaRequest;
 import org.example.laserranitaentradas.model.dto.CancelarVentaRequest;
+import org.example.laserranitaentradas.model.dto.CompraFichaDTO;
 import org.example.laserranitaentradas.model.dto.CompraRequestDTO;
 import org.example.laserranitaentradas.model.dto.CompraResponseDTO;
 import org.example.laserranitaentradas.model.dto.EditarContactoRequest;
 import org.example.laserranitaentradas.model.dto.EditarVentaRequestDTO;
 import org.example.laserranitaentradas.model.dto.VentaPosRequestDTO;
 import org.example.laserranitaentradas.model.entity.Compra;
+import org.example.laserranitaentradas.model.entity.EstadoCobroPoint;
+import org.example.laserranitaentradas.repository.CobroPointRepository;
+import org.example.laserranitaentradas.repository.FacturaRepository;
+import org.example.laserranitaentradas.service.afip.WsfeService;
 import org.example.laserranitaentradas.model.entity.FormaPago;
 import org.example.laserranitaentradas.model.entity.RolUsuario;
 import org.example.laserranitaentradas.service.CompraService;
@@ -28,10 +33,15 @@ public class CompraInternoController {
 
     private final CompraService compraService;
     private final RechazoOperacionService rechazoService;
+    private final FacturaRepository facturaRepository;
+    private final CobroPointRepository cobroPointRepository;
 
-    public CompraInternoController(CompraService compraService, RechazoOperacionService rechazoService) {
+    public CompraInternoController(CompraService compraService, RechazoOperacionService rechazoService,
+                                   FacturaRepository facturaRepository, CobroPointRepository cobroPointRepository) {
         this.compraService = compraService;
         this.rechazoService = rechazoService;
+        this.facturaRepository = facturaRepository;
+        this.cobroPointRepository = cobroPointRepository;
     }
 
     @PostMapping("/{id}/confirmar-pago-efectivo")
@@ -124,6 +134,61 @@ public class CompraInternoController {
         return compraService.findById(id)
                 .map(c -> ResponseEntity.ok(CompraController.entityToDto(c)))
                 .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/{id}/ficha")
+    @Operation(summary = "Todos los datos de una compra",
+            description = "Para el \"Ver detalle\" de Control de Accesos: la compra más pago, caja, auditoría y cancelación.")
+    public ResponseEntity<CompraFichaDTO> obtenerFicha(@PathVariable @Parameter(description = "ID de la compra") Long id) {
+        return compraService.findById(id)
+                .map(c -> ResponseEntity.ok(aFicha(c)))
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    private CompraFichaDTO aFicha(Compra c) {
+        CompraFichaDTO f = new CompraFichaDTO();
+        f.setCompra(CompraController.entityToDto(c));
+        f.setFechaCompra(c.getFechaCreacion());
+        cobroPointRepository.findAllByCompraId(c.getId()).stream()
+                .filter(cp -> cp.getEstado() == EstadoCobroPoint.APROBADO)
+                .findFirst()
+                .ifPresent(cp -> {
+                    f.setPointMedioPago(cp.getMedioPago());
+                    f.setPointTipoMedio(cp.getTipoMedio());
+                    f.setPointCuotas(cp.getCuotas());
+                });
+        facturaRepository.findFirstByCompraIdAndTipoComprobanteOrderByIdDesc(c.getId(), WsfeService.CBTE_TIPO_FACTURA_B)
+                .or(() -> facturaRepository.findFirstByCompraIdAndTipoComprobanteOrderByIdDesc(c.getId(), WsfeService.CBTE_TIPO_FACTURA_A))
+                .ifPresent(fa -> {
+                    String nombre = WsfeService.nombre(fa.getTipoComprobante());
+                    f.setFactura(fa.getNumero() != null
+                            ? String.format("%s %04d-%08d", nombre, fa.getPuntoVenta(), fa.getNumero()) : nombre);
+                    f.setFacturaEstado(fa.getEstado() != null ? fa.getEstado().name() : null);
+                });
+        if (c.getCliente() != null) {
+            f.setClienteLocalidad(c.getCliente().getLocalidad());
+            f.setClienteEdad(c.getCliente().getEdad());
+        }
+        f.setPromocionNombre(c.getPromocion() != null ? c.getPromocion().getNombre() : null);
+        f.setFechaPago(c.getFechaPago());
+        f.setPagoConfirmadoPor(c.getPagoConfirmadoPor());
+        f.setPagosMercadoPago(c.pagosMercadoPago().stream().map(String::valueOf).toList());
+        f.setDispositivo(c.getDispositivo());
+        f.setEnIframe(c.getEnIframe());
+        if (c.getCaja() != null) {
+            f.setCajaId(c.getCaja().getId());
+            f.setCajaUsuario(c.getCaja().getUsuario() != null ? c.getCaja().getUsuario().getUsername() : null);
+            f.setCajaFechaApertura(c.getCaja().getFechaApertura());
+        }
+        f.setFormaPagoSecundaria(c.getFormaPagoSecundaria());
+        f.setMontoFormaPagoSecundaria(c.getMontoFormaPagoSecundaria());
+        f.setCotizacionDolar(c.getCotizacionDolar());
+        f.setDolaresRecibidos(c.getDolaresRecibidos());
+        f.setMotivoCancelacion(c.getMotivoCancelacion());
+        f.setDetalleCancelacion(c.getDetalleCancelacion());
+        f.setFechaCancelacion(c.getFechaCancelacion());
+        f.setCanceladaPor(c.getCanceladaPor());
+        return f;
     }
 
     @PutMapping("/{id}/editar-venta")

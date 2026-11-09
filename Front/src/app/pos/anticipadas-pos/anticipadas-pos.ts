@@ -5,12 +5,13 @@ import { ReservasBusqueda } from '../../reservas/busqueda-reservas';
 import { BuscadorReservas } from '../../reservas/buscador-reservas/buscador-reservas';
 import { PanelRegalos } from '../../reservas/panel-regalos/panel-regalos';
 import { ListadoReservas } from '../../reservas/listado-reservas/listado-reservas';
+import { FichaCompraModal } from '../../reservas/ficha-compra-modal/ficha-compra-modal';
 
 /**
  * Panel de anticipadas dentro del POS: tapa el catálogo/carrito (sin destruirlos) para validar
  * el ingreso de quien ya tiene una entrada, con el mismo buscador, listado y filas que Control de
- * Accesos pero sin filtros. Su menú ⋮ sólo trae lo de validar (editar, reenviar mail y
- * reembolsar son de esa pantalla, sólo del admin). No tiene cabecera ni botón de cerrar: el título lo pone la cabecera del POS
+ * Accesos pero sin filtros. Su menú ⋮ trae "Ver detalle" y lo de validar (editar, reenviar mail
+ * y reembolsar son de esa pantalla, sólo del admin). No tiene cabecera ni botón de cerrar: el título lo pone la cabecera del POS
  * y se vuelve a la venta con el botón "Volver a la venta" de esa misma cabecera.
  *
  * Se abre de dos formas (ver Pos.abrirAnticipadas): escaneando un DNI, que llega en `consulta` y
@@ -21,7 +22,7 @@ import { ListadoReservas } from '../../reservas/listado-reservas/listado-reserva
  */
 @Component({
   selector: 'app-anticipadas-pos',
-  imports: [BuscadorReservas, PanelRegalos, ListadoReservas, LucideEllipsisVertical],
+  imports: [BuscadorReservas, PanelRegalos, ListadoReservas, LucideEllipsisVertical, FichaCompraModal],
   providers: [ReservasBusqueda],
   templateUrl: './anticipadas-pos.html',
   styleUrl: './anticipadas-pos.css',
@@ -66,9 +67,12 @@ export class AnticipadasPos implements OnInit {
 
   menuAbiertoId = signal<number | null>(null);
 
-  tieneAcciones(reserva: Reserva): boolean {
-    return (reserva.estado === 'APROBADO' && this.busqueda.admiteValidacionParcial(reserva))
-      || this.busqueda.vouchersVigentes(reserva).length > 0;
+  fichaDe = signal<Reserva | null>(null);
+
+  abrirFicha(reserva: Reserva, event: MouseEvent): void {
+    event.stopPropagation();
+    this.menuAbiertoId.set(null);
+    this.fichaDe.set(reserva);
   }
 
   toggleMenu(reserva: Reserva, event: MouseEvent): void {

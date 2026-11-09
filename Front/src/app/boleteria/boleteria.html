@@ -160,6 +160,7 @@
       </button>
       @if (menuAbiertoId() === reserva.id) {
         <div class="menu-dropdown" (click)="$event.stopPropagation()">
+          <button type="button" (click)="abrirFicha(reserva, $event)">Ver detalle</button>
           @if (reserva.estado === 'APROBADO' && busqueda.admiteValidacionParcial(reserva)) {
             <button type="button" (click)="busqueda.validandoParcial.set(reserva); cerrarMenu()">Faltó alguien</button>
           }
@@ -205,6 +206,10 @@
       }
     </div>
   </ng-template>
+
+  @if (fichaDe(); as reserva) {
+    <app-ficha-compra-modal [compraId]="reserva.id" [reserva]="reserva" (cerrar)="fichaDe.set(null)" />
+  }
 
   @if (facturaDe(); as reserva) {
     <app-factura-compra-modal [reserva]="reserva" (cerrar)="facturaDe.set(null)" />

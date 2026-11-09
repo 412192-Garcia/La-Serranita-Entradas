@@ -108,6 +108,39 @@ export interface Reserva {
   receptorTelefono: string | null;
   /** Vouchers entregados al validar (sólo en USADO). */
   vouchers?: VoucherReserva[] | null;
+  cuponCodigo?: string | null;
+}
+
+/** Todo lo que se sabe de una compra, para "Ver detalle". */
+export interface FichaCompra {
+  compra: Reserva;
+  fechaCompra: string;
+  clienteLocalidad: string | null;
+  clienteEdad: number | null;
+  promocionNombre: string | null;
+  fechaPago: string | null;
+  pagoConfirmadoPor: 'WEBHOOK' | 'VERIFICACION' | 'BARRIDO' | null;
+  pagosMercadoPago: string[];
+  dispositivo: string | null;
+  enIframe: boolean | null;
+  /** Cobro con el Point: visa, debmaster... / credit_card, debit_card, qr... */
+  pointMedioPago: string | null;
+  pointTipoMedio: string | null;
+  pointCuotas: number | null;
+  /** "Factura B 0010-00000123". */
+  factura: string | null;
+  facturaEstado: 'PENDIENTE' | 'EMITIDA' | 'ERROR' | 'ANULADA' | null;
+  cajaId: number | null;
+  cajaUsuario: string | null;
+  cajaFechaApertura: string | null;
+  formaPagoSecundaria: FormaPagoType | null;
+  montoFormaPagoSecundaria: number | null;
+  cotizacionDolar: number | null;
+  dolaresRecibidos: number | null;
+  motivoCancelacion: string | null;
+  detalleCancelacion: string | null;
+  fechaCancelacion: string | null;
+  canceladaPor: string | null;
 }
 
 export interface EditarContactoRequest {
@@ -245,6 +278,10 @@ export class BoleteriaService {
    * formulario de "Editar venta" con lo que esa compra tiene cargado hoy. */
   obtenerPorId(compraId: number): Observable<Reserva> {
     return this.http.get<Reserva>(`${this.internoUrl}/${compraId}`);
+  }
+
+  obtenerFicha(compraId: number): Observable<FichaCompra> {
+    return this.http.get<FichaCompra>(`${this.internoUrl}/${compraId}/ficha`);
   }
 
   // Quién valida o cobra lo resuelve el backend a partir del JWT, así que estas

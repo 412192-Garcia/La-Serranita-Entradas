@@ -66,7 +66,7 @@ const PASOS_TUTORIAL: TourStep[] = [
   {
     selector: '[data-tour="resultados"]',
     titulo: 'Validar o cobrar',
-    texto: 'Validá el ingreso o cobrá con el botón de cada reserva. En el menú ⋮ podés marcar que faltó alguien (lo que no se usó sale en un voucher para la cantina), editar el contacto, cambiar la fecha, reenviar el mail, ver la factura o reembolsar.',
+    texto: 'Validá el ingreso o cobrá con el botón de cada reserva. En el menú ⋮ podés ver todos los datos de la compra, marcar que faltó alguien (lo que no se usó sale en un voucher para la cantina), editar el contacto, cambiar la fecha, reenviar el mail, ver la factura o reembolsar.',
   },
 ];
 
@@ -77,6 +77,7 @@ const PASOS_TUTORIAL: TourStep[] = [
  */
 import { FacturaCompraModal } from '../shared/factura-compra-modal/factura-compra-modal';
 import { FacturaService } from '../services/factura.service';
+import { FichaCompraModal } from '../reservas/ficha-compra-modal/ficha-compra-modal';
 @Component({
   selector: 'app-boleteria',
   imports: [
@@ -94,6 +95,7 @@ import { FacturaService } from '../services/factura.service';
     LucideListFilter,
     LucideX,
     FacturaCompraModal,
+    FichaCompraModal,
   ],
   providers: [ReservasBusqueda],
   templateUrl: './boleteria.html',
@@ -222,6 +224,14 @@ export class Boleteria implements OnInit, OnDestroy {
     event.stopPropagation();
     this.menuAbiertoId.set(null);
     this.facturaDe.set(reserva);
+  }
+
+  fichaDe = signal<Reserva | null>(null);
+
+  abrirFicha(reserva: Reserva, event: MouseEvent): void {
+    event.stopPropagation();
+    this.menuAbiertoId.set(null);
+    this.fichaDe.set(reserva);
   }
 
   toggleMenu(reserva: Reserva, event: MouseEvent): void {

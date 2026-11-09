@@ -1,0 +1,178 @@
+@let f = ficha();
+<app-modal (cerrar)="cerrar.emit()">
+  <div class="panel-ficha" role="dialog" aria-labelledby="titulo-ficha-compra">
+    <div class="encabezado">
+      <h3 id="titulo-ficha-compra">{{ compra() ? 'Compra #' + compra()!.codigoReserva : 'Compra' }}</h3>
+      @if (compra(); as c) {
+        <span class="badge" [class]="'badge-' + c.estado">{{ vista()?.etiquetaEstado }}</span>
+      }
+      <button type="button" class="btn-icono" title="Cerrar" aria-label="Cerrar" (click)="cerrar.emit()">
+        <svg lucideX [strokeWidth]="2"></svg>
+      </button>
+    </div>
+
+    @if (!f && !error()) {
+      <p class="cargando"><svg lucideLoaderCircle class="icono-girando" [strokeWidth]="2"></svg> Cargando todos los datos…</p>
+    }
+    @if (error(); as e) {
+      <p class="texto-error">{{ e }}</p>
+    }
+
+    @if (compra(); as c) {
+
+    <!-- Titular -->
+    <section>
+      <h4>{{ regalo() ? 'Quien compró' : 'Titular' }}</h4>
+      <dl>
+        @if (c.cliente; as cl) {
+          <dt>Nombre</dt><dd>{{ cl.nombre }} {{ cl.apellido }}</dd>
+          @if (cl.dni) { <dt>DNI</dt><dd>{{ cl.dni }}</dd> }
+        } @else {
+          <dt>Nombre</dt><dd class="secundario">Venta en boletería, sin datos</dd>
+        }
+        @if (c.contactEmail) { <dt>Email</dt><dd>{{ c.contactEmail }}</dd> }
+        @if (c.contactPhone) { <dt>Teléfono</dt><dd>{{ c.contactPhone }}</dd> }
+        @if (f?.clienteLocalidad) { <dt>Localidad</dt><dd>{{ f?.clienteLocalidad }}</dd> }
+        @if (f?.clienteEdad) { <dt>Edad</dt><dd>{{ f?.clienteEdad }}</dd> }
+      </dl>
+    </section>
+
+    @if (regalo()) {
+      <section>
+        <h4><svg lucideGift class="icono-titulo" [strokeWidth]="2"></svg> Quien recibe el regalo</h4>
+        <dl>
+          @if (c.receptorNombre) { <dt>Nombre</dt><dd>{{ c.receptorNombre }}</dd> }
+          @if (c.receptorDni) { <dt>DNI</dt><dd>{{ c.receptorDni }}</dd> }
+          @if (c.receptorEmail) { <dt>Email</dt><dd>{{ c.receptorEmail }}</dd> }
+          @if (c.receptorTelefono) { <dt>Teléfono</dt><dd>{{ c.receptorTelefono }}</dd> }
+        </dl>
+      </section>
+    }
+
+    <!-- Qué se compró -->
+    <section>
+      <h4>Compra</h4>
+      <dl>
+        @if (f?.fechaCompra) {
+          <dt>Fecha de compra</dt><dd>{{ f?.fechaCompra | date: 'dd/MM/yyyy HH:mm' }}</dd>
+        }
+        <dt>Día de visita</dt>
+        <dd>
+          @if (c.fechaVisita) {
+            {{ c.fechaVisita + 'T12:00:00' | date: 'EEEE d/MM/yyyy' }}
+          } @else {
+            Cualquier día
+          }
+        </dd>
+      </dl>
+      @if (lineas().length) {
+        <ul class="lineas">
+          @for (l of lineas(); track $index) {
+            <li [class.extra]="l.esExtra">
+              <span class="linea-nombre">
+                {{ l.cantidad }}× {{ l.nombre }}
+                @if (l.ausentes) { <span class="secundario">({{ l.ausentes }} no vino)</span> }
+              </span>
+              @if (l.precio !== null) {
+                <span class="linea-monto">{{ l.precio * l.cantidad | pesos }}</span>
+              }
+            </li>
+          }
+        </ul>
+      }
+      <dl class="totales">
+        @if (c.descuentoAplicado > 0) {
+          <dt>Subtotal</dt><dd>{{ subtotal() | pesos }}</dd>
+          <dt>Descuento</dt>
+          <dd>
+            −{{ c.descuentoAplicado | pesos }}
+            @if (c.cuponCodigo) { <span class="secundario">· cupón {{ c.cuponCodigo }}</span> }
+            @if (f?.promocionNombre) { <span class="secundario">· {{ f?.promocionNombre }}</span> }
+          </dd>
+        }
+        <dt>Total</dt><dd class="total">{{ c.montoTotal | pesos }}</dd>
+      </dl>
+    </section>
+
+    <!-- Pago -->
+    <section>
+      <h4>Pago</h4>
+      <dl>
+        <dt>Forma de pago</dt>
+        <dd>
+          @if (f?.formaPagoSecundaria && f?.montoFormaPagoSecundaria) {
+            {{ etiquetaFormaPago(c.formaPago) }} {{ c.montoTotal - (f?.montoFormaPagoSecundaria ?? 0) | pesos }}
+            + {{ etiquetaFormaPago(f?.formaPagoSecundaria ?? null) }} {{ f?.montoFormaPagoSecundaria | pesos }}
+          } @else {
+            {{ etiquetaFormaPago(c.formaPago) }}
+          }
+        </dd>
+        @if (tarjetaPoint(); as tarjeta) {
+          <dt>Tarjeta</dt><dd>{{ tarjeta }}</dd>
+        }
+        @if (f?.dolaresRecibidos) {
+          <dt>En dólares</dt><dd>US$ {{ f?.dolaresRecibidos }} a {{ f?.cotizacionDolar | pesos }}</dd>
+        }
+        @if (f?.fechaPago) {
+          <dt>Pagada</dt><dd>{{ f?.fechaPago | date: 'dd/MM/yyyy HH:mm' }}</dd>
+        }
+        @if (confirmacionPago(f?.pagoConfirmadoPor ?? null); as conf) {
+          <dt>Confirmación</dt><dd>{{ conf }}</dd>
+        }
+        @if (f?.pagosMercadoPago?.length) {
+          <dt>Pago en MP</dt><dd class="codigo">{{ f?.pagosMercadoPago?.join(', ') }}</dd>
+        }
+        @if (f?.dispositivo) {
+          <dt>Comprada desde</dt>
+          <dd>{{ f?.dispositivo }}@if (f?.enIframe !== null) { · {{ f?.enIframe ? 'sitio del parque' : 'la app' }} }</dd>
+        }
+        @if (f?.cajaUsuario) {
+          <dt>Caja</dt><dd>{{ f?.cajaUsuario }} · abierta {{ f?.cajaFechaApertura | date: 'dd/MM HH:mm' }}</dd>
+        }
+        @if (f?.factura) {
+          <dt>Factura</dt>
+          <dd>
+            {{ f?.factura }}
+            @if (estadoFactura(f?.facturaEstado ?? null); as e) { <span class="secundario">· {{ e }}</span> }
+          </dd>
+        }
+      </dl>
+    </section>
+
+    <!-- Ingreso -->
+    @if (c.fechaValidacion || vouchers().length) {
+      <section>
+        <h4>Ingreso</h4>
+        <dl>
+          @if (c.fechaValidacion) {
+            <dt>Entró</dt><dd>{{ c.fechaValidacion | date: 'dd/MM/yyyy HH:mm' }}</dd>
+          }
+          @if (c.usuarioValidador) { <dt>Validó</dt><dd>{{ c.usuarioValidador }}</dd> }
+          @if (vouchers().length) {
+            <dt>Vouchers</dt>
+            <dd>
+              @for (v of vouchers(); track v.id) {
+                <div>@if (v.tipo === 'CANTINA') { Cantina {{ v.monto | pesos }} } @else { {{ v.cantidad }}× {{ v.descripcion }} }</div>
+              }
+            </dd>
+          }
+        </dl>
+      </section>
+    }
+
+    <!-- Cancelación -->
+    @if (f?.fechaCancelacion || f?.motivoCancelacion) {
+      <section>
+        <h4>Cancelación</h4>
+        <dl>
+          @if (motivoCancelacion(f?.motivoCancelacion ?? null); as m) { <dt>Motivo</dt><dd>{{ m }}</dd> }
+          @if (f?.detalleCancelacion) { <dt>Detalle</dt><dd>{{ f?.detalleCancelacion }}</dd> }
+          @if (f?.fechaCancelacion) { <dt>Cuándo</dt><dd>{{ f?.fechaCancelacion | date: 'dd/MM/yyyy HH:mm' }}</dd> }
+          @if (f?.canceladaPor) { <dt>Quién</dt><dd>{{ autor(f?.canceladaPor) }}</dd> }
+        </dl>
+      </section>
+    }
+
+    }
+  </div>
+</app-modal>
