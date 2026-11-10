@@ -6,6 +6,17 @@ número y el CI la usa como nota de la Release de GitHub.
 
 ## Sin publicar
 
+- POS y Cajas: el precio especial por pagar en efectivo ya no se aplica cuando la venta se paga con dos
+  formas (por ejemplo efectivo y tarjeta): sólo vale si se paga todo en efectivo.
+- Reportes, Comparación: nuevo gráfico "Ingresos por hora" con una línea por período, para ver
+  cuánta gente llevaba entrando cada uno a la misma hora (por ejemplo, hoy a las 15 contra ayer a
+  las 15). Se puede ver acumulado o por hora, y en compras o entradas. Los botones "Hoy y ayer" y
+  "Hoy y hace una semana" arman la comparación en un toque.
+- Reportes, Resumen: "Compras por hora del día" pasa a llamarse "Ventas por hora del día" y se puede
+  ver en compras o en entradas.
+
+## 0.10.9 — 2026-11-09
+
 - Control de Accesos y Anticipadas del POS: "Ver detalle" en el menú ⋮ de cada compra muestra todos sus datos: titular
   (y quien recibe, si es regalo), fecha de compra, qué se compró con precios y descuento, cómo y
   cuándo se pagó (con la tarjeta, si fue con el Point), factura, ingreso y vouchers, y cancelación.

@@ -74,4 +74,7 @@ public class ReporteResumenDTO {
 
     /** Anticipadas pagadas online, pagadas al llegar y reservadas para pagar al llegar sin cobrar. */
     private List<AnticipadasPorPagoDTO> anticipadasPorPago;
+
+    /** Las 24 horas del día con la gente que entró en cada una, sumando todo el rango. */
+    private List<IngresosPorHoraDTO> ingresosPorHora;
 }

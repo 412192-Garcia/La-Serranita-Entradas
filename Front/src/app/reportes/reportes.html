@@ -459,8 +459,20 @@
   </div>
 
   <div appPlegableCelular class="tarjeta tarjeta-ancha" [class.oculta]="!resumen()">
-    <h2>Compras por hora del día</h2>
-    <p class="ayuda">A qué hora se hacen más compras.</p>
+    <h2>Ventas por hora del día</h2>
+    <p class="ayuda">A qué hora se vende más.</p>
+    <div class="filtro-agrupacion">
+      @for (op of opcionesMedidaHora; track op.valor) {
+        <button
+          type="button"
+          class="btn-agrupacion"
+          [class.activo]="medidaHora() === op.valor"
+          [attr.aria-pressed]="medidaHora() === op.valor"
+          (click)="medidaHora.set(op.valor)">
+          {{ op.etiqueta }}
+        </button>
+      }
+    </div>
     <div class="filtro-dias-semana">
       @for (dia of diasSemanaOpciones; track dia.valor) {
         <button
@@ -609,6 +621,8 @@
       </div>
 
       <div class="acciones-comparar">
+        <button type="button" class="btn-secundario" [disabled]="comparando()" (click)="compararHoyCon(1)">Hoy y ayer</button>
+        <button type="button" class="btn-secundario" [disabled]="comparando()" (click)="compararHoyCon(7)">Hoy y hace una semana</button>
         <button type="button" class="btn-secundario" (click)="agregarPeriodo()">+ Agregar período</button>
         <button type="button" class="btn-primario" [disabled]="comparando()" (click)="compararPeriodos()">
           {{ comparando() ? 'Comparando…' : 'Comparar' }}
@@ -646,6 +660,39 @@
             <h3 class="subtitulo-comparacion">Personas que entraron</h3>
             <div class="grafico-contenedor">
               <canvas #comparacionPersonasCanvas></canvas>
+            </div>
+          </div>
+          <div class="grafico-comparacion-ancho" data-tour="ingresos-por-hora">
+            <h3 class="subtitulo-comparacion">Ingresos por hora</h3>
+            <p class="ayuda">La gente que fue entrando al parque. Tocá una hora para ver cuántos llevaba cada período.</p>
+            <div class="filtros-ingresos-hora">
+              <div class="filtro-agrupacion">
+                @for (op of opcionesModoIngresos; track op.valor) {
+                  <button
+                    type="button"
+                    class="btn-agrupacion"
+                    [class.activo]="modoIngresos() === op.valor"
+                    [attr.aria-pressed]="modoIngresos() === op.valor"
+                    (click)="modoIngresos.set(op.valor)">
+                    {{ op.etiqueta }}
+                  </button>
+                }
+              </div>
+              <div class="filtro-agrupacion">
+                @for (op of opcionesMedidaHora; track op.valor) {
+                  <button
+                    type="button"
+                    class="btn-agrupacion"
+                    [class.activo]="medidaIngresos() === op.valor"
+                    [attr.aria-pressed]="medidaIngresos() === op.valor"
+                    (click)="medidaIngresos.set(op.valor)">
+                    {{ op.etiqueta }}
+                  </button>
+                }
+              </div>
+            </div>
+            <div class="grafico-contenedor">
+              <canvas #comparacionIngresosCanvas></canvas>
             </div>
           </div>
           <div class="grafico-comparacion-ancho">

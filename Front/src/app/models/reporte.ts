@@ -89,6 +89,13 @@ export interface VentasPorHora {
   cantidadPasesBoleteria: number;
 }
 
+/** Gente que entró en esa hora (0-23), por hora de validación. */
+export interface IngresosPorHora {
+  hora: number;
+  cantidadCompras: number;
+  cantidadEntradas: number;
+}
+
 /** BOLETERIA = venta de puerta (POS); ANTICIPADA = pagada online o reservada de antemano. */
 export interface VentasPorOrigen {
   origen: 'BOLETERIA' | 'ANTICIPADA';
@@ -162,6 +169,7 @@ export interface ReporteResumen {
   comprasPorEstado: ComprasPorEstado[];
   desgloseExtras: DesgloseTipoEntrada[];
   ventasPorHora: VentasPorHora[];
+  ingresosPorHora: IngresosPorHora[];
   ventasPorOrigen: VentasPorOrigen[];
   /** Suma de descuentoAplicado (cupones) de las compras cobradas en el rango. */
   totalDescuentos: number;
