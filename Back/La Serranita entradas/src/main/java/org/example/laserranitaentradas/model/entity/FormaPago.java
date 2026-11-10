@@ -21,4 +21,9 @@ public enum FormaPago {
         this.descripcion = descripcion;
         this.detalle = detalle;
     }
+
+    /** Forma que define el precio: el descuento por efectivo es sólo si se paga todo en efectivo. */
+    public static FormaPago paraPrecio(FormaPago principal, FormaPago secundaria) {
+        return principal == EFECTIVO_BOLETERIA && secundaria != null ? secundaria : principal;
+    }
 }

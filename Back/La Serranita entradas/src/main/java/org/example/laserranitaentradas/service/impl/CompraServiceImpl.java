@@ -1245,7 +1245,8 @@ public class CompraServiceImpl implements CompraService {
         LocalDateTime momentoVenta = request.getFechaOriginal() == null ? LocalDateTime.now() : request.getFechaOriginal();
         LocalDate hoy = momentoVenta.toLocalDate();
 
-        DetallesCalculados calculoEntradas = construirDetalles(request.getEntradas(), request.getFormaPago(), hoy);
+        DetallesCalculados calculoEntradas = construirDetalles(request.getEntradas(),
+                FormaPago.paraPrecio(request.getFormaPago(), request.getFormaPagoSecundaria()), hoy);
         DetallesCalculados calculoArticulos = construirLineasArticulos(request.getArticulos());
 
         List<CompraDetalle> todosLosDetalles = new ArrayList<>(calculoEntradas.detalles());
@@ -1314,10 +1315,11 @@ public class CompraServiceImpl implements CompraService {
 
         LocalDateTime momentoVenta = request.getFechaOriginal() == null ? LocalDateTime.now() : request.getFechaOriginal();
 
+        FormaPago formaPrecio = FormaPago.paraPrecio(request.getFormaPago(), request.getFormaPagoSecundaria());
         // Cupo contra el día de la reserva sin contar sus propias líneas. Se reprecia con el precio de lista
         // que tenía al reservar.
         DetallesCalculados calculoEntradas = construirDetalles(
-                request.getEntradas(), request.getFormaPago(), reserva.getFechaVisita(), reserva.getId(),
+                request.getEntradas(), formaPrecio, reserva.getFechaVisita(), reserva.getId(),
                 preciosListaReservados(reserva));
         DetallesCalculados calculoArticulos = construirLineasArticulos(request.getArticulos());
 
@@ -1330,7 +1332,7 @@ public class CompraServiceImpl implements CompraService {
 
         // Si paga lo mismo que reservó y en efectivo, se cobra el monto de la reserva sin reevaluar
         // escalones.
-        boolean mantienePrecioReservado = mantienePrecioReservado(reserva, request.getFormaPago(), request.getEntradas());
+        boolean mantienePrecioReservado = mantienePrecioReservado(reserva, formaPrecio, request.getEntradas());
         BigDecimal montoEntradas = mantienePrecioReservado ? reserva.getMontoTotal() : calculoEntradas.montoTotal();
         BigDecimal descuentoPrevio = mantienePrecioReservado && reserva.getDescuentoAplicado() != null
                 ? reserva.getDescuentoAplicado() : BigDecimal.ZERO;
@@ -1948,7 +1950,8 @@ public class CompraServiceImpl implements CompraService {
                                 + " (máximo " + tipoEntrada.getMaximoPorDia() + " por día).");
                     }
                 }
-                montoEntradas = montoEntradas.add(calculoPrecioService.calcularTotal(tipoEntrada, d.getCantidad(), request.getFormaPago()));
+                montoEntradas = montoEntradas.add(calculoPrecioService.calcularTotal(tipoEntrada, d.getCantidad(),
+                        FormaPago.paraPrecio(request.getFormaPago(), request.getFormaPagoSecundaria())));
                 nuevasEntradas.add(CompraDetalle.builder().tipoEntrada(tipoEntrada).cantidad(d.getCantidad()).compra(compra).build());
             }
         }

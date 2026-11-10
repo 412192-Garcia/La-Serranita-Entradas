@@ -247,6 +247,13 @@ export class CarritoVenta {
     return m.rol === rol ? m.valor : Math.max(0, this.total() - m.valor);
   }
 
+  /** Forma con la que se cotiza: el precio de efectivo es sólo si se paga todo en efectivo. */
+  private formaPagoParaPrecio = computed<FormaPagoPos | null>(() => {
+    const forma = this.formaPago();
+    if (forma !== 'EFECTIVO_BOLETERIA' || !this.pagoMixtoActivo()) return forma;
+    return this.formaPagoSecundaria() ?? 'TARJETA';
+  });
+
   /** Las formas para cada parte del pago mixto: efectivo no se repite; tarjeta y QR sí (dos
    * tarjetas o dos QR distintos). */
   opcionesParteMixta(rol: 'principal' | 'secundaria'): { valor: FormaPagoPos; etiqueta: string; deshabilitada: boolean }[] {
@@ -508,7 +515,7 @@ export class CarritoVenta {
         ...this.entradasFijasPayload(),
       ];
       const articulos = this.articulosCarritoPayload();
-      const formaPago = this.formaPago();
+      const formaPago = this.formaPagoParaPrecio();
       const descuento = this.descuentoPayload();
       // Sin forma de pago elegida no se cotiza: el TOTAL cae al precio de lista (subtotalLista),
       // y recién al elegir Efectivo/Tarjeta/QR se pide la cotización real (promo sólo en efectivo).
