@@ -253,8 +253,8 @@ public class FacturaServiceImpl implements FacturaService {
                 if (compra.getFormaPago() == null) return null;
                 // Con el precio congelado, para que un aumento no aparezca como "descuento".
                 return d.getPrecioUnitario() != null
-                        ? calculoPrecioService.calcularTotal(d.getTipoEntrada(), d.getCantidad(), compra.getFormaPago(), d.getPrecioUnitario())
-                        : calculoPrecioService.calcularTotal(d.getTipoEntrada(), d.getCantidad(), compra.getFormaPago());
+                        ? calculoPrecioService.calcularTotal(d.getTipoEntrada(), d.getCantidad(), FormaPago.paraPrecio(compra.getFormaPago(), compra.getFormaPagoSecundaria()), d.getPrecioUnitario())
+                        : calculoPrecioService.calcularTotal(d.getTipoEntrada(), d.getCantidad(), FormaPago.paraPrecio(compra.getFormaPago(), compra.getFormaPagoSecundaria()));
             }
             return d.getPrecioUnitario() == null ? null : d.getPrecioUnitario().multiply(BigDecimal.valueOf(d.getCantidad()));
         } catch (RuntimeException e) {
