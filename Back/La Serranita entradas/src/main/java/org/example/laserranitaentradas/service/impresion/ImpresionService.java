@@ -1,5 +1,6 @@
 package org.example.laserranitaentradas.service.impresion;
 
+import org.example.laserranitaentradas.model.entity.Compra;
 import org.example.laserranitaentradas.model.entity.EstadoTrabajoImpresion;
 import org.example.laserranitaentradas.model.entity.Factura;
 import org.example.laserranitaentradas.model.entity.TipoVoucher;
@@ -266,11 +267,15 @@ public class ImpresionService {
             }
             boolean extra = v.getTipo() == TipoVoucher.EXTRA;
             String entregadoPor = v.getEmitidoPor() == null ? null : v.getEmitidoPor().getNombre();
+            String detalle = "Para consumir en la cantina";
+            if (!v.getDescripcion().isBlank()) detalle += "\n" + v.getDescripcion().replace(", ", "\n");
+            Compra compra = v.getCompra();
             return escPos.generarVoucher(new TicketEscPosGenerator.DatosVoucher(
-                    extra ? "VOUCHER" : "VOUCHER CANTINA",
+                    "VOUCHER CANTINA",
                     extra ? v.getCantidad() + " x " + v.getDescripcion() : pesosTicket(v.getMonto()),
-                    extra ? null : "Para consumir en la cantina (" + v.getDescripcion() + ")",
-                    v.getCodigo(), v.getCompra().getCodigoReserva(), v.getFechaEmision(), entregadoPor));
+                    extra ? null : detalle,
+                    v.getTitular() != null ? v.getTitular() : compra == null ? null : titular(compra),
+                    v.getCodigo(), compra == null ? null : compra.getCodigoReserva(), v.getFechaEmision(), entregadoPor));
         }
         // Por si la anulación llegó entre la consulta y el envío (o el trabajo es anterior a ella).
         Factura factura = trabajo.getFactura();
@@ -280,6 +285,14 @@ public class ImpresionService {
             return null;
         }
         return escPos.generar(comprobanteService.armar(factura.getId()));
+    }
+
+    /** Quien recibe el regalo o, si no es regalo, el cliente. */
+    private static String titular(Compra compra) {
+        if (compra.getReceptorNombre() != null && !compra.getReceptorNombre().isBlank()) return compra.getReceptorNombre();
+        if (compra.getCliente() == null) return null;
+        String apellido = compra.getCliente().getApellido();
+        return compra.getCliente().getNombre() + (apellido == null || apellido.isBlank() ? "" : " " + apellido);
     }
 
     private static String pesosTicket(java.math.BigDecimal monto) {

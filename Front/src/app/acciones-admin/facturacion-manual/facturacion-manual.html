@@ -5,9 +5,18 @@
       (click)="modo.set('una')">Una factura</button>
     <button type="button" role="tab" class="modo" [class.activo]="modo() === 'lote'" [attr.aria-selected]="modo() === 'lote'"
       (click)="modo.set('lote')">En lote</button>
+    <button type="button" role="tab" class="modo" [class.activo]="modo() === 'control'" [attr.aria-selected]="modo() === 'control'"
+      (click)="modo.set('control')">
+      Control
+      @if (avisoControl()) {
+        <span class="punto-notificacion" aria-label="Hay algo para revisar en la facturación"></span>
+      }
+    </button>
   </div>
 
-  @if (modo() === 'lote') {
+  @if (modo() === 'control') {
+    <app-control-facturas />
+  } @else if (modo() === 'lote') {
     <app-facturacion-lote (emitido)="alEmitirLote()" />
   } @else {
   <!-- ============ NUEVA FACTURA ============ -->
@@ -186,11 +195,9 @@
       }
       @if (destino() === 'IMPRIMIR') {
         <div class="fila-ticketera">
-          <app-selector-dispositivos alinear="izquierda" [conPoint]="false" />
+          <app-selector-ticketera [conAviso]="false" />
           @if (impresoras.motivoNoDisponible(); as motivo) {
             <p class="nota">{{ motivo }}</p>
-          } @else {
-            <p class="nota nota-ok">Se imprime en "{{ impresoras.efectiva()?.nombre }}".</p>
           }
         </div>
       }
@@ -231,6 +238,7 @@
   }
 
   <!-- ============ ÚLTIMAS FACTURAS MANUALES ============ -->
+  @if (modo() !== 'control') {
   <div class="tarjeta">
     <h2>Últimas facturas manuales</h2>
 
@@ -322,4 +330,5 @@
       </ul>
     }
   </div>
+  }
 </div>

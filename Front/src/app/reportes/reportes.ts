@@ -46,7 +46,13 @@ const PASOS_COMPARACION: TourStep[] = [
   {
     selector: '[data-tour="comparar-periodos"]',
     titulo: 'Comparar períodos',
-    texto: 'Agregá los períodos que quieras comparar, ponele un nombre a cada uno y tocá Comparar.',
+    texto: 'Agregá los períodos que quieras comparar, ponele un nombre a cada uno y tocá Comparar. Con "Hoy y ayer" comparás el día de hoy en un toque.',
+  },
+  {
+    selector: '[data-tour="ingresos-por-hora"]',
+    alternativo: '[data-tour="comparar-periodos"]',
+    titulo: 'Ingresos por hora',
+    texto: 'Cuánta gente fue entrando en cada hora. En Acumulado ves cuántos llevaba cada período a esa hora.',
   },
 ];
 
@@ -112,7 +118,7 @@ const COLOR_POR_ORIGEN: Record<VentasPorOrigen['origen'], string> = {
  * fijo por nombre. */
 const PALETA_TIPOS = ['#39a935', '#4a7fc9', '#e0a72e', '#7a5bc9', '#c94f4f', '#1f6b1c', '#8a3a3a', '#9aa0a6'];
 
-/** Sólo para el filtro de "Compras por hora del día": es el único gráfico del resumen que se
+/** Sólo para el filtro de "Ventas por hora del día": es el único gráfico del resumen que se
  * filtra por día de semana (los demás ya tienen su propia atribución por fecha, ver
  * ReporteServiceImpl). Lunes primero, como en el calendario del resto de la app. */
 const DIAS_SEMANA: { valor: DiaSemana; etiqueta: string }[] = [
@@ -123,6 +129,14 @@ const DIAS_SEMANA: { valor: DiaSemana; etiqueta: string }[] = [
   { valor: 'FRIDAY', etiqueta: 'Vie' },
   { valor: 'SATURDAY', etiqueta: 'Sáb' },
   { valor: 'SUNDAY', etiqueta: 'Dom' },
+];
+
+/** Qué cuentan los gráficos por hora: compras (grupos) o entradas (personas). */
+type MedidaHora = 'compras' | 'entradas';
+
+const OPCIONES_MEDIDA_HORA: { valor: MedidaHora; etiqueta: string }[] = [
+  { valor: 'compras', etiqueta: 'Compras' },
+  { valor: 'entradas', etiqueta: 'Entradas' },
 ];
 
 /** Cómo se agrupa el gráfico de "Afluencia diaria" cuando el rango es muy largo para ver un
@@ -163,6 +177,7 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
   private comparacionRecaudacionCanvas = viewChild<ElementRef<HTMLCanvasElement>>('comparacionRecaudacionCanvas');
   private comparacionPersonasCanvas = viewChild<ElementRef<HTMLCanvasElement>>('comparacionPersonasCanvas');
   private comparacionTiposCanvas = viewChild<ElementRef<HTMLCanvasElement>>('comparacionTiposCanvas');
+  private comparacionIngresosCanvas = viewChild<ElementRef<HTMLCanvasElement>>('comparacionIngresosCanvas');
   private afluenciaChart: Chart | null = null;
   private anticipacionChart: Chart | null = null;
   private cuponesChart: Chart | null = null;
@@ -176,6 +191,7 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
   private comparacionRecaudacionChart: Chart | null = null;
   private comparacionPersonasChart: Chart | null = null;
   private comparacionTiposChart: Chart | null = null;
+  private comparacionIngresosChart: Chart | null = null;
 
   private readonly hoy = new Date();
   desde = signal(aFechaISO(new Date(this.hoy.getFullYear(), this.hoy.getMonth(), this.hoy.getDate() - 29)));
@@ -230,10 +246,12 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
   vista = signal<'resumen' | 'comparacion'>('resumen');
   pasosTutorial = computed(() => (this.vista() === 'resumen' ? PASOS_RESUMEN : PASOS_COMPARACION));
 
-  /** Filtro sólo de "Compras por hora del día" (ver DIAS_SEMANA): arranca con los 7 tildados,
+  /** Filtro sólo de "Ventas por hora del día" (ver DIAS_SEMANA): arranca con los 7 tildados,
    * y no dispara ningún pedido nuevo al back — el resumen ya trae la grilla completa 7x24
    * (VentasPorHora.diaSemana), así que tocar un día sólo reprocesa este gráfico en el cliente. */
   readonly diasSemanaOpciones = DIAS_SEMANA;
+  readonly opcionesMedidaHora = OPCIONES_MEDIDA_HORA;
+  medidaHora = signal<MedidaHora>('compras');
   diasSemanaSeleccionados = signal<Set<DiaSemana>>(new Set(DIAS_SEMANA.map((d) => d.valor)));
 
   toggleDiaSemana(dia: DiaSemana): void {
@@ -297,6 +315,14 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
   comparando = signal(false);
   huboComparacion = computed(() => this.periodos().some((p) => p.resumen !== null));
 
+  /** "Ingresos por hora" de Comparación: acumulado deja leer "a las 15 llevaban X". */
+  medidaIngresos = signal<MedidaHora>('entradas');
+  modoIngresos = signal<'hora' | 'acumulado'>('acumulado');
+  readonly opcionesModoIngresos: { valor: 'hora' | 'acumulado'; etiqueta: string }[] = [
+    { valor: 'acumulado', etiqueta: 'Acumulado' },
+    { valor: 'hora', etiqueta: 'Por hora' },
+  ];
+
   constructor() {
     // effect (no el callback del http.subscribe) porque los canvases de ambas pestañas se
     // destruyen y recrean cada vez que @if (vista() === ...) cambia: si sólo se renderizara una
@@ -332,6 +358,12 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
         this.renderGraficoComparacion(this.periodos());
       }
     });
+
+    effect(() => {
+      if (this.huboComparacion()) {
+        this.renderGraficoIngresosComparacion(this.periodos());
+      }
+    });
   }
 
   ngOnInit(): void {
@@ -352,6 +384,7 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
     this.comparacionRecaudacionChart?.destroy();
     this.comparacionPersonasChart?.destroy();
     this.comparacionTiposChart?.destroy();
+    this.comparacionIngresosChart?.destroy();
   }
 
   /** Plata de las anticipadas según cómo se pagaron. */
@@ -470,6 +503,19 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
     });
   }
 
+  /** Hoy contra otro día (ayer o el mismo día de la semana pasada), y compara de una. */
+  compararHoyCon(diasAtras: number): void {
+    const hoy = new Date();
+    const otro = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - diasAtras);
+    const hoyISO = aFechaISO(hoy);
+    const otroISO = aFechaISO(otro);
+    this.periodos.set([
+      { etiqueta: 'Hoy', desde: hoyISO, hasta: hoyISO, resumen: null },
+      { etiqueta: diasAtras === 1 ? 'Ayer' : 'Hace una semana', desde: otroISO, hasta: otroISO, resumen: null },
+    ]);
+    this.compararPeriodos();
+  }
+
   agregarPeriodo(): void {
     this.periodos.update((ps) => [...ps, { etiqueta: '', desde: '', hasta: '', resumen: null }]);
   }
@@ -578,6 +624,54 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
         },
       });
     }
+  }
+
+  /** Acumulado: una línea por período, cortada en su última hora con ingresos (así "hoy" no
+   * sigue plano hasta las 23 h). Por hora: barras. El eje va de la primera a la última hora con datos. */
+  private renderGraficoIngresosComparacion(periodos: PeriodoComparacion[]): void {
+    if (!this.comparacionIngresosCanvas()) return;
+
+    const conDatos = periodos.filter((p): p is PeriodoComparacion & { resumen: ReporteResumen } => p.resumen !== null);
+    const entradas = this.medidaIngresos() === 'entradas';
+    const acumulado = this.modoIngresos() === 'acumulado';
+
+    const series = conDatos.map((p) => {
+      const porHora = Array.from({ length: 24 }, () => 0);
+      for (const fila of p.resumen.ingresosPorHora ?? []) {
+        porHora[fila.hora] = entradas ? fila.cantidadEntradas : fila.cantidadCompras;
+      }
+      return { etiqueta: p.etiqueta || `${p.desde} → ${p.hasta}`, porHora };
+    });
+
+    const horasConDatos = series.flatMap((s) => s.porHora.flatMap((v, h) => (v > 0 ? [h] : [])));
+    const primera = horasConDatos.length ? Math.min(...horasConDatos) : 8;
+    const ultima = horasConDatos.length ? Math.max(...horasConDatos) : 20;
+    const horas = Array.from({ length: ultima - primera + 1 }, (_, i) => primera + i);
+
+    this.comparacionIngresosChart?.destroy();
+    this.comparacionIngresosChart = new Chart(this.comparacionIngresosCanvas()!.nativeElement, {
+      type: acumulado ? 'line' : 'bar',
+      data: {
+        labels: horas.map((h) => `${String(h).padStart(2, '0')}h`),
+        datasets: series.map((s, i) => {
+          const ultimaPropia = s.porHora.reduce((u, v, h) => (v > 0 ? h : u), -1);
+          let suma = 0;
+          const data = horas.map((h) => {
+            suma += s.porHora[h];
+            if (h > ultimaPropia) return null;
+            return acumulado ? suma : s.porHora[h];
+          });
+          const color = PALETA_TIPOS[i % PALETA_TIPOS.length];
+          return { label: s.etiqueta, data, borderColor: color, backgroundColor: color, cubicInterpolationMode: 'monotone' as const, pointRadius: 3 };
+        }),
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+      },
+    });
   }
 
   /* La leyenda de las tortas va a la derecha para aprovechar el ancho sobrante y dejar la
@@ -766,11 +860,12 @@ export class ConfiguracionReportes implements OnInit, OnDestroy {
     if (!this.horaCanvas()) return;
 
     const seleccionados = this.diasSemanaSeleccionados();
+    const entradas = this.medidaHora() === 'entradas';
     const porHora = Array.from({ length: 24 }, (_, hora) => ({ hora, anticipada: 0, boleteria: 0 }));
     for (const fila of r.ventasPorHora) {
       if (!seleccionados.has(fila.diaSemana)) continue;
-      porHora[fila.hora].anticipada += fila.cantidadComprasAnticipada;
-      porHora[fila.hora].boleteria += fila.cantidadComprasBoleteria;
+      porHora[fila.hora].anticipada += entradas ? fila.cantidadPasesAnticipada : fila.cantidadComprasAnticipada;
+      porHora[fila.hora].boleteria += entradas ? fila.cantidadPasesBoleteria : fila.cantidadComprasBoleteria;
     }
 
     this.horaChart?.destroy();

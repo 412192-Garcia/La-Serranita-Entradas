@@ -15,6 +15,7 @@ import org.example.laserranitaentradas.model.dto.UsoCuponDTO;
 import org.example.laserranitaentradas.model.dto.UsoPromocionDTO;
 import org.example.laserranitaentradas.model.dto.VentaArticuloVarioDTO;
 import org.example.laserranitaentradas.model.dto.VentasDolaresDTO;
+import org.example.laserranitaentradas.model.dto.IngresosPorHoraDTO;
 import org.example.laserranitaentradas.model.dto.VentasPorHoraDTO;
 import org.example.laserranitaentradas.model.dto.VentasPorOrigenDTO;
 import org.example.laserranitaentradas.model.entity.ArticuloVario;
@@ -196,6 +197,8 @@ public class ReporteServiceImpl implements ReporteService {
         Map<ClaveHora, Long> cantidadPasesAnticipadaPorHora = new HashMap<>();
         Map<ClaveHora, Long> cantidadComprasBoleteriaPorHora = new HashMap<>();
         Map<ClaveHora, Long> cantidadPasesBoleteriaPorHora = new HashMap<>();
+        long[] comprasIngresadasPorHora = new long[24];
+        long[] entradasIngresadasPorHora = new long[24];
 
         Map<TipoListadoCompra, Long> cantidadPorOrigen = new EnumMap<>(TipoListadoCompra.class);
         Map<TipoListadoCompra, BigDecimal> montoPorOrigen = new EnumMap<>(TipoListadoCompra.class);
@@ -456,6 +459,11 @@ public class ReporteServiceImpl implements ReporteService {
                     anticipacionPorTramo[tramoAnticipacion(diasAntes)] += pasesIngresados;
                 }
                 personasIngresadas += pasesIngresados;
+                if (pasesIngresados > 0) {
+                    int horaIngreso = compra.getFechaValidacion().getHour();
+                    comprasIngresadasPorHora[horaIngreso]++;
+                    entradasIngresadasPorHora[horaIngreso] += pasesIngresados;
+                }
             }
         }
 
@@ -562,6 +570,11 @@ public class ReporteServiceImpl implements ReporteService {
                         cantidadComprasBoleteriaPorHora.getOrDefault(clave, 0L),
                         cantidadPasesBoleteriaPorHora.getOrDefault(clave, 0L)));
             }
+        }
+
+        List<IngresosPorHoraDTO> ingresosPorHora = new ArrayList<>();
+        for (int hora = 0; hora < 24; hora++) {
+            ingresosPorHora.add(new IngresosPorHoraDTO(hora, comprasIngresadasPorHora[hora], entradasIngresadasPorHora[hora]));
         }
 
         List<VentasPorOrigenDTO> ventasPorOrigen = new ArrayList<>();
@@ -687,7 +700,8 @@ public class ReporteServiceImpl implements ReporteService {
                 anticipadasPorPago.entrySet().stream()
                         .map(e -> new AnticipadasPorPagoDTO(e.getKey(), ETIQUETAS_ANTICIPADAS.get(e.getKey()),
                                 e.getValue()[0], e.getValue()[1], montoAnticipadasPorPago.get(e.getKey())))
-                        .toList());
+                        .toList(),
+                ingresosPorHora);
     }
 
     private static final String ANT_ONLINE = "ONLINE";

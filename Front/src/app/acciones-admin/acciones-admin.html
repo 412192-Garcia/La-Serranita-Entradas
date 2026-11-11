@@ -2,7 +2,7 @@
 
   <app-cabecera-interna
     titulo="Acciones de admin"
-    descripcion="Generar una reserva, facturar o controlar la facturación."
+    descripcion="Generar una reserva, facturar o imprimir vouchers."
     [pasosTutorial]="pasosTutorial()"
     (tutorialIniciado)="seccionAbierta.set(true)" />
 
@@ -13,14 +13,14 @@
     </button>
     <button type="button" class="tab" [class.activo]="tab() === 'factura'" (click)="tab.set('factura'); seccionAbierta.set(true)">
       <svg lucideFileText class="icono-seccion" [strokeWidth]="2" aria-hidden="true"></svg>
-      Facturación manual
-    </button>
-    <button type="button" class="tab" [class.activo]="tab() === 'control'" (click)="tab.set('control'); seccionAbierta.set(true)">
-      <svg lucideClipboardCheck class="icono-seccion" [strokeWidth]="2" aria-hidden="true"></svg>
-      Control de facturas
+      Facturación
       @if (hayAvisoFacturacion()) {
         <span class="punto-notificacion-tab" aria-label="Hay algo para revisar en la facturación"></span>
       }
+    </button>
+    <button type="button" class="tab" [class.activo]="tab() === 'vouchers'" (click)="tab.set('vouchers'); seccionAbierta.set(true)">
+      <svg lucideTicket class="icono-seccion" [strokeWidth]="2" aria-hidden="true"></svg>
+      Vouchers
     </button>
   </nav>
 
@@ -32,9 +32,9 @@
   @if (tab() === 'reserva') {
     <app-crear-reserva />
   } @else if (tab() === 'factura') {
-    <app-facturacion-manual />
+    <app-facturacion-manual [avisoControl]="hayAvisoFacturacion()" />
   } @else {
-    <app-control-facturas />
+    <app-vouchers-manuales />
   }
 
 </div>

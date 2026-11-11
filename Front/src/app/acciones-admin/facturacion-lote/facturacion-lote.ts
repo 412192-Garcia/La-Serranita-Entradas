@@ -44,7 +44,7 @@ const CLAVE_BORRADOR = 'factura-lote-borrador';
 const CLAVE_IDEMPOTENCIA = 'factura-lote-clave';
 
 /**
- * Acciones > Facturación manual > En lote: al final del día, las ventas que quedaron sin facturar.
+ * Acciones > Facturación > En lote: al final del día, las ventas que quedaron sin facturar.
  * Se arma cada venta tocando los ítems del catálogo (cada toque suma uno), se agrega al lote las
  * veces que se repitió, y al final se emiten todas juntas: una Factura B por venta. No se
  * imprimen ni se mandan por mail (el cliente ya se fue); quedan los PDF en la lista.

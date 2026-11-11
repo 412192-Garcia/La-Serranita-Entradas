@@ -133,8 +133,8 @@ public class TicketEscPosGenerator {
     }
 
     /** Lo que lleva el papel de un voucher. */
-    public record DatosVoucher(String titulo, String valor, String detalle, String codigo, String reserva,
-                               LocalDateTime fecha, String entregadoPor) {}
+    public record DatosVoucher(String titulo, String valor, String detalle, String titular, String codigo,
+                               String reserva, LocalDateTime fecha, String entregadoPor) {}
 
     /** Voucher de un extra o de la cantina: no es comprobante fiscal. */
     public byte[] generarVoucher(DatosVoucher v) {
@@ -142,19 +142,33 @@ public class TicketEscPosGenerator {
         t.comando(ESC, '@');
         t.comando(ESC, 't', CODEPAGE_PC850);
 
-        t.centro().negrita(true).linea(nombreParque).negrita(false);
-        t.separador();
-        t.grande(true).negrita(true).linea(v.titulo()).negrita(false).grande(false);
+        t.centro().negrita(true).linea(nombreParque.toUpperCase()).negrita(false);
         t.saltos(1);
-        t.grande(true).negrita(true).linea(v.valor()).negrita(false).grande(false);
-        if (v.detalle() != null) t.linea(v.detalle());
+        t.tamano(2, 2).negrita(true).linea(v.titulo()).negrita(false).tamano(1, 1);
         t.saltos(1);
-        t.separador();
+
+        t.linea("═".repeat(columnas));
+        int ancho = v.valor().length() * 3 <= columnas ? 3 : v.valor().length() * 2 <= columnas ? 2 : 1;
+        t.tamano(ancho, Math.max(2, ancho)).negrita(true).linea(v.valor()).negrita(false).tamano(1, 1);
+        if (v.detalle() != null) {
+            for (String renglon : v.detalle().split("\n")) t.lineaPartida(renglon);
+        }
+        t.linea("═".repeat(columnas));
+
+        if (v.titular() != null && !v.titular().isBlank()) {
+            t.saltos(1);
+            t.linea("A nombre de");
+            t.tamano(1, 2).negrita(true).linea(v.titular()).negrita(false).tamano(1, 1);
+        }
+        t.saltos(1);
 
         t.izquierda();
-        t.fila("Voucher: " + v.codigo(), "Reserva: " + v.reserva());
-        t.linea("Fecha: " + v.fecha().format(FECHA_HORA));
-        if (v.entregadoPor() != null) t.linea("Entregado por: " + v.entregadoPor());
+        if (v.reserva() != null) t.fila("Voucher  " + v.codigo(), "Reserva  " + v.reserva());
+        else t.linea("Voucher  " + v.codigo());
+        t.linea("Emitido  " + v.fecha().format(FECHA_HORA));
+        if (v.entregadoPor() != null) t.linea("Entregó  " + v.entregadoPor());
+        t.separador();
+
         t.centro().negrita(true).linea("Válido sólo el " + v.fecha().format(FECHA)).negrita(false);
         t.linea("No válido como factura");
 
@@ -184,10 +198,27 @@ public class TicketEscPosGenerator {
         /** Doble alto y doble ancho. */
         Ticket grande(boolean si) { comando(GS, '!', si ? 0x11 : 0x00); return this; }
 
+        /** Multiplicadores de ancho y alto (1 a 8). */
+        Ticket tamano(int ancho, int alto) { comando(GS, '!', ((ancho - 1) << 4) | (alto - 1)); return this; }
+
         Ticket linea(String texto) {
             out.writeBytes((texto == null ? "" : texto).getBytes(CHARSET));
             out.write('\n');
             return this;
+        }
+
+        /** Corta en palabras enteras para no dejar una sola suelta en el renglón siguiente. */
+        Ticket lineaPartida(String texto) {
+            StringBuilder renglon = new StringBuilder();
+            for (String palabra : texto.split(" ")) {
+                if (!renglon.isEmpty() && renglon.length() + 1 + palabra.length() > columnas) {
+                    linea(renglon.toString());
+                    renglon.setLength(0);
+                }
+                if (!renglon.isEmpty()) renglon.append(' ');
+                renglon.append(palabra);
+            }
+            return linea(renglon.toString());
         }
 
         /** Texto a la izquierda y valor a la derecha, ocupando el ancho del papel. */

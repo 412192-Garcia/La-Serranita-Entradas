@@ -470,6 +470,34 @@ class ReporteServiceImplTest {
                 .isEqualTo(1);
     }
 
+    @Test
+    void generarResumen_ingresosPorHora_vaPorHoraDeValidacionYSinAusentes() {
+        // Pagada online a las 20 del día anterior, entró a las 11: cuenta a las 11.
+        Compra online = mpUsada("7000", DIA.minusDays(1), DIA, DIA.atTime(11, 40));
+        online.setFechaCreacion(DIA.minusDays(1).atTime(20, 0));
+        Compra puerta = ventaPuerta("10000", FormaPago.EFECTIVO_BOLETERIA, DIA);
+        puerta.setFechaValidacion(DIA.atTime(15, 5));
+        // De 2 entró 1.
+        Compra conAusente = efectivoUsada("5000", DIA, DIA.atTime(15, 30));
+        conAusente.getDetalles().get(0).setCantidadAusente(1);
+        // Nadie entró: no suma ni compra ni entradas.
+        Compra todosAusentes = efectivoUsada("5000", DIA, DIA.atTime(16, 0));
+        todosAusentes.getDetalles().get(0).setCantidadAusente(2);
+        stubReporte(online, puerta, conAusente, todosAusentes);
+
+        ReporteResumenDTO resumen = service.generarResumen(DIA, DIA);
+
+        assertThat(resumen.getIngresosPorHora()).hasSize(24);
+        assertThat(resumen.getIngresosPorHora().get(11)).extracting(i -> i.getCantidadCompras(), i -> i.getCantidadEntradas())
+                .containsExactly(1L, 2L);
+        assertThat(resumen.getIngresosPorHora().get(15)).extracting(i -> i.getCantidadCompras(), i -> i.getCantidadEntradas())
+                .containsExactly(2L, 3L);
+        assertThat(resumen.getIngresosPorHora().get(16).getCantidadCompras()).isZero();
+        assertThat(resumen.getIngresosPorHora().get(20).getCantidadEntradas()).isZero();
+        assertThat(resumen.getIngresosPorHora().stream().mapToLong(i -> i.getCantidadEntradas()).sum())
+                .isEqualTo(resumen.getPersonasIngresadas());
+    }
+
     // ---------- helpers ----------
 
     private void stubReporte(Compra... compras) {

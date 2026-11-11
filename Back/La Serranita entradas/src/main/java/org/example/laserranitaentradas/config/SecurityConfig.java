@@ -95,6 +95,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/interno/facturas/control/**", "/api/interno/facturas/control").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.GET, "/api/interno/facturas/totales", "/api/interno/facturas/exportar").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.GET, "/api/interno/facturas/manuales").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.POST, "/api/interno/vouchers/manuales").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/interno/facturas/compra/*/online").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/interno/facturas/*/anular").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/interno/facturas/*/reenviar-mail").hasRole("ADMIN")

@@ -8,6 +8,22 @@ número y el CI la usa como nota de la Release de GitHub.
 
 - POS y Cajas: el precio especial por pagar en efectivo ya no se aplica cuando la venta se paga con dos
   formas (por ejemplo efectivo y tarjeta): sólo vale si se paga todo en efectivo.
+- Reportes, Comparación: nuevo gráfico "Ingresos por hora" con una línea por período, para ver
+  cuánta gente llevaba entrando cada uno a la misma hora (por ejemplo, hoy a las 15 contra ayer a
+  las 15). Se puede ver acumulado o por hora, y en compras o entradas. Los botones "Hoy y ayer" y
+  "Hoy y hace una semana" arman la comparación en un toque.
+- Reportes, Resumen: "Compras por hora del día" pasa a llamarse "Ventas por hora del día" y se puede
+  ver en compras o en entradas.
+- Vouchers: ahora llevan el nombre y apellido del titular (en un regalo, el de quien lo recibe) y
+  tienen un diseño nuevo, con el título y el valor bien grandes y la fecha de validez a la vista.
+  Todos salen como "Voucher cantina", también los de extras.
+- Acciones de admin: nueva pestaña "Vouchers" para imprimir a mano un voucher para la cantina, sin
+  reserva: artículos (con su cantidad) o un monto, opcionalmente a nombre de alguien. Antes de
+  desplegar hay que correr `scripts/vouchers-manuales.sql` en la base.
+- Acciones de admin: "Facturación manual" y "Control de facturas" quedan juntas en una pestaña
+  "Facturación", con tres modos: Una factura, En lote y Control. El punto de aviso aparece en
+  Facturación y en Control.
+- Acciones de admin: en "Vouchers" y en "Facturación" se elige la ticketera en un desplegable.
 
 ## 0.10.9 — 2026-11-09
 

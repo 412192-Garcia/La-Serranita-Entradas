@@ -1,4 +1,4 @@
-import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, computed, inject, input, signal } from '@angular/core';
 import { ToastService } from '../../shared/toast/toast.service';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -34,8 +34,9 @@ import { TipoEntradaService } from '../../services/tipo-entrada.service';
 import { ArticuloVarioService } from '../../services/articulo-vario.service';
 import { PesosPipe } from '../../shared/pesos.pipe';
 import { Spinner } from '../../shared/spinner/spinner';
-import { SelectorDispositivos } from '../../pos/selector-dispositivos/selector-dispositivos';
+import { SelectorTicketera } from '../../shared/selector-ticketera/selector-ticketera';
 import { FacturacionLote } from '../facturacion-lote/facturacion-lote';
+import { ControlFacturas } from '../control-facturas/control-facturas';
 
 /** Un renglón del formulario. `origen` es "libre", "e:<id>" (entrada) o "a:<id>" (artículo). */
 interface Linea {
@@ -55,18 +56,20 @@ const INTERVALO_REFRESCO_MS = 2500;
 const MAX_REFRESCOS = 24;
 
 /**
- * Acciones > Facturación manual: una Factura B (o A, a un CUIT) sin venta detrás, con los renglones e importes que
+ * Acciones > Facturación: una Factura B (o A, a un CUIT) sin venta detrás, con los renglones e importes que
  * cargue el admin (del catálogo o a mano). Para lo que no pasa por el POS: un grupo que pagó por
  * transferencia, un servicio especial, corregir algo que se cobró sin factura...
  *
  * En lote (FacturacionLote): las ventas del día que quedaron sin facturar, una factura por venta.
+ *
+ * Control (ControlFacturas): certificado de ARCA, facturas trabadas y el listado para el contador.
  *
  * Abajo, las últimas facturas manuales con sus acciones: PDF, mail, reimprimir y anular (nota de
  * crédito por el total).
  */
 @Component({
   selector: 'app-facturacion-manual',
-  imports: [FormsModule, DatePipe, PesosPipe, Spinner, SelectorDispositivos, FacturacionLote, LucidePlus, LucideTrash2, LucideFileText, LucideMail,
+  imports: [FormsModule, DatePipe, PesosPipe, Spinner, SelectorTicketera, FacturacionLote, ControlFacturas, LucidePlus, LucideTrash2, LucideFileText, LucideMail,
     LucidePrinter, LucideCircleAlert, LucideCircleCheck, LucideLoaderCircle],
   templateUrl: './facturacion-manual.html',
   styleUrl: './facturacion-manual.css',
@@ -89,8 +92,11 @@ export class FacturacionManual implements OnInit {
   tipos = signal<TipoEntrada[]>([]);
   articulos = signal<ArticuloVario[]>([]);
 
-  /** Una factura a mano, o un lote con las ventas del día que quedaron sin facturar. */
-  modo = signal<'una' | 'lote'>('una');
+  /** Una factura a mano, un lote con las ventas del día que quedaron sin facturar, o el control. */
+  modo = signal<'una' | 'lote' | 'control'>('una');
+
+  /** Punto de aviso en "Control": facturas trabadas, certificado por vencer o numeración desfasada. */
+  avisoControl = input(false);
 
   private proximaClave = 1;
   lineas = signal<Linea[]>([this.lineaVacia()]);

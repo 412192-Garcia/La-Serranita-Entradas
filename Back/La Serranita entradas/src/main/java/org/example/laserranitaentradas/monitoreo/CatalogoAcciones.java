@@ -53,6 +53,7 @@ final class CatalogoAcciones {
             entry("POST /api/interno/facturas/compra/{compraId}/online", new Accion("COMPRA_ONLINE_FACTURADA", "Facturó la compra online", "Compra")),
             entry("POST /api/interno/facturas/control/numeracion", new Accion("NUMERACION_CONTROLADA", "Controló la numeración contra ARCA", null)),
             entry("POST /api/interno/impresion/facturas/{facturaId}", new Accion("FACTURA_IMPRESA", "Mandó a imprimir la factura", "Factura")),
+            entry("POST /api/interno/vouchers/manuales", new Accion("VOUCHER_MANUAL", "Emitió un voucher manual", null)),
             // Caja
             entry("POST /api/interno/caja/abrir", new Accion("CAJA_ABIERTA", "Abrió caja", "Caja")),
             entry("POST /api/interno/caja/abrir-sin-control", new Accion("CAJA_ABIERTA_SIN_CONTROL", "Abrió caja sin control", "Caja")),

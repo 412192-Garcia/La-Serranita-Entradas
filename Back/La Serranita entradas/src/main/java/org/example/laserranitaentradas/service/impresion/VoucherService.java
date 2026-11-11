@@ -1,5 +1,6 @@
 package org.example.laserranitaentradas.service.impresion;
 
+import org.example.laserranitaentradas.model.dto.VoucherManualRequestDTO;
 import org.example.laserranitaentradas.model.entity.Compra;
 import org.example.laserranitaentradas.model.entity.CompraDetalle;
 import org.example.laserranitaentradas.model.entity.Tipo;
@@ -19,6 +20,7 @@ import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 /** Vouchers que se entregan al validar una anticipada: los extras y la plata de los que no vinieron. */
@@ -93,6 +95,46 @@ public class VoucherService {
         if (ids.isEmpty()) throw new IllegalStateException("Esta reserva no tiene vouchers para imprimir");
         imprimirAlConfirmar(ids, impresora);
         return ids.size();
+    }
+
+    static final int MAX_CANTIDAD_MANUAL = 99;
+    static final BigDecimal MAX_MONTO_MANUAL = new BigDecimal("10000000");
+
+    /** Voucher suelto para la cantina, sin compra: lo emite un admin desde Acciones. */
+    @Transactional
+    public Voucher emitirManual(VoucherManualRequestDTO req, Usuario emisor) {
+        if (req.getTipo() == null) throw new IllegalArgumentException("Elegí si el voucher es de artículos o de un monto");
+        String descripcion = limpio(req.getDescripcion(), 200);
+        Voucher.VoucherBuilder voucher = Voucher.builder()
+                // Provisorio (la columna es única): se reemplaza por "M-<id>" al guardar.
+                .codigo("M-" + UUID.randomUUID().toString().replace("-", "").substring(0, 20))
+                .tipo(req.getTipo())
+                .titular(limpio(req.getTitular(), 120))
+                .emitidoPor(emisor)
+                .fechaEmision(LocalDateTime.now());
+        if (req.getTipo() == TipoVoucher.EXTRA) {
+            if (descripcion == null) throw new IllegalArgumentException("Escribí qué artículo es");
+            Integer cantidad = req.getCantidad();
+            if (cantidad == null || cantidad < 1 || cantidad > MAX_CANTIDAD_MANUAL) {
+                throw new IllegalArgumentException("La cantidad tiene que ser de 1 a " + MAX_CANTIDAD_MANUAL);
+            }
+            voucher.descripcion(descripcion).cantidad(cantidad);
+        } else {
+            BigDecimal monto = req.getMonto() == null ? null : req.getMonto().setScale(0, RoundingMode.HALF_UP);
+            if (monto == null || monto.signum() <= 0) throw new IllegalArgumentException("Poné cuánto vale el voucher");
+            if (monto.compareTo(MAX_MONTO_MANUAL) > 0) throw new IllegalArgumentException("El monto es demasiado alto");
+            voucher.descripcion(descripcion == null ? "" : descripcion).monto(monto);
+        }
+        Voucher guardado = voucherRepository.save(voucher.build());
+        guardado.setCodigo("M-" + guardado.getId());
+        imprimirAlConfirmar(List.of(guardado.getId()), req.getImpresora());
+        return guardado;
+    }
+
+    private static String limpio(String texto, int largo) {
+        if (texto == null || texto.isBlank()) return null;
+        String t = texto.trim().replaceAll("\\s+", " ");
+        return t.length() > largo ? t.substring(0, largo) : t;
     }
 
     @Transactional(readOnly = true)

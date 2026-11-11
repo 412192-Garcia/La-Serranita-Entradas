@@ -1,0 +1,17 @@
+@import '../facturacion-manual/facturacion-manual.css';
+
+.campos {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px 12px;
+}
+
+.campo-ancho {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 600px) {
+  .campos {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

@@ -67,7 +67,7 @@ export interface Factura {
   receptorRazonSocial?: string | null;
 }
 
-/** Acciones > Control de facturas. */
+/** Acciones > Facturación > Control. */
 export interface ControlFacturacion {
   problemas: { factura: Factura; codigoCompra: string | null; creada: string | null }[];
   certificadoVence: string | null;
@@ -95,7 +95,7 @@ export interface TotalesFacturacion {
   iva: number;
 }
 
-/** Renglón de una factura manual (Acciones > Facturación manual). */
+/** Renglón de una factura manual (Acciones > Facturación). */
 export interface FacturaManualItem {
   /** ENTRADA / ARTICULO si salió del catálogo, LIBRE si se escribió a mano (decide el concepto de ARCA). */
   tipo: 'ENTRADA' | 'ARTICULO' | 'LIBRE';

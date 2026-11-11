@@ -369,6 +369,13 @@
   font-size: 0.95rem;
 }
 
+/* Los dos selectores del gráfico de ingresos, uno al lado del otro. */
+.filtros-ingresos-hora {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 18px;
+}
+
 @media (max-width: 700px) {
   /* Etiqueta + botón de quitar arriba, las dos fechas abajo lado a lado. Antes se apilaba
      todo en 1 columna y el botón ✕ quedaba como una barra vacía a lo ancho. */
