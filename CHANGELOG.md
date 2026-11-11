@@ -6,6 +6,8 @@ número y el CI la usa como nota de la Release de GitHub.
 
 ## Sin publicar
 
+## 0.10.10 — 2026-11-10
+
 - POS y Cajas: el precio especial por pagar en efectivo ya no se aplica cuando la venta se paga con dos
   formas (por ejemplo efectivo y tarjeta): sólo vale si se paga todo en efectivo.
 - Reportes, Comparación: nuevo gráfico "Ingresos por hora" con una línea por período, para ver
