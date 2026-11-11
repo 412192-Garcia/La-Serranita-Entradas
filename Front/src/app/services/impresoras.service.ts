@@ -45,15 +45,18 @@ export class ImpresorasService {
    * impresora no responde). Cada caso se arregla distinto, así que el cajero tiene que saber cuál es.
    */
   readonly motivoNoDisponible = computed<string | null>(() => {
-    if (!this.conectividad.enLinea()) return 'Sin conexión: la factura sólo se puede mandar por mail.';
-    if (this.impresoras().length === 0) {
-      return 'La PC de la entrada está apagada o sin conexión: la factura sólo se puede mandar por mail.';
-    }
+    const motivo = this.motivoSinTicketera();
+    if (motivo === null || (this.efectiva() === null && this.impresoras().length > 0)) return motivo;
+    return motivo.replace(/\.$/, ': la factura sólo se puede mandar por mail.');
+  });
+
+  /** Lo mismo, sin hablar de la factura (para los vouchers). */
+  readonly motivoSinTicketera = computed<string | null>(() => {
+    if (!this.conectividad.enLinea()) return 'Sin conexión.';
+    if (this.impresoras().length === 0) return 'La PC de la entrada está apagada o sin conexión.';
     const impresora = this.efectiva();
-    if (impresora === null) return 'Elegí la ticketera en el botón "Ticketera".';
-    if (!impresora.disponible) {
-      return `La ticketera "${impresora.nombre}" está ${impresora.detalle ?? 'apagada o desconectada'}: la factura sólo se puede mandar por mail.`;
-    }
+    if (impresora === null) return 'Elegí la ticketera.';
+    if (!impresora.disponible) return `La ticketera "${impresora.nombre}" está ${impresora.detalle ?? 'apagada o desconectada'}.`;
     return null;
   });
 
@@ -66,16 +69,19 @@ export class ImpresorasService {
     });
   }
 
-  /** La pantalla de venta lo llama al abrirse: consulta ya y después cada 10 s, mientras viva. */
-  seguir(destroyRef: DestroyRef): void {
-    this.actualizar();
+  /**
+   * La pantalla de venta lo llama al abrirse: consulta ya y después cada 10 s, mientras viva.
+   * `aunqueSinFacturacion`: los vouchers se imprimen aunque la facturación esté apagada.
+   */
+  seguir(destroyRef: DestroyRef, aunqueSinFacturacion = false): void {
+    this.actualizar(aunqueSinFacturacion);
     interval(INTERVALO_MS)
       .pipe(takeUntilDestroyed(destroyRef))
-      .subscribe(() => this.actualizar());
+      .subscribe(() => this.actualizar(aunqueSinFacturacion));
   }
 
-  actualizar(): void {
-    if (!this.facturaService.habilitada() || !this.conectividad.enLinea()) return;
+  actualizar(aunqueSinFacturacion = false): void {
+    if ((!aunqueSinFacturacion && !this.facturaService.habilitada()) || !this.conectividad.enLinea()) return;
     this.facturaService.impresoras().subscribe({
       next: (lista) => {
         this.impresoras.set(lista);

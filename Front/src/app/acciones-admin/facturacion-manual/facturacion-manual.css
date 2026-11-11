@@ -32,6 +32,16 @@
   color: #fff;
 }
 
+.punto-notificacion {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background-color: var(--color-danger);
+  vertical-align: middle;
+}
+
 @media (pointer: coarse) {
   .modo { min-height: 44px; }
 }
@@ -287,9 +297,8 @@
 
 .fila-ticketera {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 12px;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .nota-ok {

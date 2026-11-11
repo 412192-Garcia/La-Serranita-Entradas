@@ -1,0 +1,41 @@
+.selector-ticketera {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 320px;
+}
+
+.titulo {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+select {
+  padding: 9px 12px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-card-bg);
+  color: var(--color-text);
+  outline: none;
+}
+
+select:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+select:disabled {
+  opacity: 0.7;
+}
+
+.nota {
+  font-size: 0.8rem;
+  color: var(--color-accent-dark);
+}
+
+@media (pointer: coarse) {
+  select { min-height: 44px; }
+}

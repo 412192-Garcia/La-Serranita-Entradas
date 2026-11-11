@@ -1,0 +1,18 @@
+<label class="selector-ticketera">
+  <span class="titulo">Ticketera</span>
+  <select [disabled]="impresoras.impresoras().length === 0" (change)="elegir($event)">
+    @if (impresoras.impresoras().length === 0) {
+      <option value="" selected>Ninguna conectada</option>
+    } @else if (!impresoras.efectiva()) {
+      <option value="" selected disabled>Elegí una</option>
+    }
+    @for (i of impresoras.impresoras(); track i.nombre) {
+      <option [value]="i.nombre" [selected]="impresoras.efectiva()?.nombre === i.nombre">
+        {{ i.nombre }}{{ i.disponible ? '' : ' (no responde)' }}
+      </option>
+    }
+  </select>
+  @if (conAviso() && (impresoras.efectiva() || impresoras.impresoras().length === 0) && impresoras.motivoSinTicketera(); as motivo) {
+    <span class="nota">{{ motivo }}</span>
+  }
+</label>

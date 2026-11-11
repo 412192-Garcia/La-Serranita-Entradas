@@ -1,0 +1,67 @@
+<div class="seccion-facturacion">
+
+  <div class="tarjeta tarjeta-formulario" data-tour="voucher-manual">
+    <h2>Nuevo voucher para la cantina</h2>
+
+    <div class="tipo-factura">
+      <span class="entrega-titulo">Tipo de voucher</span>
+      <div class="opciones-entrega" role="radiogroup" aria-label="Tipo de voucher">
+        <label class="opcion-radio">
+          <input type="radio" name="tipo" value="EXTRA" [ngModel]="tipo()" (ngModelChange)="tipo.set($event)" />
+          Artículos
+        </label>
+        <label class="opcion-radio">
+          <input type="radio" name="tipo" value="CANTINA" [ngModel]="tipo()" (ngModelChange)="tipo.set($event)" />
+          Monto
+        </label>
+      </div>
+    </div>
+
+    <div class="campos">
+      @if (tipo() === 'EXTRA') {
+        <label>
+          Artículo
+          <input type="text" maxlength="60" placeholder="Ej: Coca-Cola 500 ml" autocomplete="off" list="sugerencias-articulos"
+            [ngModel]="descripcion()" (ngModelChange)="descripcion.set($event)" />
+          <datalist id="sugerencias-articulos">
+            @for (e of extras(); track e.id) {
+              <option [value]="e.nombre"></option>
+            }
+          </datalist>
+        </label>
+        <label>
+          Cantidad
+          <input type="number" min="1" [max]="maxCantidad" step="1" inputmode="numeric"
+            [ngModel]="cantidad()" (ngModelChange)="cantidad.set($event)" />
+        </label>
+      } @else {
+        <label>
+          Monto
+          <input type="number" min="1" step="1" inputmode="numeric" placeholder="0"
+            [ngModel]="monto()" (ngModelChange)="monto.set($event)" />
+        </label>
+        <label>
+          Motivo (opcional)
+          <input type="text" maxlength="60" autocomplete="off"
+            [ngModel]="motivo()" (ngModelChange)="motivo.set($event)" />
+        </label>
+      }
+      <label class="campo-ancho">
+        A nombre de (opcional)
+        <input type="text" maxlength="120" placeholder="Nombre y apellido" autocomplete="off"
+          [ngModel]="titular()" (ngModelChange)="titular.set($event)" />
+      </label>
+    </div>
+
+    <div class="entrega">
+      <app-selector-ticketera />
+    </div>
+
+    <div class="acciones-form">
+      <button type="button" class="btn-primario btn-con-icono" [disabled]="!valido() || emitiendo()" (click)="emitir()">
+        <svg lucidePrinter [strokeWidth]="2"></svg>
+        {{ emitiendo() ? 'Imprimiendo…' : 'Imprimir voucher' }}
+      </button>
+    </div>
+  </div>
+</div>

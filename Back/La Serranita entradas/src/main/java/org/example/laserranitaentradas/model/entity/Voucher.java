@@ -6,7 +6,7 @@ import lombok.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-/** Papel que se entrega al validar una anticipada: un extra o plata para la cantina. */
+/** Papel que se entrega al validar una anticipada (o a mano, desde Acciones): un extra o plata para la cantina. */
 @Entity
 @Table(name = "vouchers", indexes = {
         @Index(name = "idx_vouchers_compra", columnList = "id_compra")
@@ -27,9 +27,14 @@ public class Voucher extends BaseEntity {
     @Column(nullable = false, unique = true, length = 30)
     private String codigo;
 
+    /** Null en los manuales. En una base existente hace falta scripts/vouchers-manuales.sql. */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "id_compra", nullable = false)
+    @JoinColumn(name = "id_compra")
     private Compra compra;
+
+    /** A nombre de quién va, en los manuales. Los de una compra lo sacan de la compra. */
+    @Column(length = 120)
+    private String titular;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)

@@ -20,7 +20,7 @@ import { aFechaISO } from '../../shared/fecha.util';
 const DIAS_AVISO_CERTIFICADO = 30;
 
 /**
- * Acciones > Control de facturas: lo que hay que mirar de la facturación sin entrar a la base.
+ * Acciones > Facturación > Control: lo que hay que mirar de la facturación sin entrar a la base.
  * - Estado: vencimiento del certificado de ARCA, control nocturno de numeración y facturas con
  *   problema (los tres prenden el aviso de la campanita).
  * - Facturas con problema: en ERROR (se reintentan desde acá) o trabadas en reintentos.
